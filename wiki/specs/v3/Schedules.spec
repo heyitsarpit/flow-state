@@ -315,7 +315,7 @@ model
             : { after: Scheduled; raised: ReadonlyArray<Raised>; seen: ReadonlyArray<Seen> }
         wake(schedule: Schedule, saved: Option<ScheduleShape>, env: Env)               // decode, then Wake
             : { after: Scheduled; raised: ReadonlyArray<Raised>; seen: readonly [] }
-        type Env = { reads: ScheduleReads<Values, string>; now: number; mint: () => ArmingId };
+        type Env = { reads: ScheduleReads; now: number; mint: () => ArmingId };
 
         type Occasion = Data.TaggedEnum<{
             Turn: { disarmed: boolean; started: Started; fired: Option<Firing> }; // a committed turn in its live scope
@@ -331,10 +331,10 @@ model
         type Next = Data.TaggedEnum<{ Done: {}; Again: { ms: number; output: unknown }; Over: {} }>;
 
         // values are decoded by the schedule's codecs (`realization`); each callback gets only its inputs
-        type ScheduleReads<Key, Why> = {
+        type ScheduleReads = {   // not generic: the core is erased, and only `Values` and `Reason` were ever applied
             keys: () => Result<ReadonlyArray<TimerKey>, string>; // decoded by the key Schema, repeats dropped
             selection: (key) => Result<Selection, string>; // encoded by the selection codec
-            reasons: (key) => Result<ReadonlyArray<Why>, string>; // declaration order; no `paused`: []
+            reasons: (key) => Result<ReadonlyArray<Reason>, string>; // declaration order; no `paused`: []
             first: (key) => Result<First, string>;
             resume: (key, armedAt: number, attempt: number) => Result<Cursor, string>; // a saved run's cursor
         };
@@ -715,9 +715,10 @@ realization typescript
     function from the declaration and the typed body entry. It holds the three codecs and the callbacks already
     decoded. Inward, `ScheduleReads` is built from it: a value that does not fit its codec is that check's failure.
     Outward, the snapshot's timers and issues, the evidence and the record are projected by generic functions over the
-    same key and reasons. No field is cast. Today the container (`Incarnation`, `Compiled`) is erased, so the schedule
-    types are instantiated at `Values` and `string`; when it becomes generic in the definition, they flow with no
-    change. Each fact has one source, the declaration, and each requirement an owner.
+    declaration (`D["schedules"][N]`), never over a key or reason type parameter carried through the core. No field
+    is cast. The container (`Incarnation`, `Compiled`) is erased, so the core's schedule types are non-generic
+    (`Values`, `Reason`); the typed face is a lookup of the declaration. Each fact has one source, the declaration,
+    and each requirement an owner.
 
     RT1  The declaration `schedules: { name: { key?, pausedBy?, restartOn? } }` is the one source of a schedule's name,
         key type, reason names and selection type. The body entry is checked against it exactly, by type and at

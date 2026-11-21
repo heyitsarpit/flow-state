@@ -197,8 +197,8 @@ uses), `leafOf`, `declaredOn`, the arming scans, `findIndex` at `schedule-plan.t
 | Requirement                                                                          | Answer                                                                                                                                   |
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `Schedules` RT1, RT2, RT3, RT7                                                       | `DeclaredSchedules`, compiled                                                                                                            |
-| `Schedules` RT4 (one typed point of erasure, carrying the codecs)                    | `slot` and `Compiled.schedules`; the `Schedule<Key, Why>` generic is not needed (`ErasedCompiled`); designed                             |
-| `Schedules` RT5 (issue source and evidence typed by declared names)                  | `EvidenceOf<D>` rows and `ScheduleReads<Key, Why>` (G8); designed, not compiled (Q13)                                                    |
+| `Schedules` RT4 (one typed point of erasure, carrying the codecs)                    | `slot` and `Compiled.schedules`; no `Schedule<Key, Why>` generic (`ErasedCompiled`); designed                                            |
+| `Schedules` RT5 (issue source and evidence typed by declared names)                  | `EvidenceOf<D>` rows and G8's erased source; designed, not compiled (Q13)                                                                |
 | `Schedules` RT6                                                                      | `OutputKept`: kept `unknown`, two shapes failed                                                                                          |
 | `Schedules` indexes `schedulesAt`, `byName`, `rank`, `armedBy`, `disarmedBy`         | `DerivedFields`                                                                                                                          |
 | `Changes` declared parts; `Compiled.slots`, `fragments`, `emits`, `props`            | `Parts` rows and `Compiled` fields by the `Derivation` rule; designed, not compiled: no code exists (Q13)                                |
@@ -217,7 +217,8 @@ uses), `leafOf`, `declaredOn`, the arming scans, `findIndex` at `schedule-plan.t
 
 - `Schedules` (asks, no table reopened): the send mapper's metadata has no `name` and a derived `key` (Q10); every
   declared reason has a callback in every placement (Q4); `key` is a field record; a name may be placed in several
-  states. `Schedule<Key, Why>` is not built: its content is `Compiled.schedules` plus `slot`.
+  states. `Schedule<Key, Why>` and `ScheduleReads<Key, Why>` are not built: erased, with the codecs read by name from
+  `Compiled.schedules`; the typed face is the declaration's lookup (`TimersOf`, `EvidenceOf`).
 - `Changes`: `Node.chain`, `depth`, `armedBy`, `disarmedBy` and the field indexes exist as `DerivedFields` says;
   `Reads<D, Scope, View>` is a `derive.ts` type. A turns rule reads `Turn`; its typed pick is in the Spec's
   `CallbackInputs`. Its cluster's duties for `onEmit`, `setProps` and the fragment event address are rows G5 to G7.

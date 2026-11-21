@@ -697,3 +697,10 @@ note 2026-11-21T21:22:24Z
 
 note 2026-11-21T21:23:43Z
     Schedules.spec and Types.spec: the user's 2026-11-22 decision voids the body Flow.keyed form (see @task.V3.T120).
+
+note 2026-11-21T21:26:21Z
+    Types: compiled Schedule drops its codecs (read by name from Compiled.schedules); G8 erased; Q19 proposes a narrow
+    body capture. Declared schedules leave no generic to carry.
+
+note 2026-11-21T21:26:22Z
+    Schedules: ScheduleReads is not generic (the core is erased; the typed face is the declaration's lookup).

@@ -222,6 +222,35 @@ open
         Why: the departure in Q5 is answered A. Reverse: reopen the rows.
         outcome  Each row follows its answer.
 
+    Q19  [proposed] Narrow the body capture. With schedules declared, `B` has two readers: `RuleNames<B>` (compiled) and
+        G3's deny literals (designed, nothing compiled). Exactness reads the body's whole type, not `B`'s use.
+        Nothing in `Schedules`, `Operations` or `Changes` reads `B`. Most of the measured +31% is capturing and
+        walking the whole body (`B & Exact<B, ...>`). Three jobs, three costs:
+        1. Rule names: need only two key sets. Compiled on a toy (scratchpad `rules.ts`, strict, with
+            `exactOptionalPropertyTypes`; callbacks stay contextually typed, no annotation, 2.2 k instantiations):
+        ```ts
+        // before: const B captures the whole body; RuleNames<B> reads two keys of it
+        // machine<D, const B extends MachineBody<D>>(d, body: ExactBodyOf<NoInfer<D>, B>): Machine<D, RuleNames<B>>
+        // after:  I and T are inferred from the keys of two mapped records; no other part of the body is captured
+        type RulesIn<D, I extends string, T extends string> = { readonly rules?: {
+            readonly invariants?: { readonly [K in I]: Invariant<D> };
+            readonly turns?: { readonly [K in T]: TurnRule<D> } } };            // NEW: RulesIn
+        machine<D, const I extends string = never, const T extends string = never>(
+            d: D, body: (tokens: BodyTokens<D>) => MachineBody<D> & RulesIn<D, I, T>): Machine<D, I | T>;
+        ```
+        2. Deny codes (G3): a per-event union of `deny` literals needs the type of every guard's return, so it needs
+            the captured body. Deny codes stay inline [decided: user 2026-11-22] and no fixture reads the union.
+            Proposed: `Denied`'s `why` stays `string` as a stated debt of family D (Q16) and G3 is dropped.
+        3. Exactness (`gaurd`, `pausd` in nested unions): the check needs the literal's own type, so the body is
+            still captured once, as the return type, for `Exact` alone. This is the cost that stays. The runtime
+            already refuses an excess key at construction (`config.ts`, `onExcessProperty: "error"`).
+            Options: A keep `Exact` (I2 and R2 as written); B `Exact` to a fixed depth, states and handlers only,
+            measured; C drop it from the types and keep construction and `flow check` as the refusal, which changes
+            R2 and I2.
+        Risk: 1 and 2 alone save little, since capture stays for 3; the saving is real only if 3 is B or C. Measure
+        1 + 3B on the real package after the T113 fixtures migrate (Q15) before choosing. The type patch `RuleNames`
+        returning `string` (T1) is unchanged. Deletes: `const B`, `RuleNames<B>`, G3.
+
 model
     StateInventory = who owns and writes each state. The states are values made once at module load; none changes at
         run time.
@@ -278,14 +307,14 @@ model
         G1 `Reads<D, Scope, View>`: no new row, exported.
         G2 `BodyTokens<D>`: existing, exported, so a shared body needs no hand type; its return type is inferred.
         G3 the decline reasons of an event (new): the `deny` literals in the body, through `B`; deny codes stay
-            inline in guards and are not declared on the definition [decided: user 2026-11-22].
+            inline in guards and are not declared on the definition [decided: user 2026-11-22]. Proposed: dropped (Q19).
         G4 `MapperContext<I, K>`: no new row; `MapperTypes` is the one definition, `K` the picked key record
             `Pick<I, Key[number]>`.
         G5 `PropsOf<D>` (new alias): `D["props"]`, for `setProps`.
         G6 `EventOf<D>` (new), with a fragment event's address `{ slot, key }`.
         G7 the public `Published<D>` and `Turn<D>` faces: `EvidenceOf<D>`, fields by `Host`.
-        G8 `ScheduleIssueSource<Key>`, a schedule issue's source: `{ name, key, at }`, as `Operations`' 
-            `IssueSource.Schedule`.
+        G8 a schedule issue's source: `{ name, key, at }`, as `Operations`' `IssueSource.Schedule`, erased (key text);
+            no generic. The typed face is `EvidenceOf<D>`, a lookup of the declaration by name.
 
     DeclaredSchedules = the declaration and the types it derives (a schedule's name, key, reasons and selection).
 
@@ -374,7 +403,8 @@ model
         The compiled `Schedule` is the record `Schedules`' `decide` and `wake` read; this Spec owns it.
 
         ```ts
-        // CHANGED: core/compiled.ts#Schedule. RENAMED: paused -> reasons. NEW: codecs (the `Compiled.schedules` entry)
+        // CHANGED: core/compiled.ts#Schedule. RENAMED: paused -> reasons. The codecs are not here: a placement
+        // reads them by `name` from `Compiled.schedules`, so no fact is held twice.
         type Schedule = {
             readonly name: ScheduleName;
             readonly slot: SlotName;                       // existing: names the delay slot
@@ -387,7 +417,6 @@ model
             readonly restartOn: Option<Slot<(input: ScheduleInput) => unknown>>;   // declared or not
             readonly keys: Option<Slot<(input: ScheduleInput) => ReadonlyArray<Values>>>;   // keyed or not
             readonly reasons: ReadonlyArray<{ reason: Reason; check: Slot<(input: ScheduleInput) => boolean> }>;
-            readonly codecs: { key: Option<Codec>; selection: Option<Codec> };   // the `Compiled.schedules` entry
         };
         ```
 
