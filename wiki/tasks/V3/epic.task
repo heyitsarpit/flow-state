@@ -144,8 +144,10 @@ description
       `packages/flow-state-v3/tests/faults.ts`. `nub run faults` plants each in a scratch copy and reports which the
       tests catch. Dead core: the null implementation, a `step` that changes nothing, planted the same way.
     - Bridge: the old hand cases rehosted in `tests/bridge/`, deleted file by file as they become Story tests.
-    - Slice: one Task of P3 or P4: a core area built end to end (its Spec change, its checks, its code). The Pay path:
-      the fixtures, including Pay and checkout, run through the public API.
+    - Slice (the user, 2026-11-22): an execution slice, a parent Task's open children run together through one loop
+      (Building a Task, Slices); a Task with no parent is its own slice. Before 2026-11-22 a slice meant one Task of P3
+      or P4 built end to end, as older notes use it. The Pay path: the fixtures, including Pay and checkout, run through
+      the public API.
     - Reload sweep: every fixture Story run again with a reload inserted at each position, with the run rules applied.
       Dead tab: an earlier open of a tab, abandoned by a reload; nothing from it may write or be answered afterwards.
     - Wire words: the steps that control one call to a fake (hold, release, dropRequest, dropResponse, answer). Storage
@@ -212,6 +214,13 @@ instructions
       Task with no parent is its own slice. Slices run in the order of the phase's Task order. The orchestrator may
       regroup by moving `parent`, with the reason in a V3 log note. A slice fits one builder run inside one 5-hour
       usage window.
+    - Slice commands (wk): `wk show @epic.V3 --tree` lists parents with their children (a child shows `Parent:`); `wk
+      show @task.V3.Tn --tree` lists one parent's children. `wk next` offers leaf Tasks only, since a parent is never
+      ready: when it offers a child, take that child's parent and all its open children. `wk brief` on a parent shows
+      only the phase card, so brief each child. Regroup with `wk edit @task.V3.Tn --set parent=@task.V3.Tm`; make a Task
+      its own slice with `wk edit @task.V3.Tn --clear parent`. A parent may not be `blocked_by` its own children (wk
+      refuses the cycle); it closes after them because it is never ready. A new slice parent is a Task titled "Slice:
+      <name>" whose acceptance is every child accepted and the seams checked by the slice review.
     - Correctness (the user, 2026-11-22): every Task that builds or changes a v3 design says in its acceptance how its
       correctness is established, as one "Correctness:" item. Each of these holds: a corresponding fixture app exists
       that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the
