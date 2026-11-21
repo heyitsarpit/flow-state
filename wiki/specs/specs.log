@@ -607,3 +607,7 @@ note 2026-11-20T13:58:24Z
 note 2026-11-20T14:17:28Z
     @spec.WriteAhead R4: an idle timer's record keeps pausedBy when its last reasons were true, so a reason that throws
     after a restore keeps them (Turn R19, T57). Reverse: drop the clause and the saved field.
+
+note 2026-11-21T19:04:19Z
+    Six v3 Specs written from the algorithm round: Schedules, Changes, Records, Operations, Types, Host (wiki/specs/v3/,
+    each with a companion .md); best-guess guidance before coding.
