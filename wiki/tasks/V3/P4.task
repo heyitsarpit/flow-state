@@ -1031,6 +1031,67 @@ tasks
             the builder's to add at the close, per the Epic's catalog rule. Why: each follows a recorded Spec mapping or
             user decision. Reverse: route (1) into T131, keep Flow.keyed, drop the type line, or add the catalog
             line now.
+        comment     2026-11-21T21:13:46Z
+            Requirements review (reviewer, revision 72213206): ISSUES, two blocking findings; fix both before the build.
+            The 43 cited reds fail today (re-run: 4 files, 43 expected fail). Mapping is one to one, the Correctness
+            item included. The fixtures proof is given, and the 16 planted faults are each tied to a rule. Resources:
+            none for T131, and for T120 the store at restore only, with no fake gap.
+
+            Blocking:
+            1. T120: the key codec's text is never pinned as canonical. A natural build passes every check and loses or
+               doubles a timer once the declaration's key fields are reordered across a reload (Schedules I14; Types R8
+               "as a contract's keyText"). The build is `Schema.fromJsonString` over the declared Struct, which writes
+               the fields in declaration order, while `contract.ts#codecsOf` sorts them. Evidence:
+               `tests/compile/schedule-declarations.test.ts:253` only round-trips, and `:278` only decodes literal text.
+               Every fixture key, and `keyedLamp`'s `{ id, n }`, is already in name order. Missed because: the inventory
+               has no "schedule key text" state. Its writers today are `core/schedules.ts#keyOf` (encodeCanonical),
+               `contract.ts#keyTextBy` and `lane-moves.ts`, and the codec becomes another, so key-field reorder never
+               became a test input; the restore tests declare only unkeyed schedules. Needs: a key declared out of name
+               order encodes to name-ordered text, equal to the contract's text for the same fields. The declaration
+               reordered encodes the same text. A planted fault (`key-codec-declared-order`).
+            2. T131 A1 item 3: the testing route's refusal checks accept wrong builds and contradict item 12. (a)
+               `tests/surface/doors.test.ts:290-300` filters only "raw", and `surface.test.ts:181-206` asserts
+               `.not.toBe("raw")`. A door that returns for null passes, though R10 says it refuses. (b) Three of the
+               four inverted surface tests call `textOfKey` and `make`. Item 12 takes those off the face, so after the
+               build each call throws a raw TypeError and can never pass. (c) The face walk (`doors.test.ts:185`,
+               `:266-272`) reads only enumerable own string keys. A non-enumerable or prototype-held `textOfKey`, `call`
+               or `make` passes I19 and item 12, yet the description says the walk skips only the internals symbol.
+               Missed because: the checks were written as "not raw" guards from Diagnostics R1, not from R10's refusal.
+               Needs: every ending "FlowError". The three surface tests retargeted to the doors that replace those
+               functions, or skipped by the disable-don't-delete rule. The walk uses `Reflect.ownKeys` over the face and
+               its prototype, skipping only `Symbol.for` internals.
+
+            Not blocking (fix at the flip or routed):
+            - `schedule-declarations.test.ts:303` can never pass: Room's compound ONLINE needs `ONLINE: { default:
+              ... }`.
+            - The lead's log says each red failed for its title; not so for T120. 17 compile reds fail because
+              `definition()` refuses the `schedules` field. The 4 restore reds are today's behaviour behind the refused
+              field: with no declaration the runtime returns each expected value. The rename row can't tell a
+              carried-over timer from a fresh one, since nudge has warn's formula. Give nudge its own delay and restore
+              at a later clock (with @task.V3.T118).
+            - The `Schema.Codec<Values, string>` decision fits keys only. A selection is any type (the test round-trips
+              5; Room returns a kind), so it needs `Codec<unknown, string>`. Correct the tag.
+            - Twin rows other than ReasonMissing run only on the first placement. Repeat one row on `states.ON`, and
+              place a keyed `restartOn` schedule without `restartOn`.
+            - The warning (I14) is unasserted until T22's `Built.warnings`. The Defect row traps only the definition:
+              add the body. Item 7's event copy uses `Object.entries` (drops symbols): use `Object.assign`.
+            - The mark regex (`doors.test.ts:326`) misses `"~payload"`, `"~walk"`, `"~names"` (`events.ts:95-97`); the
+              face walk catches them, but the inventory row should list them.
+              `tools/flow-state-lint/rules/no-mark-probe.ts` survives the slice (Types says the rule goes).
+            - `types/vite-plus-test.d.ts`: accepted. The package already resolves `vite-plus/test` through it
+              (`tsconfig.base.json` paths), and vitest 5.1.0 exports `vi.resetModules`. No outside import or temporary
+              name in the new tests.
+            - Pre-slice key text: the lead's seam says the text must equal `encodeCanonical`'s, but `Schedules.md` plans
+              a format step for the key codec. Route the old-record row to @task.V3.T118's step, not a T120 check.
+
+            Sidecar log (five Haiku, high). Accepted: flip A's reasons and the restore probe; flip B's accept-a-return,
+            enumerable walk, first-placement, Defect path and own-symbol copy; cohesion's key-text writers, extra marks,
+            the selection codec type and the shim check; blind B's live and codec disagreement (folded into 1). Changed:
+            blind A's and blind B's restore findings, to a note routed to T118. Rejected: `Object.create(made)` and a
+            copy with its prototype reattached (out of the FaultModel, as hand-built forgeries); the re-read raw
+            argument and extra arguments (T132, which owns I19's intake half); the 16-value load test (exists,
+            `surface.test.ts:120`); stale "needs the user" for `Flow.keyed` (ruling 2); parent and child placements both
+            active (Schedules decides inheritance, T118); pre-slice text equality (format step).
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
