@@ -196,10 +196,13 @@ instructions
     - Every brief carries the Constraints' code-style line (the user, 2026-11-09).
     - A Task's "May change" is a guide, not a fence: a Task may add its planted faults to `tests/faults.ts` and touch
       any file its acceptance needs, naming each extra file in a Task comment (2026-11-15).
-    - Slices (the user, 2026-11-22): Tasks built from the v3 Specs run in execution slices, a group of Tasks taken
-      through one requirements phase, requirements review, build and build review together; the pre-decided list is
-      code:wiki/tasks/V3/slices.md. The orchestrator may merge, split or reorder a slice, with the reason in a V3 log
-      note. Tasks stay the unit of acceptance.
+    - Slices (the user, 2026-11-22): a parent Task groups an execution slice. When a ready Task has a parent, the
+      orchestrator takes all of that parent's open children together as one slice, through one requirements phase with a
+      whole-slice state inventory, one requirements review, one build and one build review. The parent closes when every
+      child is accepted and the slice review has checked the seams between them. Tasks stay the unit of acceptance. A
+      Task with no parent is its own slice. Slices run in the order of the phase's Task order. The orchestrator may
+      regroup by moving `parent`, with the reason in a V3 log note. The failure limit counts per slice, and a slice fits
+      one builder run inside one 5-hour usage window.
     - Correctness (the user, 2026-11-22): every Task that builds or changes a v3 design says in its acceptance how its
       correctness is established, as one "Correctness:" item. Each of these holds: a corresponding fixture app exists
       that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the

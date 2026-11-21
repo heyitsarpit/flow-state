@@ -266,7 +266,7 @@ tasks
         title       Reads and operations (slice 5)
         status      draft
         priority    high
-        blocked_by  [@T57, @T121, @T122, @T123, @T124]
+        blocked_by  [@T57]
         satisfies   [
                     @plan.Machines.O1,
                     @plan.Machines.O2,
@@ -518,6 +518,7 @@ tasks
         title       CLI check, explain and graph
         status      draft
         priority    medium
+        parent      [@T134]
         blocked_by  [@task.V3.T17, @T77, @T109, @T110, @T57, @T76]
         satisfies   [
                     @plan.CommandLine.O1,
@@ -602,6 +603,8 @@ tasks
         title       `nub run verify` builds and checks v3
         status      draft
         priority    medium
+        parent      [@T134]
+
         blocked_by  [@T22]
         satisfies   [@plan.FlowState.O1]
         description
@@ -633,11 +636,12 @@ tasks
         comment     2026-11-16T02:04:36Z
             Routed from P2's completion audit: nub run verify no longer runs any stress file; the full gate should
             include nub run test:stress.
-
     T73
         title       UI primitives, third wave: combobox, tree and token input fixtures
         status      draft
         priority    medium
+        parent      [@T72]
+
         blocked_by  [@T21, @T57, @T76, @T77]
         description
             Build the async combobox, the lazy tree and the token input as fixtures, each with ui-sdk's behaviour
@@ -690,12 +694,11 @@ tasks
         comment     2026-11-20T13:01:57Z
             Breakdown review (orchestrator, 2026-11-20, R48): fixtures line names only this Task's rows of catalog step
             8: the combobox in kanban, the tree in draft and the token input in chat.
-
     T72
         title       UI primitives, second wave: toaster and menu fixtures
         status      open
         priority    medium
-        blocked_by  [@task.V3.T17, @T57, @T77, @T129, @T130]
+        blocked_by  [@task.V3.T17, @T57, @T77]
         description
             Build the toaster and the menu with submenus as fixtures, each with ui-sdk's behaviour scenarios ported as
             Story tests.
@@ -752,6 +755,8 @@ tasks
         title        Declared props on local actors
         status       draft
         priority     high
+        parent       [@T77]
+
         blocked_by   [@task.V3.T9, @T113, @T127]
         derives_from [@plan.Machines.O1]
         satisfies    [
@@ -838,12 +843,11 @@ tasks
         comment      2026-11-21T19:26:53Z
             Contradiction resolved: Risk names @task.V3.T127 as the blocker in place of T77 (blocked_by already had it);
             @spec.Turn.R28 re-pointed to @spec.Changes.R20.
-
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
         status       draft
         priority     high
-        blocked_by   [@T109, @T113, @T127, @T128]
+        blocked_by   [@T109, @T113]
         derives_from [@plan.Machines.O2]
         satisfies    [@plan.Machines.O1, @plan.Machines.O2, @plan.Runtime.O3, @plan.Testing.O1]
         description
@@ -915,6 +919,8 @@ tasks
         title       Number input on declared props and emits
         status      draft
         priority    medium
+        parent      [@T77]
+
         blocked_by  [@T76, @T127]
         description
             Move the done number-input fixture (@task.V3.T71) from `Configure` and `lastCommit` to declared props and
@@ -965,6 +971,15 @@ tasks
         comment     2026-11-21T18:39:42Z
             [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
             both emit halves.
+    T89
+        title       Slice: Foundations
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -1311,6 +1326,8 @@ tasks
         title       Host tests on Story and Fake; the seam harness deleted
         status      draft
         priority    medium
+        parent      [@T136]
+
         description
             Flow's own host tests run on Story and Fake only, and `src/host/testing/seam.ts` is deleted.
 
@@ -1392,7 +1409,6 @@ tasks
         comment     2026-11-21T19:40:55Z
             Sources moved out of the description: @review.code-quality-review (section 4) and
             @review.code-quality-review-2 (section 5, A7).
-
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
         status      done
@@ -1486,6 +1502,8 @@ tasks
         title       Diagnostics completed: whole Causes through cleanup and a safe renderer
         status      draft
         priority    medium
+        parent      [@T134]
+
         satisfies   [@plan.Diagnostics.O1, @plan.Diagnostics.O3, @plan.Diagnostics.O4]
         description
             Finish Diagnostics: a safe Diagnostic renderer (@plan.Diagnostics.O4) and whole Causes kept through cleanup
@@ -1591,7 +1609,6 @@ tasks
         comment     2026-11-21T19:26:55Z
             Contradiction resolved: superseded @spec.Diagnostics cites dropped from Read first and May change;
             @spec.Operations is the Spec.
-
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
         status      done
@@ -2056,6 +2073,8 @@ tasks
                     (slice 3c)
         status      draft
         priority    high
+        parent      [@T133]
+
         blocked_by  [@T57, @T113, @T119, @T131]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
         description
@@ -2140,11 +2159,12 @@ tasks
         comment     2026-11-21T19:26:56Z
             Contradiction resolved: superseded @spec.Compile dropped from Read first; @spec.Changes (R12, R13, R16) is
             the Spec.
-
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
         priority    high
+        parent      [@T133]
+
         blocked_by  [@T109]
         satisfies   [@plan.Machines.O3]
         description
@@ -2193,11 +2213,12 @@ tasks
         comment     2026-11-21T19:26:56Z
             Contradiction resolved: Turn R30 re-pointed to @spec.Changes.R15 in the description, Read first
             and acceptance.
-
     T111
         title       Fixtures in real browsers: minimal React, Chrome and Safari
         status      draft
         priority    high
+        parent      [@T135]
+
         blocked_by  [@T58, @T112]
         satisfies   [@plan.Inspection.O2, @plan.Persistence.O4]
         description
@@ -2251,11 +2272,12 @@ tasks
         comment     2026-11-21T18:31:21Z
             [proposed] Builds @proposal.algo-host 6.1 to 6.4 with the edge cells and the Out.hiddenRetried field of
             @proposal.algo-resolutions 1.6 (re-run in the model: no stuck ticket, stranded mark or hidden livelock).
-
     T112
         title       Fakes as hostile as the real thing: store, page and servers
         status      draft
         priority    high
+        parent      [@T135]
+
         blocked_by  [@T58]
         description
             `Fake.storage`, the fake page and `Fake.server` do by default what their real counterparts can do to an app
@@ -2340,7 +2362,6 @@ tasks
         comment     2026-11-21T19:27:26Z
             Readiness: Read first names the mutation alphabet it applies (@spec.Records.T2), which the Records Spec
             gives this Task's applier.
-
     T113
         title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
         status      draft
@@ -2482,6 +2503,8 @@ tasks
         title       Fast tests again: the home-rooms stress sweep back under its bound
         status      draft
         priority    high
+        parent      [@T136]
+
         description
             The `sweep-stress-land-0` shard runs under its bound again, by making schedule firings cheap or by a
             recorded re-measurement of the bound.
@@ -2517,7 +2540,6 @@ tasks
         comment     2026-11-21T18:46:48Z
             Takes the coverage-run items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4); the item
             list is @proposal.spec-test-tooling R11. [proposed] Also owns @proposal.algo-host section 10's rows.
-
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
         status      open
@@ -2904,6 +2926,8 @@ tasks
         title       Declared schedules: the runtime half
         status      draft
         priority    high
+        parent      [@T89]
+
         description
             Build the runtime half of declared schedules: the declaration object on the definition (name, `key`,
             `pausedBy`), its construction checks, and the key and selection codecs in `Compiled.schedules`.
@@ -2948,11 +2972,12 @@ tasks
         comment     2026-11-21T19:26:58Z
             Contradiction resolved: no format step here; @task.V3.T118 writes the schedule row of the one step 5 to 6
             and @task.V3.T92 adds the rest (@spec.Records R12); algo cites re-pointed to Spec sections.
-
     T121
         title       Operation endings and the retry guards
         status      draft
         priority    high
+        parent      [@T21]
+
         blocked_by  [@T119, @T92]
         description
             Build an operation's endings: the row and its refusal, the head's one unknown, the timeout rule, the issue
@@ -3004,11 +3029,12 @@ tasks
               (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), @spec.Records (R1–R3, R16, I6, I7); the Invariants
               its tests check after every step are @spec.Operations (I8, I11, I13–I16, I18, I20, I21, I23; tests T1–T6),
               @spec.Records (I1, I4–I7, I11, I16, I18; tests T1–T6, T9–T15).
-
     T122
         title       Read entries and read slots
         status      draft
         priority    high
+        parent      [@T21]
+
         blocked_by  [@T121]
         description
             Build the shared read entries and read slots: the entry table, freshness, refetch, waiters, and collection
@@ -3058,11 +3084,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25); the Invariants its tests check after every step are
               @spec.Operations (I1–I10, I12, I22, I24, I25; tests T1, T2, T4, T5, T7).
-
     T123
         title       Placements and release
         status      draft
         priority    medium
+        parent      [@T21]
+
         blocked_by  [@T122]
         description
             Build placements and their release: a placement placed and unplaced by the walk, a call released within the
@@ -3103,11 +3130,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R8, I4, I11, I22); the Invariants its tests check after every step are @spec.Operations (I4, I11, I22;
               tests T1, T2, T4, T5).
-
     T124
         title       Persisted resources
         status      draft
         priority    medium
+        parent      [@T21]
+
         blocked_by  [@T122, @T92]
         description
             Build persisted resources: `resource({ persist: true })` with its declared `output`, the saved entry and its
@@ -3143,11 +3171,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R12, I24), @spec.Records (R8, R18, I12, I19); the Invariants its tests check after every step are
               @spec.Operations (I24; tests T4), @spec.Records (I12, I19; tests T8, T14, T15).
-
     T127
         title       Declared emits at the root
         status      draft
         priority    high
+        parent      [@T77]
+
         blocked_by  [@T113, @T119]
         description
             Build declared emits at the root: an emit is part of its `Turn`, and `actor.onEmit` listeners run once per
@@ -3179,11 +3208,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
               (R19, I5), @spec.Host (R3, I4); the Invariants its tests check after every step are @spec.Changes (I5,
               I14), @spec.Host (I4; tests T1, T8).
-
     T128
         title       Fragment emits
         status      draft
         priority    medium
+        parent      [@T77]
+
         blocked_by  [@T109, @T127]
         description
             Build fragment emits: an emit from a fragment or a copy carries its address, and a listener hears `(payload,
@@ -3210,11 +3240,12 @@ tasks
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
               (R19); the Invariants its tests check after every step are @spec.Changes (I5, I14).
-
     T129
         title       UI primitives wave 2: toaster
         status      draft
         priority    medium
+        parent      [@T72]
+
         blocked_by  [@T127]
         description
             Build the toaster primitive on declared root emits and keyed schedules.
@@ -3241,11 +3272,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Schedules
               (R8, R11, R12), @spec.Changes (R19); the Invariants its tests check after every step are @spec.Schedules
               (I5, I7, I15; tests T1, T3–T6), @spec.Changes (I5, I14).
-
     T130
         title       UI primitives wave 2: menu
         status      draft
         priority    medium
+        parent      [@T72]
+
         blocked_by  [@T109]
         description
             Build the menu primitive on fragments.
@@ -3271,11 +3303,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
               (R12, R13, I1, I2); the Invariants its tests check after every step are @spec.Changes (I1, I2, I11; tests
               T1, T6).
-
     T131
         title       Construction trust: the doors
         status      draft
         priority    high
+        parent      [@T89]
+
         description
             Build the doors of construction trust: the one door, `made` and `madeOf`, the testing route, and the removal
             of the `WeakSet` marks.
@@ -3319,3 +3352,42 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R10, I19), @spec.Types (R11, I4, I5); the Invariants its tests check after every step are
               @spec.Operations (I19; tests T5, T6), @spec.Types (I4, I5, I7, I14; tests T4, T7–T9).
+    T133
+        title       Slice: Fragments
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T134
+        title       Slice: Errors and the CLI
+        status      draft
+        priority    medium
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T135
+        title       Slice: Host A
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T136
+        title       Slice: Host B
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.

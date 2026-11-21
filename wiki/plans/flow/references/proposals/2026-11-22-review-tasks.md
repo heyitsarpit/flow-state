@@ -49,7 +49,7 @@ and T131.
 - **Two Spec requirements are in no Task's "Tests cover":** @spec.Types R7 (cost bounds; the Types.md H5 bench row) and
   @spec.Host R15 (memo key set, @plan.React.O2). Fix: give R7 to T113 (the `construct.*` bench rows) and R15 to T30.
 - **Missing Correctness item on Tasks that build features:** T23, T24, T25, T73, T108, T116. T72 and T73 are fixtures
-  and T24/T25 have no Spec yet (T25 needs its design first, per slices.md); T108 and T116 link no v3 Spec. Fix: state
+  and T24/T25 have no Spec yet (T25 needs its design first); T108 and T116 link no v3 Spec. Fix: state
   "no v3 Spec; Correctness when the Spec exists" in T24, T25 and T108, and add the item to T23 and T116.
 - **T92 shares one format step with T118 but is not blocked by it** (T118 writes the schedule row of Records R12's
   step 5 to 6; T92 "adds the other rows"). The slice order holds it. Fix: add `blocked_by T118` to T92 so a reorder
@@ -59,7 +59,7 @@ and T131.
 - **Slice size.** Slice 4 (T119: Changes R1 to R26 and nearly all of I1 to I17) and slice 6 (all of Operations, R1 to
   R15, plus Records R8, R16, R18) look too big for one 5-hour window; slice 3 (T113: ~100 hand-typed parameters, nine
   `machine.ts` symbols, and a type spike first) is borderline. Fix: pre-split slice 6 into 6a (T121, T122) and 6b
-  (T123, T124) now, and let slice 4 split along the walk, the applier and alarms, mail, as slices.md allows.
+  (T123, T124) now, and let T119 split along the walk, the applier and alarms, mail.
 - **Slice 10 mixes unrelated owners:** T100 (Operations R9, R13), T22 (Types R4 to R6, Host R13), T23 (no Spec). Fix:
   move T100 to slice 6 or run it alone; keep T22 with T23.
 - **P5 draft grouping fails on a P9 blocker.** T98 (P9) is blocked by T132 (P5) yet blocks T106, T24, T25, T30, T48

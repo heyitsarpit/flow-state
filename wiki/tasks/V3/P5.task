@@ -111,7 +111,7 @@ tasks
         status      draft
         priority    high
 
-        blocked_by  [@task.V3.T21, @T25, @task.V3.T92, @task.V3.T56, @task.V3.T98, @T125, @T126]
+        blocked_by  [@task.V3.T21, @T25, @task.V3.T92, @task.V3.T56, @task.V3.T98]
         satisfies   [
                     @plan.EntityDomains.O1,
                     @plan.EntityDomains.O2,
@@ -156,6 +156,7 @@ tasks
         title       Multi-tab
         status      draft
         priority    medium
+        parent      [@T139]
         blocked_by  [@T28, @task.V3.T112]
         satisfies   [@plan.Persistence.O7]
         description
@@ -205,6 +206,7 @@ tasks
         status      draft
         priority    medium
 
+        parent      [@T138]
         blocked_by  [@task.V3.T109, @task.V3.T92, @task.V3.T56, @task.V3.T98]
         satisfies   [
                     @plan.LazyFeatures.O1,
@@ -533,6 +535,8 @@ tasks
         title       React and Next.js bindings
         status      draft
         priority    high
+        parent      [@T139]
+
         blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77, @task.V3.T98]
         satisfies   [
                     @plan.React.O1,
@@ -608,11 +612,11 @@ tasks
         comment     2026-11-21T19:27:00Z
             Contradiction resolved: description now builds channels, the hydrate overlay, emit delivery in React, props
             and eligibility; publication and the binding are @task.V3.T111's, per @spec.Host.
-
     T106
         title       Rules on machines: invariants, turns and terminals, with rule coverage
         status      draft
         priority    high
+        parent      [@T137]
         blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T98, @T114, @task.V3.T113, @task.V3.T22]
         satisfies   [
                     @plan.Rules.O1,
@@ -757,6 +761,8 @@ tasks
         title       Run verdict: what fails a run
         status      draft
         priority    medium
+        parent      [@T137]
+
         blocked_by  [@task.V3.T69, @task.V3.T70]
         satisfies   [@plan.Testing.O6, @plan.Testing.O8]
         description
@@ -817,11 +823,12 @@ tasks
         comment     2026-11-21T19:27:01Z
             Contradiction resolved: description and acceptance now name the verdict, judge, propertyTest and CLI exit
             table (@spec.Host R8 to R14), taking story run's exit code from @task.V3.T29.
-
     T115
         title       Server data: dehydrate, hydrate and the merge table
         status      draft
         priority    high
+        parent      [@T138]
+
         blocked_by  [@T24, @task.V3.T98, @T48]
         satisfies   [
                     @plan.ServerRendering.O1,
@@ -893,7 +900,6 @@ tasks
         comment     2026-11-21T18:31:24Z
             [proposed] Hydrate's merge has no algorithm design (@proposal.algo-records H4, @proposal.algo-operations
             H5); this Task runs skill:to-design before its Spec (@proposal.algo-resolutions section 4).
-
     T116
         title       Next.js host proofs
         status      draft
@@ -927,6 +933,8 @@ tasks
         title       Entity store: confirmed records
         status      draft
         priority    medium
+        parent      [@T24]
+
         blocked_by  [@task.V3.T122, @task.V3.T92]
         description
             Build the entity store's confirmed records: what confirmed data a machine's persistence saves, and its
@@ -957,11 +965,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records (R9,
               R15, R18, I8, I10); the Invariants its tests check after every step are @spec.Records (I8, I10, I16, I18,
               I19; tests T7, T9, T10, T15).
-
     T126
         title       Entity store: claims
         status      draft
         priority    medium
+        parent      [@T24]
+
         blocked_by  [@T125, @task.V3.T121]
         description
             Build the entity store's claims: unconfirmed fields held by an Attempt, living in the lane head.
@@ -990,11 +999,12 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records
               (R16, R18, I6, I7, I11); the Invariants its tests check after every step are @spec.Records (I5–I7, I11,
               I19; tests T1–T6, T13, T15).
-
     T132
         title       Construction trust: intake
         status      draft
         priority    high
+        parent      [@T137]
+
         blocked_by  [@task.V3.T131]
         description
             Build `intake`: one Schema per door, returning every finding of an argument at once.
@@ -1022,3 +1032,32 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R10, R11, I19, I23), @spec.Types (R11, R13, I4, I5); the Invariants its tests check after every step are
               @spec.Operations (I19, I23; tests T4–T6), @spec.Types (I4, I5, I7, I14; tests T4, T7–T9).
+    T137
+        title       Slice: Intake and rules
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T138
+        title       Slice: Lazy features and hydrate
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T139
+        title       Slice: The lock and channels
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
