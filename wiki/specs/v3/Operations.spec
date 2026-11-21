@@ -893,8 +893,8 @@ composition
             of the tests and an abort-ignoring fake for reads; the Story clock driving the two alarms; `flow explain`
             and inspection showing `releasing`, entries and a row's refusal; the host calling nothing for the release
             alarm (the step's last row and the holders' touch derive the publish); the public event a view sends for
-            `refetch` (`Host` Q6); the rule judge is `Host`'s (`host/judge.ts`); this Spec keeps only 
-                `owners.ts#judge`, under its name.
+            `refetch` (`Host` Q6); machine rules are judged by `Host`'s `verdictOf`, in Stories only (no
+            `host/judge.ts`); this Spec keeps only `owners.ts#judge`, under its name.
         - Tasks: @task.V3.T21's acceptance still says `{ value, input, key, attempt }`; the user's decision is
             `(value, { input, key })`. No Task's scope is changed here. Doors are @task.V3.T131 (T98a); `intake` is
             @task.V3.T132 (T98b); the catalog and renderer are @task.V3.T100; operation endings, retry guards and

@@ -3,7 +3,8 @@ status        proposed
 basis         Pre-coding analysis, to follow as best-guess guidance and revisable whenever building shows it wrong;
               each change and its reason is recorded in wiki/specs/specs.log.
 location      packages/flow-state-v3/src/host
-provides      publish, final, quiescent, subscribe, deliver, transition, judge, verdictOf, Story.app, closeTab, openTab
+provides      publish, final, quiescent, subscribe, deliver, transition, storyCompiled, verdictOf, Story.app,
+              closeTab, openTab
 derives_from  [
               @plan.React.O2,
               @plan.React.O3,
@@ -67,11 +68,18 @@ requirements
                 store call. A Story opens, closes and addresses tabs by name; a step on a gone or unopened tab is a
                 script fault.
 
-    R8  No route skips the verdict
+    R8  No Story route skips the verdict
         source  @plan.Testing.O1, @plan.Rules.O4.
-        must    A test that breaks a rule fails, whoever wrote it and however it was run. The verdict is one pure
-                function of the finished run. `run()` resolves only when the verdict passed. `Story.app` requires the
-                rules; the one unjudged runner is internal.
+        must    A Story that breaks a rule fails, however it was run: by `run()`, a generated run, a sweep or
+                `propertyTest`. The verdict is one pure function of the finished run. `run()` resolves only when the
+                verdict passed. `runRules` is required on `Story.app`, `Story.machine` and `Story.fragment`; the one
+                unjudged runner is internal. A plain Runtime test judges nothing, and no Runtime or `app()` reads a
+                rule: a test that wants rules is a Story.
+                [decided: user 2026-11-22] Why: rules are optional and judged only by Story tooling
+                (@proposal.external-rules). Reverse: a Runtime switch that judges outside Stories.
+                Superseded by the user's 2026-11-22 decision (@proposal.external-rules): "A test that breaks a rule
+                fails, whoever wrote it and however it was run" for a plain Runtime test, and `Story.app` alone
+                requiring the rules.
 
     R9  A failure names the rule, the first step and its evidence, and replays
         source  @plan.Testing.O6, @plan.Testing.O8, @plan.CommandLine.O2.
@@ -91,11 +99,15 @@ requirements
                 matches every break of the rule. [decided: user 2026-11-22] Why: an inverted Story must name the
                 break it expects. Reverse: a rule id only.
 
-    R12  Machine rules are judged live, and a throwing check changes only itself
+    R12  Machine rules are judged by `verdictOf` over the finished run, and a throwing check changes only itself
         source  @plan.Rules.O4.
-        must    Every published incarnation and every turn is checked against the rules placed at its state; a check
-                that returns false is `RuleBroken`, one that throws is the same record with `threw: true`. An `off`
-                rule's check is never called.
+        must    After a Story run, every published incarnation and every turn in its evidence is checked against the
+                rules placed at its state; a check that returns false is a `Broken`, one that throws is `RuleThrew`
+                naming the rule. An `off` rule's check is never called. A value with no rules has none to check.
+                [decided: user 2026-11-22] Why: only Story tooling judges rules, so the Runtime keeps no judge, no
+                `last` map and no `RuleBroken` evidence (@proposal.external-rules). Reverse: the live judge.
+                Superseded by the user's 2026-11-22 decision (@proposal.external-rules): "Machine rules are judged
+                live", by a judge the driver runs between a step and its sink, with `RuleBroken` records.
 
     R13  The CLI's exit is a function of the verdict
         source  @plan.CommandLine.O3.
@@ -168,6 +180,12 @@ open
                  every seed running in `propertyTest`, the verdict record, and matched `expectBroken`. Why: the
                  reasoning in the companion. Reverse: the companion's B for that item.
 
+    Q13  Rules read private memory, which the public `Published` snapshot hides, and are judged after the run:
+        `verdictOf` must read the run's internal incarnation records, not the public face. Unverified.
+        outcome  Verified in @task.V3.T114's first slice; if the evidence lacks a record a rule reads, `storyCompiled`
+                 asks the step for it. [decided: agent writer 2026-11-22] Why: the live judge saw the incarnation
+                 directly and the evidence-only judge does not (@proposal.external-rules). Reverse: judge live.
+
 model
     Publication = the host's one act of telling readers: compare each touched actor's new snapshot against the last
         published one, write the memo, tell the listeners, deliver the emits. One per slice that leaves no mail owed.
@@ -194,12 +212,23 @@ model
         rule before the limit, and both are reported. `passed` is derived: all four empty. A script fault is not a
         Verdict.
 
-    RuleSources = tooling rules (`UnusedWord`, `CleanupLeft`, `PublicationDrift`, `RuleThrew`; named in
+    StoryCompiled = the one function every Story route starts through (`src/host/testing/`): `Story.app`,
+        `Story.machine`, `Story.fragment`, generated runs, the reload and pair sweeps and `propertyTest`. It walks
+        every value the run can hold (the app's machines, the Story's subject, every placed fragment at any depth),
+        refuses two values of one id with different rules (`RulesDiffer`), proves each ruled value's `terminals` once
+        (memoised per value; a `TerminalLeft` fails the verdict as a `Broken` of the tooling rule `TerminalLeft`), and
+        records the run's rule sets and its values with no rules on the `StoryRun`. `verdictOf` judges those sets over
+        the evidence after the run. [decided: user 2026-11-22] (@proposal.external-rules) Why: one route, so no Story
+        skips the rules; terminals of a value only a test runs are otherwise never proved. Reverse: the Runtime's judge.
+
+    RuleSources = tooling rules (`UnusedWord`, `CleanupLeft`, `PublicationDrift`, `RuleThrew`, `TerminalLeft`; named in
         `testing/verdict.ts`, judged by `verdictOf` over the run); project run rules (one rules module that both
         `flow.config.ts` and `Story.app` import, `tests/rules/list.ts`, no test-runner import; judged by `verdictOf`
-        over the run and its `RunIndex`); machine rules (the body, `Compiled.rules`; judged by the Runtime's judge,
-        live, and read as `RuleBroken`). [decided: user 2026-11-22] Why: the rules module is the one list both import.
-        Reverse: run rules on the app.
+        over the run and its `RunIndex`); machine rules (the `.rules(build)` of the values the run holds; judged by
+        `verdictOf` over the run's evidence, after the run, in Stories only). [decided: user 2026-11-22] Why: the rules
+        module is the one list both import. Reverse: run rules on the app.
+        Superseded by the user's 2026-11-22 decision (@proposal.external-rules): machine rules "(the body,
+        `Compiled.rules`; judged by the Runtime's judge, live, and read as `RuleBroken`)".
 
     StateInventory = Each state has one owner and one writer.
         S1  Publication: `Published = { version: Version; at: number }`. Owner `host/publication.ts` `publish`.
@@ -213,8 +242,9 @@ model
         S6  Emit listeners: sets per actor. Owner `host/emits.ts`. Reader `emits.deliver`. Not saved.
         S7  Edge phase: `EdgePhase`, its pending inside the phase. Owner `host/edge.ts` `transition`. Readers
             `settled`, inspection. Not saved (the marks are).
-        S8  Judge's last incarnations: `Map<ActorKey, Incarnation>`. Owner `host/judge.ts` `judge`. Reader `judge`.
-            Not saved; empty at each boot.
+        S8  (cut) The judge's last incarnations, `Map<ActorKey, Incarnation>`, owner `host/judge.ts`. Superseded by the
+            user's 2026-11-22 decision (@proposal.external-rules): `verdictOf` folds the run's evidence with a local
+            `last`, so no state outlives the pass.
         S9  Tab, per Story tab: `TabLife` with its open number. Owner `testing/run.ts` `tabs`. Readers the fake
             store, servers, locks. Not saved.
         S10 Batch, per fake store write: `Held | Landed | Refused | Aborted | Unheard`. Owner `platform/memory.ts`
@@ -226,6 +256,9 @@ model
             Reader the generated Story. Not saved (the Story text is).
         S14 Fake world counters: per endpoint call count, per store batch index. Owner `testing/fake.ts`, where
             `log.push` is. Readers the generator, rules, `View`. Not saved.
+        S15 A run's rule sets and its values with no rules, on the `StoryRun`: Owner `storyCompiled`. Readers
+            `verdictOf`, `ruleCoverage`. Not saved.
+        S16 Proved terminals, per ruled value: a memo. Owner `storyCompiled`. Reader `storyCompiled`. Not saved.
         Not state: the verdict (derived from the finished run), the outcome table, `left` (a read of S9 to S11 and the
         Owners at the end), the Model and the `Turn` (`Changes`').
 
@@ -236,7 +269,8 @@ model
         an emit listener (`onEmit`): `(payload, { key, keys })` for a fragment emit, `(payload)` at the root;
             `version` to the binding only
         an invariant rule's `check`: `{ state, memory, props, operations, schedules }` of one publication, taken from
-            `project(incarnation)` (the outside view, `Flow.private` dropped) [proposed: the user's decided list in
+            `project(incarnation)` (the outside view, `Flow.private` dropped), read by `verdictOf` from the run's
+            evidence [proposed: the user's decided list in
             the rules plan; only a turns rule also reads `context`]
         a turns rule's `check`: `{ event, before, after }`: the `Turn`'s trigger, decoded; `project` of the previous
             and this incarnation
@@ -286,9 +320,11 @@ model
         // Step gains: closeTab { tab; inflight }, openTab { tab }; every actor step carries { tab }; reload keeps
         // { reattach; inflight } with heldWrites renamed.
 
-        // src/host/testing/verdict.ts (NEW). R: the union of rule ids, typed from the config and Compiled.rules.
+        // src/host/testing/verdict.ts (NEW). R: the union of rule ids, typed from the run rules' literals and the
+        // rule tokens of the values (`<definition id>.<Name>`).
         export type Broken<R extends string = string> = {
             readonly rule: R; readonly step: number; readonly tab: Tab<string>
+            readonly at: string       // NEW [proposed]: the placement beside the rule, e.g. Desk/Editor/uploads[a]
             readonly evidence: ReadonlyArray<TraceRecord>; readonly summary: string
         }
         export type Switch<R extends string> = {
@@ -330,8 +366,9 @@ model
         Snapshot<D, "outside"> }` built by `project` from the internal `{ actor, incarnation, why }`, with `why`
         `"Begin" | "Turn" | "Other"` (an end is `Finished`); the public `Turn` is `{ actor; event: EventOf<D>; from;
         to }`; a fragment's public event address is `{ slot; key }`. The internal records stay erased. `Rule.rule` is
-        typed: project rules declare their ids as `const` literals; machine rules use `Machine<D, R>["rules"]`;
-        tooling rules are `"UnusedWord" | "CleanupLeft" | "PublicationDrift" | "RuleThrew"`. A switch naming an id
+        typed: project rules declare their ids as `const` literals; machine rules use the tokens of `Machine<D,
+        N>["rules"]`, whose ids are `<definition id>.<Name>`; tooling rules are `"UnusedWord" | "CleanupLeft" |
+        "PublicationDrift" | "RuleThrew" | "TerminalLeft"`. A switch naming an id
         outside the union does not compile. [decided: user 2026-11-22] `Published` carries the incarnation and `why`
         has three values, shared with `Changes` Q5. Why: one record a rule reads. Reverse: a fourth `why`.
 
@@ -370,8 +407,7 @@ invariants
     I12  At most one live open of an app and scope holds the lock; a `Second` open's edge is `Closed`: no store call.
         [@R7]
 
-    I13  `verdictOf` is a pure function of `(run, rules, switch)`; an `off` rule's check is never called, here or in
-        the judge. [@R8]
+    I13  `verdictOf` is a pure function of `(run, rules, switch)`; an `off` rule's check is never called. [@R8]
 
     I14  An `expectBroken` entry passes iff a break matching its rule, step, actor and `where` occurred, on a finished,
         quiet run; every break of an expected rule that no entry matches fails. [@R11]
@@ -391,8 +427,14 @@ invariants
 
     I20  In `Out`, a waiting batch with no ticket has an `at`. [@R6]
 
-    I21  A rule check that throws changes only its own check: it is `RuleBroken` with `threw: true`, reported as
-        `RuleThrew` naming the rule, never as the expected break. [@R12]
+    I21  A rule check that throws changes only its own check: it is reported as `RuleThrew` naming the rule, never as
+        the expected break. [@R12]
+
+    I25  Every Story route starts through `storyCompiled`: a run holding two values of one id with different rules is
+        refused before its first step, and each ruled value's terminals are proved once. [@R8]
+
+    I26  Judging reads the finished evidence only: no Runtime, driver or `app()` holds or reads a rule, a `last` map or
+        a `RuleBroken` record. [@R8, @R12]
 
     I22  The CLI's exit code and JSON `status` are a function of the verdict and the run's end alone. [@R13]
 
@@ -420,15 +462,17 @@ operations
         ensures  `host/emits.ts`, called by `publish` step 5 and never anywhere else; each listener in its own
                  `Result.try`. [@R3]
 
-    judge(batch: ReadonlyArray<Evidence>, last: Map<ActorKey, Incarnation>, off: ReadonlySet<RuleId>) -> Evidence[]
-        ensures  `RuleBroken` records; O(Published in batch x rules placed). [@R12]
+    storyCompiled(story) -> Result<CompiledStory, RunRejected>
+        ensures  Walks every value the run can hold; refuses `RulesDiffer`; proves each ruled value's terminals once;
+                 records the rule sets and the values with no rules on the run. The only start of a Story route. [@R8]
 
     transition(phase, occasion, hidden: boolean) -> { phase; issue: Option<Waiting> }
         ensures  Pure; the edge performs `issue`. The one table of the edge. [@R6]
 
     storyApp(setup, options) -> StoryApp
-        ensures  The public `Story.app(setup, { id, fixtures, world, rules })`. Takes the rules that name the config's 
-                 judging; `compiledOf` is called here and at Runtime start.
+        ensures  The public `Story.app(setup, { id, fixtures, world, runRules })`. Takes the run rules that name
+                 the config's judging; `compiledOf` is called here and at Runtime start, and every Story route starts
+                 through `storyCompiled`.
                  [@R8]
 
     run() -> Effect<StoryRun, StoryFailed | StoryScriptFault | RunRejected>
@@ -437,8 +481,9 @@ operations
     runUnjudged(...)
         ensures  Internal route only (the sweep, `propertyTest`, the CLI); not exported from the package. [@R8]
 
-    verdictOf(run, index, rules, switch) -> Verdict
-        ensures  Each rule's `broken` in its own `Result.try` (`RuleThrew`). [@R8, @R12]
+    verdictOf(run, index, runRules, switch) -> Verdict
+        ensures  Judges the run rules, the tooling rules and the run's machine rules over the evidence, each rule's
+                 `broken` in its own `Result.try` (`RuleThrew`). [@R8, @R12]
 
     propertyTest(samples, { profile, seeds }) -> Effect<Report, PropertyTestFailed | StoryScriptFault>
         ensures  Every seed runs. [@R14]
@@ -541,7 +586,8 @@ algorithm
         a capture asked while mail is owed: skips the capture; done at the slice end that empties the mail, or by the
             hide's synchronous drain
         stop: skips owed mail; `final` compares every memo entry once
-        the judge: never skips; it compares per `Turn`, against the actor's last `Published` incarnation
+        `verdictOf`: no live compare; it folds the finished evidence per `Turn`, against the actor's last `Published`
+            incarnation, after the run
 
     Emits. `host/emits.ts` owns the listener sets. The driver calls `deliver` from `publish`'s step 5, so once per
 
@@ -690,13 +736,15 @@ algorithm
         has no `freeze` word, and the Safari lock mode (a lock dropped on freeze) is not simulated in Stories, only
         in the browser tier.
 
-    The verdict. `verdictOf` is the one judge of a run.
-        judged  = rules minus sw.off                  -- an off rule's check is never called, here or in the judge
+    The verdict. `verdictOf` is the one judge of a run: project run rules, tooling rules and machine rules alike.
+        judged  = rules minus sw.off                  -- an off rule's check is never called
         ran     = judged.flatMap(r => Result.try(() => r.broken(run, index))
             .getOrElse(e => [Broken("RuleThrew", { rule: r.rule, cause: e })]))  -- a throw is its own break
-        broke   = RuleBroken records of run.evidence, rule not in sw.off, as Broken  -- the judge got sw.off too
-        threw   = those with threw: true, as Broken of rule "RuleThrew" naming the rule -- never the expected break
-        found   = ran ++ broke.filter(not threw) ++ threw
+        machine = the fold of `The machine rules' judge` over run.evidence, with the run's rule sets minus sw.off; each
+            check in its own `Result.try`, a throw is a Broken of rule "RuleThrew" naming the rule -- never the expected
+            break
+        left    = TerminalLeft of the values `storyCompiled` proved, as Broken of the tooling rule "TerminalLeft"
+        found   = ran ++ machine ++ left
         matches(e) = every b in found with b.rule = e.rule and fitting e.step, e.actor, e.where
         checked = (found minus the union of every matches(e)).sortBy(step, then rule)
             -- other breaks of an expected rule still fail
@@ -743,12 +791,14 @@ algorithm
         (`Records`' I1 and I2), reading batch values, which the fake's batch log keeps beside `keys`
         (`fake.ts:586-598`); and the turns rules read `Turn`.
 
-    The judge (machine rules). One function, `host/judge.ts` (module-local; `Operations`' `owners.ts#judge` is a
-        different function and keeps its name), run by the driver between a step and its sink, over the
-
-    step's evidence. The record in the batch, the invariant rules placed at the actor's state, the turns rules on the
-
-    turn's edge:
+    The machine rules' judge. One fold inside `verdictOf` (`host/testing/verdict.ts`; `Operations`' `owners.ts#judge` is
+        a different function and keeps its name), run once over the finished run's evidence, never between a step and
+        its sink; `last` is a local of the fold, not stored state. [decided: user 2026-11-22] (@proposal.external-rules)
+        Why: only Story tooling judges rules; the live judge, its `last` map and the `RuleBroken` evidence kind are cut.
+        Reverse: the driver's live judge. Superseded by the same decision: "run by the driver between a step and its
+        sink". The rule sets are the run's (`storyCompiled`), matched to evidence by definition id, with the placement
+        (`Desk/Editor/uploads[a]`) named beside the rule in the `Broken`. Per record of the evidence, in order: the
+        record in the batch, the invariant rules placed at the actor's state, the turns rules on the turn's edge:
         `Published` with `why` Begin: invariants checked with `project(incarnation)`; turns none; `last[actor] =
             incarnation`
         `Turn` then its `Published`: invariants checked; turns checked with `{ event, before: project(last), after }`;
@@ -759,10 +809,10 @@ algorithm
         `Turn` then `Finished`: invariants none; turns checked with `after = project(ended snapshot)`; then the `last`
             entry removed
         `Finished` without a `Turn`: none; the `last` entry removed
-        A `check` that returns false is `RuleBroken { rule, actor, step }`; one that throws is the same record with
-        `threw: true` (a throw changes only its own check). The setup option is `rules: "judge" | "off"`; Stories and
-        the CLI always judge, and a Story's run passes its switch's `off` list to the judge, so those checks are never
-        called. `last` belongs to one Runtime: a reload starts empty, and the first record after it is a `Begin`.
+        A `check` that returns false is a `Broken { rule, actor, step, at }`; one that throws is `RuleThrew` (a throw
+        changes only its own check). There is no Runtime setting: Stories and the CLI always judge, and a Story's switch
+        `off` list keeps those checks from being called. `last` belongs to one Runtime's evidence: a reload starts
+        empty, and the first record after it is a `Begin`.
 
     `propertyTest`. Seed result: passed: counted. Not passed: recorded; shrunk only if it is the first failing seed
 
@@ -824,7 +874,7 @@ algorithm
                 loop:
                     while (i = inbox.shift()):                           -- a ring index, not Array.shift
                         out = Result.try(step(world, i, env))              -- failure: stop(defect); return
-                        ev  = out.evidence ++ judge(out.evidence, last, off) ++ slowWork
+                        ev  = out.evidence ++ slowWork                      -- no judge: `verdictOf` judges
                         admit(ev)                                          -- a throw: stop(fault); rethrow after the 
                             loop
                         world = out.world
@@ -887,8 +937,8 @@ composition
         Offers `getSnapshot`, `subscribe`: the memo reads the binding's hooks and the handle use.
         Offers `emits.deliver`: the one delivery of emits, called by `publish` only.
         Offers `transition`: the edge's one table.
-        Offers `judge`, `verdictOf`, `Story.app`, `run`, `closeTab`, `openTab`, `Fake.storage.hold`: the tooling the
-        Stories and the CLI use.
+        Offers `storyCompiled`, `verdictOf`, `Story.app`, `run`, `closeTab`, `openTab`, `Fake.storage.hold`: the
+        tooling the Stories and the CLI use.
         Offers the public `Published<D>` and `Turn<D>` faces (the one owner; they carry `Types`' `EvidenceOf<D>`), 
             `EventOf<D>` with a fragment event's address `{ slot,
         key }`, and the exit table of the CLI.
@@ -914,18 +964,19 @@ composition
         it with a small reporter in `tests/`, not in `src/`. The host stepper by arming id stays in
         `owners/schedule-steps.ts`. The memo for `issuesOf` is not S2: that memo is keyed by the owner's map identity,
         inside the core, and stays with `Schedules` and `Changes`.
-        Needs `Types`: `Story.app` and Runtime start call `compiledOf`, its only callers; `Broken.rule` is `R` from
-        `Machine<D, R>["rules"]` and the config's literals; `project` is the publication's and `read(ref)`'s restore;
+        Needs `Types`: `Story.app` and Runtime start call `compiledOf`, its only callers; `Broken.rule` is `R`, the ids
+        of the rule tokens of `Machine<D, N>["rules"]` and the config's literals; `RulesDiffer` is a `Types` row of
+        stage `story`, raised by `storyCompiled`; `project` is the publication's and `read(ref)`'s restore;
         `Finding.location` is shown by the CLI only.
 
         Unchanged here: the binding's attach and detach, its channel rules, the lock rules of the browser tier and
         the test-tooling rules about `Fake` services; `Tab<T>` and `Dying` add only the trace codec rows.
         Tasks (no scope changed): @task.V3.T111 builds publication, the binding and the edge with its three changed
         cells; @task.V3.T112 owns the world (tabs, death, locks fake), the one store and the mutation applier;
-        @task.V3.T114 owns the verdict, the judge, `propertyTest` and the CLI table; @task.V3.T97 owns the sweep,
-        the generator, `seam.ts`, the reach flags and the Story helper type names; @task.V3.T117 owns the cost rows;
-        @task.V3.T27 owns the real lock and `pageshow`; @task.V3.T30 owns emit delivery in React; @task.V3.T127 owns
-        emits at the root.
+        @task.V3.T114 owns the verdict with the machine-rule fold, `storyCompiled`, `propertyTest` and the CLI
+        table; @task.V3.T97 owns the sweep, the generator, `seam.ts`, the reach flags and the Story helper type
+        names; @task.V3.T117 owns the cost rows; @task.V3.T27 owns the real lock and `pageshow`; @task.V3.T30 owns
+        emit delivery in React; @task.V3.T127 owns emits at the root.
 
 rules
     quiet    A reader (publish, capture, hide) takes a `Quiescent`; no code path builds one but `quiescent`
@@ -937,6 +988,8 @@ rules
              batch that carried it
     death    One occasion, one fate word for every `Held` batch of the dead open; the Dying window runs no task
     verdict  One function of the finished run; `run()` resolves only on `passed`; the unjudged runner is internal
+    judged   Rules are judged only by `verdictOf`, over the finished evidence, in Story routes that start through
+             `storyCompiled`; no Runtime, driver or `app()` reads a rule
     throw    A throw in a listener, an emit listener or a rule check changes only its own check
     cost     Counters and cursors owned by the fake world, written where the fact is written
     inbox    A ring index, not `Array.shift`; the clock settle a ring index and a cancelled-set
@@ -964,7 +1017,8 @@ realization typescript
         `PublicationDrift` (tests only): O(identities x snapshot) per quiet slice in Story runs; at checkpoints only in
             generated and stress runs.
         hide: O(owed mail) to drain, then the capture.
-        the judge: O(records x rules placed at the actor's state), from `Compiled` indexes.
+        the machine-rule fold: O(records x rules placed at the actor's state), once per run, over the evidence, from
+            the rule sets' per-state index built once by `storyCompiled`.
         generator, per pull: O(1) (today O(E x K) at `generate.ts:512`, `fake.ts:475`, and an O(B) eager view): counters
             in the fake, a lazy view; arming is gone.
         generated run: O(S) (today O(S^2 x E)).
@@ -983,21 +1037,21 @@ realization typescript
         object per changed actor; nothing per step on the host beyond today's evidence batch.
 
 coverage
-    @R1    enforced_by [@I1, @I7]                      open_by [@Q1, @Q4, @Q11]
-    @R2    enforced_by [@I2, @I3, @I6]                 open_by [@Q1, @Q2]
-    @R3    enforced_by [@I4]                           open_by [@Q1]
-    @R4    enforced_by [@I5]                           open_by [@Q1]
-    @R5    enforced_by [@I11]                          open_by [@Q1, @Q3]
-    @R6    enforced_by [@I8, @I9, @I10, @I19, @I20]    open_by [@Q1, @Q10]
-    @R7    enforced_by [@I12]                          open_by [@Q1, @Q7]
-    @R8    enforced_by [@I13, @I15, @I23]              open_by [@Q1]
-    @R9    enforced_by [@I17, @I23]                    open_by [@Q1]
-    @R10   enforced_by [@I18]                          open_by [@Q1]
-    @R11   enforced_by [@I14]                          open_by [@Q1, @Q12]
-    @R12   enforced_by [@I21]                          open_by [@Q1]
-    @R13   enforced_by [@I22]                          open_by [@Q1]
-    @R14   enforced_by [@I16]                          open_by [@Q1, @Q12]
-    @R15   enforced_by [@I24]                          open_by [@Q1, @Q5]
+    @R1    enforced_by [@I1, @I7]                        open_by [@Q1, @Q4, @Q11]
+    @R2    enforced_by [@I2, @I3, @I6]                   open_by [@Q1, @Q2]
+    @R3    enforced_by [@I4]                             open_by [@Q1]
+    @R4    enforced_by [@I5]                             open_by [@Q1]
+    @R5    enforced_by [@I11]                            open_by [@Q1, @Q3]
+    @R6    enforced_by [@I8, @I9, @I10, @I19, @I20]      open_by [@Q1, @Q10]
+    @R7    enforced_by [@I12]                            open_by [@Q1, @Q7]
+    @R8    enforced_by [@I13, @I15, @I23, @I25, @I26]    open_by [@Q1]
+    @R9    enforced_by [@I17, @I23]                      open_by [@Q1]
+    @R10   enforced_by [@I18]                            open_by [@Q1]
+    @R11   enforced_by [@I14]                            open_by [@Q1, @Q12]
+    @R12   enforced_by [@I21, @I26]                      open_by [@Q1, @Q13]
+    @R13   enforced_by [@I22]                            open_by [@Q1]
+    @R14   enforced_by [@I16]                            open_by [@Q1, @Q12]
+    @R15   enforced_by [@I24]                            open_by [@Q1, @Q5]
 
 tests
     T1  Levels. (1) The executable model: the three tables (publication, edge, tabs) as plain functions, every sequence 
@@ -1049,11 +1103,14 @@ tests
             throws and rejects `run()` (`RuleThrew` names the rule); a refused batch drops its marks (I9); the death
             leaves the `pagehide` batch landed under abort (the Story's abort ending); a dead open's answer delivered
             (I11); `run()` returns on a break (the leak Stories); `verdictOf` skips `expectBroken`'s never-broke (I14);
-            `propertyTest` stops at the first failing seed (I16 with a rule broken only at the last seed); the judge
-            calls an `off` rule (I13 with a check that throws); a waiting batch with no ticket and no `at` (I20); a
-            throwing rule reported as the expected break (I21: `RuleThrew` names the rule); a memo kept for an identity
-            `snapshotIn` returns `none` for (I24: `getSnapshot` of it is not `none`).
-            [@I1, @I2, @I3, @I4, @I9, @I11, @I13, @I14, @I16, @I19, @I20, @I21, @I24]
+            `propertyTest` stops at the first failing seed (I16 with a rule broken only at the last seed); the
+            machine-rule fold calls an `off` rule (I13 with a check that throws); a waiting batch with no ticket and no
+            `at` (I20); a throwing rule reported as the expected break (I21: `RuleThrew` names the rule); a memo kept
+            for an identity `snapshotIn` returns `none` for (I24: `getSnapshot` of it is not `none`); a Story route
+            that starts without `storyCompiled` (a sweep fork with no `RulesDiffer` check, I25); two builds of one id
+            in one run, or a bare value beside its ruled form, not refused (I25); a ruled value's terminals not proved
+            at Story start (I25: a `TerminalLeft` Story); a driver that holds a `last` map or emits `RuleBroken` (I26).
+            [@I1, @I2, @I3, @I4, @I9, @I11, @I13, @I14, @I16, @I19, @I20, @I21, @I24, @I25, @I26]
     T9  Fixtures. Transfers' `hideFlush` and `hiddenRefusing` (`fixtures/transfers/stories/visibility.ts:30-103`: hide 
         issues once; a refused hidden batch retries at once, a single time); `tests/stories/storage.test.ts:58-80` and
             `tests/write-lanes/payment-leave-and-reload.test.ts:184-216` (abort gives CARD with no charge, land gives

@@ -968,9 +968,10 @@ composition
         Needs `Host`: the derived rows of `Types`; `Compiled.slots`, `fragments`, `emits`, `props` and the indexes of
         `realization`; how a view addresses a fragment's public event (`Mail.Event.at`, `Host` Q6); `onEmit`, `setProps`
         and props at `Create`; the public face of `Published.incarnation` and the publication built from it; the
-        judge reading `turnsOf` and `Finished`; the Story clock on `Tick`; the host's Owner per scope; a hydration
-        as a `Begin` from a record; the host's publication calling `src/host/emits.ts` once per publishing slice.
-        Needs `Types`: the derived rows of `realization` (types), `derive.ts` and body capture.
+        machine-rule fold in `verdictOf` reading the run's evidence (`Turn` and `Finished`; `Host`); the Story clock on
+        `Tick`; the host's Owner per scope; a hydration as a `Begin` from a record; the host's publication calling
+        `src/host/emits.ts` once per publishing slice.
+        Needs `Types`: the derived rows of `realization` (types), `derive.ts` (no body capture, `Types` Q19).
         Lazy features (@task.V3.T48) are not designed here (Q7).
 
 rules
@@ -1031,7 +1032,8 @@ realization typescript
         its scope and its host's lists only when it notified; the wave is skipped when the committed state and root
         memory are the same objects as before [proposed, Q9].
 
-    Types. Each fact has one source, the declaration; `Host` and `Types` own the means (`derive.ts`, body capture).
+    Types. Each fact has one source, the declaration; `Host` and `Types` own the means (`derive.ts`; no body
+        capture, `Types` Q19).
         props: `definition.props`; `props` in every callback of `model` (callback inputs); `Snapshot.props`; the patch
             of `setProps`: all `PropsOf<D>`
         an emit's name and payload: `emits` of the root and each fragment; `emits.X.from`'s return; the handler tree

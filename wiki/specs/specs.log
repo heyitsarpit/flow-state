@@ -711,3 +711,17 @@ note 2026-11-21T21:38:35Z
 
 note 2026-11-21T21:50:11Z
     Types Q19: exactness is option C, final (the user, 2026-11-22), after the capture-free type spike.
+
+note 2026-11-21T22:41:22Z
+    Types: rules attach by chained .rules(build) (R9, RuleTyping); Q2, Q17, I12, I13 edited; Q3, Q5, Q6, Q19 text, R2,
+    I2, G3 superseded; no body capture, CHECKS gains RulesEmpty, RulesWrongSubject, RulesDiffer (stage story),
+    RulesBypassed (the user, 2026-11-22; @proposal.external-rules).
+
+note 2026-11-21T22:41:22Z
+    Host: machine rules judged only by verdictOf over finished evidence via storyCompiled; live judge, last map,
+    RuleBroken, Runtime rules switch cut; R8, R12, RuleSources superseded; Story option runRules; Q13 added (the user,
+    2026-11-22).
+
+note 2026-11-21T22:41:23Z
+    Changes and Operations: pointers to the machine-rule fold in verdictOf and to no body capture; no rule changed (the
+    user, 2026-11-22).

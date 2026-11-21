@@ -1,7 +1,8 @@
 # Types: companion to the Spec
 
 **Bottom line:** every type user code sees is a row of one type-only module, `derive.ts`, computed from the
-definition; the body is captured exactly and gives the machine only what the body alone authors, its rule names. This
+definition; the body is not captured (exactness is checked at construction and by `flow check`) and gives the machine
+nothing; its rule names come from a chained `.rules(build)`. This
 file holds what does not fit @spec.Types: the walkthrough, the problem classes, the principle ledger, the fit to
 today's code, the seams, the questions with their before and after, the open holes and the process notes. The Spec is
 pre-coding analysis, to be followed as best-guess guidance and revised whenever building shows it wrong
@@ -16,7 +17,8 @@ core at three named functions and nowhere else. Construction never throws for a 
 
 ```ts
 // existing: definition, machine, Flow.initial, Schema, Schedule, S, E, on, default, states, send, schedule, keys
-// NEW: `schedules` on the definition (key, pausedBy, restartOn); `rules` and `turn` in the body; no Flow.keyed
+// NEW: `schedules` on the definition (key, pausedBy, restartOn); `.rules(build)` with `turn` in its builder;
+// no `rules` in the body; no Flow.keyed
 // user-defined: Toaster, ToasterMachine, brown, idle, LidOpen, Drop, Pop, Browned, Ping, NeverOverFour, PopKeepsSlots
 export const Toaster = definition({
   id: "Kitchen/Toaster",
@@ -30,7 +32,7 @@ export const Toaster = definition({
   },
 });
 
-export const ToasterMachine = machine(Toaster, ({ S, E, turn }) => ({
+export const ToasterMachine = machine(Toaster, ({ S, E }) => ({
   default: S.IDLE,
   on: { Drop: S.TOASTING.LIGHT, Pop: S.DONE, Browned: S.DONE, Ping: S.IDLE },
   states: {
@@ -48,11 +50,10 @@ export const ToasterMachine = machine(Toaster, ({ S, E, turn }) => ({
       },
     },
   },
-  rules: {
-    invariants: { NeverOverFour: { in: S.TOASTING, check: ({ memory }) => memory.slots.length <= 4 } },
-    turns: { PopKeepsSlots: turn({ on: E.Pop, check: ({ before, after }) => after.memory === before.memory }) },
-    terminals: [S.DONE],
-  },
+})).rules(({ S, E, turn }) => ({
+  invariants: { NeverOverFour: { in: S.TOASTING, check: ({ memory }) => memory.slots.length <= 4 } },
+  turns: { PopKeepsSlots: turn({ on: E.Pop, check: ({ before, after }) => after.memory === before.memory }) },
+  terminals: [S.DONE],
 }));
 ```
 
@@ -67,7 +68,7 @@ Followed through:
 - **A Story step:** `story.send(toaster, Toaster.E.Drop({ slot: "a" })).checkpoint("browning")`, then
   `run.checkpoints.browning.read(toaster).schedules.brown`; `.rules({ expectBroken:
   [ToasterMachine.rules.NeverOverFour] })` compiles and `ToasterMachine.rules.NeverOverFor` does not. The rule names
-  are the one fact that comes from the body.
+  are the one fact that comes from `.rules(build)`; a value with no `.rules(...)` has none.
 - **`flow check`:** nothing targets `TOASTING.DARK`, so it prints
   `warning StateUnreachable Kitchen/Toaster states.TOASTING.states.DARK` with `toaster.ts (export ToasterMachine)` and
   exits 0. Change `idle`'s delay to `"-5 minutes"`: `machine()` does not throw; the machine is `Refused`, `flow check`
@@ -77,8 +78,8 @@ Followed through:
 
 The block compiled as written, with no annotation, on one merged copy of the real package, and every bullet's type
 claim was asserted two-sided there (a scratch spike, not kept). The `flow check` bullet is design: no `check` command
-exists today. On a machine that is not `Built` the `rules` record is empty at run time although its type names the
-rules; every reader of a rule token is a Story or a setup, which raises first (Spec `open`, Q17).
+exists today. `.rules(build)` reads only the definition and the build, so a machine that is not `Built` still
+hands out its rule tokens (Spec `open`, Q17, edited by the user's 2026-11-22 decision, @proposal.external-rules).
 
 ## 2. Required properties, in user terms
 
@@ -101,7 +102,7 @@ rules; every reader of a rule token is a Story or a setup, which raises first (S
 | Family                                                          | Members                                                                                                                                                                                 | Handling                                                                                                                                                                    |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A. A fact with two sources                                      | body-only schedule names, keys, reasons; `restartOn` as `unknown`; 42 annotated mappers, 32 hand-typed parameters, about 20 restated types; `Timers`, `ScheduleKey`, two metadata types | **Removed:** a fact read outside the body is declared on the definition; every reader type is a `derive.ts` row; no second declaration site exists                          |
-| B. The body is checked and dropped                              | excess keys compile (`excess-keys.test-d.ts:69,93,99,104`); `gaurd`, `pausd`; rule names unreachable                                                                                    | **Removed:** `B & Exact<B, MachineBody<D>>`; an unknown key has type `never`                                                                                                |
+| B. The body is checked and dropped                              | excess keys compile (`excess-keys.test-d.ts:69,93,99,104`); `gaurd`, `pausd`; rule names unreachable                                                                                    | **Refused at run time:** the strict decode and `flow check` (Q19, option C); no `Exact`. Superseded: `B & Exact<B, MachineBody<D>>`, an unknown key of type `never`         |
 | C. An erased type restored in many places                       | 17 erasure casts in 9 files; 38 disables at HEAD                                                                                                                                        | **One point each:** three crossings, `door`, `slot`, `project`; not removed, since each is a cast                                                                           |
 | D. Wide where Flow holds the name                               | `pausedBy: string[]`, `owed[].reason`, evidence names as `string`, `rules` as text                                                                                                      | **One point:** public types are assembled only in `derive.ts`; a lint row refuses a wide name in an exported signature. Members not yet rows are debt (Spec Q16)            |
 | E. A construction failure is a throw                            | first finding only (`error.ts:124`); body throw; the other machines of the module lost; 5 walks to refuse                                                                               | **One point:** authoring doors return a value, `Built`, `Refused` or `Blocked`; only `compiledOf` raises for a finding. Not removal: a signature cannot forbid a throw      |
@@ -141,13 +142,13 @@ handed to `Host`, 1 deleted by `Operations` (`contract.ts:246`).
 
 | Code                                                                                                        | Verdict      | After                                                                                                       |
 | ----------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| `machine.ts` `Parts`, `BodyOf`, `MachineBody`                                                               | change       | move to `derive.ts`; `ExactBodyOf`, `RuleNames`; callers: `machine`, `tests/types/*`                        |
+| `machine.ts` `Parts`, `BodyOf`, `MachineBody`                                                               | change       | move to `derive.ts`; no `ExactBodyOf`, no `RuleNames` (Q19); callers: `machine`, `tests/types/*`            |
 | `machine.ts#machine` (271-426)                                                                              | change       | table `Construction`; returns `Construction`; one decode; callers: every fixture machine, `tests/compile/*` |
 | `machine.ts:125` `decodedOf`, `:172` `erasedBody`                                                           | delete       | the decode's result (`Crossings`)                                                                           |
 | `machine.ts:131` `erasedWhen`                                                                               | delete       | `slot`                                                                                                      |
 | `machine.ts:167` `trustedTokens`                                                                            | delete       | the door: tokens are erased inside                                                                          |
 | `machine.ts:176` `handled`                                                                                  | delete       | `handledTags`                                                                                               |
-| `definition.ts` `Definition`, `AnyDefinition`, `Machine`                                                    | change       | `Sch`, `schedules`, `findings`; `Machine<D, R>`; callers: `setup.ts:23` (checked), `snapshot.ts`, `refs.ts` |
+| `definition.ts` `Definition`, `AnyDefinition`, `Machine`                                                    | change       | `Sch`, `schedules`, `findings`; `Machine<D, N>`; callers: `setup.ts:23` (checked), `snapshot.ts`, `refs.ts` |
 | `definition.ts:563` `treeOfDefinition`                                                                      | change       | the tree is stored on the definition; one caller left                                                       |
 | `tokens.ts:223-352` `ScheduleKey`, `ScheduleParts`, `KeyedConfig`, `KeyedSchedule`, `Erased*`               | delete       | `DeclaredSchedules`                                                                                         |
 | `tokens.ts:228` and `compiled.ts:205` two metadata types                                                    | change       | one `ScheduleMetadata`, `key` from the declaration                                                          |
@@ -171,7 +172,7 @@ handed to `Host`, 1 deleted by `Operations` (`contract.ts:246`).
 | `construction.ts`, `operation-checks.ts`, `core/well-formed.ts`                                             | change       | their findings become `construction` rows of `CHECKS`; no `refuse` in them                                  |
 | `entry.ts:45` `wrapped as F`                                                                                | keep         | the `door` cast                                                                                             |
 | `handles.ts:29` `erase`                                                                                     | keep         | renamed `slot`; the only caller of a Slot                                                                   |
-| `core/compiled.ts` `Compiled`, `Node`, `Schedule`                                                           | change       | brands, `schedules`, `rules`, `saved`, the derived fields; not generic                                      |
+| `core/compiled.ts` `Compiled`, `Node`, `Schedule`                                                           | change       | brands, `schedules`, `saved`, the derived fields; no rules; not generic                                     |
 | `core/tree.ts#chainOf`, `leafOf`                                                                            | delete       | `Node.chain`, `Node.leaf` (28 uses of `chainOf` in `src`, 8 inside `tree.ts`)                               |
 | `core/tx.ts:68` `branded`                                                                                   | keep         | the mint                                                                                                    |
 | `core/tx.ts:168` `draft`; `:380` mailbox                                                                    | keep; delete | `draft` stays, the mailbox cast goes (`Changes`)                                                            |
@@ -229,17 +230,17 @@ uses), `leafOf`, `declaredOn`, the arming scans, `findIndex` at `schedule-plan.t
 - `Host` takes:
   - `findingsOf(app)` and `compiledOf(app)`: a Story's `run()` and a Runtime start call `compiledOf`; a verdict never
     sees a machine that is not `Built`;
-  - `Compiled.rules` and `Machine<D, R>["rules"]`: `RuleBroken.rule` is `R`; whether rules are judged is the Runtime
-    setup's option, always on in Stories and the CLI (Q5);
+  - the rule tokens of `Machine<D, N>["rules"]`: `Broken.rule` is over their ids; rules are judged only by Story
+    tooling, never by a Runtime (Q5); `RulesDiffer` is a `story`-stage row that `storyCompiled` raises;
   - `project` as the one outward restore: `read(ref)`, the host's publication and inspection all call it; the eight
     test-tooling casts of the fit table;
   - `EvidenceOf<D>`: the public face of `Published` and `Turn` and a fragment's public event address are rows `Host`
     fills by the `Derivation` rule;
   - `Finding.location` and the source adapter (Q7); the CLI's result table with `Loading`'s rows;
   - the generators and mutation tooling `Records` and `Operations` handed to the test tooling.
-- Tasks (no scope changed here): @task.V3.T113 builds the body capture first and takes the type sections as its
-  acceptance, with the two spikes of Q12 as its first rows; the declared-schedules runtime half is @task.V3.T120 and
-  `DeclaredSchedules` is its content; @task.V3.T106 takes `BodyCapture`'s rules; @task.V3.T22 takes
+- Tasks (no scope changed here): @task.V3.T113 builds `derive.ts` with `Parts` moved, no body capture, and takes the
+  type sections as its acceptance, with the two spikes of Q12 as its first rows; the declared-schedules runtime half
+  is @task.V3.T120 and `DeclaredSchedules` is its content; @task.V3.T106 takes `RuleTyping`; @task.V3.T22 takes
   `ConstructionValue`, `FindingShape`, `Loading` and the walk of Q12.
 
 ## 8. The developer's walk (types only)
@@ -247,7 +248,7 @@ uses), `leafOf`, `declaredOn`, the arming scans, `findIndex` at `schedule-plan.t
 Twelve apps and the two shared services were read against the designs. What this Spec changes for them: keyed
 schedules become declared (`home`); `key.id` is typed, so `key["id"] ?? ""` goes; `(e: Declined)` mapper annotations
 go (`transfers`); a machine that refers to itself (`player`, `sync`) keeps its `Machine<typeof X>` annotation and
-costs the rule tokens, a stated limit. Gaps this Spec answers:
+costs the rule tokens, a stated limit (`Machine<D>` has no `N`). Gaps this Spec answers:
 
 - **Hoisted callbacks.** Every app hoists helpers out of the body and types their argument by hand
   (`number-input/machines/stepper.ts`, `shop/machines/cart.ts`, `home/machines/room.ts`, `sync/machines/mirror.ts:38`).
@@ -281,22 +282,23 @@ accepted answer.
    //                    starting a Runtime from its setup, or running a Story, raises one FlowError
    //                    that holds every finding of the app
    ```
-2. **`Machine<D, R>`'s default for `R`.** A: `never`, so `M.rules.Typo` on an annotated machine is an error. B:
-   `string`, so it is `RuleToken | undefined`. Both compiled.
+2. **`Machine<D, N>`'s default for `N`.** A: `never`, so `M.rules.Typo` on an annotated machine is an error. B:
+   `string`, so it is `RuleToken | undefined`. Both compiled. Edited by the user's 2026-11-22 decision
+   (@proposal.external-rules): the parameter was `R`, read from the body; it is `N`, from `.rules(build)`.
 
    ```ts
-   // A: const M: Machine<typeof Def> = machine(Def, body); M.rules.Typo   // a type error
+   // A: const M: Machine<typeof Def> = machine(Def, body); M.rules.Typo   // a type error (N is never)
    // B: the same line: M.rules.Typo is RuleToken | undefined
    ```
-3. **The body gives the machine's type only its rule names; `turn` is a body token.** A: as `BodyCapture`. B: an
-   imported `Flow.turn` (compiles too, but its memory type rests on the surrounding record). The earlier snippet
-   without the conditional is corrected: the conditional is required and `const` is inert.
+3. **`turn` is a token of the rules builder, not of the body.** [decided: user 2026-11-22] A: `.rules(({ S, E, turn })
+   => ...)`. B: an imported `Flow.turn` (compiles too, but its memory type rests on the surrounding record).
+   Superseded by the user's 2026-11-22 decision (@proposal.external-rules): "the body gives the machine's type only
+   its rule names; `turn` is a body token" (A: as `BodyCapture`), with its `machine<D, const B>` snippet (commit
+   1c200671). Why: the memory type comes from the definition, which `.rules` has. Reverse: `turn` a body token.
 
    ```ts
-   // earlier: machine<D, const B>(definition: D, body: B & Exact<B, MachineBody<D>>)
-   // after:   machine<D, const B extends MachineBody<D> = MachineBody<D>>(
-   //            definition: D, body: ExactBodyOf<NoInfer<D>, B>): Machine<D, RuleNames<B>>
-   //          ExactBodyOf<D, B> = [D] extends [AnyDefinition] ? (tokens) => B & Exact<...> : never   // required
+   // before: machine(Def, ({ S, E, turn }) => ({ on: {...}, rules: { turns: { X: turn({ on: E.Pop, check }) } } }))
+   // after:  machine(Def, ({ S, E }) => ({ on: {...} })).rules(({ S, E, turn }) => ({ turns: { X: turn({...}) } }))
    ```
 4. **Every declared pause reason has a callback in every placement.** A: required. B: optional; then `pausedBy` may
    name a reason that can never hold at that placement. Both compile.
@@ -311,22 +313,26 @@ accepted answer.
    plain CLI `import.meta.env` is undefined, the body throws and the machine is refused. A: rules are always in
    `Compiled`; the Runtime setup chooses whether to judge; Stories and the CLI always judge; the list moves out of
    `flow.config.ts` into a module the config imports, because the config already imports every Story. B: keep
-   `enabled` as a plain boolean the user computes.
+   `enabled` as a plain boolean the user computes. Superseded by the user's 2026-11-22 decision
+   (@proposal.external-rules): rules are not in `Compiled` and the Runtime has no `rules` option; only Story tooling
+   judges, and the Story option is named `runRules`.
 
    ```ts
    // today:  tests/rules/rules.ts exports the rule list and imports the test runner; flow.config.ts has no rules
    //         Story.app(setup, { id, fixtures, world })                                    // existing
    // before: rule({ enabled: import.meta.env.DEV, ... })           // proposed earlier; throws under the plain CLI
-   // after:  runtimeSetup({ app, rules: "judge" })                  // NEW option: "judge" | "off"
+   // after:  runtimeSetup({ app, rules: "judge" })                  // superseded: no Runtime option (2026-11-22)
    //         export const rules = [...]                             // tests/rules/list.ts, no test-runner import
-   //         Story.app(setup, { id, fixtures, world, rules })       // NEW field; the config imports the same value
+   //         Story.app(setup, { id, fixtures, world, runRules })    // NEW field (was `rules`); the config's value
    ```
-6. **Terminals are proved by `flow check` only, as `TerminalLeft`.** A: no run-time terminal rule exists, so
-   `RuleBroken` never names a terminal. B: also judge at run time. Keeps the decided "proved, not judged by runs".
+6. **Terminals are proved by `flow check`, as `TerminalLeft`, and again when a Story starts.** A: no run-time
+   terminal rule exists, so a break never names a terminal. B: also judge at run time. Keeps the decided "proved, not
+   judged by runs". Superseded by the user's 2026-11-22 decision (@proposal.external-rules): "by `flow check` only"; a
+   value only a test runs is otherwise never proved (Spec Q6).
 
    ```ts
    // before: a run rule also reports RuleBroken for a left terminal
-   // after:  `flow check` prints TerminalLeft; no run-time rule names a terminal
+   // after:  `flow check` prints TerminalLeft, and Story start proves each ruled value's terminals once
    ```
 7. **Source locations: the CLI's adapter, resolving file and export by identity, the line when it can.** A:
    `discover` knows which module exported which machine; the adapter adds the line by reading that file along the
@@ -358,41 +364,45 @@ accepted answer.
 
 ## 10. Open holes
 
-| Id  | Severity | Hole                                                                                                                                                     | Why open                                       |
-| --- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| H1  | medium   | Only one new definition was compiled end to end; no real fixture was migrated to declared schedules (the `home/Room` migration was not reached)          | time                                           |
-| H2  | medium   | Not compiled: `AnyBody`'s `on` handlers at `never`; `Bound<"read">` without `concurrency`; `refs.ts:60`'s recorded limit; `R` when `B` takes its default | time; the first spike of Spec Q12              |
-| H3  | high     | The rows of `Changes` (props, emits, fragments, slots, `Reads<D, Scope, View>`), `EvidenceOf<D>`, G5 to G8 are designed by rule only; nothing compiled   | the code they type does not exist yet          |
-| H4  | medium   | `RefMapsOf` over `Records`' real shapes, so `RefRows` totality, is unproved; only the mapped-type mechanism compiled                                     | `Records`' shape types are not in code         |
-| H5  | medium   | The full derivation's check cost with every fixture migrated; the JSON-form reuse of the construction cost; construction has no bench                    | needs the fixture migration                    |
-| H6  | medium   | Family D's members not yet rows: `owed[].reason`, `Ended.reason`, `decline`'s `why`, the Story checkpoint names                                          | not inventoried against `derive.ts` one by one |
-| H7  | low      | The source adapter's algorithm (module of an export, line along a path)                                                                                  | not spiked                                     |
-| H8  | high     | A definition with a finding must still hand out every token: which of today's definition findings allow that was not walked, and Q1 A depends on it      | the definition's finding list was not walked   |
-| H9  | low      | Rule tokens are typed on a machine that is not `Built`, where the record is empty; bounded by `Loading`, not removed                                     | accepted as a stated limit                     |
+| Id  | Severity | Hole                                                                                                                                                   | Why open                                       |
+| --- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| H1  | medium   | Only one new definition was compiled end to end; no real fixture was migrated to declared schedules (the `home/Room` migration was not reached)        | time                                           |
+| H2  | medium   | Not compiled: `AnyBody`'s `on` handlers at `never`; `Bound<"read">` without `concurrency`; `refs.ts:60`'s recorded limit                               | time; the first spike of Spec Q12              |
+| H3  | high     | The rows of `Changes` (props, emits, fragments, slots, `Reads<D, Scope, View>`), `EvidenceOf<D>`, G5 to G8 are designed by rule only; nothing compiled | the code they type does not exist yet          |
+| H4  | medium   | `RefMapsOf` over `Records`' real shapes, so `RefRows` totality, is unproved; only the mapped-type mechanism compiled                                   | `Records`' shape types are not in code         |
+| H5  | medium   | The full derivation's check cost with every fixture migrated; the JSON-form reuse of the construction cost; construction has no bench                  | needs the fixture migration                    |
+| H6  | medium   | Family D's members not yet rows: `owed[].reason`, `Ended.reason`, `decline`'s `why`, the Story checkpoint names                                        | not inventoried against `derive.ts` one by one |
+| H7  | low      | The source adapter's algorithm (module of an export, line along a path)                                                                                | not spiked                                     |
+| H8  | high     | A definition with a finding must still hand out every token: which of today's definition findings allow that was not walked, and Q1 A depends on it    | the definition's finding list was not walked   |
+| H9  | low      | Rule tokens on a machine that is not `Built`: closed by the move to `.rules(build)`, which reads only the definition (Q17)                             | edited 2026-11-22                              |
 
 Where each hole goes: H2 and H8 are the first acceptance rows of @task.V3.T113 and @task.V3.T22, and H8's per-finding
 answer is a build-time choice in @task.V3.T113's description; H1, H3, H5 and H6 are build rows of @task.V3.T113
 (Spec Q13, Q15, Q16); H4 is proved when `Records`' shapes are code (@task.V3.T92, Spec Q14); H7 is spiked with the
-source adapter; H9 is a stated limit (Q17). The Spec's open section carries each as Q12 to Q17.
+source adapter; H9 is closed (Q17, edited by the user's 2026-11-22 decision). The Spec's open section carries each
+as Q12 to Q17.
 
 ## 11. Process notes
 
 - **What went wrong:** typing was done per seam after the feature, so body-only facts were never in scope; three
   spikes called a shape problem a TypeScript limit; new facts arrived wide the day after the sweep; `today` pins
   passed while the gap stayed.
-- **How to build this Spec:** (1) body capture and `derive.ts` with `Parts` moved, the 41 `Machine<typeof X>`
-  assertions updated, check time recorded; (2) the declaration's runtime half and `Compiled.schedules`, then the
+- **How to build this Spec:** (1) `derive.ts` with `Parts` moved, no body capture (Q19), the 32 `Machine<typeof X>`
+  assertions unchanged, check time recorded; (2) the declaration's runtime half and `Compiled.schedules`, then the
   schedule types and the fixture migration off `Flow.keyed`; (3) construction as a value with the 96-cell table as
   the first failing check, before any CLI work; (4) the three crossings, driven by the cast-count test going from 38
-  to its list; (5) `indexOf`, each field landing with its reader's change and the I10 comparison; (6) rules.
+  to its list; (5) `indexOf`, each field landing with its reader's change and the I10 comparison; (6) `.rules(build)`
+  (@task.V3.T106).
 - **First failing checks:** the 13 type patches; the two pins at `schedules.test-d.ts:58,297` inverted; the
   cast-count test; the 96 cells.
-- **Where a review pays:** after step 1 (does anything else want to ride on `B`?) and after step 3 (every
+- **Where a review pays:** after step 1 (does the `Parts` move leave every reader a row?) and after step 3 (every
   module-level constructor in the fixtures, checked for a raise).
 - **Migration cost seen in the copy:** 41 compile errors in type tests that assert `machine()` returns exactly
   `Machine<typeof X>`, and `fixtures/sync/stories/structure.ts:61`, whose planted wrong body becomes a type error and
-  needs `@ts-expect-error`. The 46 failing fixtures of the copy are the `Flow.keyed` uses.
+  needs `@ts-expect-error`. The 46 failing fixtures of the copy are the `Flow.keyed` uses. Both costs were of the body
+  capture; superseded by the user's 2026-11-22 decision (Q19): `machine()` returns `Machine<D>`, the 32 assertions stay
+  valid and the planted body still compiles, so the Story's refusal is the runtime one.
 - **Rule for later features:** a feature's design names its declared part, its `Parts` field and its rows before
   code; a type spike that reports a limit lists the shapes tried and is re-run by someone else.
 - **Prior art, unverified:** XState v5 `setup` and Effect Schema's `Type` are the shapes `Derivation` and
-  `BodyCapture` follow.
+  `RuleTyping` follow.
