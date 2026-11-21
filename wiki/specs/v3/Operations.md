@@ -259,7 +259,7 @@ delayed retry is a machine schedule (2026-11-21); `InvariantViolation` (2026-11-
    // after:  that line is a type error; the fixtures' form stays (transfers/operations/writes.ts:17-20):
    //         Effect.timeoutOrElse({ duration: "30 seconds", orElse: () => Outcome.unknown(...) })
    ```
-6. **A made value's internals sit under a second registered symbol** (Q6). Confirm.
+6. **A made value's internals sit under a second registered symbol** (Q6). Answered by R10's user decision.
 
    ```ts
    // decided: Symbol.for("flow-state/Made") on a shared prototype, plus the owner compare

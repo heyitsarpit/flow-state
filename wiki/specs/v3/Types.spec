@@ -144,10 +144,16 @@ open
         is undefined, the body throws and the machine is refused. The run rules are one list in one module the config
         imports. Fits only with the same answer in `Host`. [proposed; recommend A]
         outcome  The user decides; B keeps `enabled` as a plain boolean the user computes.
+        reasoning  A: the trace above refuses a machine under the plain CLI, so a flag read in the body is not safe;
+            the switch at the Runtime edge is read once. B keeps the decided API but every app writes its own
+            environment read, and the CLI must stub it.
 
     Q6  Terminals are proved by `flow check` only, as the finding `TerminalLeft`; no run-time terminal rule exists, so 
         `RuleBroken` never names a terminal. [proposed; recommend A]
         outcome  The user decides; B also judges at run time.
+        reasoning  A: a graph proof covers every run, so a run-time judge can only repeat it; terminals then need no
+            token. B catches a terminal left through a path the proof over-approximates away, which cannot
+            happen: guards are treated as passable, so the proof is never short.
 
     Q7  Source locations come from the CLI's adapter, which resolves file and export by identity and adds the line by 
         reading that file along the definition path. [proposed; recommend A] The adapter's algorithm is not spiked.
@@ -345,6 +351,26 @@ model
         reasons: ReadonlyArray<Reason> }>`, built from the declaration, and each `Node`'s compiled schedule points at
         its entry. The restore decodes a saved key and baseline with these codecs, so a key whose Schema changed is
         dropped with a report (`Records`' reference rows), never routed to another timer.
+
+        The compiled `Schedule` is the record `Schedules`' `decide` and `wake` read; this Spec owns it.
+
+        ```ts
+        // CHANGED: core/compiled.ts#Schedule. RENAMED: paused -> reasons. NEW: codecs (the `Compiled.schedules` entry)
+        type Schedule = {
+            readonly name: ScheduleName;
+            readonly slot: SlotName;                       // existing: names the delay slot
+            readonly send: EventTag;
+            readonly from: Option<Slot<(metadata: FiringMetadata) => Values>>;   // existing: the send mapper
+            readonly delay: Delay;
+            readonly armOn: ReadonlyArray<EventTag>;
+            readonly disarmOn: ReadonlyArray<EventTag>;
+            readonly onEntry: boolean;                     // existing: "arms on entry" in `Schedules`' tables
+            readonly restartOn: Option<Slot<(input: ScheduleInput) => unknown>>;   // declared or not
+            readonly keys: Option<Slot<(input: ScheduleInput) => ReadonlyArray<Values>>>;   // keyed or not
+            readonly reasons: ReadonlyArray<{ reason: Reason; check: Slot<(input: ScheduleInput) => boolean> }>;
+            readonly codecs: { key: Option<Codec>; selection: Option<Codec> };   // the `Compiled.schedules` entry
+        };
+        ```
 
     BodyCapture = the body is captured exactly and gives the machine's type only its rule names.
 
@@ -698,8 +724,9 @@ composition
         and nothing else does; a verdict never sees a machine that is not `Built`.
         Offers `CHECKS`, `Reason` and `Finding`: `Operations`' `CATALOG.InvalidConfiguration.reasons` derives from
         them; every owner's rows join `CHECKS`.
-        Offers `project` and the evidence rows: the one outward restore; `EvidenceOf<D>` is the public face of
-        `Published` and `Turn`, with the declared schedule name, key and reasons.
+        Offers `project` and the evidence rows: the one outward restore; `EvidenceOf<D>` is the evidence the public
+        `Published<D>` and `Turn<D>` faces carry, with the declared schedule name, key and reasons; the faces are
+        `Host`'s.
         Offers `Compiled`'s schedules, rules, saved groups and derived fields as `model` says.
 
         What each other Spec must provide.

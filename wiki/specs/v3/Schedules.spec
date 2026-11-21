@@ -160,8 +160,8 @@ requirements
 open
     Q1  The input gate is proposed: `pass` keeps the identities of memory, context, props and lanes from its last run 
         and skips a schedule only when all are the same, the occasion carries nothing for it, it is not a `Wake` and no
-        timer of the schedule is `Refused`. It is a cache and lands only when the bench shows the reads matter. 
-            [proposed]
+        timer of the schedule is `Refused`. It is a cache and lands only when the bench shows the reads matter. This is
+        the gate's one home: `Changes` passes every scope that hears an occasion and builds no gate. [proposed]
         outcome  Land it with a bench row, or leave it out. Level 0 checks gated against ungated.
 
     Q2  A hidden page is proposed to be no use change in v1: no schedule row mentions it, timers keep their deadlines, 
@@ -217,7 +217,8 @@ model
         each reason: key, memory, context, props, lanes. Read on every occasion. By `Turn`, `Context`, `Lanes`; `Wake`
             re-reads.
         `restartOn`: key, memory, context, props. Read on `Turn` and `Context`, and on every occasion while it has no
-            baseline. By `Turn` (memory, props) and `Context`; after a `Wake` the owner raises `Context` if context or
+            baseline. By `Turn` (memory) and `Context` (context, props); after a `Wake` the owner raises `Context` if 
+                context or
             props differ.
         `schedule` (the delay): key, memory, context, props, now. Read at a start, and by `resume` at wake. Read once
             per start; no later change is tracked.
@@ -262,8 +263,9 @@ model
         ```
 
         Unwritable: an unkeyed schedule with two timers or a `keys` failure; two timers of one key; a timer armed and
-        refused, or held with no run; a baseline of unknown type; a stored schedule issue (`Incarnation.issues` holds
-        `StoredIssue`); a host timer id inside a timer; a timer built outside `schedule-decision.ts` (handled at one
+        refused, or held with no run; a baseline of unknown type; a stored schedule issue (`Incarnation.outcomes` holds
+        `Operations`' `StoredSource`, which has no `Schedule` member); a host timer id inside a timer; a timer built 
+            outside `schedule-decision.ts` (handled at one
         point, a brand and a lint rule); the state of an ended activation found under the current one.
         Still writable, guarded by one writer and I3: a `Held` run whose reasons are empty.
         Stored though derivable, a stated trade: `Stepping.output`, which a replay to `attempt` gives back in 
@@ -298,7 +300,7 @@ model
     OccasionTypes = the signatures, the occasions and the callback reads, in TypeScript.
 
         ```ts
-        // existing: decide, Occasion, Turn, Context, Lanes, Seen, Schedule
+        // existing: decide, Occasion, Turn, Context, Lanes, Seen. CHANGED: Schedule, the compiled record of `Types`
         // RENAMED: Fired -> Settled, Restore -> Wake, Reads -> ScheduleReads
         // NEW: wake, Env.mint, ScheduleReads.resume, Started, First, Next
         // CHANGED: Turn drops `exited`, renames `armed` to `started`; Firing carries `arming` and `next`; no `adds`
@@ -479,7 +481,8 @@ algorithm
         "Same" is one rule: equal canonical texts of the encoded selection (`realization`).
 
     Arming. The first row that matches wins. A start cause is any of: `Turn.started` is `Given`; table Selection said
-        restart; the timer is new and its schedule is keyed or arms on entry; the arming is `Refused` (on any occasion
+        restart; the timer is new and its schedule is keyed or arms on entry
+        (`Schedule.onEntry`); the arming is `Refused` (on any occasion
         its scope hears: a refused start is tried again every time). An instance's start is a creation: its bad delay
         is `Refused` with an issue and refuses no turn.
         A1  `Turn.disarmed`: delay not read; `arming` after `Idle`.
@@ -541,7 +544,7 @@ algorithm
             `none`; occasion `Turn`.
         state exited, instance end, reset's end, a copy leaves, actor end: drops the activation's entry, releases its
             armings; no occasion.
-        a committed turn of the actor (event, raise, ending, props, a firing's send): names what it disarmed and
+        a committed turn of the actor (event, raise, ending, a firing's send): names what it disarmed and
             started in each scope; `Turn`, for every live scope.
         context changed outside a turn; or, after a `Wake`, context or props differ from what the scope last heard:
             nothing; `Context`.
@@ -552,7 +555,8 @@ algorithm
             once; `Wake`, then `Context` by the rule above.
         [proposed] A hidden page is not a row (open item Q2).
         Re-entry is exit then entry: a new activation id, no `exited` flag, nothing to inherit. Asleep is not a timer
-        state: a frozen or unused scope keeps `Due(dueAt)`. Props are root-wide: a `Turn` for every scope. Lanes are not
+        state: a frozen or unused scope keeps `Due(dueAt)`. Props are root-wide and reach every awake scope as 
+            `Context`, never `Turn` (`Changes` R20). Lanes are not
         a row of the turn: they follow lane movement (code:packages/flow-state-v3/src/core/firings.ts#recheckLanes),
         so the turn walk's rule that a denied turn runs no later row does not conflict with the Plan's lane re-check.
         Scoped `armOn` and `disarmOn` are resolved by the walk in `Changes`; either answer gives the same inputs here.
@@ -627,7 +631,7 @@ composition
             keeps no issue memo.
         - **Offers** the `Schedule` alarm kind: the applier is the only writer of `Schedule` alarms, and it writes them
             through `Host`'s `tx.alarms`. The due order of the views orders `Schedule` alarms that share a deadline; the
-            order across kinds is `Host`'s.
+            order across kinds is `Changes`' (`tick`, its Q9).
         - **Offers** `selectionCodec`: Schema encode plus canonical text, with equality by that text. One rule: a value
             used as a key is encoded by its declared Schema, then made canonical text. This module's build defines it;
             `Operations` and `Records` adopt it for slots, props and `resetOn`.
@@ -644,7 +648,7 @@ composition
             call site of the `Context` after a `Wake`. Freeze clears alarms and changes no timer; the fragments' map 
                 holds
             `Scheduled`. A total scope order, the due index, and whether the loop guard bounds an endless series of zero
-            delays. Whether instance schedule names are scoped or machine-wide. A throwing `keys` or reason of a scope 
+            delays. A throwing `keys` or reason of a scope 
                 that
             ended in the same turn is never run (the turn walk resolves arms only for scopes that did not end).
         - `Records`. One format step for every schedule field at once; it reads no definition, while `wake` does. The
@@ -809,7 +813,8 @@ tests
         `tests/turn/schedule-sequences.test.ts`; 29 atoms, 24,389 rows plus the named rows. Catches the owner and the
             seams: the snapshot, the record, alarms, two schedules. Level 2: every 4-step sequence and seeded walks of 
                 12,
-            707,281 rows behind `FLOW_STRESS`. [@I6, @I9, @I11, @I12, @I17]
+            707,281 rows behind `FLOW_STRESS`. I9's alarm half is `Changes`' `alarmsMatch` (its T14), the one
+            alarm sequence check, run after every step. [@I6, @I9, @I11, @I12, @I17]
     T3  The alphabet, from the inventory. Every writer, occasion and callback input appears. Two instances: two keys of 
         `t`, and a second schedule `u`. An edited build stays in force for the rest of its row. Freeze and thaw share
             `Wake`'s rows. A build that fixes a delay, a next step past the limit and a delay that throws at a wake are
@@ -915,10 +920,10 @@ tests
                 ids and
                 not `dueAt`; I9, I5.
             `ties-by-insertion-order`: due order drops the key-text step; I5.
-            `schedule-issue-stored`, `timer-built-outside`: type pins: a `Schedule` source in `Incarnation.issues`; a
+            `schedule-issue-stored`, `timer-built-outside`: type pins: a `Schedule` source in `Incarnation.outcomes`; a
                 `Tracked` literal in another file; the types. [@I1, @I2, @I3, @I5, @I6, @I7, @I8, @I9, @I10, @I13]
     T7  Types. Type tests are two-sided (RT7): wrong-value probes for each fact of the realization; the pins for the 
-        `StoredIssue` and `Decided` brands; a `Tracked` literal outside `schedule-decision.ts` fails to compile. [@I8,
+        `StoredSource` and `Decided` brands; a `Tracked` literal outside `schedule-decision.ts` fails to compile. [@I8,
             @I14, @I16]
     T8  Bench. The build adds `turn.schedules.none`, `.one`, `.keyed-50` and a firing burst; the input gate lands only 
         on a measured result. [@I18]

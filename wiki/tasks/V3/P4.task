@@ -367,10 +367,10 @@ tasks
             Contradiction resolved: Read first and acceptance re-pointed from @spec.Reads to @spec.Operations; the
             mapper row now reads (value, { input, key }).
     T56
-        title       Durability: release versions, key fingerprints and record migration (slice 2b)
+        title       Durability: release versions, key fingerprints and record migration
         status      draft
         priority    high
-        blocked_by  [@task.V3.T20, @T57, @T92, @T21]
+        blocked_by  [@task.V3.T20, @T57, @T92, @T124]
         satisfies   [
                     @plan.Persistence.O5,
                     @plan.Runtime.O3,
@@ -385,7 +385,7 @@ tasks
 
             **Why now:** an upgraded release must reset or keep each saved record correctly, and a saved shape is
             defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields. It is blocked by
-            @task.V3.T21 because `resource({ persist: true })` writes a saved record format that this Task versions.
+            @task.V3.T124 because `resource({ persist: true })` writes a saved record format that this Task versions.
 
             **Read first:** @plan.Persistence.O5, @plan.Machines.O5 (paused), @convention.interaction-state. Spec:
             @spec.Records (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), companion `wiki/specs/v3/Records.md`;
@@ -415,8 +415,8 @@ tasks
             - The release-version Requirements of @spec.Records (R7, R13, R19) hold, shown by Story tests that reload
               across two releases of a fixture.
             - Each new rule has a planted fault that `nub run faults` catches.
-            - The version rules hold: keep or drop on a downgrade, a slot added by a later release (Turn R22), OpRenamed
-              and the undeclared-machine discard.
+            - The version rules hold: keep or drop on a downgrade, a slot added by a later release (silent at restore:
+              @spec.Records R15, the reference table's `slots` rows), OpRenamed and the undeclared-machine discard.
             - A dormant record that cannot be verified now (its machine or feature is not loaded) has an "unverifiable
               now" outcome, which @task.V3.T48 reads.
             - A format 5 record's timers restore through the one step 5 to 6 (@spec.Records R12; `TimerShape` by
@@ -505,6 +505,9 @@ tasks
             Contradiction resolved: description now gives this Task every key's fate, quarantine's exits included
             (@spec.Records R13), and T92 the codec; old cites re-pointed to @spec.Records; the timer row is the one step
             5 to 6.
+        comment     2026-11-21T19:40:57Z
+            Blocker re-pointed from T21 to T124 (the persist record format), so it runs after slice 6; Turn R22 mapped
+            to @spec.Records R15.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -674,6 +677,10 @@ tasks
             - Fixtures first (@convention.fixtures): this Task's rows of step 8 of @convention.fixture-catalog: the
               combobox in `kanban`, the tree in `draft` and the token input in `chat` gain the features, scenarios and
               sources of their rows; each scenario red before the build, and those cells marked used at the close.
+            - Correctness: each fixture is a whole app written the way a user would write it
+              (@convention.fixture-catalog); a Story tests each primitive, plus a Story of its wrong ending; a test runs
+              each Story; type tests show the primitives typed as a user expects (two-sided pins, no annotations in user
+              code); each new rule has a planted fault that `nub run faults` catches.
         comment     2026-11-20T13:01:57Z
             Breakdown review (orchestrator, 2026-11-20, R48): fixtures line names only this Task's rows of catalog step
             8: the combobox in kanban, the tree in draft and the token input in chat.
@@ -1297,10 +1304,9 @@ tasks
             Fake, with its own store, host and seed copies, against the Epic's "one runtime, one way to run it". T80's
             driver item (Actors R25) moved to the boundary Task.
 
-            **Read first:** @task.V3.T80 (its routed items, in its comments), @review.code-quality-review (section 4),
-            @review.code-quality-review-2 (section 5, A7), code:packages/flow-state-v3/src/host/testing/seam.ts. Spec:
-            @spec.Host (R8, I23), companion `wiki/specs/v3/Host.md`; @spec.Types (R15),
-            companion `wiki/specs/v3/Types.md`.
+            **Read first:** @task.V3.T80 (its routed items, in its comments), the two code-quality reviews' routed items
+            (cited in this Task's comments), code:packages/flow-state-v3/src/host/testing/seam.ts. Spec: @spec.Host (R8,
+            I23), companion `wiki/specs/v3/Host.md`; @spec.Types (R15), companion `wiki/specs/v3/Types.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -1368,6 +1374,9 @@ tasks
             [proposed] The reach flags cancelsAcknowledging and retainsUnknown
             (code:packages/flow-state-v3/fixtures/manifest.ts) have no row in @proposal.algo-host 6.10; this Task adds
             them (@proposal.algo-resolutions hole 7).
+        comment     2026-11-21T19:40:55Z
+            Sources moved out of the description: @review.code-quality-review (section 4) and
+            @review.code-quality-review-2 (section 5, A7).
 
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
@@ -2338,8 +2347,8 @@ tasks
             remove it everywhere (2026-11-20).
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
-            @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R9, R10, R13–R15,
-            I1–I4, I10, I12), companion `wiki/specs/v3/Types.md`.
+            @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R9, R10,
+            R13–R15, I1–I4, I10, I12), companion `wiki/specs/v3/Types.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2389,9 +2398,9 @@ tasks
             body such as `PayBody`, and an excess key.
         acceptance
             - A Snapshot is typed by the body plus the definition: `pausedBy` is a literal union of the body's pause
-              reasons (Turn R27, @plan.Machines.O8), shown by a type test that replaces the inverted pin
+              reasons (@spec.Schedules R16, @plan.Machines.O8), shown by a type test that replaces the inverted pin
               in `tests/types/schedules.test-d.ts`.
-            - A keyed schedule's send mapper receives the typed key (Turn R16), shown by a type test.
+            - A keyed schedule's send mapper receives the typed key (@spec.Schedules R16), shown by a type test.
             - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
             - Excess keys in a body still fail to compile, and shared bodies still compile.
             - `E.X.Type` and `Def.M.field.Type` exist as phantom types, each shown by two-sided type tests (the derived
@@ -2413,8 +2422,8 @@ tasks
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
-              (R1–R3, R9, R10, R13–R15, I1–I4, I10, I12); the Invariants its tests check after every step are
-              @spec.Types (I1–I4, I10–I12; tests T1–T3, T5, T7–T10).
+              (R1–R3, R7 by the `construct.*` bench rows, R8's type side, R9, R10, R13–R15, I1–I4, I10, I12); the
+              Invariants its tests check after every step are @spec.Types (I1–I4, I10–I12; tests T1–T3, T5, T7–T10).
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task: carries the machine body type into the snapshot.
             Takes T57's two routed type pins (pausedBy as a literal union, Turn R27 and Machines O8; the typed key in a
@@ -2485,7 +2494,7 @@ tasks
 
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      in_progress
+        status      open
         priority    high
         blocked_by  [@proposal.spec-handover#cohesion-of-all-eleven-designs, @T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
@@ -2498,9 +2507,9 @@ tasks
             another check's throw, then cleared while the key stays unarmed). The second failure after convergence hit
             the failure limit; the user accepted Fable's redesign of the issue seam (2026-11-20).
 
-            **Read first:** @proposal.schedule-issues (the design, the R25 text, P1, P2), @task.V3.T57 (its four close
-            reviews), code:packages/flow-state-v3/src/core/schedule-decision.ts. Spec: @spec.Schedules (R1–R17, I1–I18),
-            companion `wiki/specs/v3/Schedules.md`.
+            **Read first:** @spec.Schedules R5 (the issue rule), R13 and R14, and its `algorithm` tables, @task.V3.T57
+            (its four close reviews), code:packages/flow-state-v3/src/core/schedule-decision.ts. Spec: @spec.Schedules
+            (R1–R17, I1–I18), companion `wiki/specs/v3/Schedules.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2556,9 +2565,9 @@ tasks
             and @spec.Records with `specs.log` notes. Evidence: this Task's comments.
 
             False pass: a sequence test whose expected results come from running the code → caught by the ledger derived
-            from the Spec before any code, and a blind derivation of a sample of steps. User's read: the new R25 text;
-            P1 (a key that leaves or a state that exits drops its issues); P2 (a refused start marked in the record and
-            retried on restore, format 6).
+            from the Spec before any code, and a blind derivation of a sample of steps. User's read: @spec.Schedules R5
+            (an issue is a standing condition; a key that leaves or a state that exits drops its issues) and R14 (a
+            refused start marked in the record and retried on restore, format 6).
         acceptance
             - The sequence test exists, every 3-step sequence on one two-key fixture checked after each step against the
               Spec's ledger of owed firings, and was red on the code before this Task's build.
@@ -2566,8 +2575,8 @@ tasks
               cleared while unarmed) pass, each first landed as an inverted test.
             - No schedule issue is stored: a type cannot hold one, a lint rule refuses one, and four planted faults (a
               stored issue, a check writing another's field, a skipped hold step, a lost refused marker) are caught.
-            - @spec.Schedules states the R25 text, P1 and P2 as built (R5, R14), with a `specs.log` note for
-              each change.
+            - @spec.Schedules R5 (the issue rule, its check order, a leaving key or an exit dropping its issues) and R14
+              (a refused start saved and retried on restore) hold as built, with a `specs.log` note for each change.
             - Record format 6 with the schedule row of its one step from 5 (@spec.Records R12); restore after a reason,
               key or schedule is added, removed or renamed.
             - `nub run check`, the suite, stress and generated Stories over fresh seeds, and `nub run docs:build` pass.
@@ -2736,6 +2745,9 @@ tasks
         comment     2026-11-21T19:26:57Z
             Contradiction resolved: Turn and WriteAhead cites re-pointed to @spec.Schedules and @spec.Records; the
             format row is the schedule row of Records R12's one step 5 to 6, which @task.V3.T92 extends.
+        comment     2026-11-21T19:40:56Z
+            Status back to open from in_progress: blocked by T120 (slice 1); its red sequence test stays. Dead R25/P1/P2
+            cites mapped to @spec.Schedules R5, R13, R14.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -2748,11 +2760,11 @@ tasks
             wake, the mailbox and the index layer.
 
             **Why now:** fragments (@task.V3.T109), emits and the operations Tasks all write through `apply` and
-            `tx.alarms`; the user placed this Task before T109 (@proposal.spec-handover).
+            `tx.alarms`; the user placed this Task before T109.
 
-            **Read first:** @proposal.spec-turn-parts; the alarm heap and `tick`, the throw family rule, emit timing and
-            `stepEnds` are in @spec.Changes `model` and `algorithm`. Spec: @spec.Changes (R1–R11, R14, R15, R17, R18,
-            R21–R26, I3–I7, I9, I12–I15, I17), companion `wiki/specs/v3/Changes.md`.
+            **Read first:** the alarm heap and `tick`, the throw family rule, emit timing and `stepEnds` are in
+            @spec.Changes `model` and `algorithm`. Spec: @spec.Changes (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9,
+            I12–I15, I17), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2894,9 +2906,8 @@ tasks
             Build an operation's endings: the row and its refusal, the head's one unknown, the timeout rule, the issue
             view over endings, and the retry guards read through one `laneView`.
 
-            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); the guards `O.x.idle` and
-            `O.x.retryable` read lane state that the records and operations designs restructure, and five fixtures
-            use them.
+            **Why now:** one of the four parts of @task.V3.T21; the guards `O.x.idle` and `O.x.retryable` read lane
+            state that the records and operations designs restructure, and five fixtures use them.
 
             **Read first:** @spec.Operations `algorithm` (Rows, Issue view, Catalog, A failure crossing cleanup, the
             throw family rule); @spec.Records `algorithm` (Lanes and rows across a reload);
@@ -2951,8 +2962,8 @@ tasks
             Build the shared read entries and read slots: the entry table, freshness, refetch, waiters, and collection
             by the `Collect` alarm.
 
-            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); production reads resources
-            only as far as the fixtures need.
+            **Why now:** one of the four parts of @task.V3.T21; production reads resources only as far as the
+            fixtures need.
 
             **Read first:** @spec.Operations `algorithm` (Dispatch of a settled call, Entry table, Slot cells, Occasions
             that do not compare, Alarms). Spec: @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25),
@@ -2997,7 +3008,7 @@ tasks
             Build placements and their release: a placement placed and unplaced by the walk, a call released within the
             disposal bound, and `ReleaseOverdue` derived when the `Release` alarm passes.
 
-            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover; @plan.Runtime.O6).
+            **Why now:** one of the four parts of @task.V3.T21 (@plan.Runtime.O6).
 
             **Read first:** @spec.Operations `algorithm` (Releases, Alarms). Spec: @spec.Operations (R8, I4, I11, I22),
             companion `wiki/specs/v3/Operations.md`.
@@ -3035,8 +3046,8 @@ tasks
             Build persisted resources: `resource({ persist: true })` with its declared `output`, the saved entry and its
             install at boot and at adoption.
 
-            **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); restored resource data waits
-            on it (routed from @task.V3.T20).
+            **Why now:** one of the four parts of @task.V3.T21; restored resource data waits on it (routed
+            from @task.V3.T20).
 
             **Read first:** @spec.Operations `algorithm` (Entry store); @spec.Records `algorithm` (Reference table,
             Occasions that do not compare). Spec: @spec.Operations (R12, I24), companion `wiki/specs/v3/Operations.md`;
@@ -3069,11 +3080,10 @@ tasks
             Build declared emits at the root: an emit is part of its `Turn`, and `actor.onEmit` listeners run once per
             publishing slice, after the snapshot listeners.
 
-            **Why now:** the first half of @task.V3.T77 (@review.spec-cohesion-r2 question 15); the toaster waits on it.
+            **Why now:** the first half of @task.V3.T77; the toaster waits on it.
 
-            **Read first:** @spec.Changes `algorithm` (Emits); @spec.Host `algorithm` (Emits);
-            @proposal.spec-boundary-channels. Spec: @spec.Changes (R19, I5), companion `wiki/specs/v3/Changes.md`;
-            @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
+            **Read first:** @spec.Changes `algorithm` (Emits); @spec.Host `algorithm` (Emits). Spec: @spec.Changes (R19,
+            I5), companion `wiki/specs/v3/Changes.md`; @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3106,10 +3116,11 @@ tasks
             Build fragment emits: an emit from a fragment or a copy carries its address, and a listener hears `(payload,
             { key, keys })`.
 
-            **Why now:** the second half of @task.V3.T77 (@review.spec-cohesion-r2 question 15).
+            **Why now:** the second half of @task.V3.T77.
 
             **Read first:** @spec.Types `model` (row G6, a fragment event's address); @spec.Changes `algorithm` (Emits);
-            @proposal.spec-boundary-channels. Spec: @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`.
+            @spec.Changes `algorithm` (Emits, props rows). Spec: @spec.Changes (R19),
+            companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3135,10 +3146,10 @@ tasks
         description
             Build the toaster primitive on declared root emits and keyed schedules.
 
-            **Why now:** the first half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
+            **Why now:** the first half of @task.V3.T72.
 
-            **Read first:** @proposal.spec-boundary-channels; @convention.fixture-catalog. Spec: @spec.Schedules (R8,
-            R11, R12), companion `wiki/specs/v3/Schedules.md`; @spec.Changes (R19),
+            **Read first:** @spec.Changes `algorithm` (Emits, props rows); @convention.fixture-catalog. Spec:
+            @spec.Schedules (R8, R11, R12), companion `wiki/specs/v3/Schedules.md`; @spec.Changes (R19),
             companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
@@ -3166,10 +3177,10 @@ tasks
         description
             Build the menu primitive on fragments.
 
-            **Why now:** the second half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
+            **Why now:** the second half of @task.V3.T72.
 
-            **Read first:** @proposal.spec-boundary-channels; @convention.fixture-catalog. Spec: @spec.Changes (R12,
-            R13, I1, I2), companion `wiki/specs/v3/Changes.md`.
+            **Read first:** @spec.Changes `algorithm` (Emits, props rows); @convention.fixture-catalog. Spec:
+            @spec.Changes (R12, R13, I1, I2), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3197,10 +3208,10 @@ tasks
             of the `WeakSet` marks.
 
             **Why now:** the first half of @task.V3.T98, placed before @task.V3.T113's `derive.ts` and @task.V3.T109
-            (@review.spec-cohesion-r2 question 15; @proposal.spec-errors-trust PD5).
+            (@spec.Operations R10).
 
-            **Read first:** @spec.Operations `algorithm` (Construction trust); @proposal.spec-errors-trust. Spec:
-            @spec.Operations (R10, I19), companion `wiki/specs/v3/Operations.md`; @spec.Types (R11, I4, I5),
+            **Read first:** @spec.Operations `algorithm` (Construction trust), R10 and Q16. Spec: @spec.Operations (R10,
+            I19), companion `wiki/specs/v3/Operations.md`; @spec.Types (R11, I4, I5),
             companion `wiki/specs/v3/Types.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict

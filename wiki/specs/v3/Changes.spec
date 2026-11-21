@@ -167,7 +167,8 @@ requirements
 open
     Q1  Nothing is built. Every check below is an obligation of @task.V3.T119, @task.V3.T109, @task.V3.T110, 
         @task.V3.T76, @task.V3.T127 and @task.V3.T128.
-        outcome  All coverage stays open_by until a check in the package runs.
+        outcome  Each Requirement is proven_by a named test below; each test is an obligation of those Tasks until
+                 a check in the package runs.
 
     Q2  I5, I7, I9, I12, I13 and I15 to I17 have no mechanical check; the first model run covered other invariants on a 
         first draft only, and the revised tables were not run.
@@ -177,9 +178,15 @@ open
         `restartOn`'s. [proposed: needs the user's call]
         outcome  Until answered, a reset value is encoded by the declared Schema and made canonical text; the
                  type refuses a `Date`.
+        reasoning  For: one rule with `restartOn` (both compare a selection saved across a reload), and a `Date` or
+            record value works. Against: one more declared field in user code. Test: a `Date` reset value
+            compared across a reload is equal under the declared Schema and refused without it.
 
     Q4  Whether a hidden page is a core input. Proposed: it is not, in v1; timers keep their deadlines.
         outcome  The host's edge reads `hidden()` for its capture only (`Host`). [proposed: needs the user's call]
+        reasoning  Not a core input keeps a deadline the author wrote (an autosave keeps saving, throttled by the
+            browser) and adds no occasion. A use change stops background work, but needs a hidden input and a
+            row in every scope's table. Same question as `Schedules` Q2.
 
     Q5  Whether `Published` carries the incarnation and `why` has three values (`Begin`, `Turn`, `Other`; an end is 
         `Finished`). The public type that shows it is the host's.
@@ -187,7 +194,7 @@ open
 
     Q6  How a view addresses a fragment's public event: `Mail.Event.at` exists in the core, the public call that fills 
         it has no design.
-        outcome  Blocks build of fragment events; owned by `Host`.
+        outcome  Not this Spec's: one home, `Host` Q6.
 
     Q7  A lazy fragment's adoption (@task.V3.T48): a fact `reconcile` reads that no `Turn` writes; it needs a tenth 
         `Change` whose reconcile can only return `Start`.
@@ -198,7 +205,8 @@ open
 
     Q9  Three proposed rules with no trace against them: the command order of a step (releases before starts), the 
         alarm kind order at one instant, and the wave skip when committed state and root memory are unchanged.
-        outcome  Proposed; revisable when building shows one wrong.
+        outcome  Proposed; revisable when building shows one wrong. This Spec owns the kind order (it owns `tick`);
+                 `Operations` and `Schedules` state no order of their own.
 
 model
     Segment = a record of slot and key
@@ -241,7 +249,7 @@ model
         context: { values: Values, slots: ReadonlyMap<string, Selected> }       // CHANGED
         instances: Instances                            // NEW
         schedules: Schedules                            // CHANGED by `Schedules`
-        outcomes: ReadonlyMap<string, { source: IssueSource, failure: Failure }>  // RENAMED from issues
+        outcomes: ReadonlyMap<string, { source: StoredSource, failure: Failure }>  // RENAMED from issues
         no grace field: the grace of a free actor is an alarm
 
     Site = a record of address and alternative: one alternative in one scope.
@@ -786,11 +794,12 @@ algorithm
         An instance's start is a creation: its entry arms are decided after commit; a bad delay is `Refused` with an
         issue and never refuses the host's turn. A state's entry and `armOn` keep the rule of `Schedules`. A scope's
         inputs are its memory record, its `item`, the props, the context values (root scopes) and its lanes. Row C5
-        passes a scope only when one of them changed by identity, the change names it, it began or woke, or it holds
-        a `Refused` timer (retried on every occasion). `keys`, the reasons and `restartOn` are functions of those
-        inputs and not of the clock, so a skipped pass would have changed nothing; with a thousand copies, a root
-        turn that changes one of them passes one scope. The scope order: state scopes outermost first, then instance
-        scopes in address order. Schedule names are scoped: the map is by scope id, then name. Evidence and issues
+        passes every scope that hears the occasion by the rows above; the input gate, if it lands, is `Schedules`'
+        (its open item Q1), and a skipped pass would change nothing. The scope order: state scopes outermost first, 
+            then instance
+        scopes in address order. Schedule names are scoped: the map is by scope id, then name; the record keeps them 
+            by state path, then name
+        (`Records`' `PositionShape`). Evidence and issues
         name a timer by address and name. Asleep is not a status: a scope is awake when its actor is used and every
         instance on its address is `Live`. A hydration reaches the core as a `Begin` from a record. A hidden page
         does not reach the core in v1: the host's edge reads `hidden()` for its capture only (`Host`, Q4). A trait
@@ -948,7 +957,7 @@ composition
         Needs `Schedules`: `decide`, `pass`, `fire`, the occasions, `Wake`, `Context`; the answered rule of
         `Occasion` selection.
         Needs `Host`: the derived rows of `Types`; `Compiled.slots`, `fragments`, `emits`, `props` and the indexes of
-        `realization`; how a view addresses a fragment's public event (`Mail.Event.at`, Q6); `onEmit`, `setProps`
+        `realization`; how a view addresses a fragment's public event (`Mail.Event.at`, `Host` Q6); `onEmit`, `setProps`
         and props at `Create`; the public face of `Published.incarnation` and the publication built from it; the
         judge reading `turnsOf` and `Finished`; the Story clock on `Tick`; the host's Owner per scope; a hydration
         as a `Begin` from a record; the host's publication calling `src/host/emits.ts` once per publishing slice.
@@ -1035,39 +1044,39 @@ realization typescript
         structure `tx` owns.
 
 coverage
-    @R1    enforced_by [@I5, @I15]                   open_by [@Q1]
-    @R2    enforced_by [@I1, @I2]                    open_by [@Q1]
-    @R3    enforced_by [@I9]                         open_by [@Q1]
-    @R4    enforced_by [@I8, @I10]                   open_by [@Q1]
-    @R5    enforced_by [@I3, @I9, @I14]              open_by [@Q1]
-    @R6    enforced_by [@I7]                         open_by [@Q1]
-    @R7    enforced_by [@I15]                        open_by [@Q1]
-    @R8    enforced_by [@I16]                        open_by [@Q1]
-    @R9    enforced_by [@I17]                        open_by [@Q1]
-    @R10   enforced_by [@I13]                        open_by [@Q1]
-    @R11   enforced_by [@I4, @I5]                    open_by [@Q1]
-    @R12   enforced_by [@I1, @I11]                   open_by [@Q1]
-    @R13   enforced_by [@I1, @I2]                    open_by [@Q1]
-    @R14   enforced_by [@I6]                         open_by [@Q1]
-    @R15   enforced_by [@I10]                        open_by [@Q1]
-    @R16   enforced_by [@I8]                         open_by [@Q1]
-    @R17   enforced_by [@I9]                         open_by [@Q1]
-    @R18   enforced_by [@I3]                         open_by [@Q1]
-    @R19   enforced_by [@I5, @I14]                   open_by [@Q1]
-    @R20   enforced_by [@I16]                        open_by [@Q1]
-    @R21   enforced_by [@I7]                         open_by [@Q1]
-    @R22   enforced_by `readsOf`, the one builder    open_by [@Q1]
-    @R23   enforced_by [@I10, @I12]                  open_by [@Q1]
-    @R24   enforced_by [@I17]                        open_by [@Q1]
-    @R25   enforced_by [@I13]                        open_by [@Q1]
-    @R26   enforced_by [@I14]                        open_by [@Q1]
+    @R1    enforced_by [@I5, @I15]                   proven_by [@T2, @T4, @T5, @T13]
+    @R2    enforced_by [@I1, @I2]                    proven_by [@T3, @T4]
+    @R3    enforced_by [@I9]                         proven_by [@T3, @T4, @T7, @T8]
+    @R4    enforced_by [@I8, @I10]                   proven_by [@T3, @T4, @T10, @T13]
+    @R5    enforced_by [@I3, @I9, @I14]              proven_by [@T3, @T4, @T8, @T13]
+    @R6    enforced_by [@I7]                         proven_by [@T4]
+    @R7    enforced_by [@I15]                        proven_by [@T1]
+    @R8    enforced_by [@I16]                        proven_by [@T13]
+    @R9    enforced_by [@I17]                        proven_by [@T13]
+    @R10   enforced_by [@I13]                        proven_by [@T13]
+    @R11   enforced_by [@I4, @I5]                    proven_by [@T2, @T13]
+    @R12   enforced_by [@I1, @I11]                   proven_by [@T1, @T6]
+    @R13   enforced_by [@I1, @I2]                    proven_by [@T1]
+    @R14   enforced_by [@I6]                         proven_by [@T5, @T6, @T12]
+    @R15   enforced_by [@I10]                        proven_by [@T9]
+    @R16   enforced_by [@I8]                         proven_by [@T10]
+    @R17   enforced_by [@I9]                         proven_by [@T8]
+    @R18   enforced_by [@I3]                         proven_by [@T4]
+    @R19   enforced_by [@I5, @I14]                   proven_by [@T11, @T13]
+    @R20   enforced_by [@I16]                        proven_by [@T13]
+    @R21   enforced_by [@I7]                         proven_by [@T13]
+    @R22   enforced_by `readsOf`, the one builder    proven_by [@T15]
+    @R23   enforced_by [@I10, @I12]                  proven_by [@T14]
+    @R24   enforced_by [@I17]                        proven_by [@T13]
+    @R25   enforced_by [@I13]                        proven_by [@T13]
+    @R26   enforced_by [@I14]                        proven_by [@T11]
 
 tests
     T1  Level 0, the tables as data. `reconcile`, the walk's write rule, the rounds, the holder table and `Begin` from 
         a record run as plain functions over small values with no runtime; a closure over every sequence of the
             alphabet (T3) to depth 3 from three starts and depth 4 from the fresh one (behind `FLOW_STRESS`). It is the
             package's first check, over the real functions; it must fail first on the nine cells of the instances
-            table. The first failing checks include I5, I7, I9, I12, I13 and I15 to I17. [@R12, @R13]
+            table. The first failing checks include I5, I7, I9, I11, I12, I13 and I15 to I17. [@R7, @R12, @R13]
     T2  Level 1, Stories. The alphabet of T3 on fixture `desk` through the public runtime with the oracle of T4. Owner 
         faults (a second applier, a stale index, a yield before front mail) can only show here. [@R1, @R11]
     T3  The alphabet, from the inventory. Fixture `desk`: a root trait with `resetOn`; a node trait and a resumable 
@@ -1101,7 +1110,7 @@ tests
             changes nothing changes no later view but ids; removing two live copies' keys in one turn and in two turns
             gives the same instances and the same `Abandoned` parts (it does not hold for a key parked past `max`, which
             the first removal promotes). The existing run rules `publishedOnce` and `mailboxOrder` stay on every Story
-            run. [@R1, @R2, @R3, @R4, @R5, @R6]
+            run. [@R1, @R2, @R3, @R4, @R5, @R6, @R18]
     T5  Level 2, generated walks: small compiled trees (depth to 3, up to 3 copies) check I5 and I6 and that the after 
         memory is the before memory with the patches folded in walk order. [@R14, @R1]
     T6  `desk/clear-two`, the Story of the wrong ending. Two copies whose `whenAbandoned` notifies `onGone`; the
@@ -1116,7 +1125,7 @@ tests
         [@R15]
     T10  `desk/reset-while-frozen`: a resumable trait's reset value changes in `PREVIEW`; it ends there, its host hears 
          `whenAbandoned` once, its child's callbacks do not run, and `Back` starts a new one. [@R4, @R16]
-    T11  `desk/reload-is-quiet`: I14 on a frozen resumable trait with an armed timer and a waiting row. [@R26]
+    T11  `desk/reload-is-quiet`: I14 on a frozen resumable trait with an armed timer and a waiting row. [@R19, @R26]
     T12  The five-part turn stays the parts-table test, with `Turn.steps` empty. [@R14]
     T13  Planted faults; each must fail a named row or invariant. Existing faults that move (the 15 on `serve.ts`, 17 
          on `incarnations.ts` and 21 on `context.ts`) edit code that becomes `apply.ts` or a pure decider; each keeps
@@ -1140,6 +1149,11 @@ tests
              `second-applier` (an incarnation spread outside `apply.ts`): a type test (I4)
              `index-stale:<name>`, one per index: I13
              `ends-out-of-order`: I17
-             [@R1, @R4, @R5, @R9, @R11, @R25]
+             [@R1, @R4, @R5, @R8, @R9, @R10, @R11, @R19, @R20, @R21, @R24, @R25]
     T14  Alarm kinds: each of the six kinds of `Alarm` set, cleared and taken by `tick`; a new kind does not compile 
-         until `tick`'s match handles it. [@R23]
+         until `tick`'s match handles it. The one alarm sequence check, `alarmsMatch`: after every step of T1 and of
+             every Story run, the heap equals the alarms derived from the owner facts (I12); `Schedules` I9 and
+             `Operations` I22 are its rows for their kinds and cite it. [@R23]
+    T15  Callback inputs: for every callback of fixture `desk`, `check` builds from a snapshot the record `readsOf` 
+         builds from the incarnation; a fragment's record has no context. Planted fault `reads-built-twice` (a second
+             builder for one callback) fails it. [@R22]

@@ -18,20 +18,25 @@ the work shows it should: merge, split or reorder, with the reason in a V3 log n
 
 ## P4
 
-| Slice                     | Tasks                  | What they share                                                        |
-| ------------------------- | ---------------------- | ---------------------------------------------------------------------- |
-| 1 Foundations             | T131, T120             | Doors and the declared-schedule runtime: what every later piece calls  |
-| 2 Schedules               | T118                   | @spec.Schedules and its sequence test; already partly built            |
-| 3 Types                   | T113                   | @spec.Types: `derive.ts`, body capture, compile-time indexes           |
-| 4 Turn core               | T119                   | @spec.Changes: the applier, alarms and `tick`, the index layer         |
-| 5 Records codec and fates | T92, T56               | @spec.Records: one judge, one format plan                              |
-| 6 Operations              | T121, T122, T123, T124 | @spec.Operations: rows, entries, placements, releases and their alarms |
-| 7 Fragments               | T109, T110             | @spec.Changes: instances and `reconcile`, then subroutines             |
-| 8 Boundary channels       | T127, T76, T128, T78   | @spec.Changes and @spec.Host: emits and props                          |
-| 9 UI primitives           | T129, T130, T73        | Toaster, menu, combobox on the channels                                |
-| 10 Errors and the CLI     | T100, T22, T23         | @spec.Operations' catalog, @spec.Types' construction value, the CLI    |
-| Host A                    | T112, T111             | @spec.Host: fakes and the mutation applier, then the binding           |
-| Host B                    | T97, T117              | @spec.Host: Story helpers and coverage runs                            |
+| Slice                 | Tasks                     | What they share                                                        |
+| --------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| 1 Foundations         | T131, T120                | Doors and the declared-schedule runtime: what every later piece calls  |
+| 2 Schedules           | T118                      | @spec.Schedules and its sequence test; already partly built            |
+| 3 Types               | T113                      | @spec.Types: `derive.ts`, body capture, compile-time indexes           |
+| 4 Turn core           | T119                      | @spec.Changes: the applier, alarms and `tick`, the index layer         |
+| 5 Records codec       | T92                       | @spec.Records: one judge, one format plan                              |
+| 6 Operations          | T121, T122, T123, T124    | @spec.Operations: rows, entries, placements, releases and their alarms |
+| 6b Records fates      | T56                       | @spec.Records: every key's fate and the version rules; needs T124      |
+| 7 Fragments           | T109, T110                | @spec.Changes: instances and `reconcile`, then subroutines             |
+| 8 Boundary channels   | T127, T76, T128, T77, T78 | @spec.Changes and @spec.Host: emits and props                          |
+| 9 UI primitives       | T129, T130, T73           | Toaster, menu, combobox on the channels                                |
+| 10 Errors and the CLI | T100, T22, T23            | @spec.Operations' catalog, @spec.Types' construction value, the CLI    |
+| Host A                | T112, T111                | @spec.Host: fakes and the mutation applier, then the binding           |
+| Host B                | T97, T117                 | @spec.Host: Story helpers and coverage runs                            |
+
+Close-outs: T21 closes with slice 6 (it is T121 to T124's umbrella) and T72 with slice 9 (T129, T130); neither
+builds on its own. T118 stays slice 2: it needs T120's declared-schedule runtime (slice 1), and T113 and T119 read
+the compiled `Schedule` and `decide` it settles.
 
 ## P5
 

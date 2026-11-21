@@ -56,7 +56,9 @@ requirements
     R8  Nothing is saved that the definition does not save
         source  @plan.Persistence.O2.
         must    No key is read or written for a `persist: false` machine; a key an earlier build left is kept and
-                reported. No key exists for a local actor; no prediction is saved, so nothing unconfirmed reads as
+                reported. [proposed: user's call; kept, because removing at boot loses what the record owed, such as an
+                unsent write, while keeping costs one report] No key exists for a local actor; no prediction is saved, 
+                so nothing unconfirmed reads as
                 confirmed after a reload.
 
     R9  One admission path
@@ -101,8 +103,8 @@ requirements
 
     R16  Lanes and rows across a reload
         source  @plan.Persistence.O4, @plan.Persistence.O6.
-        must    At the boot a head's, queue's, displaced list's and row's endings are derived by table 6.6
-                (`algorithm`, Lanes and rows). A head holds at most one unknown. An unknown says "this may have
+        must    At the boot a head's, queue's, displaced list's and row's endings are derived by the table of
+                `algorithm`, Lanes and rows. A head holds at most one unknown. An unknown says "this may have
                 applied"; a final answer for the same Attempt replaces it while it is not yet heard or kept. The
                 derivation is written by the next capture, so a second boot derives nothing.
 
@@ -264,12 +266,13 @@ model
         type PositionShape = {
             state: string;
             memory: { [field: string]: Json };                 // no `Flow.input` field: the name holds it
-            schedules: { [name: string]: TimerShape | ReadonlyArray<TimerShape> };   // keyed: a list in key-text order
+            schedules: { [statePath: string]: ScheduleMap };   // CHANGED: by the state path of the scope, then name
             slots: { [slot: string]: SlotShape };              // CHANGED: was context + seen + baselines
             graph: { [owner: string]: { [slot: string]: ProviderShape } };   // existing: providers' own wiring
             instances: { [address: string]: InstanceShape };   // NEW: by address; no id, no place
             bookmarks?: { [contract: string]: { [keyText: string]: Json } };   // reserved for streams
         };
+        type ScheduleMap = { [name: string]: TimerShape | ReadonlyArray<TimerShape> };   // keyed: key-text order
         type ProviderShape = { machine: string; name: string };
         type SlotShape = {
             provider?: ProviderShape;
@@ -294,7 +297,7 @@ model
             status: "Live" | "Frozen";
             reset?: string;                                    // `Anchor.reset` key text
             memory: { [field: string]: Json };
-            schedules: PositionShape["schedules"];
+            schedules: ScheduleMap;                            // an instance is one scope: by name only
         };
         type WorkShape = {                                   // never written with no lane and no row
             lanes: { [subject: string]: { [contract: string]: { [keyText: string]: LaneShape } } };   // "" is the root
@@ -331,7 +334,13 @@ model
 
         // NEW: the typed side. Brands have one constructor each: a Schema decode built from Compiled, or the mint.
         type ActorRef = { machine: MachineId; name: ActorName };
-        type Position = { state: StateName; memory: Values; schedules: Scheduled; slots: Slots; instances: Instances };
+        type Position = {
+            state: StateName;
+            memory: Values;
+            schedules: ReadonlyMap<StateName, ReadonlyMap<string, Scheduled>>;   // CHANGED: by path, then name
+            slots: Slots;
+            instances: Instances;
+        };
         type Work = { lanes: ReadonlyArray<RestoredLane>; rows: ReadonlyArray<RestoredRow>; carried: Carried };
         type Place =                                         // where a carried part sits in a WorkShape
             | { _tag: "Subject"; subject: string }
@@ -612,12 +621,16 @@ algorithm
         definition has it and the record lacks it / declared, not loaded.
         Position:
         `state` (a leaf path): Never / ResetRecord / Never (strict shape) / Never.
-        `memory` field: ResetRecord (the position resets; proposed, `FieldDropped` is not reported) / Dropped,
+        `memory` field: ResetRecord (the position resets; proposed, the user's call; `FieldDropped` is not reported;
+            resetting only the field gives a state the machine never reached with that value, as PAID with total 0) / 
+                Dropped,
             reported `FieldDropped` / Starts: its declared initial / Never.
         `slots` entry (provider, `seen`): Dropped, the slot starts unbound / Dropped / Starts: `seen` none, bound at
             the next ensure / Never.
         `slots[].baselines` reaction: Dropped / Dropped / Starts: silent at restore / Never.
         `graph` owner, slot, provider: that entry Dropped / Dropped / Starts: none / Never.
+        `schedules` state path: Never (a path is text) / that path's schedules Dropped / Starts: `wake` decides the
+            scope as entered / Never.
         `schedules` name: per timer, below / Dropped (`Schedules` decode row 1) / Starts (row 2) / Never.
         a timer's `key`: that timer Dropped (row 3) / Never (`keys` decides later, row 4) / Starts / Never.
         a timer's `reasons` name: Never (a name is text) / that name Dropped (row 5) / Starts: read fresh (row 6) /
@@ -930,5 +943,7 @@ tests
             `legacy-keys-removed-while-kept`, `position-failure-resets-work`, `newer-work-read-alone`,
             `orphan-discarded`, `dormant-decoded-at-ready`, `adoption-does-not-wake`, `name-not-encoded-back`,
             `rest-key-field-wins`, `ref-row-missing` (a compile failure), `stamp-admits`, `persist-off-rewritten` (a
-            `persist: false` machine's old record is written again), `shape-changed-without-format` (the pin).
-            [@I2, @I4, @I6, @I10, @I11, @I12, @I13, @I15, @I16, @I17]
+            `persist: false` machine's old record is written again), `shape-changed-without-format` (the pin),
+            `install-fires-event` (an install raises an event or runs a reaction), `hydrate-carries-work` (a hydrate
+            payload holding a lane or row is accepted).
+            [@I2, @I4, @I6, @I10, @I11, @I12, @I13, @I14, @I15, @I16, @I17, @I19]

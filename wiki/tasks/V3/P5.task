@@ -83,6 +83,9 @@ tasks
             - Fixtures first (@convention.fixtures): step 11 of @convention.fixture-catalog: `sync`, `transfers`,
               `player`, `home`, `kanban`, `chat`, `draft` gain the features, scenarios and sources of their rows; each
               scenario red before the build, and the step's cells marked used at the close.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (@convention.fixture-catalog), each with a usual and a stress Story.
@@ -127,6 +130,9 @@ tasks
             - Fixtures first (@convention.fixtures): step 12of @convention.fixture-catalog: `transfers`, `kanban`,
               `chat` gain the features, scenarios and sources of their rows; each scenario red before the build, and the
               step's cells marked used at the close.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
         comment     2026-11-15T21:43:20Z
             Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
             (@convention.fixture-catalog), each with a usual and a stress Story.
@@ -562,8 +568,8 @@ tasks
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R2,
-              R3, I3, I4), @spec.Changes (R19, R20); the Invariants its tests check after every step are @spec.Host
-              (I2–I4, I6; tests T1, T6, T8), @spec.Changes (I5, I14, I16).
+              R3, R15, I3, I4, I24), @spec.Changes (R19, R20); the Invariants its tests check after every step are
+              @spec.Host (I2–I4, I6, I24; tests T1, T6, T8), @spec.Changes (I5, I14, I16).
         comment     2026-11-17T16:26:53Z
             Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
             builds and record them at the close. React: selector evaluations and re-renders per turn, subscriber fan-out
@@ -646,6 +652,29 @@ tasks
             Rename the run rules' `breaches` and `breachesOf` to `broken` and `brokenOf` in the same change. Measure the
             suite with rules on and off before setting a budget.
 
+            **Build-time choice (rules across copies and the static proofs):** no v3 Spec covers rules yet; @plan.Rules
+            fixes the behaviour, these four mechanisms are the builder's to choose and test.
+
+            1. Judging a fragment rule per placement and `.each` copy. A: the host judge walks each published copy by
+               address (@spec.Changes instances) and calls the rule with that copy's before and after. B: the core
+               records, per turn, the addresses whose fragment state changed, and the judge visits only those. A is
+               simpler and matches "judged on each copy separately"; B is O(changed copies), which @spec.Host R10's
+               per-step cost rule may require. Test: a 150-copy fan-out Story with rules on; if A's judge cost per step
+               grows with copies past the bench budget, take B. Both must skip a copy's entry, reset and exit.
+            2. The terminal proof in `flow check`. A: a pass over `Compiled` that, per listed terminal, collects every
+               handler that may fire there (ancestors, subroutine exits, `onContext`, schedules, late endings) and
+               reports each edge out as `TerminalLeft`. B: reuse @task.V3.T22's reachability graph and ask whether an
+               edge leaves the terminal's subtree. A names the handler directly (the Plan's error text needs it); B
+               shares one graph with `RuleSubjectUnreachable`. Test: the planted edges of @plan.Rules.V5 (a schedule, a
+               late ending, an ancestor handler, a state-token guard) each give exactly one `TerminalLeft` under both.
+            3. `RuleSubjectUnreachable`: computed from the same graph as 2, over-approximating guards as passable, so it
+               is never false. If 2 picks A, build the reachable-state set once in `Compiled`'s derived fields
+               (@spec.Types `DerivedFields`) and read it here.
+            4. Rule coverage counting. A: the run counts, per rule token and placement, the judgments whose subject held
+               (state `in` and event `on`), summing copies (@plan.Rules.O5). B: count every judgment. A is the Plan's
+               "exercised"; B inflates coverage with vacuous passes. Take A; test with a rule whose `in` state is never
+               reached: it must list as unseen with that reason.
+
             May change: `packages/flow-state-v3/src/`, `src/host/testing/`, `tests/`, `fixtures/` and a new Spec;
             @plan.Rules only through @plan.Pending, when the build shows it wrong.
         acceptance
@@ -693,8 +722,8 @@ tasks
             **Why now:** split from @task.V3.T30 (the user, 2026-11-20) so the bindings can proceed while presentation
             waits on its proposal.
 
-            **Read first:** @plan.Testing.O9, @plan.Testing.O4 (`StoryFrame`),
-            @proposal.react-instrumentation-bippy, code:wiki/plans/flow/references/checkout/app/presentation.ts.
+            **Read first:** @plan.Testing.O9, @plan.Testing.O4 (`StoryFrame`), the React instrumentation design (cited
+            in this Task's comments), code:wiki/plans/flow/references/checkout/app/presentation.ts.
 
             **Risk:** this Task cannot proceed until the bippy proposal is accepted or rejected (the user, 2026-11-20).
             Its acceptance is rewritten from the outcome: accepted adds the overlay features, controls and themes;
@@ -704,11 +733,16 @@ tasks
               before any code.
             - `StoryPlayer` plays, steps and scrubs a recorded run without executing again; playback starts no Flow
               work; scenes reject unknown checkpoints (@plan.Testing.O9, V9), shown in real Chrome and Safari.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
         comment     2026-11-20T13:02:14Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T29 and T49.
         comment     2026-11-21T18:31:24Z
             [proposed] Story frames and playback have no algorithm design; this Task runs skill:to-design before its
             Spec (@proposal.algo-resolutions section 4).
+        comment     2026-11-21T19:40:56Z
+            Source moved out of the description: @proposal.react-instrumentation-bippy (the instrumentation design).
 
     T114
         title       Run verdict: what fails a run
@@ -873,6 +907,9 @@ tasks
             - Request render and hydrate run without a mismatch on a Next.js host, on React 18 and 19, with streaming
               and navigation (@plan.ServerRendering.O7).
             - Each proof runs on the real host, and a fault planted in the hydrate path is caught there.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
         comment     2026-11-20T13:02:09Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task split from T30: the Next.js host proofs
             (ServerRendering O7, React 18 and 19), after T30 and T115.
@@ -886,11 +923,10 @@ tasks
             Build the entity store's confirmed records: what confirmed data a machine's persistence saves, and its
             reference rows.
 
-            **Why now:** the first half of @task.V3.T24, split by state
-            (@proposal.spec-handover; @proposal.spec-data-layer).
+            **Why now:** the first half of @task.V3.T24, split by state (@spec.Records R18).
 
-            **Read first:** @proposal.spec-data-layer; @spec.Records `algorithm` (Reference table, Data layer records);
-            @spec.Records (R9, R15, R18, I8, I10; code:wiki/specs/v3/Records.md).
+            **Read first:** @spec.Records `algorithm` (Reference table, Data layer records); @spec.Records (R9, R15,
+            R18, I8, I10; code:wiki/specs/v3/Records.md).
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -921,7 +957,7 @@ tasks
         description
             Build the entity store's claims: unconfirmed fields held by an Attempt, living in the lane head.
 
-            **Why now:** the second half of @task.V3.T24 (@proposal.spec-handover; @proposal.spec-data-layer).
+            **Why now:** the second half of @task.V3.T24 (@spec.Records R18).
 
             **Read first:** @spec.Records `algorithm` (Data layer records); @spec.Records (R16, R18, I6, I7,
             I11; code:wiki/specs/v3/Records.md).
@@ -954,11 +990,10 @@ tasks
         description
             Build `intake`: one Schema per door, returning every finding of an argument at once.
 
-            **Why now:** the second half of @task.V3.T98, first in P5 (@review.spec-cohesion-r2 question 15).
+            **Why now:** the second half of @task.V3.T98, first in P5.
 
-            **Read first:** @spec.Operations `algorithm` (Construction trust); @proposal.spec-errors-trust;
-            @spec.Operations (R10, R11, I19, I23; code:wiki/specs/v3/Operations.md); @spec.Types (R11, R13, I4,
-            I5; code:wiki/specs/v3/Types.md).
+            **Read first:** @spec.Operations `algorithm` (Construction trust), R10 and Q16; @spec.Operations (R10, R11,
+            I19, I23; code:wiki/specs/v3/Operations.md); @spec.Types (R11, R13, I4, I5; code:wiki/specs/v3/Types.md).
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change

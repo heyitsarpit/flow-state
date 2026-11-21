@@ -39,7 +39,8 @@ requirements
         source  @plan.React.O2.
         must    An emit is delivered once, after the publication that contains its turn and after every snapshot
                 listener of that publication, in turn order; never older, never twice. A turn's emit is delivered
-                even when no snapshot changed.
+                even when no snapshot changed. [proposed: user's call; at the publication, so a listener that reads the
+                snapshot sees its turn; per step it may read the previous publication]
 
     R4  A Runtime that stopped or was disposed tells its readers once
         source  @plan.Runtime.O6, @plan.React.O3.
@@ -119,7 +120,7 @@ open
 
     Q2  The React spike (renders per publication, Strict Mode, transitions) is not run: no binding exists. Which 
         version one render reads across actors (one external store over the version, or per actor) is not chosen.
-        outcome  Blocks acceptance of 6.1's React cost claim; owned by @task.V3.T111.
+        outcome  Blocks acceptance of the React cost claim (`realization`, Cost); owned by @task.V3.T111.
 
     Q3  Whether the `pagehide` fork's first slice creates the IndexedDB transaction before freeze.
         outcome  A browser-tier check only (@task.V3.T27).
@@ -132,8 +133,9 @@ open
         outcome  Stated; `Changes` owns the writers.
 
     Q6  The public event a view sends for `refetch`, and how a view addresses a fragment's public event 
-        (`Mail.Event.at`), have no design. Blocks build for @task.V3.T122.
-        outcome  Not designed here.
+        (`Mail.Event.at`), have no full design. Blocks build for @task.V3.T122.
+        outcome  Owned here, the one home: the fragment address is `EventOf<D>`'s `{ slot, key }` (Offers); the
+                 `refetch` event is designed here before @task.V3.T122 builds.
 
     Q7  Generated runs and `quieting` with several tabs (per-tab views, whether samples draw tabs).
         outcome  Generated runs stay single-tab until it is designed.
@@ -143,7 +145,7 @@ open
         outcome  Owned there; the alphabet is `Records`'.
 
     Q9  The reach flags `cancelsAcknowledging`, `retainsUnknown` (`fixtures/manifest.ts:13-14`) and the exported names 
-        of the Story helper types have no row in 6.10.
+        of the Story helper types have no row in this Spec.
         outcome  Added to @task.V3.T97's work; minor.
 
     Q10  The edge keeps `Out.waiting` and `Out.at` as `Option`s under I20; the lifecycle is not fully a tagged union.
@@ -250,7 +252,7 @@ model
         // final(q: Quiescent, p: Unpublished): Published    -- stop and dispose; compares every memo entry
         // finalFromMemo(lifecycle): Published               -- stop, when the world owes mail
 
-        // src/core/tx.ts (CHANGED: `Out` gains touched and lifeChanged)
+        // src/core/world.ts (CHANGED: `Out` gains touched and lifeChanged; `tx.ts` imports it)
         export type Out = {
             world; evidence; commands; readonly touched: ReadonlySet<ActorKey>; readonly lifeChanged: boolean
         }
@@ -877,11 +879,13 @@ composition
         Offers `transition`: the edge's one table.
         Offers `judge`, `verdictOf`, `Story.app`, `run`, `closeTab`, `openTab`, `Fake.storage.hold`: the tooling the
         Stories and the CLI use.
-        Offers the public `Published<D>` and `Turn<D>` faces, `EventOf<D>` with a fragment event's address `{ slot,
+        Offers the public `Published<D>` and `Turn<D>` faces (the one owner; they carry `Types`' `EvidenceOf<D>`), 
+            `EventOf<D>` with a fragment event's address `{ slot,
         key }`, and the exit table of the CLI.
 
         Needs `Changes`: `Out.touched` and `lifeChanged`, written by the function that writes each fact, as its index
-        rule says; the public `Published` and `Turn` faces; props before attach are `Input.Create`'s props, after
+        rule says; the `Published` and `Turn` records this Spec's public faces are built from; props before attach are 
+            `Input.Create`'s props, after
         attach `Input.Props`, judged by `sameValue`; `Capture` takes a `Quiescent`. A hidden page is not a use change
         in v1: React Activity's cleanup is a `Release`, the page's visibility is not [proposed: not a core input; a
         throttled wake fires each overdue timer once]. `Changes` and this Spec both edit `driver.ts` (`perform`, the
@@ -890,7 +894,7 @@ composition
         `Published`); `stepEnds` runs as the core step's last row, once per step; inspection lists `releasing` with
         ages (@task.V3.T49's Model); the abort-ignoring service and the read generator are fixture services under
         `fixtures/services/` (@task.V3.T112's); the issues run rule is in `algorithm` (the verdict). The public event
-        a view sends for `refetch` is not designed here (Q6).
+        a view sends for `refetch` is this Spec's (Q6).
         Needs `Records`: the run rule for I1 and I2 reads the fake store's batches (records as written); the
         mutation generator is a storage world word `Fake.storage.mutate(kind)` applied before an open; which fate a
         reload takes is this Spec's word. A capture never reads a world with mail, so `Records` needs no change; the
@@ -990,7 +994,12 @@ tests
             in the package: `sequencesOf` over the alphabet, run on the real driver and fakes, the expected value 
                 computed
             from the tables in the test. (3) React, in a real React 18 and 19 with Strict Mode on and off: renders per
-            publication. [@I1, @I2, @I3, @I4, @I5, @I6, @I7, @I8, @I9, @I10, @I11, @I12, @I13, @I14, @I15, @I16]
+            publication. (4) Tooling, in the package: a printed failing Story re-run with no generator breaks the same
+            primary rule (I17); the CLI's exit code and JSON `status` over every verdict and run end (I22); `run()`
+            resolves on a passed verdict and rejects on every other end (I23); the memo's key set against
+            `snapshotIn` over the Publication alphabet (I24).
+            [@I1, @I2, @I3, @I4, @I5, @I6, @I7, @I8, @I9, @I10, @I11, @I12, @I13, @I14, @I15, @I16, @I17, @I22, @I23,
+            @I24]
     T2  Alphabet and size. Publication: click(a), click(a, fan-out 150), click(b), a listener that sends, a synchronous 
         settle, stop, dispose, next task; depth 4, 8^4 = 4,096 sequences. Edge: accept Later, accept Now, capture
             refusal, wake, hidden, shown, head landed, head refused, close (enabled cells); depth 6, at most 9^6 = 
@@ -1030,8 +1039,10 @@ tests
             leaves the `pagehide` batch landed under abort (the Story's abort ending); a dead open's answer delivered
             (I11); `run()` returns on a break (the leak Stories); `verdictOf` skips `expectBroken`'s never-broke (I14);
             `propertyTest` stops at the first failing seed (I16 with a rule broken only at the last seed); the judge
-            calls an `off` rule (I13 with a check that throws); a waiting batch with no ticket and no `at` (I20).
-            [@I1, @I2, @I3, @I4, @I9, @I11, @I13, @I14, @I16, @I19, @I20]
+            calls an `off` rule (I13 with a check that throws); a waiting batch with no ticket and no `at` (I20); a
+            throwing rule reported as the expected break (I21: `RuleThrew` names the rule); a memo kept for an identity
+            `snapshotIn` returns `none` for (I24: `getSnapshot` of it is not `none`).
+            [@I1, @I2, @I3, @I4, @I9, @I11, @I13, @I14, @I16, @I19, @I20, @I21, @I24]
     T9  Fixtures. Transfers' `hideFlush` and `hiddenRefusing` (`fixtures/transfers/stories/visibility.ts:30-103`: hide 
         issues once; a refused hidden batch retries at once, a single time); `tests/stories/storage.test.ts:58-80` and
             `tests/write-lanes/payment-leave-and-reload.test.ts:184-216` (abort gives CARD with no charge, land gives

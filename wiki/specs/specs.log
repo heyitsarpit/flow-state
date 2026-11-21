@@ -616,3 +616,40 @@ note 2026-11-21T19:27:12Z
     @spec.Changes companion: tree.ts chainOf and leafOf are deleted, as @spec.Types (DerivedFields) says; moveOf and
     historyAfter stay. Schedules: the per-schedule saved value is ScheduleShape (was Shape, a name Records uses for
     every saved map). Host: host/judge.ts is module-local, apart from owners.ts#judge. Reverse: restore the old lines.
+
+note 2026-11-21T19:39:20Z
+    B1: props reach a schedule as Context, never Turn; @spec.Changes R20 owns it, @spec.Schedules' Turn row and
+    props note now say so. Why: the review found two occasions for one input. Reverse: props back in the Turn row.
+
+note 2026-11-21T19:39:21Z
+    B2: a saved schedule is keyed by state path, then name (@spec.Records PositionShape, ScheduleMap; an instance by
+    name); runtime map stays by scope id. Owner Records. Why: two active states may share a name. Reverse: by name.
+
+note 2026-11-21T19:39:21Z
+    B3: the stored-issue field is Incarnation.outcomes and its source StoredSource (@spec.Operations owns it);
+    Schedules' plant and pin use both; Changes' outcomes map holds StoredSource. Reverse: back to issues/StoredIssue.
+
+note 2026-11-21T19:39:22Z
+    B4: one owner each. Refetch event and fragment address: @spec.Host Q6. Alarm kind order: @spec.Changes Q9
+    (it owns tick). Published<D>/Turn<D> faces: Host; Types' EvidenceOf<D> is what they carry. Others now point there.
+
+note 2026-11-21T19:39:22Z
+    B5: the input gate is a proposed, bench-gated cache with one home, @spec.Schedules Q1; @spec.Changes row C5 passes
+    every scope that hears the occasion. Why: a C5 coder would build what Schedules leaves out. Reverse: gate in C5.
+
+note 2026-11-21T19:39:22Z
+    B6: @spec.Operations Q6 answered by R10's user decision of 2026-11-21 (registered symbols, no WeakMap); Q16
+    no longer waits on Q6. Q13 and Q19 read as closed pointers.
+
+note 2026-11-21T19:39:23Z
+    B7: the compiled Schedule record decide and wake read is spelled in @spec.Types (BodyCapture, In Compiled):
+    the code's fields plus codecs, paused renamed reasons. Why: Schedules read facts no Spec defined. Reverse: drop it.
+
+note 2026-11-21T19:39:23Z
+    Leftovers: seriesId and Out file cites fixed; old-design section numbers replaced; @spec.Changes has proven_by (new
+    T15 for R22) and alarmsMatch as the one alarm check; Host I17/I21-I24, Records I14/I19, Operations I20/I22 tested.
+
+note 2026-11-21T19:43:01Z
+    User's calls left proposed, each now with its reasoning beside it: resetOn Schema (@spec.Changes Q3), hidden page
+    (Q4), rule enabled and terminals (@spec.Types Q5, Q6), persist-off and an unread field (@spec.Records R8, reference
+    table), emit timing (@spec.Host R3). Nothing decided for the user.

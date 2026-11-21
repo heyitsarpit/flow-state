@@ -132,8 +132,8 @@ open
 
     Q6  A made value's internals sit under a second registered symbol on the value, off the face, so two loaded copies 
         of Flow read each other's values; a `WeakMap` beside the brand would refuse a second copy's values.
-        [proposed]
-        outcome  The user confirms the first.
+        outcome  Answered by R10's user decision of 2026-11-21: registered symbols on one shared frozen prototype,
+                 not a `WeakMap`; the internals symbol follows from it.
 
     Q7  A persisted write declares its `output` and error Schemas, required when the app persists. Today an ending that 
         cannot be saved becomes unknown `Restored`, so a success turns into "unsure" on reload. The alternative keeps
@@ -164,8 +164,8 @@ open
         them). Blocks the placements Task.
         outcome  Attack the placement table on paper before building it.
 
-    Q13  Hydrate against restore is not answered here. Blocks the hydration Task (@task.V3.T115).
-        outcome  Answered in `Records`.
+    Q13  Hydrate against restore.
+        outcome  Answered in `Records`; nothing open here.
 
     Q14  `CleanupFailed` as a lasting issue is minor: a quarantined ref (`driver.ts:81`) is host state; whether the
         snapshot shows it through `issuesOf` or beside it was not traced.
@@ -175,9 +175,9 @@ open
         bound for a saved entry's age.
         outcome  Decide with the persisted-resources Task.
 
-    Q16  The door table was attacked once, on paper. Blocks the doors Task: where internals live (Q6) decides whether
-        the surface walk skips one symbol.
-        outcome  An attack on the hostile table after Q6.
+    Q16  The door table was attacked once, on paper. Blocks the doors Task. Where internals live is answered (Q6):
+        the surface walk skips the one internals symbol.
+        outcome  An attack on the hostile table before the doors Task builds.
 
     Q17  Starvation under endless invalidation is minor: invalidations that never pause for one round trip starve the
         waiters, and no bound is designed. One answer is also thrown away when an invalidate arrives mid-flight and
@@ -188,11 +188,11 @@ open
         would be one more field. Minor.
         outcome  Keep until a fixture needs it per slot.
 
-    Q19  The public event a view sends for `refetch` is the host's and has no design. Blocks the entries Task's build.
-        outcome  Designed with `Host`.
+    Q19  The public event a view sends for `refetch`.
+        outcome  Not this Spec's: one home, `Host` Q6.
 
     Q20  The lane policy table (`core/lanes.ts`) is in no design; it is written from the code. Blocks the Spec of the
-        operation-endings Task. The kind order of alarms at one instant is proposed and was run in no model.
+        operation-endings Task.
         outcome  Write the table from `core/lanes.ts`; run the alarm order in a model.
 
 model
@@ -789,8 +789,8 @@ algorithm
     Alarms. One heap of `Alarm`, set and cleared through `tx.alarms` by the owner of each fact in the transition
         that writes the fact. This module owns two kinds: `Collect { entry }` and `Release { call }`. `tick` dispatches
         by a total match: `Release` to `entries.releaseDue(call)` and `Collect` to `entries.collectDue(entry)`. The
-        kind order at one instant (`Bound`, `Silent`, `Release`, `Collect`, `Grace`, `Schedule`) is proposed: no trace
-        found depends on it. `stepEnds` runs before the step's `Wake` command, because it may set a `Collect` alarm.
+        kind order at one instant is `Changes`' (`tick`, its Q9); no trace found here depends on it. `stepEnds` runs 
+            before the step's `Wake` command, because it may set a `Collect` alarm.
 
     Pseudo-code.
 
@@ -885,7 +885,7 @@ composition
             of the tests and an abort-ignoring fake for reads; the Story clock driving the two alarms; `flow explain`
             and inspection showing `releasing`, entries and a row's refusal; the host calling nothing for the release
             alarm (the step's last row and the holders' touch derive the publish); the public event a view sends for
-            `refetch` (open Q19); the rule judge stays local to `host/testing`, and `owners.ts#judge` keeps its name.
+            `refetch` (`Host` Q6); the rule judge stays local to `host/testing`, and `owners.ts#judge` keeps its name.
         - Tasks: @task.V3.T21's acceptance still says `{ value, input, key, attempt }`; the user's decision is
             `(value, { input, key })`. No Task's scope is changed here. Doors are @task.V3.T131 (T98a); `intake` is
             @task.V3.T132 (T98b); the catalog and renderer are @task.V3.T100; operation endings, retry guards and
@@ -1021,8 +1021,9 @@ tests
             (no Owe in Written; no Release at the last hold), and passed 80,000 runs over three seeds with Written 
                 clearing
             `again`. The generator lives in `tests/generated` before `entries.ts` exists. Not in any model: the data
-            layer's holds, `install`, `intake`, doors, the issue view (open Q9). [@I1, @I2, @I3, @I4, @I5, @I6, @I7,
-            @I8, @I9, @I10, @I11, @I12]
+            layer's holds, `install`, `intake`, doors, the issue view (open Q9). I20 is `cells.ts`'s own table test,
+            kept; I22 is `Changes`' `alarmsMatch` (its T14) run after each step of this model. [@I1, @I2, @I3, @I4,
+            @I5, @I6, @I7, @I8, @I9, @I10, @I11, @I12, @I20, @I22]
     T2  Reads with steps: the same model with a step of 1 to 3 cues and Last hold left judged at the step's end: 40,000 
         runs, 1.8 million steps, I1 to I12 held at every step's end. A key handed over inside one step kept its
             running call about 6,600 times per seed, with no Interrupt; the same cues in separate steps do interrupt.
