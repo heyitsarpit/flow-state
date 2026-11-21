@@ -66,9 +66,11 @@ the removal of implicit state machines. These add the project's weights; each na
 
 ## 3. Deliverable, per cluster
 
+- **No length target** [decided: user 2026-11-21]: a design is as long as it needs to be.
+
 One design file in this folder, `YYYY-MM-DD-algo-<cluster>.md`, using skill:to-design's section shapes (`model`,
 `operations`, `algorithm`, `rules`, `composition`). It runs to-design steps 1 to 4 and 6; step 5 (recording in the
-Spec) waits for review. About 700 lines at most; say each fact once. It holds:
+Spec) waits for review. No length target; say each fact once. It holds:
 
 - **required properties first**, in user terms (what must never be lost, invented or shown wrongly), before any
   table; invariants are then checked against these, not only against the design's own rows;
@@ -176,6 +178,9 @@ Each lead reads the files the earlier clusters wrote and names every seam it cro
 
 The orchestrator verifies every report against the file it names before the next step.
 
+- **Lead time cap** [decided: user 2026-11-21]: a lead runs at most 60 minutes. At the cap, or when the 5-hour
+  window passes 90%, it closes out: its best complete version is final, and anything unfinished is listed as
+  named open holes with their severity. There is no resumed run.
 - **Commit per phase** [decided: user 2026-11-21]: once a phase's files are verified, the orchestrator commits
   them as one commit (`wk check --commit` first; never push); a file an agent is still editing waits.
 
