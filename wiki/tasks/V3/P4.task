@@ -1170,6 +1170,63 @@ tasks
             wiki/plans/flow/references/checkout and dispatch-desk, wired into nub run check, with the harness unchanged.
             Why: the command does not exist yet; a second invocation is simpler than changing the shared harness.
             Reverse: a harness change, or a red in T120 once the command lands.
+        comment     2026-11-21T23:32:30Z
+            Requirements re-review (reviewer, revision 6db02ef1), T140 and the reconciled reds: ISSUES, two blocking
+            findings; fix both before the build. The cited reds fail today for their own assertions (re-run: 3 files, 23
+            expected fail; the lint test fails with no rule). The T120 type pin's removal is right under Q19: its body
+            names only excess keys, and its runtime twins stand (`schedule-declarations.test.ts:122`, `:133`, `:169`;
+            `schedule-migration.test.ts:62`, `:73`). Mapping is one to one except item 4.
+
+              Blocking:
+              1. T140 item 4 (readers typed from the declaration, casts gone) has no check and is doubled with
+                 @task.V3.T113. The update routes it to T113's pins, but T113 comes after T118 in the Order and owns
+                 `Timers`, `TimerView` and the snapshot's `pausedBy` pin (`tests/types/schedules.test-d.ts:297`), so
+                 T140 can close with item 4 unshown. The `ScheduleUndeclared` reds show refusal, not reader typing.
+                 Missed because: the withdrawn pin was the item's only red, and Q19 voids body excess-key pins, not
+                 reader types. Needs: a ruling that gives item 4 one home, either a T140 red for what T140 deletes (the
+                 worklist's casts in `compile-schedules.ts`, `ScheduleMetadata`'s wide key, `ScheduleInput`'s K,
+                 `config.ts:166`) or the item moved to T113 with the user's approval.
+              2. T140 item 1, the reference apps: the lint test plants every case with its definition in the same file,
+                 but every reference-app body sits in a file without its definition (21 files, `*.machine.ts` and
+                 `*.trait.ts` beside `*.definition.ts`; also `fixtures/home/stories/structure.ts`,
+                 `tests/sign-in/trusted-device.test.ts`). A rule that resolves same-file definitions and stays quiet on
+                 an imported one passes its test and the ruled reference-app run with all 22 old sites left, and those
+                 apps are typed `any`. Missed because: the planted cases came from in-package shapes. Needs: a planted
+                 pair with the definition imported from a sibling file (fires undeclared, quiet declared), and the
+                 requirement that the separate oxlint run is wired into `nub run check` (ruling 2) and fails on today's
+                 reference apps.
+
+              Not blocking:
+              - Item 2 says three faults; the baseline lists four (`armon-of-any-kind` added). Align the text.
+              - The type pin's named flip `expectTypeOf(Flow).not.toHaveProperty("keyed")` does not compile (TS2554,
+                flip A's scratch run): name a form that does.
+              - `OLD_FORM` misses `is.keyed` (`compile-body.ts:326`), `keyedSchedule` (`core/schedule-decision.ts:335`)
+                and an unquoted `keyed:` key; the lint test plants only `KeyedConfig` and `ScheduleKey` of the old
+                types. Add `KeyedSchedule`, `ScheduleParts`, `ErasedEntry` to the plants.
+              - The fixture walk needs `Compiled.schedules` to be a `Map` (`Predicate.isMap`); a Record keeps it red
+                forever. State the shape or read either.
+              - No red pins that keyedness and reason names are read from the declaration rather than the body's `keys`
+                and `paused` (`compile-schedules.ts:80,163,170,174`); the twin rows keep them agreeing, as the T140
+                addendum says. Builder's call.
+
+              Sidecar log (five Haiku, high). Accepted: blind A's item 4 gap and fault count; blind B's cross-file sites
+              and missed names; flip A's reasons and the flip-text error; cohesion's keyedness and reasons writers and
+              the Map shape. Changed: blind A's and cohesion's reader-type rows, folded into 1; blind B's
+              silent-outside-package harness, into 2 (the separate run uses its own config, so the rule must not gate on
+              path). Rejected: "nub run check does not run the rule" (`vp check` runs rules enabled in `vite.config.ts`;
+              the rule test goes in `lint:rules`); a new fixture app and wrong-ending Story for a migration (T120's,
+              Types T8.1); renamed or non-enumerable `Flow.keyed` (deliberate evasion); stale fault texts passing
+              silently (the harness marks them STALE and exits 1); non-finite runtime keys (@task.V3.T118); a throwing
+              `Undeclared()` keeping `it.fails` green (flip A re-runs at close); the T120 `:100` and `:157` rows'
+              incidental refusals (outside the changed reds; each still lacks its expected ending today).
+        comment     2026-11-21T23:32:57Z
+            [decided: agent orchestrator 2026-11-22] Ruling on the re-review's finding 1: T140's acceptance item 4
+            (schedule readers typed from the declaration, their casts gone) stays in T140, which deletes those wide
+            types; T140 gets a red for it (two-sided type pins on snapshot timers, evidence and saved timers, plus the
+            casts' absence), and T113 keeps only the general derive.ts rows. Finding 2 is folded by the lead: a planted
+            pair with the definition imported from a sibling file, and the reference-app oxlint run wired into nub run
+            check, failing on today's apps. Why: one home per fact, in the Task that deletes the old types. Reverse:
+            move item 4 to T113.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
