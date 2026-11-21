@@ -286,3 +286,121 @@ None is written here.
   `StaticCli.spec`, `WriteAhead.spec` (schedule text): superseded wholesale; no edit.
 - `wiki/tasks/V3/P4.task:2253-2254` T109 and `:2487-2594` T113: the routed pins "pausedBy as a literal union in the
   snapshot" and "typed by the body" took the body route; the declaration route replaces it.
+
+## Second pass (2026-11-22)
+
+**Bottom line: the first pass is right on `src/`, fixtures and tests, and missed the two reference apps and six smaller
+places.** Done blind from `rg` over the repo at HEAD `1723b544`; one `rg` over `references/` showed a fragment of this
+record (a count row) before my own lists were built. Paths are under `packages/flow-state-v3/` unless they start with
+`wiki/`. "Block" is one `schedules: {` literal.
+
+### Additions (missed by the first pass)
+
+Reference apps. They are type-checked by `wiki/plans/flow/references/typecheck/tsconfig.{checkout,dispatch-desk}.json`,
+whose stand-in types `schedules` as `any` (`typecheck/standin/flow-state.ts:336`), so no compile error will ever
+point at them. The first pass's section 6 said docs have none; T140's grep check and "May change" list leave them out.
+
+- 22 plain body blocks in 14 files, each needing a declaration on its definition:
+  - checkout (5): `checkout/features/Pay/countdown.trait.ts:21`, `pay.machine.ts:250,324,380`,
+    `three-ds.subroutine.ts:68`
+  - dispatch-desk (17): `Toasts/toasts.machine.ts:19`; `Tickets/editor/editor.machine.ts:175,287,370,407`,
+    `body.trait.ts:74`, `autosave.trait.ts:61`; `Tickets/feed/feed.machine.ts:43,65`;
+    `Tickets/queue/queue.machine.ts:165,
+    394,398`, `row-flash.trait.ts:15`; `Tickets/panels/reservation.trait.ts:18`; `Presence/viewer-badge.trait.ts:13`;
+    `Attachments/upload.trait.ts:84`; `Find/find.machine.ts:37`
+- Two are keyed with a plain body `keys:` and no `Flow.keyed` (the pre-`Flow.keyed` form): `editor.machine.ts:179`
+  (`settle`), `queue.machine.ts:185` (`sla`). They need a declared `key`, and nothing greps `Flow.keyed` to find them.
+- `restartOn` with no declared Schema: `find.machine.ts:38`, `editor.machine.ts:183,293`, `body.trait.ts:75`,
+  `queue.machine.ts:170`. No `paused:` anywhere in the two apps.
+- Text that shows or describes the old form as current: `wiki/plans/flow/references/pages/T57-schedules.md:11-27`
+  (`Flow.keyed` at `:20`, "you accepted it"), `pages/T17-machine-structure.md:42`,
+  `dispatch-desk/REVIEW.md:207`, `dispatch-desk/REWRITE-PLAN.md:152`, `proposals/open-items.md:13`.
+- Prototypes (`prototypes/round-7` to `round-14x`): 25 blocks in 13 files, 12 `Flow.keyed` in three `front-check.ts`
+  files. Exempt (never production), listed so nobody greps them by accident.
+
+`src/`:
+
+- `config.ts:165-166` | the definition's `schedules` field is a placeholder, `Schema.Record(String, Unknown)`, "accepted
+  and not yet read" | T120 replaces it; it is the declaration's decode site, not old form
+- `tokens.ts:228-236` | `ScheduleMetadata`: `name: string`, `key: ScheduleKey`, re-exported at `definition.ts:116` | the
+  second wide-key type; becomes the declared one (Schedules RT2)
+- `tokens.ts:239-258` | `ScheduleInput<M, Cx, K>`, `ScheduleEvent`, `ScheduleOperations` | `K` from the declaration
+- `index.ts:47-48`, `host/runtime.ts:44` | public re-export of `Timers` and `TimerView` | follow `TimersOf<D>`
+- `core/schedule-decision.ts:335,344` | `keyedSchedule = Option.isSome(pass.schedule.keys)` infers keyed-ness from the
+  body's compiled `keys` | read it from the declared key; `core/firings.ts:76`, `core/turn.ts:373-376,506` keep `string`
+
+Tests, fault harness and tools:
+
+- `tests/restore/schedule-edits.test.ts:39,51,64,68,74-76` | `expire` and `warn` are standalone consts and `remind` is
+  added by the edit helper, none inside a `schedules:` literal, so a grep on `schedules:` misses them | each needs its
+  declaration on the definition the helper builds (the first pass has only `:76` and `:158-218`)
+- `tests/compile/schedules.test.ts:98-111` | `poll` is a const placed as `{ poll }`; `:6,33` consume the planted
+  `armOnKeyed` of `fixtures/home/stories/structure.ts:112` | declare; keep the refusal
+- Fault edits whose `find` text is bound to the old shape: `tests/faults.ts:424-426` (`keyedSchedule`),
+  `tests/schedule-faults.ts:144-145,190` (`Option.isNone(... .keys)`), `tests/structure-faults.ts:392-393`
+  (`config.ts`'s `armOn: Schema.optionalKey(...)` line, `:220`). Follow them if those lines change.
+- `tests/structure-faults.ts:122` and `tests/construction-faults.ts:233` edit `compile-schedules.ts` text; `tools/`
+  needs no edit: `tools/flow-state-lint/rules/paired-refusals.test.ts:43,47` hold sample strings only,
+  `timers-decided.*` and `tools/lint-bomb/FLOW-STATE.md:60-64` are about an incarnation's `.schedules`.
+
+Tasks and Plans:
+
+- `P4.task:1001` | T89 ownership table row: "`Flow.keyed` decode" among the construction-finding owners | stale
+- `P4.task:3174` | T120: "Needs the user: `Flow.keyed` was accepted as public API ... its removal rests on Types R8" |
+  stale, the user has decided; no supersede note on it
+- `P4.task:2617-2621` | T113 comments: the routed pins "typed key in a keyed schedule's send mapper" and "unkeyed send
+  mapper types `key` as `ScheduleKey`" | body route; only the `:2642` note covers it
+- `wiki/plans/flow/Testing.plan:146` and `wiki/specs/testing/Stories.spec:237` | `advance({ next: { schedule:
+  "expire" } })` and the cut's `schedules` read name a schedule | names typed from the declaration; the first pass
+  called `Testing.plan:140-152` clean
+- T140's "May change" (`P4.task:3722`) leaves out `wiki/plans/flow/references/` and `tools/`, and its grep check
+  names only `src/`, `fixtures/` and `tests/`.
+
+### Corrections (the first pass wrong)
+
+- Header and section 1: the machine files hold 1 keyed schedule (`room.ts:147`) and 2 with `restartOn`
+  (`room.ts:151,185`), not "2 keyed, 3 with `restartOn`"; the other keyed and the third `restartOn` are the planted
+  Stories (`fixtures/home/stories/structure.ts:119,166`), counted again in "6 planted". The 27 total stands.
+- `room.ts` entries: `check` is `:181` and `boost` `:189` (`:180` is the `schedules:` line; `:188` is `check`'s `}`).
+- `Flow.keyed` count in the tests: 9 calls (not 7), so 11 with the fixtures, in 8 files. `P4.task:3102` (T120) is right;
+  the first pass's "inventory counts 9 calls: fixtures 2, tests 7" and "(9 calls)" for `Types.md:154` are wrong, and
+  `Types.md:154`'s "11 fixture and test files" should read 8 files.
+- `P4.task` cites are stale: T120 is `:3073` (the "11 `Flow.keyed`" line `:3102`, not `:3066`), T129 `:3475`, T131
+  `:3538`. Commit `76a7c7a8` and `1723b544` also moved `Types.spec:791` to `:822` and `Types.md:384,393` to `:385,394`.
+- Plans, now done: `76a7c7a8` (two minutes after this record) rewrote `Machines.plan:505-507` and `:517-521`,
+  `CommandLine.plan:43` and `Inspection.plan:26` to the declared form, with `[decided: user 2026-11-22]` tags. Drop
+  them from the section 4 worklist; four Plan places remain (`Machines.plan:428`, the Session example `:470-488`,
+  `:822-823`, `:856-858`). The same commit added the supersede notes for T57 (`P4.task:269`), T89 (`:1118`), T109
+  (`:2300`), T113 (`:2642`) and `Schedules.spec:157`, `Types.spec:69`: the matching "Supersede notes needed" bullets
+  are done.
+- `wiki/specs/core/Turn.spec` never names `Flow.keyed` (0 hits); its R14, R16, R27 text (`:95-146`, `:304-310`,
+  `:581-583`) is the plain body `keys`/`paused` description. It is `superseded`, so no edit stands. `Actors.spec` has no
+  schedule-shape text (its 8 hits are lifecycle, `:104,152,208,332,566,577`): drop it. `StaticCli.spec:58-59,70`
+  and `WriteAhead.spec:54-57` do describe `keys`, `restartOn` and `pausedBy`, also `superseded`.
+- Fault harnesses: `tests/restore-faults.ts` has no schedule shape (its `keyed` hits are lanes, `:35,367,400`); drop it.
+  In `tests/schedule-faults.ts`, `:61,196,250` are `says:` prose; the shape-bound text is `:144-145,190`, and `:315-325`
+  (`pausedBy`) is right.
+- "About 75 test sites in 27 files": 17 files under `tests/` and 2 under `src/` carry body schedules (19); the rest of
+  the 27 only read names or keys.
+- T140's Scope (`P4.task:3709`) copies the header counts: "6 in open Tasks (T72, T109, T113, T118)" names four. Update
+  it with the figures here once they are accepted.
+
+### Confirmations (counts only)
+
+- 27 fixture sites (21 in 12 machine files, 6 planted in 2 Story files); 11 `Flow.keyed` calls in all; 0 hits in
+  `apps/docs/`, `bench/` and `wiki/conventions/` beyond the listed catalog rows.
+- `src/`: 9 old-form symbols, 5 body inferences and 7 reader groups, every `file:line` re-read and found right; 5
+  additions above.
+- Tests: about 66 plain body schedules plus 9 keyed (75 sites); about 25 test cites checked, right except
+  the ones corrected above.
+- Plans: the Session example has no declaration (`Machines.plan:465-472`).
+
+## Third pass: a draft lint rule (2026-11-22)
+
+A Haiku-drafted oxlint rule (scratch, not committed; the T140 builder rewrites it as the permanent guard) flagged 127
+sites in 39 files: `src` 24 (2 undeclared body schedules, 22 old type uses), `fixtures` 29 (27 body schedules, 2
+`Flow.keyed`), `tests` 74 (65 body schedules, 9 `Flow.keyed`), `bench` 0. It confirms the first two passes' counts in
+the package. It cannot see schedule maps that are not object literals, bodies built in helpers (`corruption.test.ts`
+`order(...)`), non-call `Flow.keyed` references, or a definition in another file (13 hits); many hits in
+`construction.test.ts` are refusal tests that write the old form on purpose. It does not scan
+`wiki/plans/flow/references/`.

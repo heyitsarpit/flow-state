@@ -3700,16 +3700,24 @@ tasks
             sites change.
 
             **Read first:** the worklist
-            code:wiki/plans/flow/references/proposals/2026-11-22-declared-schedules-inventory.md (every site with
-            `file:line` and its rewrite); @spec.Types (R8, I13) and @spec.Schedules (R14, R16), companions in
-            `wiki/specs/v3/`. The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build,
-            not a strict contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
-            in `wiki/specs/specs.log`.
+            code:wiki/plans/flow/references/proposals/2026-11-22-declared-schedules-inventory.md, all three passes (two
+            independent inventories and a draft lint rule's 127 hits; every site with `file:line` and its rewrite);
+            @spec.Types (R8, I13) and @spec.Schedules (R14, R16), companions in `wiki/specs/v3/`. The linked Spec is
+            pre-coding analysis: follow it as best-guess guidance for how to build, not a strict contract; it should
+            help a lot. Where building shows it wrong, fix the Spec and log the change in `wiki/specs/specs.log`.
 
-            **Scope:** 27 fixture sites in 12 machine files and 2 Story files; about 75 test sites in 27 files; 21 rows
-            in `src/` (9 old-form symbols, 5 body inferences, 7 readers of names or keys as `string`); 8 places in 3
-            Plans; 10 in the Specs and the fixture catalog; 6 in open Tasks (T72, T109, T113, T118). Docs and bench
-            have none.
+            **Scope:** the package: `src/` 26 rows (old-form symbols, body inferences, readers of names or keys as
+            `string`, including `ScheduleMetadata`'s wide key, `ScheduleInput`'s K, the public `Timers` and `TimerView`,
+            the placeholder decode at `config.ts:166`); `fixtures/` 21 body schedules in 12 machine files plus 6 planted
+            shapes in 2 Story files; `tests/` about 76 sites in 28 files, including standalone schedule consts, bodies
+            built in helpers and 11 `Flow.keyed` calls in 8 files; 3 planted-fault find texts bound to the old shape
+            (`faults.ts`, `schedule-faults.ts`, `structure-faults.ts`). Outside it: the reference apps
+            `wiki/plans/flow/references/checkout` and `dispatch-desk` (22 body schedules in 14 files and 5 doc places,
+            typed `any` today, so no compiler flags them); the Plans and Tasks the worklist still lists after commit
+            `76a7c7a8`. Refusal tests that write the old form on purpose keep a deliberate old shape and assert the new
+            refusal (`ScheduleUndeclared`). A permanent lint rule in `tools/flow-state-lint` refuses any old-style
+            schedule; the draft's approach is in the worklist's third pass, and it must also see helper-built bodies,
+            non-literal schedule maps and non-call `Flow.keyed` references.
 
             **Supersedes:** every old-form symbol the worklist names in `src/` (`Flow.keyed`, `KeyedConfig`,
             `KeyedSchedule`, `ScheduleKey`, `ScheduleParts`, `ErasedEntry`, the keyed mark, body-side key and reason
@@ -3719,11 +3727,16 @@ tasks
             **Risk:** a fixture's Story meaning must not change while its shape does: each migrated machine keeps its
             Stories green, and saved fixtures still restore (the format step is @task.V3.T118's).
 
-            May change: `packages/flow-state-v3/src/`, `fixtures/`, `tests/`, `wiki/plans/flow/*.plan`,
-            `wiki/specs/v3/`, `wiki/conventions/fixture-catalog.md`, open Task text.
+            May change: `packages/flow-state-v3/src/`, `fixtures/`, `tests/`, `tools/flow-state-lint/`,
+            `wiki/plans/flow/*.plan`, `wiki/plans/flow/references/checkout/`,
+            `wiki/plans/flow/references/dispatch-desk/`, `wiki/specs/v3/`, `wiki/conventions/fixture-catalog.md`, open
+            Task text.
         acceptance
-            - No body-declared schedule, `Flow.keyed` or old-form symbol remains in `src/`, `fixtures/` or `tests/` (a
-              grep check in the suite), and every fixture machine declares each schedule it places.
+            - No body-declared schedule, `Flow.keyed` or old-form symbol remains in `src/`, `fixtures/`, `tests/` or the
+              reference apps, and every machine declares each schedule it places; a lint rule in `tools/flow-state-lint`
+              refuses any old-style schedule (helper-built bodies, non-literal maps and non-call `Flow.keyed` included),
+              with its own test, and `nub run check` runs it.
+            - The three planted faults bound to the old shape target the declared form and are still caught.
             - Every fixture Story keeps its meaning and passes; every migrated test still checks the rule it cited.
             - Readers of schedule names, keys and reasons in the snapshot, evidence, trace and saved timers are typed
               from the declaration; the casts that restored them are gone.
