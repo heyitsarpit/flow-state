@@ -2,31 +2,34 @@
 proposal external-rules
 status proposed 2026-11-22
 ---
-# Rules declared outside the machine
+# Rules attached with `.rules(build)`
 
-**Bottom line (proposed):** a rule set is its own branded value, `rules(subject, build)`, typed from its machine or
-fragment. Every run gets its sets from one place, the entry that runs the subject: an app entry
-`{ machine, rules: [...] }`, or the same entry shape given to `Story.machine` and `Story.fragment`. A scan of the
-project's `*.rules.ts` files for the brand, run by `flow check` and by the test reporter, makes a set that some entry
-should list but does not the error `RulesUnregistered`, never a silent skip. All 38 earlier rule features are kept
-(section 3). The body loses `rules`, `turn` and every type that carried rule names.
+**Bottom line (proposed):** rules attach to a machine, trait or subroutine with a chained `.rules(build)`, which
+returns the same value with its rules and typed tokens (`OrderMachine.rules.PaidHasReceipt`). A build can live in
+another module as a value typed from the definition, so two machines of one definition share it. Anything that runs
+the value has its rules, so there is no registry, no scan and no `RulesUnregistered`. The bare value from
+`machine()`, `trait()` or `subroutine()` cannot be run or placed until `.rules(...)` is called (`.rules(none)` for
+no rules). That one rule removes the two-values risk by type and at construction. All 40 earlier rule features are
+kept (section 4).
 
-**Why now:** the user accepted (2026-11-22) moving rules out of the machine body. Two worries: no earlier rule
-feature may be lost, and no rule set may be silently skipped, in any kind of Story or test.
+**Why now:** the user chose (2026-11-22) to attach rules with `.rules(build)` instead of registering a separate
+value. Exactness is option C (@spec.Types Q19): there is no captured body type, and deny codes stay inline. This
+revision answers @review.review-external-rules (H1 to H5, M1 to M6, L1 to L5) against that design.
 
-**Read first:** @plan.Rules; @spec.Types (R9, I12, I13, Q3, Q5, Q19); @spec.Host (R8, R11, R12, `RuleSources`, the
-judge, `verdictOf`); @spec.Changes (`Turn`, instances); @task.V3.T106; code:packages/flow-state-v3/tests/rules/rules.ts;
-code:packages/flow-state-v3/src/host/cli/discover.ts; @proposal.rules ("Inline, opted into outside tests": rules were
-kept inline so they need no registration).
+**Read first:** @review.review-external-rules; @review.rules-exactness-inventory (nothing of the rules machinery is
+built); @plan.Rules; @spec.Host (R8, R11, R12, the judge, `verdictOf`); @spec.Types (Q5, Q19).
 
-## 1. The API
+## 1. The signature
 
 ```ts
-// fixtures/shop/machines/order.rules.ts       (NEW file convention: *.rules.ts)
-// existing: S, E, check, in, on, invariants, turns, terminals, event, before, after
-// NEW: rules, the RuleSet brand; moved: turn (from the body's tokens to the rules builder's)
-// user-defined: OrderMachine, OrderRules, PaidHasReceipt, RefundAddsUp, ClosedStaysClosed, refunded, closed
-export const OrderRules = rules(OrderMachine, ({ S, E, turn }) => ({
+// existing: machine, definition, S, E, check, in, on, invariants, turns, terminals, event, before, after
+// NEW: .rules (on the value machine(), trait() and subroutine() return), none, rules(source, build) (a shared build)
+// moved: turn (from the body's tokens to the rules builder's)
+// user-defined: Order, OrderMachine, PaidHasReceipt, RefundAddsUp, ClosedStaysClosed, receipt, refunded, closed
+export const OrderMachine = machine(Order, ({ S, E }) => ({
+  default: S.OPEN,
+  on: {/* handlers */},
+})).rules(({ S, E, turn }) => ({
   invariants: {
     PaidHasReceipt: { in: S.PAID, check: ({ memory }) => memory.receipt !== null },
   },
@@ -35,267 +38,317 @@ export const OrderRules = rules(OrderMachine, ({ S, E, turn }) => ({
       on: E.Refund,
       check: ({ event, before, after }) => after.memory.refunded === before.memory.refunded + event.amount,
     }),
-    ClosedStaysClosed: turn({ check: ({ before, after }) => !before.memory.closed || after.memory.closed }),
+    ClosedStaysClosed: ({ before, after }) => !before.memory.closed || after.memory.closed, // bare form, no event
   },
   terminals: [S.REFUNDED],
 }))
 
-OrderRules.PaidHasReceipt   // RuleToken<"PaidHasReceipt">; was OrderMachine.rules.PaidHasReceipt
-OrderRules.Typo             // type error
+OrderMachine.rules.PaidHasReceipt   // RuleToken<"Shop/Order.PaidHasReceipt">
+OrderMachine.rules.Typo             // type error
+OrderMachine.rules(() => ({}))      // type error: a ruled value has a token record, not a .rules method
 ```
 
-- **Typing.** `rules<D, const R>(subject: Machine<D> | Trait<D> | Subroutine<D>, build: ExactRules<NoInfer<D>, R>):
-  RuleSet<D, NamesOf<R>>`. `R` captures only the returned rules object. A spike under `strict` and
-  `exactOptionalPropertyTypes` on TypeScript 7.0.2 (scratchpad `spike/helper3.ts`) showed names inferred,
-  `OrderRules.Typo` refused, inputs inferred with no annotation, `event.amount` on `E.Pay` refused, and an excess key
-  in an invariant refused.
-- **`turn` stays.** A plain `{ on, check }` entry leaves `event` untyped (spiked): TypeScript discriminates only on a
-  literal-typed property, and an event token is a callable object. So `turn` moves to the rules builder. Its
-  excess keys are refused at construction only.
-- **Construction.** `rules()` returns `Built | Refused`, like `machine()`. It refuses a duplicate name, an unknown
-  key, a foreign token, and an empty or repeated `terminals` list, each with the reason the types give (I13's twin).
-- **Subjects: machines, traits and subroutines.** `rules(OrderMachine, ...)`, `rules(Upload, ...)` for a trait and
-  `rules(ThreeDSecure, ...)` for a subroutine all take the same builder shape. Its builder gets the fragment's own `S`
-  (subroutine only), `E` (including `hostEvents`) and `turn`. A check reads only what the fragment declares.
-
-## 2. Where sets are connected, and the scan
+Types (spiked under `strict` and `exactOptionalPropertyTypes` on TypeScript 7.0.2, scratchpad `spike/chain.ts`, 29 k
+instantiations):
 
 ```ts
-// existing: app, machines, the { machine, context } entry form, runtimeSetup, defineConfig
-// NEW: rules on an entry; rules in defineConfig (globs, default ["**/*.rules.ts"], node_modules excluded)
-export const store = app({
-  id: "shop",
-  machines: {
-    pay: PayMachine,                                                      // no sets: plain form, unchanged
-    order: { machine: OrderMachine, rules: [OrderRules] },
-    editor: { machine: EditorMachine, rules: [EditorRules, UploadRules] }, // a fragment's set where it is placed
+// NEW: Bare, Rules, RuleToken; Machine keeps D and gains N, the rule names (from the rules object, never the body)
+type Bare<D> = {
+  readonly definition: D
+  rules<const I extends string = never, const T extends string = never>(build: Build<D, I, T>): Machine<D, I | T>
+  rules<N extends string>(shared: Rules<D, N>): Machine<D, N>
+}
+type Build<D, I extends string, T extends string> = (tokens: RuleTokens<D>) => {
+  readonly invariants?: { readonly [K in I]: Invariant<D> }   // only the keys are inferred: no capture of checks
+  readonly turns?: { readonly [K in T]: TurnRule<D> }
+  readonly terminals?: ReadonlyArray<StateToken<D>>
+}
+type RuleToken<Id extends string> = { readonly "~rule": Id }   // Id: `${D["id"]}.${Name}`, naming its subject
+type Machine<D, N extends string = never> = {
+  readonly definition: D
+  readonly construction: Construction
+  readonly rules: { readonly [K in N]: RuleToken<`${D["id"]}.${K}`> }
+}
+```
+
+- **The capture.** Only the key sets `I` and `T` are inferred, the shape Types Q19 measured as cheap (item 1). The
+  checks are typed by context and never captured, and the body is not captured at all. An unknown key (`chek`, `in`
+  on a turns rule) is refused by `.rules()` at construction, as option C has it. One misuse is still a type error:
+  an entry that is neither a `turn(...)` nor a function (spiked).
+- **What each builder gets.** A machine gets `S`, `E` (internal events included) and `turn`. A subroutine gets its
+  own `S`, `E` (including `hostEvents`) and `turn`. A trait has no states, so it gets `E` and `turn` only: its
+  builder has no `S`, and `terminals` and `in` are not in its shape. A trait's or subroutine's checks read only what
+  it declares.
+- **Calling `.rules` twice** is a type error (above), and a cast past it is refused at construction (`RulesTwice`).
+- **Identity.** The ruled value keeps the definition's id and is a new frozen value. The bare value is not runnable.
+- **A build in another module, shared:**
+
+```ts
+// fixtures/number-input/machines/stepper.rules.ts
+// NEW: rules(source, build): a build typed from a definition (or a bare trait or subroutine), not bound to a value
+// user-defined: stepperRules, SetLandsInBounds, snapped
+export const stepperRules = rules(Stepper, ({ E, turn }) => ({
+  turns: {
+    SetLandsInBounds: turn({
+      on: E.Set,
+      check: ({ event, before, after }) =>
+        after.memory.value === (event.value === null ? null : snapped(before.memory.settings, event.value)),
+    }),
   },
-})
-export default defineConfig({ apps: [...], rules: ["fixtures/**/*.rules.ts", "tests/**/*.rules.ts"] })
+}))
+
+// fixtures/number-input/machines/stepper.ts
+export const StepperMachine = machine(Stepper, stepperBody).rules(stepperRules)
+// tests/number-input/faults.ts: a planted fault, same definition, same rules, same tokens
+export const UnclampedStepperMachine = machine(Stepper, unclampedBody).rules(stepperRules)
 ```
 
-- **Entry.** The entry that runs a subject is the only connection, so `{ ...store.machines }` carries sets into a
-  grown app. `app()` refuses `RulesSubjectAbsent` (a set whose subject is neither the entry's machine nor a fragment
-  it places), a set listed twice, and two sets of one subject sharing a rule name.
-- **Scan.** It loads every file the `rules` globs match, as `discover.ts` loads Story files, and keeps each export
-  with the brand. Then it checks every entry: of each app the config lists, of each app a discovered Story runs, and
-  of each `Story.machine` and `Story.fragment`. A scanned set whose subject an entry runs or places, but which the
-  entry does not list, is `RulesUnregistered` (an error), naming the file, the export and the entry.
-- **Who runs the scan.** `flow check` runs it, and so does the test reporter that prints rule coverage. So
-  `nub run test` fails on an unregistered set too, not only `nub run verify`.
-- **Lint.** `flow-state/rules-file`: a `rules()` call is a top-level export of a `*.rules.ts` file. Such a file
-  imports no test runner, so loading it never runs a test. This covers the only sets the scan cannot see: unexported
-  ones, or ones in a file no glob matches.
+A shared build is typed from the definition, not from a machine, so it needs no import of the machine and makes no
+import cycle.
 
-```text
-$ flow check
-error RulesUnregistered  fixtures/shop/machines/order.rules.ts#OrderRules
-      Shop/Order runs in app "shop" (entry order), which does not list OrderRules
-```
+## 2. The two-values risk
 
-## 3. Inventory: every earlier rule feature, and where it lives now
+`const base = machine(Order, body)` and `OrderMachine = base.rules(...)` both exist, and code could run `base`. Three
+ways to stop it:
 
-"Before" is where the feature is decided or built today. "After" is where the external design keeps it; "same"
-means unchanged, apart from tokens coming from the set.
+- **A, the bare value is not runnable (recommended):** `app()`, `runtimeSetup`, `Story.machine`, `Story.fragment`
+  and a definition's `traits` or subroutine slot accept only a ruled value. Running a bare one is a type error, and
+  at construction `RulesMissing`. It holds for every runner and every file, test files included. The cost is one
+  `.rules(none)` on each machine without rules, which is also an upfront claim a reader can see.
+- **B, the Runtime refuses two values with one id:** it catches only a run that has both. A run that uses only
+  `base` judges nothing, silently.
+- **C, a lint rule that a module exports only the ruled value:** it sees one module, not the shared-build split, and
+  lint is not part of a test run.
 
-1. `invariants`, judged at every publication. Before: Rules O1. After: set's `invariants`.
-2. `turns`, accepted turns only; denied and unhandled skipped. Before: Rules O1. After: set's `turns`.
-3. subjects `in` (a compound means its subtree) and `on` (any sender). Before: Rules O1. After: same.
-4. `event` typed from `on`, absent without it. Before: Rules O1; Types Q3 (`turn`). After: `turn` in the builder.
-5. what a check reads; `context` only in turns rules. Before: Rules O1; Types CallbackInputs. After: same.
-6. a restore: invariants judge it, turns rules skip it. Before: Rules O1; Host judge table. After: same.
-7. the judge per `Turn`: Begin, Turn+Published, Other, no Published, Finished. Before: Host judge; Changes `Turn`.
-   After: same; reads the entry's sets.
-8. a per-Runtime `last` map; a reload starts empty. Before: Host judge. After: same.
-9. rule namespace; a duplicate name is a type error and refused. Before: Rules O3; Types R9, I13. After: per set, plus
-   `app()` across one subject's sets.
-10. typed rule tokens. Before: Rules O3; Types R9, I12, Q2, Q17. After: `OrderRules.X`; R9, I12, Q2, Q17 deleted.
-11. terminals, `TerminalLeft`, never judged by runs. Before: Rules O2; Types Q6; T22. After: per entry, over the
-    subject's graph.
-12. `RuleSubjectUnreachable` (a warning). Before: Rules O8; T22. After: per entry.
-13. `flow explain` lists rules. Before: Rules O8. After: per entry.
-14. every Story, generated run and sweep judges, with no extra call. Before: Rules O4; Host R8. After: sets come from
-    the entry (section 4).
-15. a break shrinks to the shortest Story. Before: Rules O4; `generate.ts` shrink. After: same.
-16. several breaks at once: invariants first, then declaration order. Before: Rules O4. After: then entry list order,
-    then declaration order.
-17. `.rules({ expectBroken, off })` per Story, addable from helpers, kept as data. Before: Rules O4. After: same; tokens
-    from sets.
-18. `off` by rule, or `"all"`. Before: Rules O4. After: plus a whole set: `off: [OrderRules]`.
-19. a rule in both lists is refused. Before: Rules O4. After: same; a set in `off` with its rule expected is refused
-    too.
-20. `Expect { rule, step?, actor?, where? }` matching. Before: Host R11, `verdictOf`. After: same.
-21. `neverBroke`; after the first break the run goes on. Before: Rules O4; Host verdict. After: same.
-22. derived runs inherit the switch. Before: Rules O4. After: same (section 4, case 4).
-23. the reload sweep drops `expectBroken` in forks. Before: Host (tabs and death). After: same.
-24. `propertyTest` runs every seed. Before: Host R14; `generate.ts`. After: same.
-25. project run rules module `tests/rules/list.ts`, for config and `Story.app`. Before: Host `RuleSources`; `rules.ts`.
-    After: same, beside sets; not a set.
-26. Flow's run rules' modes only in Flow's own helper; `breaches` renamed `broken`. Before: Rules O4; T114. After: same.
-27. tooling rules (`UnusedWord`, `CleanupLeft`, `PublicationDrift`, `RuleThrew`). Before: Host `RuleSources`. After:
-    same.
-28. `Verdict<R>`, a switch outside `R` does not compile. Before: Host PublicFaces. After: `R`: run rule ids and the
-    entry's set tokens.
-29. rule coverage: counts, unseen with why, `off` out of total, expected listed. Before: Rules O5. After: enumerates the
-    entry's sets.
-30. a Runtime switch, `"judge"` or `"off"`, replacing `enabled`. Before: Rules O6; Types Q5. After: same; reads the
-    entry's sets.
-31. `RuleBroken`, private fields redacted, the app carries on. Before: Rules O6; Host R12. After: same.
-32. a throwing check gives `threw: true` and changes only itself. Before: Host R12, I21. After: same.
-33. the CLI exit is a function of the verdict. Before: Host R13; T114. After: same.
-34. a fragment rule reads only the fragment; `on` matches a host's raise. Before: Rules O7. After: same.
-35. judged per placement and `.each` copy; entry, reset and exit skipped; a frozen trait not judged. Before: Rules O7;
-    Changes. After: same.
-36. a host can never remove a fragment's rule. Before: Rules O7. After: **at risk**: the scan makes it an error per
-    placement.
-37. a fragment token switches every placement; ids name the placement and the copy. Before: Rules O7. After:
-    `UploadRules.X`; same ids.
-38. `Story.fragment` judges a fragment alone; a planted fault for each kind. Before: Rules O7, V7; T109. After: case 3;
-    faults unchanged.
-
-**What would have been lost without a fix.**
-
-- **#36:** with sets on entries, a host that leaves out `UploadRules` removes the fragment's rules. The scan checks
-  every placement, so leaving it out is `RulesUnregistered`.
-- **#14 under `vitest` alone:** if only `flow check` ran the scan, a suite run without it would miss an unregistered
-  set. The test reporter runs the scan too.
-- **Host R8 for plain Runtime tests:** nothing fails such a test today either (case 5).
-
-The build-time removal trick (Rules O6, `rules: import.meta.env.DEV ? ... : undefined`) does not carry over: an
-entry's `rules` is read at import, where the plain CLI has no `import.meta.env` (Types Q5's trace). Under `"off"`,
-sets ship as closures that are never called.
-
-## 4. Every Story and test case
-
-**1. App Stories.** A Story's sets come from `setup.app`. Fixtures replace services, never rule sets, and a world
-word changes the world, not the judge. The run rules list stays Host's `rules` option.
+A is the only one with no silent case, which is why it is recommended. `none` is a frozen empty build, so
+`OrderMachine.rules` is `{}`.
 
 ```ts
-// existing: Story.app, id, fixtures, world, rules (the run rules list, Host), .rules, expectBroken, off, step, actor
-// NEW: set tokens in the switch
-// user-defined: runRules, ShopFake, CartFakeDown, refundTwice
+// NEW: none
+export const PayMachine = machine(Pay, PayBody).rules(none)
+app({ id: "shop", machines: { pay: machine(Pay, PayBody) } })   // type error; RulesMissing at construction
+```
+
+## 3. The review's findings
+
+- **H1 (Stories in test files): closed.** There is no scan. A Story in a `*.test.ts` file runs a value, and the
+  value has its rules.
+- **H2 (a second machine of one definition, planted faults): closed.** A shared build (section 1) attaches to both.
+  Token ids are `<definition id>.<Name>`, so `UnclampedStepperMachine.rules.SetLandsInBounds` is the same rule id as
+  the original, and an inverted Story names the rule the original declares. A second machine built with `.rules(none)`
+  says, visibly, that it has none.
+- **H3 (plain Runtime tests): closed by two parts.**
+  1. `runtimeSetup`'s `rules` is required, with no default: production says `"off"` and nothing judges in production
+     by accident. A setup reused by `Story.app` is judged whatever it says (Types Q5).
+  2. `flow-state/testing/setup`, a Vitest setup file, fails a test in `afterEach` when a Runtime that test started
+     recorded `RuleBroken`. That keeps Host R8 ("however it was run") with no throw inside the app.
+- **H4 (the fragment guarantee): closed.** A definition places the ruled trait (`Upload.each(...)`), and a bare one
+  is a type error, so every placement and copy carries the trait's rules. This holds at any depth: a subroutine that
+  places a trait places a ruled value too. A host has no way to remove a placed fragment's rules.
+- **H5 (terminal proofs): closed.** A set always sits on a value with a compiled graph. `flow check` proves
+  `terminals` and warns `RuleSubjectUnreachable` for every value it reaches: each app's machines, each discovered
+  Story's subject, and their placed fragments. A value only a test file runs is proved by its Story: a Story whose
+  subject has a `TerminalLeft` finding fails its verdict (proposed; @spec.Types I14 keeps graph rows out of
+  construction).
+- **M1, M2 (the scan's runner and globs): gone** with the scan.
+- **M3 (token identity): closed.** A token's type carries its subject id, so `off: [CartMachine.rules.NotEmpty]` on
+  a Story without Cart is a type error (the switch's `R` is the union of the run's token ids). A cast is a
+  `StoryScriptFault` at run start.
+- **M4 (typing claims): spiked** on the chained form with a machine (section 1). The trait and subroutine forms wait
+  for their types (@task.V3.T109). The token record is `rules` alone, so a rule name cannot clash with a field.
+- **M5 (record edits):** listed in @review.rules-exactness-inventory. Its open choices resolve here: `[H1]` the
+  definition, `[H2]` on the value, `[H3]` required, `[H4]` kept, `[H5]` yes, `[H6]` keys only. Plan edits wait for
+  the user's yes.
+- **M6 (two lost features): restored or stated.** The bare function entry stays (inventory #39). The build-time
+  constant (#40) becomes `.rules(DEV ? orderRules : none)` in user code. It has the same plain-CLI limit as Types Q5,
+  so it is stated, not recommended.
+- **L1:** `rules` keeps two meanings: `.rules(build)` on a value, and `.rules({ expectBroken, off })` on a Story.
+  Host's run-rules option on `Story.app` is renamed `runRules` (proposed).
+- **L2:** a printed Story names tokens by expression (`OrderMachine.rules.X`); its replay needs the id only.
+- **L3, L4, L5:** no entry form and no registry, so no `context` clash and no comparison by object identity. Report
+  order is invariants, then declaration order; ids do not depend on order.
+
+## 4. Inventory, updated
+
+Each line gives the feature and then where it lives after this change; "same" means unchanged apart from the token's
+home. Sources are as in the last revision: @plan.Rules O1 to O8, @spec.Host, @spec.Types, @spec.Changes, T22, T106,
+T114 and `tests/rules/rules.ts`.
+
+1. `invariants` at every publication: in `.rules`.
+2. `turns` on accepted turns only: in `.rules`.
+3. Subjects `in` (a compound means its subtree) and `on` (any sender): same.
+4. `event` typed from `on`: `turn` in the builder.
+5. What a check reads, with `context` only in turns rules: same.
+6. A restore is judged by invariants, skipped by turns rules: same.
+7. The judge per `Turn` (Begin, Turn+Published, Other, no Published, Finished): reads the value's rules.
+8. The per-Runtime `last` map; a reload starts empty: same.
+9. One namespace per value; a duplicate name is a type error and refused: by `.rules()`.
+10. Typed tokens, `machine.rules.X`: back on the value, carrying the subject id.
+11. Terminals and `TerminalLeft`: in `flow check` per value, and in the verdict of a Story's subject.
+12. `RuleSubjectUnreachable`: per value.
+13. `flow explain` lists rules: per value.
+14. Every run judges, with no extra call: by construction.
+15. A break shrinks to the shortest Story: same.
+16. Several breaks at once: invariants first, then declaration order.
+17. `.rules({ expectBroken, off })` per Story, addable from helpers: same.
+18. `off` by rule or `"all"`: same.
+19. A rule in both lists is refused: same.
+20. `Expect { rule, step?, actor?, where? }` matching (Host R11): same.
+21. `neverBroke`, and the run goes on after a break: same.
+22. Derived runs inherit the switch: same.
+23. The reload sweep drops `expectBroken` in forks: same.
+24. `propertyTest` runs every seed: same.
+25. The project's run rules module `tests/rules/list.ts`: same, passed as `runRules`.
+26. Flow's run rules' modes only in Flow's own helper; `breaches` renamed `broken`: same.
+27. Tooling rules (`UnusedWord`, `CleanupLeft`, `PublicationDrift`, `RuleThrew`): same.
+28. `Verdict<R>`; a switch outside `R` does not compile: `R` is the run's token ids and run rule ids.
+29. Rule coverage: unseen with why, `off` out of the total: enumerates the run's values.
+30. The Runtime switch replacing `enabled`: required, `"judge"` or `"off"`.
+31. `RuleBroken`, with private fields redacted, and the app carries on: same.
+32. A throwing check gives `threw: true`: same.
+33. The CLI exit follows the verdict: same.
+34. A fragment rule reads only the fragment; `on` matches a host's raise: same.
+35. Per placement and `.each` copy; entry, reset and exit skipped; a frozen trait not judged: same.
+36. A host can never remove a fragment's rule: by construction (H4).
+37. A fragment token switches every placement; ids name the placement and the copy: `Upload.rules.X`.
+38. `Story.fragment` judges alone; a planted fault per kind: case 3; faults share builds (H2).
+39. The bare function entry form (review M6): kept.
+40. Leaving rules out of a bundle (review M6): `.rules(DEV ? build : none)`, with Q5's limit.
+
+## 5. Every Story and test case
+
+**1. App Stories, with custom fixtures.** The app lists ruled values, so the Story has their rules. Fixtures replace
+services and world words change the world; neither touches rules.
+
+```ts
+// existing: Story.app, id, fixtures, .rules, expectBroken, off, step, actor; renamed: rules -> runRules (Story.app)
+// user-defined: refundTwice, ShopFake, CartFakeDown, mainOrder, runRules
 export const refundTwice = Story.app(storeSetup, { id: "shop/refund-twice", fixtures: [ShopFake, CartFakeDown],
-  rules: runRules })
+  runRules })
   .rules({
-    expectBroken: [{ rule: OrderRules.RefundAddsUp, step: 3, actor: mainOrder }],
-    off: [EditorRules, OrderRules.ClosedStaysClosed],
+    expectBroken: [{ rule: OrderMachine.rules.RefundAddsUp, step: 3, actor: mainOrder }],
+    off: [EditorMachine.rules.TitleSet, OrderMachine.rules.ClosedStaysClosed],
   })
   .send(mainOrder, Order.E.Refund({ amount: 5 }))
 ```
 
-**2. Machine Stories** (planned, @task.V3.T76). `Story.machine` takes the entry shape, so a machine's sets have the
-same home in a Story as in an app. A machine in no app is covered by its Stories' entries.
+**2. Machine Stories** (planned, @task.V3.T76). A machine Story takes the ruled value, whether or not the machine is
+in any app. Its switch's `R` is that machine's token ids.
 
 ```ts
-// existing (Plan): Story.machine; NEW: the entry form { machine, rules } as its first argument
-// user-defined: orderStory
-const orderStory = (id: string) => Story.machine({ machine: OrderMachine, rules: [OrderRules] }, { id })
-export const paidThenRefunded = orderStory("order/paid-refunded")
-  .rules({ off: [OrderRules.PaidHasReceipt] })   // R = "PaidHasReceipt" | "RefundAddsUp" | "ClosedStaysClosed"
-  .send(Order.E.Pay({ card: "4242" }))
-// Story.machine(OrderMachine, { id }) with no sets compiles; the scan then reports RulesUnregistered at that Story.
+export const setUnclamped = Story.machine(UnclampedStepperMachine, { id: "number-input/set-unclamped" })
+  .rules({ expectBroken: [UnclampedStepperMachine.rules.SetLandsInBounds] })   // "Number/Stepper.SetLandsInBounds"
+  .send(Stepper.E.Configure({ settings: bounded }))
+  .send(Stepper.E.Set({ value: 99 }))
 ```
 
-**3. Fragment Stories** (planned, @task.V3.T109). `Story.fragment` judges the set against Flow's stand-in host, one
-placement named after the fragment. A host Story judges each real placement and copy.
+**3. Fragment Stories** (planned, @task.V3.T109). `Story.fragment` takes the ruled trait and judges it on Flow's
+stand-in host, as one placement named after the trait. Host Stories judge each real placement and copy.
 
 ```ts
-// existing (Plan): Story.fragment, enter, leave; NEW: the entry form { fragment, rules }
-export const uploadAlone = Story.fragment({ fragment: Upload, rules: [UploadRules] }, { id: "upload/alone" })
-  .rules({ expectBroken: [UploadRules.CancelSticks] })
+// existing (Plan): trait, Story.fragment, enter, leave; NEW: .rules on a trait (E and turn; no S)
+export const Upload = trait(UploadSpec, () => ({
+  on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } },
+})).rules(() => ({
+  turns: {
+    CancelSticks: ({ before, after }) => !before.memory.cancelled || after.memory.cancelled,
+    RefNeverChanges: ({ before, after }) => before.memory.ref === after.memory.ref,
+  },
+}))
+
+export const uploadAlone = Story.fragment(Upload, { id: "upload/alone" })
+  .rules({ off: [Upload.rules.RefNeverChanges] })
   .enter({ ref: "file-1" })
   .send(Upload.E.Cancel({}))
   .leave()
 ```
 
 ```text
-Story.fragment   Upload.CancelSticks                       seen 1
-host Story       Desk/Editor/uploads.CancelSticks          seen 2 (copies a, b)   a break names uploads[a]
+Story.fragment   Upload.CancelSticks                 seen 1
+host Story       Desk/Editor/uploads.CancelSticks    seen 2 (copies a, b)    a break names uploads[a]
 ```
 
-**4. Derived runs.** Each is built from a Story, so it gets the Story's subject and the entry's sets with it, and
-the Story's switch as data:
+**4. Derived runs** are built from a Story's subject, so they run the same ruled values and inherit the switch as
+data:
 
-- **generated, shrunk:** built from `samplesOf({ story, ... })`; sets from the Story's entry; switch inherited; expected
-  rule off after its break.
-- **`propertyTest`:** built from samples, as above; sets from the Story's entry; switch inherited; every seed runs.
-- **reload sweep:** built from each Story, forked at each position; sets from the Story's entry; switch inherited,
-  `expectBroken` dropped in forks.
-- **pair sweep:** built from samples, at each phase and fault; sets from the Story's entry; switch inherited.
+- **Generated runs:** `samplesOf({ story })`; an expected rule is off after its break.
+- **`propertyTest`:** the same samples; every seed runs.
+- **Reload sweep:** each Story, forked at each position, with `expectBroken` dropped in forks.
+- **Pair sweep:** samples, at each phase and fault.
 
-**5. A plain test that builds a Runtime.** `runtimeSetup`'s `rules` defaults to `"judge"`: a forgotten option
-judges, and the cost of that is speed, not correctness. Production and opt-outs write `"off"`. Such a test is not a
-Story, so nothing fails it unless it reads the evidence. `brokenRules` returns that evidence.
+**5. Plain Runtime tests.** `rules` is required on `runtimeSetup`. The Vitest setup file fails a test whose Runtimes
+recorded `RuleBroken`, and `brokenRules` lets a test assert it.
 
 ```ts
-// existing: runtimeSetup, rules: "judge" | "off", inspect; NEW: the default "judge"; brokenRules (flow-state/testing)
-const setup = runtimeSetup({ app: store, services: TestServices })          // judges by default
-const quiet = runtimeSetup({ app: store, services: TestServices, rules: "off" }) // opts out, visibly
+// vite.config.ts                 NEW: flow-state/testing/setup
+test: { setupFiles: ["flow-state/testing/setup"] }
+
+// existing: runtimeSetup; NEW: rules required; brokenRules (flow-state/testing)
+const setup = runtimeSetup({ app: store, services: TestServices, rules: "judge" })
 it("refund adds up", async () => {
   const runtime = await start(setup)
   runtime.actor(mainOrder).send(Order.E.Refund({ amount: 5 }))
-  expect(brokenRules(runtime)).toEqual([])                                  // RuleBroken records, as data
+})                                                  // fails in afterEach if a rule broke
+it("a break this test expects", async () => {
+  const runtime = await start(setup)
+  runtime.actor(mainOrder).send(Order.E.Refund({ amount: -1 }))
+  expect(brokenRules(runtime).map((b) => b.rule)).toEqual(["Shop/Order.RefundAddsUp"]) // read, so not a failure
 })
+const quiet = runtimeSetup({ app: store, services: TestServices, rules: "off" })        // opting out, visibly
 ```
 
-**6. Machines and sets made for a test.** A test file runs tests when imported, so no scan may load it. A
-test-local machine with rules lives in a module beside the test (`tests/refunds/order.ts`), and its set in
-`tests/refunds/order.rules.ts`. The config's `rules` globs include `tests/**/*.rules.ts`. The set is registered on
-the entry the test runs (`Story.machine({ machine, rules })` or a test app). `rules()` inside a `*.test.ts` file is
-a lint error.
+**6. Values made in a test file.** A machine, trait or subroutine defined in `*.test.ts` is ruled where it is
+defined (`machine(D, body).rules(build)` or `.rules(none)`). It is runnable only once ruled, and nothing needs to
+import or scan the file.
 
-**7. Tests that assert on rules.** A failing Story rejects with the verdict. Coverage is a function over runs.
+**7. Tests that assert on rules.** A failing Story rejects with its verdict. Coverage is a function over runs.
 
 ```ts
-// existing: StoryFailed { verdict, run }, Broken; NEW: ruleCoverage (flow-state/testing; the reporter's function)
+// existing: StoryFailed { verdict, run }; NEW: ruleCoverage (flow-state/testing; the reporter's function)
 const failed = await Effect.runPromise(Effect.flip(refundTwice.run()))
 expect(failed.verdict.broken.map((b) => b.rule)).toEqual(["Shop/Order.RefundAddsUp"])
-expect(failed.run.evidence.filter((e) => e._tag === "RuleBroken")).toHaveLength(1)
-
 const coverage = ruleCoverage([run1, run2])
 // { exercised: 12, total: 14, rows: [{ rule: "Shop/Order.PaidHasReceipt", seen: 0, why: "in PAID, never reached" }] }
 ```
 
-## 5. Against the two concerns
+**No silent skip, case by case:**
 
-- **Nothing lost.** All 38 features in section 3 are kept. #36 relies on the scan, and Rules O6's build-time
-  constant does not carry over, which Types Q5 already ruled out.
-- **Nothing silently skipped:**
-  1. App Stories: an entry without the set is reported by the scan, in `flow check` and in the reporter.
-  2. Machine Stories: a Story's entry without the set is reported by the scan.
-  3. Fragment Stories: the same, and each host placement is checked too.
-  4. Derived runs: no entry of their own; they inherit the Story's.
-  5. Plain Runtime tests: rules are judged by default; failing the test needs `brokenRules` (Q3).
-  6. Test-local sets: `*.rules.ts` files are scanned, and lint keeps sets out of test files.
-  7. Tests asserting on rules: they read the verdict and coverage, which enumerate every listed set.
+1. App Stories run ruled values only.
+2. Machine Stories: the same.
+3. Fragment Stories: the same, and every host placement carries the trait's rules.
+4. Derived runs reuse the Story's values.
+5. Plain Runtime tests: the setup file fails them, and `rules` is required.
+6. Test-local values: bare ones are not runnable.
+7. Assertions read the verdict and coverage, which enumerate the run's values.
 
-## 6. Types Q19 after the move
+## 6. What it deletes
 
-`B`'s readers were `RuleNames<B>` (deleted here) and G3's deny literals (proposed dropped). Only exactness is left.
-A spike on TypeScript 7.0.2 (scratchpad `spike/body.ts`) found that without a capture, an object a body callback
-returns is never excess-checked, at any depth. A plain object argument is checked, except for a key from another
-member of the schedule union. So D (reshaping the skipped spots into concrete types) gains nothing while the body
-is a callback. A keeps `Exact`, with `B` used for that alone. C drops `B` and refuses an excess key at construction
-and in `flow check`. The user chose C (2026-11-22), so `B` goes.
+- the body's `rules` key and `turn` in `BodyTokens<D>`: `.rules(build)` and its `turn`.
+- `const B`, `Exact`, `ExactBodyOf`, `RuleNames<B>`, G3 (Q19 C): the rules object's key sets only.
+- `Compiled.rules` from the body compile: the rules compiled by `.rules()` on the value.
+- last revision: `rules(subject)` sets, entries, scan, lint, `RulesUnregistered`, `RulesSubjectAbsent`: gone.
+- Types Q2's default question and Q17 (tokens on an unbuilt machine): a token exists only on a ruled, built value.
+
+Kept from @spec.Types: R9 and I12 in a new form (the names come from the rules object, and `Machine<D, N>` assigns
+to `Machine<D>`), and I13's twin refusals, now raised by `.rules()`.
 
 ## 7. Risks
 
-- **The scan's reach** rests on the globs and the lint rule; a project that disables that rule can hide a set.
-- **Bundles:** registered sets ship under `"off"`, as closures that are never called.
-- **Placements:** a fragment placed in three machines is listed three times; the scan names each missing one.
-- **Plain Runtime tests** pass on a broken rule unless they read `brokenRules`, as Host R8 cannot reach them.
+- **Migration noise:** every machine, trait and subroutine without rules gains `.rules(none)`. That is about 50
+  values in `fixtures/`, mechanical.
+- **Overload messages:** a wrong payload in `turn` is reported at the `.rules(` call ("no overload matches"), not at
+  the field (spiked).
+- **The setup file:** a project that leaves `flow-state/testing/setup` out of Vitest loses case 5's failure, though
+  not the judging. Flow's docs and `flow check` can name it.
+- **Bundles:** rules ship as closures under `"off"`.
 
 ## Questions
 
-1. **Where sets are connected.** A: on the entry that runs the subject: the app entry, `Story.machine`'s and
-   `Story.fragment`'s first argument. B: one `rules` list on `app()`, plus a `rules` option on machine and fragment
-   Stories. C: a project rules module that the config and `runtimeSetup` import. **Recommendation: A**, since
-   locality holds and spreads carry the sets.
-2. **The scan's runners and its severity.** A: `RulesUnregistered` is an error, in `flow check` and in the test
-   reporter. B: a warning, in `flow check` only. **Recommendation: A**, since silence is the failure this design
-   removes.
-3. **Plain Runtime tests.** A: default `"judge"`, with `brokenRules(runtime)` for the test to assert. B: a third
-   setup mode, `"fail"`, under which a break stops the Runtime with a defect. **Recommendation: A**: one switch, no
-   throw inside the app; the docs point such tests to Stories.
-4. **Types Q19.** Answered: the user chose C (2026-11-22), construction-only exactness, after a capture-free type
-   spike; with rules moved out, `B` has no reader left and is deleted (@spec.Types Q19).
+1. **The two-values risk.** A: the bare value is not runnable, with `.rules(none)` for no rules. B: the Runtime
+   refuses two values with one id. C: lint. **Recommendation: A**, the only one with no silent case.
+2. **A shared build's source.** A: the definition (or a bare trait or subroutine), so two machines of one definition
+   share rules and tokens. B: a ruled value only. **Recommendation: A**, since it closes H2 and needs no import cycle.
+3. **Plain Runtime tests.** A: `rules` required, plus the Vitest setup file that fails a test on `RuleBroken`.
+   B: `rules` required and Host R8 amended to cover Stories only. **Recommendation: A**, which keeps R8 as decided.
+4. **Terminal proofs for a value only a test runs.** A: its Story's verdict fails on a `TerminalLeft` finding of its
+   subject. B: `flow check` only. **Recommendation: A**, so a proof cannot be skipped by where the value lives.
