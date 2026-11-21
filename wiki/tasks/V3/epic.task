@@ -9,9 +9,10 @@ description
 
     Records: Plans @plan.FlowState, @plan.Machines, @plan.Operations, @plan.Runtime, @plan.Persistence,
     @plan.EntityDomains, @plan.React, @plan.ServerRendering, @plan.Testing, @plan.Inspection, @plan.Diagnostics,
-    @plan.CommandLine, @plan.LazyFeatures, @plan.Package (status proposed), @plan.Rules. Core Specs @spec.Compile,
-    @spec.Turn, @spec.Actors, @spec.WriteLanes, @spec.Reads, @spec.WriteAhead, @spec.Restore, @spec.Diagnostics,
-    @spec.Codec, @spec.StaticCli. Deferred and open items: @revisit.revisit, @revisit.open-items.
+    @plan.CommandLine, @plan.LazyFeatures, @plan.Package (status proposed), @plan.Rules. v3 Specs @spec.Schedules,
+    @spec.Changes, @spec.Records, @spec.Operations, @spec.Types, @spec.Host (each with a companion `.md` in
+    `wiki/specs/v3/`); the core Specs in `wiki/specs/core/` are superseded. Deferred and open items:
+    @revisit.revisit, @revisit.open-items.
 
     Locations:
 
@@ -148,8 +149,8 @@ description
       words: the same for the fake store (hold, refuse, release).
     - Step samples: the steps a fixture offers the generator. Open calls: calls a fake has received and not
       yet answered.
-    - Owed endings: a domain term of @spec.WriteLanes, an ending the Runtime still has to deliver; it is unrelated to
-      the old suite's owed lists.
+    - Owed endings: a domain term of @spec.Records, an ending the Runtime still has to deliver; it is unrelated to the
+      old suite's owed lists.
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
@@ -195,14 +196,20 @@ instructions
     - Every brief carries the Constraints' code-style line (the user, 2026-11-09).
     - A Task's "May change" is a guide, not a fence: a Task may add its planted faults to `tests/faults.ts` and touch
       any file its acceptance needs, naming each extra file in a Task comment (2026-11-15).
+    - Slices (the user, 2026-11-22): Tasks built from the v3 Specs run in execution slices, a group of Tasks taken
+      through one requirements phase, requirements review, build and build review together; the pre-decided list is
+      code:wiki/tasks/V3/slices.md. The orchestrator may merge, split or reorder a slice, with the reason in a V3 log
+      note. Tasks stay the unit of acceptance.
     - Correctness (the user, 2026-11-22): every Task that builds or changes a v3 design says in its acceptance how its
       correctness is established, as one "Correctness:" item. Each of these holds: a corresponding fixture app exists
       that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the
       apps and how to build them); a Story tests that fixture's feature, plus the Spec's Story of the wrong ending; a
       test runs the Story; type tests show the feature is typed fully and correctly, the way a user would expect
       (two-sided pins, and no annotations needed in user code); each new rule has a planted fault that `nub run faults`
-      catches. The item's last line names the Spec Requirements and Invariants (or sequences) this Task's tests cover,
-      by @spec id. A new Task inherits this rule and states it in the same item.
+      catches. See the existing tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. The
+      item's last line names the Spec Requirements this Task's tests cover and the Invariants they check after every
+      step, with the Spec tests that check them, by @spec id. A new Task inherits this rule and states it in the
+      same item.
     - Requirements first (the user, 2026-11-12), by skill:execute-task step 2. The requirements list is in the Task's
       comments, each rule with its source, mapped one to one to the Task's acceptance. The lead may gather it with
       read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary).

@@ -254,9 +254,11 @@ Context, firings, disposal:
 
 Tree, ledger, world, evidence, host:
 
-- code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#moveOf,
-  code:packages/flow-state-v3/src/core/tree.ts#historyAfter, code:packages/flow-state-v3/src/core/tree.ts#leafOf
-  keep: a subroutine's states are states of the one tree; the hot callers of `chainOf` read `Node.chain` instead.
+- code:packages/flow-state-v3/src/core/tree.ts#moveOf, code:packages/flow-state-v3/src/core/tree.ts#historyAfter
+  keep: a subroutine's states are states of the one tree.
+- code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#leafOf
+  delete, as `Types` (`DerivedFields`) states: every caller reads `Node.chain` or `Node.leaf`, and the two scans live
+  on only as the reference in `Types`' index test (T5). The walk's callers move with this Spec's build.
 - code:packages/flow-state-v3/src/core/ledger.ts#Audience, code:packages/flow-state-v3/src/core/ledger.ts#live,
   code:packages/flow-state-v3/src/core/ledger.ts#onRecord, code:packages/flow-state-v3/src/core/ledger.ts#suspend,
   code:packages/flow-state-v3/src/core/ledger.ts#start, code:packages/flow-state-v3/src/core/ledger.ts#restore

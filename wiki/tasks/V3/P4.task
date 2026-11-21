@@ -281,13 +281,13 @@ tasks
                     @plan.Persistence.O4
                     ]
         description
-            Build operations with their required services, and reads from @spec.Reads.
+            Build operations with their required services, and reads from @spec.Operations.
 
             **Why now:** production reads resources only as the fixtures need; shared entries, freshness, refetch and
             the idle row are unbuilt.
 
-            **Read first:** @spec.Reads, @plan.Operations.O1, code:packages/flow-state-v3/src/contract.ts. Spec:
-            @spec.Operations (R1–R15, I1–I25), companion `wiki/specs/v3/Operations.md`.
+            **Read first:** @plan.Operations.O1, code:packages/flow-state-v3/src/contract.ts. Spec: @spec.Operations
+            (R1–R15, I1–I25), companion `wiki/specs/v3/Operations.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -301,14 +301,14 @@ tasks
             False pass: a read rule checked only by what the runtime reports → caught by run rules over what the fake
             server received.
         acceptance
-            - The Requirements of @spec.Reads this slice builds hold, shown by Story tests and run rules.
+            - The Requirements of @spec.Operations this slice builds hold, shown by Story tests and run rules.
             - Each new rule has a planted fault that `nub run faults` catches.
             - Boot refuses an operation whose service the Runtime Layer lacks, by name, read from the contract's
               `services` list (decisions §5 G1, G2); the reference contracts list their services.
             - A placement released within the disposal bound is an activity placement: it is released within the bound,
               with `ReleaseOverdue` past it (@plan.Runtime.O6).
-            - Outcome mappers receive `{ value, input, key, attempt }`, not the value alone (`src/core/serve.ts`, §5
-              G3; @plan.Operations.O3).
+            - Outcome mappers receive `(value, { input, key })`, not the value alone (`src/core/serve.ts`;
+              @plan.Operations.O3; the mapper context of @spec.Operations).
             - Fixtures first (@convention.fixtures): step 4 of @convention.fixture-catalog: `pay`, `transfers`,
               `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`, `draft`) gain the
               features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
@@ -317,9 +317,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R1–R15, I1–I25): each Invariant is checked by a package sequence test, after every step,
-              where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R1–R15, I1–I25); the Invariants its tests check after every step are @spec.Operations (I1–I25;
+              tests T1–T7).
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
@@ -362,6 +363,9 @@ tasks
         comment     2026-11-21T19:08:55Z
             Read first cites superseded @spec.Reads; @spec.Operations replaces it. Acceptance row on the mapper shape is
             already superseded by (value, { input, key }), per Operations' mapper context.
+        comment     2026-11-21T19:26:36Z
+            Contradiction resolved: Read first and acceptance re-pointed from @spec.Reads to @spec.Operations; the
+            mapper row now reads (value, { input, key }).
     T56
         title       Durability: release versions, key fingerprints and record migration (slice 2b)
         status      draft
@@ -376,16 +380,16 @@ tasks
                     ]
         description
             Build release versions on production: key fingerprints, identity versions, saved-shape resets with record
-            migration, and `previous` holds. Version rules only: decoding a record into meaning (quarantine of a record
-            that no longer decodes) is @task.V3.T92's.
+            migration, and `previous` holds. This Task owns every key's fate, quarantine's exits included (@spec.Records
+            R13); @task.V3.T92 builds the codec and `admit`, which owns no state.
 
             **Why now:** an upgraded release must reset or keep each saved record correctly, and a saved shape is
             defined only once @task.V3.T17 and @task.V3.T57 fix private and computed fields. It is blocked by
             @task.V3.T21 because `resource({ persist: true })` writes a saved record format that this Task versions.
 
-            **Read first:** @spec.Restore (R5), @plan.Persistence.O5, @plan.Machines.O5 (paused), @spec.Turn.R27,
-            @convention.interaction-state. Spec: @spec.Records (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), companion
-            `wiki/specs/v3/Records.md`; @spec.Schedules (R14, I11), companion `wiki/specs/v3/Schedules.md`.
+            **Read first:** @plan.Persistence.O5, @plan.Machines.O5 (paused), @convention.interaction-state. Spec:
+            @spec.Records (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), companion `wiki/specs/v3/Records.md`;
+            @spec.Schedules (R14, I11), companion `wiki/specs/v3/Schedules.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -408,16 +412,16 @@ tasks
             False pass: an upgrade tested only from an empty store → caught by Stories that boot a new release over
             records an old one wrote.
         acceptance
-            - The release-version Requirements of @spec.Restore hold, shown by Story tests that reload across two
-              releases of a fixture.
+            - The release-version Requirements of @spec.Records (R7, R13, R19) hold, shown by Story tests that reload
+              across two releases of a fixture.
             - Each new rule has a planted fault that `nub run faults` catches.
             - The version rules hold: keep or drop on a downgrade, a slot added by a later release (Turn R22), OpRenamed
               and the undeclared-machine discard.
             - A dormant record that cannot be verified now (its machine or feature is not loaded) has an "unverifiable
               now" outcome, which @task.V3.T48 reads.
-            - An actor record's timer is `{ name, key?, dueAt }` or `{ name, key?, left }` at the next format, and a
-              record of the format before it restores through a pure step with every timer read as `dueAt`
-              (@spec.Restore.T6, with its planted fault "an old timer read as `left`").
+            - A format 5 record's timers restore through the one step 5 to 6 (@spec.Records R12; `TimerShape` by
+              @spec.Schedules R14's decode table, `dueAt` to `Due`, `left` to `Held`), shown across two releases with
+              the planted fault "an old timer read as `left`"; the step's schedule row is @task.V3.T118's.
             - Fixtures first (@convention.fixtures): step 7 of @convention.fixture-catalog: `lanes`, `sync`,
               `transfers`, `sign-in`, `wizard`, `kanban`, `draft` gain the features, scenarios and sources of their
               rows; each scenario red before the build, and the step's cells marked used at the close.
@@ -425,9 +429,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Records
-              (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), @spec.Schedules (R14, I11): each Invariant is checked by a
-              package sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records
+              (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), @spec.Schedules (R14, I11); the Invariants its tests check
+              after every step are @spec.Records (I3, I4, I11–I13, I15, I17; tests T1–T3, T8–T10, T12–T15),
+              @spec.Schedules (I11; tests T2).
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
@@ -495,6 +501,10 @@ tasks
             its fates (quarantine exits included) are mapped to this Task in the Task map. Read Task scope as: T92
             builds the codec and admit, this Task the Fate exits and version rules. Read first cites
             superseded @spec.Restore.
+        comment     2026-11-21T19:26:52Z
+            Contradiction resolved: description now gives this Task every key's fate, quarantine's exits included
+            (@spec.Records R13), and T92 the codec; old cites re-pointed to @spec.Records; the timer row is the one step
+            5 to 6.
     T22
         title       CLI check, explain and graph
         status      draft
@@ -510,14 +520,14 @@ tasks
                     @plan.Operations.O3
                     ]
         description
-            Build the CLI's `check`, `explain` and `graph` from @spec.StaticCli; the CLI stays at check, explain, graph,
-            story and trace. T69 builds the first slice of `defineConfig`; this Task extends it
+            Build the CLI's `check`, `explain` and `graph` from @spec.Types and @spec.Host; the CLI stays at check,
+            explain, graph, story and trace. T69 builds the first slice of `defineConfig`; this Task extends it
             for @plan.CommandLine.O6.
 
             **Why now:** Compiled has no static front end, and `flow check` is part of the preview cut.
 
-            **Read first:** @spec.StaticCli, @spec.Compile, @spec.Diagnostics. Spec: @spec.Types (R4–R6, I6, I8, I9,
-            I14), companion `wiki/specs/v3/Types.md`; @spec.Host (R13, I22), companion `wiki/specs/v3/Host.md`.
+            **Read first:** Spec: @spec.Types (R4–R6, I6, I8, I9, I14), companion `wiki/specs/v3/Types.md`; @spec.Host
+            (R13, I22), companion `wiki/specs/v3/Host.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -536,11 +546,12 @@ tasks
             False pass: graph edges named differently from the turn's evidence → caught by a test that compares them
             over a Story run. Stops: public entry-point names; the CLI's outputs for people are @task.V3.T31's.
         acceptance
-            - The Requirements of @spec.StaticCli hold, each shown by a test that states its expected output by hand.
+            - The Requirements of @spec.Types (R4–R6) and @spec.Host (R13) this Task builds hold, each shown by a test
+              that states its expected output by hand.
             - `flow graph`'s edge names equal the names in a run's evidence, over every fixture.
             - `flow graph` prints each `emit` part as an edge named as in the turn's evidence, and `flow explain` lists
               each schedule's pause reasons by name, emit and `onProps` edges, one fan-out edge per copy state, and the
-              copy denials that refuse (@spec.StaticCli.R5).
+              copy denials that refuse (@spec.Types.R4).
             - Fixtures first (@convention.fixtures): step 10 of @convention.fixture-catalog: every fixture run with no
               new feature, as the step says; each scenario red before the build, and the step's cells marked used at
               the close.
@@ -548,9 +559,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Types
-              (R4–R6, I6, I8, I9, I14), @spec.Host (R13, I22): each Invariant is checked by a package sequence test,
-              after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              (R4–R6, I6, I8, I9, I14), @spec.Host (R13, I22); the Invariants its tests check after every step are
+              @spec.Types (I6, I8, I9, I14; tests T4, T6, T8, T9), @spec.Host (I22).
         comment     2026-11-16T06:19:55Z
             Routed items: (1) O6 config checks: a config with only the brand key crashes instead of exiting 2; symlinks
             and root package.json unchecked; catch-all exits 2 silently. (2) Narrow the faults runner's tests/cli excuse
@@ -574,6 +586,9 @@ tasks
         comment     2026-11-21T19:08:56Z
             Read first cites superseded @spec.StaticCli, @spec.Compile and @spec.Diagnostics; @spec.Types (R4, R5, I6,
             I8) and @spec.Host (R13, I22) now state check output and exit.
+        comment     2026-11-21T19:26:53Z
+            Contradiction resolved: superseded @spec.StaticCli, @spec.Compile and @spec.Diagnostics cites re-pointed to
+            @spec.Types (R4–R6) and @spec.Host (R13).
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -741,9 +756,8 @@ tasks
             **Why now:** configurable widgets mirror parent props into memory through a `Configure` event (the number
             input fixture does); the user accepted declared props instead (decisions Q5, §9 R1 to R3).
 
-            **Read first:** @spec.Turn.R28, @plan.Machines.O7, @convention.where-a-value-lives, @task.V3.T9; §9 R1 to R3
-            are merged into the Spec and Plan above. Spec: @spec.Changes (R8, R20, I16),
-            companion `wiki/specs/v3/Changes.md`.
+            **Read first:** @plan.Machines.O7, @convention.where-a-value-lives, @task.V3.T9; §9 R1 to R3 are merged into
+            the Spec and Plan above. Spec: @spec.Changes (R8, R20, I16), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -754,8 +768,8 @@ tasks
 
             **Risk:** `Story.machine` is @task.V3.T29's; this Task builds its first slice (input, props and the props
             step) and T29 extends it (U3, decided by the orchestrator for the user, 2026-11-16). Blocked by T9, which
-            builds `createActor` and the mailbox, and by T77, because emit mappers read props. `createActor`'s options
-            stay a record so `props` fits.
+            builds `createActor` and the mailbox, and by @task.V3.T127 (root emits), because emit mappers read props.
+            `createActor`'s options stay a record so `props` fits.
 
             **Approach:** definition `props` with Schema defaults; a props update is its own turn, changing only props,
             then `onProps`; every memory reader gets props from the same snapshot; construction rejects a prop that
@@ -769,7 +783,7 @@ tasks
             - A local actor shows each prop's Schema default before any use; `createActor` and `Story.machine` take
               props; `ensureActor`, `actorRef` and `useActorByRef` take none (type tests).
             - A props update is its own turn that changes only props and then runs `onProps`; an equal value is silent;
-              it keeps its FIFO place (@spec.Turn.R28, Story tests).
+              it keeps its FIFO place (@spec.Changes.R20, Story tests).
             - The snapshot shows `props`, and every memory reader receives them from the same snapshot.
             - A prop colliding with a memory field, state, trait, operation or emit name is InvalidConfiguration.
             - `Story.machine` exists (moved from @task.V3.T29) with its input and the `props(values)` step; @task.V3.T29
@@ -784,9 +798,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R8, R20, I16): each Invariant is checked by a package sequence test, after every step, where the Spec
-              names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes (R8,
+              R20, I16); the Invariants its tests check after every step are @spec.Changes (I16).
         comment      2026-11-16T15:38:52Z
             Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
             Stories are this Task's first requirements.
@@ -808,6 +822,9 @@ tasks
         comment      2026-11-21T19:08:54Z
             Description is stale on blockers: it says blocked by T77; the real blocker is @task.V3.T127 (root emits).
             Read first cites superseded @spec.Turn.R28; @spec.Changes R20 and I16 now state it.
+        comment      2026-11-21T19:26:53Z
+            Contradiction resolved: Risk names @task.V3.T127 as the blocker in place of T77 (blocked_by already had it);
+            @spec.Turn.R28 re-pointed to @spec.Changes.R20.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
@@ -824,9 +841,9 @@ tasks
             failed submit) are stored today as a request plus a counter that replays after a reload; the user accepted
             emits (decisions Q3, §9 R6 and the Emits batch).
 
-            **Read first:** @spec.Turn.R29, @plan.Machines.O2, @convention.view-commands; §9 R6 and the Emits batch are
-            merged into the Spec and Plan above. Spec: @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`;
-            @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
+            **Read first:** @plan.Machines.O2, @convention.view-commands; §9 R6 and the Emits batch are merged into the
+            Spec and Plan above. Spec: @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`; @spec.Host (R3, I4),
+            companion `wiki/specs/v3/Host.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -847,7 +864,7 @@ tasks
             listener, and by a reload that replays none.
         acceptance
             - Any accepted transition may emit (send, firing, ending, `onContext` or `onProps` event); entry, exit and a
-              refused turn never do; a copy that ends in the same turn still delivers (@spec.Turn.R29).
+              refused turn never do; a copy that ends in the same turn still delivers (@spec.Changes.R19).
             - An emit part naming an undeclared emit is a construction error; `UnusedEmit` warning.
             - `actor.onEmit(handlers)` hears emits after their turn, in order; it is not a use; with no listener they
               are dropped; a reload or restore replays none.
@@ -861,9 +878,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R19), @spec.Host (R3, I4): each Invariant is checked by a package sequence test, after every step, where
-              the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R19), @spec.Host (R3, I4); the Invariants its tests check after every step are @spec.Changes (I5, I14),
+              @spec.Host (I4; tests T1, T8).
         comment      2026-11-20T13:01:53Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T113, since its emit summary joins the one
             carried snapshot type.
@@ -877,6 +895,8 @@ tasks
             Read first cites superseded @spec.Turn.R29; @spec.Changes R19 states emits now, and delivery is per
             publishing slice (@spec.Host R3, I4). Description's 'delivered after the turn publishes' matches; 'stored
             nothing' matches R19.
+        comment      2026-11-21T19:26:54Z
+            Contradiction resolved: @spec.Turn.R29 re-pointed to @spec.Changes.R19 in Read first and acceptance.
 
     T78
         title       Number input on declared props and emits
@@ -926,9 +946,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R19, R20, I16): each Invariant is checked by a package sequence test, after every step, where the Spec
-              names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R19, R20, I16); the Invariants its tests check after every step are @spec.Changes (I5, I14, I16).
         comment     2026-11-21T18:39:42Z
             [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
             both emit halves.
@@ -946,12 +966,13 @@ tasks
             checked; four reviews each found one more (a `~` name, a key naming another identity, lane keys, context
             bindings). The record Schemas in code:packages/flow-state-v3/src/core/record.ts decode shape only
             (`machine`, `name`, `operation`, `lane` are `Schema.String`), meaning is then checked by hand, and identity
-            is stored in both key and content. T20's bindings blocker is parked here as an inverted Restore R5 test. It
-            must land before @task.V3.T56 (versions these records) and real storage (@task.V3.T58, @task.V3.T28).
+            is stored in both key and content. T20's bindings blocker is parked here as an inverted test (@spec.Records
+            R4). It must land before @task.V3.T56 (versions these records) and real storage
+            (@task.V3.T58, @task.V3.T28).
 
-            **Read first:** @spec.Restore (R2, R5), @spec.Codec, @task.V3.T20 (its 2026-11-18T06:49 field list and 07:05
-            review), @convention.boundaries. Spec: @spec.Records (R4, R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5,
-            I8–I10, I14), companion `wiki/specs/v3/Records.md`.
+            **Read first:** @task.V3.T20 (its 2026-11-18T06:49 field list and 07:05 review), @convention.boundaries.
+            Spec: @spec.Records (R4, R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5, I8–I10, I14),
+            companion `wiki/specs/v3/Records.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -982,18 +1003,18 @@ tasks
             code:packages/flow-state-v3/src/core/persist.ts#liveText; the boot's writes (`saveOwed`, `saveLane`,
             `incarnations.ts:446-456`). Do not delete it before its replacement lands and the suite passes.
 
-            **Risk:** a Codec and Restore Spec change, so it gets the whole-system check; the format is internal and
-            unreleased, so nothing migrates.
+            **Risk:** a Records Spec change, so it gets the whole-system check; the format is internal and unreleased,
+            so nothing migrates.
 
             **Approach:** first, decide with evidence whether an actor record's context bindings can be derived from its
             machine and its ref's input; if so, stop saving them. Then:
 
-            - branded identifiers, each a Schema built from Compiled with `Schema.brand`: `ActorName` (a declared,
-              persisted machine and a name a ref could give, never `~`), `RecordKey` (`kind/machine/name`, decoded into
-              an `ActorName`), `LaneKey` (operation declared as a write, key text as the operation's key fields written
-              back exactly), `AttemptId`, `StateName` (a literal union per machine);
-            - each fact stored once: identity only in the key; a lane's operation and key text only in its `LaneKey`;
-              owed rows name their lane by `LaneKey`; a headless lane stores no `queue` or `inFlight`;
+            - branded identifiers, each made only by a Schema decode built from Compiled or by the mint (@spec.Records,
+              realization: `MachineId`, `ActorName`, `StateName`, `ContractName`, `KeyText`, `AttemptId`,
+              `SubjectAddress`, `ShapeStamp`); every saved name resolves through the one reference table (R15), and no
+              other code looks a saved name up in a definition;
+            - each fact stored once: identity only in the key (R4); a lane's or row's subject lives inside its `work`
+              record (Records' lanes and rows); a headless lane stores no `queue` or `inFlight`;
             - full record decoding: one Schema per record kind (actor, lane by operation kind, owed) over those brands,
               through the walker; every hand check in `record.ts` and `actor-record.ts` after decode deleted;
             - the proof: a generated test that corrupts one field of real saved records at a time (from the fixtures'
@@ -1007,8 +1028,8 @@ tasks
             @convention.fixtures: corrupt and forged saved records, drawn from every fixture's Stories, and a step
             sample that forges a read operation's lane record, which no fixture offers today.
 
-            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, @spec.Restore, @spec.Codec with
-            `specs.log` notes. Evidence: this Task's comments.
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, @spec.Records with `specs.log` notes.
+            Evidence: this Task's comments.
 
             False pass: a decode that still accepts a field by hand check → caught by the corrupt-one-field test, which
             needs no list of fields. Gates: `nub run faults --only` on T20's restore faults (`record-key-unchecked`,
@@ -1039,9 +1060,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Records
-              (R4, R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5, I8–I10, I14): each Invariant is checked by a package
-              sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records (R4,
+              R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5, I8–I10, I14); the Invariants its tests check after every
+              step are @spec.Records (I1–I3, I5, I6, I8–I10, I14, I16, I18, I19; tests T1–T3, T5–T10, T15).
         comment     2026-11-19T07:01:22Z
             Status: deferred. The format-4 build stopped at the failure limit (2) after three close reviews; its work is
             on branch `t92-format-4` (tip d92e802f), and flow-rewrite's code and Specs were restored to fef46251. The
@@ -1108,6 +1130,10 @@ tasks
             Contradiction: scope builds branded identifiers with Schema.brand from Compiled; @spec.Records R15 resolves
             every name through one reference table and R4 keeps identity only in the key. Build to Records; Read first
             cites superseded @spec.Restore and @spec.Codec.
+        comment     2026-11-21T19:26:54Z
+            Contradiction resolved: brands follow @spec.Records' realization list, every saved name resolves through the
+            one reference table (R15), identity only in the key (R4); Restore and Codec cites re-pointed
+            to @spec.Records.
 
     T95
         title           Callback results checked before they enter a turn
@@ -1321,9 +1347,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Host
-              (R8, I23), @spec.Types (R15): each Invariant is checked by a package sequence test, after every step,
-              where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R8,
+              I23), @spec.Types (R15); the Invariants its tests check after every step are @spec.Host (I13, I15, I23;
+              tests T1, T2, T5, T8), @spec.Types (I3; tests T2).
         comment     2026-11-18T19:39:06Z
             Owes (proposed, P3 close fix round): review item A118, T94's admit-throw acceptance as a Story test, not a
             runtime.test.ts case. See code:wiki/tasks/V3/P3-routing.md.
@@ -1445,9 +1472,8 @@ tasks
             The CLI prints `Cause.pretty` to its output (code:packages/flow-state-v3/src/host/cli/main.ts), which
             O3 forbids.
 
-            **Read first:** @spec.Diagnostics (R9, R10, I10), @plan.Diagnostics.O1, @plan.Diagnostics.O3,
-            code:packages/flow-state-v3/src/error.ts. Spec: @spec.Operations (R9, R13, I17, I18),
-            companion `wiki/specs/v3/Operations.md`.
+            **Read first:** @plan.Diagnostics.O1, @plan.Diagnostics.O3, code:packages/flow-state-v3/src/error.ts. Spec:
+            @spec.Operations (R9, R13, I17, I18), companion `wiki/specs/v3/Operations.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -1468,7 +1494,7 @@ tasks
             owned Effect classifies Interruption; the CLI prints a rendered Diagnostic and never a Cause or stack. Then
             build the renderer and route the CLI through it.
 
-            May change: `src/`, `tests/`, @spec.Diagnostics with `specs.log` notes. Evidence: this Task's comments.
+            May change: `src/`, `tests/`, @spec.Operations with `specs.log` notes. Evidence: this Task's comments.
 
             False pass: a renderer test that renders only clean strings → caught by the I10 test's hostile table,
             planted with a renderer that skips escaping. Gates: `nub run faults --only` on a planted fault per new rule.
@@ -1488,9 +1514,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R9, R13, I17, I18): each Invariant is checked by a package sequence test, after every
-              step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R9, R13, I17, I18); the Invariants its tests check after every step are @spec.Operations (I17, I18; tests
+              T3, T5, T6).
         comment     2026-11-18T19:39:14Z
             Also owes (proposed, P3 close fix round): faults for the Diagnostics gaps I1, I2, R4, R7 to R10
             in code:wiki/tasks/V3/P3-coverage.md.
@@ -1537,6 +1564,9 @@ tasks
         comment     2026-11-21T19:08:57Z
             Read first cites superseded @spec.Diagnostics; @spec.Operations R9, R13 and I17 now state failure order and
             the catalog. CleanupOverdue deletion is @task.V3.T123's (ReleaseOverdue), not this Task's.
+        comment     2026-11-21T19:26:55Z
+            Contradiction resolved: superseded @spec.Diagnostics cites dropped from Read first and May change;
+            @spec.Operations is the Spec.
 
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
@@ -2014,7 +2044,7 @@ tasks
             subroutine and `whenAbandoned` rules moved in from @task.V3.T110 because both write one fragment
             incarnation's lifecycle (breakdown review, the orchestrator, 2026-11-20).
 
-            **Read first:** @plan.Machines.O1, @spec.Compile, `ui-primitives-decisions` (§9; full text: git show
+            **Read first:** @plan.Machines.O1, `ui-primitives-decisions` (§9; full text: git show
             3a84b878:wiki/plans/flow/references/proposals/2026-11-16-ui-primitives-decisions.md),
             @convention.fixture-catalog (the subroutine and `whenAbandoned` rows' fixture homes). Blocked by
             @task.V3.T57 because a trait carries schedules, which that Task finishes, and by @task.V3.T113, whose
@@ -2052,9 +2082,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R12, R13, R16, I1, I2, I8, I10, I11): each Invariant is checked by a package sequence test, after every
-              step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R12, R13, R16, I1, I2, I8, I10, I11); the Invariants its tests check after every step are @spec.Changes
+              (I1, I2, I8, I10, I11; tests T1, T6, T10).
         comment     2026-11-20T08:11:40Z
             Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
             T57's split, are this Task's.
@@ -2082,6 +2113,9 @@ tasks
         comment     2026-11-21T19:08:57Z
             Read first cites superseded @spec.Compile; @spec.Changes R12, R13, R16 state instances and whenAbandoned.
             Changes' fit table has no fragment row of its own: this Task builds instances.ts and reconcile new.
+        comment     2026-11-21T19:26:56Z
+            Contradiction resolved: superseded @spec.Compile dropped from Read first; @spec.Changes (R12, R13, R16) is
+            the Spec.
 
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
@@ -2090,13 +2124,13 @@ tasks
         blocked_by  [@T109]
         satisfies   [@plan.Machines.O3]
         description
-            Build the Turn R30 raise into `.each` traits and the `FanOutNeverHandled` warning.
+            Build the raise into `.each` traits (@spec.Changes R15) and the `FanOutNeverHandled` warning.
 
             **Why now:** split from @task.V3.T109 in the breakdown review (the orchestrator, 2026-11-20): the copies'
             lifecycle is T109's state; this Task only reads the live copies it exposes in key order.
 
-            **Read first:** @spec.Turn (R30), @plan.Machines.O3, @task.V3.T109, @convention.fixture-catalog (the
-            raise-into-copies rows). Spec: @spec.Changes (R15, I6), companion `wiki/specs/v3/Changes.md`.
+            **Read first:** @plan.Machines.O3, @task.V3.T109, @convention.fixture-catalog (the raise-into-copies rows).
+            Spec: @spec.Changes (R15, I6), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2111,7 +2145,7 @@ tasks
         acceptance
             - A raise into an `.each` trait reaches every live copy in key order, skips a copy with no handler
               (`Unhandled` evidence), refuses on a copy's denial, and does nothing (recorded) with no copies
-              (@spec.Turn.R30); a `FanOutNeverHandled` warning exists.
+              (@spec.Changes.R15); a `FanOutNeverHandled` warning exists.
             - Each new runtime rule has a planted fault that `nub run faults --only` catches.
             - Fixtures first (@convention.fixtures): the raise-into-copies rows of @convention.fixture-catalog gain
               their features and scenarios; each red before the build, and those cells marked used at the close.
@@ -2119,9 +2153,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R15, I6): each Invariant is checked by a package sequence test, after every step, where the Spec
-              names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R15, I6); the Invariants its tests check after every step are @spec.Changes (I6).
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): repurposed (same id): was subroutines and whenAbandoned,
             now moved to T109. It takes the Turn R30 raise into .each traits and FanOutNeverHandled from T109, reading
@@ -2132,6 +2166,9 @@ tasks
         comment     2026-11-21T19:08:55Z
             Read first cites superseded @spec.Turn (R30); @spec.Changes R15 and I6 state who a raise reaches and the
             walk's bounds.
+        comment     2026-11-21T19:26:56Z
+            Contradiction resolved: Turn R30 re-pointed to @spec.Changes.R15 in the description, Read first
+            and acceptance.
 
     T111
         title       Fixtures in real browsers: minimal React, Chrome and Safari
@@ -2183,9 +2220,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Host
-              (R1–R4, R6, I1–I10, I19, I20, I24): each Invariant is checked by a package sequence test, after every
-              step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R1–R4,
+              R6, I1–I10, I19, I20, I24); the Invariants its tests check after every step are @spec.Host (I1–I10, I19,
+              I20, I24; tests T1, T2, T4–T9).
         comment     2026-11-21T18:31:21Z
             [proposed] Builds @proposal.algo-host 6.1 to 6.4 with the edge cells and the Out.hiddenRetried field of
             @proposal.algo-resolutions 1.6 (re-run in the model: no stuck ticket, stranded mark or hidden livelock).
@@ -2207,7 +2245,8 @@ tasks
             **Read first:** code:packages/flow-state-v3/src/host/testing/fake.ts,
             code:packages/flow-state-v3/src/host/testing/store-contract.ts, @task.V3.T58 (its close review and fix
             round), @plan.Testing. Blocked by T58, whose fix round adds a store that closes with the services. Spec:
-            @spec.Host (R5, R7, I11, I12), companion `wiki/specs/v3/Host.md`.
+            @spec.Host (R5, R7, I11, I12), companion `wiki/specs/v3/Host.md`; the mutation alphabet the applier
+            `Fake.storage.mutate(kind)` reads is @spec.Records.T2.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2244,9 +2283,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Host
-              (R5, R7, I11, I12): each Invariant is checked by a package sequence test, after every step, where the Spec
-              names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R5,
+              R7, I11, I12); the Invariants its tests check after every step are @spec.Host (I9, I11, I12; tests T1,
+              T2, T7–T9).
         comment     2026-11-20T07:17:01Z
             Routed from T58's second close review (orchestrator): the fake's own connection life (closing mid-run; a
             boot load pending when dispose releases the services); a check that the Store wrapper refuses a late use on
@@ -2273,6 +2313,9 @@ tasks
             exports as data (@proposal.algo-resolutions C5).
         comment     2026-11-21T18:46:49Z
             Takes the fake-server items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4).
+        comment     2026-11-21T19:27:26Z
+            Readiness: Read first names the mutation alphabet it applies (@spec.Records.T2), which the Records Spec
+            gives this Task's applier.
 
     T113
         title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
@@ -2295,7 +2338,7 @@ tasks
             remove it everywhere (2026-11-20).
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
-            @plan.Machines.O1, @plan.Machines.O8, @spec.Turn (R16, R27). Spec: @spec.Types (R1–R3, R9, R10, R13–R15,
+            @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R9, R10, R13–R15,
             I1–I4, I10, I12), companion `wiki/specs/v3/Types.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
@@ -2313,8 +2356,10 @@ tasks
             code:packages/flow-state-v3/src/definition.ts#AnyDefinition,
             code:packages/flow-state-v3/src/definition.ts#Machine,
             code:packages/flow-state-v3/src/definition.ts#treeOfDefinition;
-            code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#leafOf;
-            code:packages/flow-state-v3/src/events.ts#codecOf, code:packages/flow-state-v3/src/events.ts#trusted;
+            code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#leafOf
+            (replaced by `Node.chain` and `Node.leaf`; the turn walk, their last caller, moves in @task.V3.T119, which
+            deletes them); code:packages/flow-state-v3/src/events.ts#codecOf,
+            code:packages/flow-state-v3/src/events.ts#trusted;
             code:packages/flow-state-v3/src/contract.ts#trustedAttempt;
             code:packages/flow-state-v3/src/compiled-parts.ts#endingValue;
             code:packages/flow-state-v3/src/compile-body.ts#childrenOf,
@@ -2366,9 +2411,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Types
-              (R1–R3, R9, R10, R13–R15, I1–I4, I10, I12): each Invariant is checked by a package sequence test, after
-              every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              (R1–R3, R9, R10, R13–R15, I1–I4, I10, I12); the Invariants its tests check after every step are
+              @spec.Types (I1–I4, I10–I12; tests T1–T3, T5, T7–T10).
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task: carries the machine body type into the snapshot.
             Takes T57's two routed type pins (pausedBy as a literal union, Turn R27 and Machines O8; the typed key in a
@@ -2392,6 +2438,10 @@ tasks
             Conflict between v3 Specs: Types deletes tree.ts#chainOf and leafOf (Node.chain, Node.leaf); Changes keeps
             them for subroutines and moves only hot callers. Settle when building; Supersedes lists them under
             Types' reading.
+        comment     2026-11-21T19:26:57Z
+            Contradiction resolved: Types' answer stands (chainOf and leafOf deleted for Node.chain and Node.leaf);
+            Changes.md now says so; Supersedes notes T119 deletes them with the walk's move; Turn cites re-pointed to
+            @spec.Schedules R16.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -2425,9 +2475,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Host
-              (R10, I18), @spec.Schedules (R17, I18): each Invariant is checked by a package sequence test, after every
-              step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R10,
+              I18), @spec.Schedules (R17, I18); the Invariants its tests check after every step are @spec.Host (I18;
+              tests T3), @spec.Schedules (I18; tests T8).
         comment     2026-11-21T18:46:48Z
             Takes the coverage-run items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4); the item
             list is @proposal.spec-test-tooling R11. [proposed] Also owns @proposal.algo-host section 10's rows.
@@ -2448,8 +2499,8 @@ tasks
             the failure limit; the user accepted Fable's redesign of the issue seam (2026-11-20).
 
             **Read first:** @proposal.schedule-issues (the design, the R25 text, P1, P2), @task.V3.T57 (its four close
-            reviews), code:packages/flow-state-v3/src/core/schedule-decision.ts, @spec.Turn (R14 to R17, R19, R25, R27).
-            Spec: @spec.Schedules (R1–R17, I1–I18), companion `wiki/specs/v3/Schedules.md`.
+            reviews), code:packages/flow-state-v3/src/core/schedule-decision.ts. Spec: @spec.Schedules (R1–R17, I1–I18),
+            companion `wiki/specs/v3/Schedules.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2492,16 +2543,17 @@ tasks
             before its replacement lands and the suite passes.
 
             **Risk:** the redesign keeps `decide`, the occasions and T57's tables; it must not reopen what they prove.
-            The record format moves from 5 to 6, with a step and restore after a definition edit (a reason, key or
-            schedule added, removed or renamed).
+            The record format moves from 5 to 6 by the one step of @spec.Records R12, with restore after a definition
+            edit (a reason, key or schedule added, removed or renamed): this Task writes the step's schedule row
+            (@spec.Schedules R14's decode table), and @task.V3.T92 adds its other rows to the same step.
 
             **Approach:** the whole Task at once (the Epic's rule). First commit: the exhaustive sequence test (every
             3-step sequence on a two-key fixture, checked after each step against the ledger of owed firings from the
             Spec), red on today's code, with T57's fourth-review B1 and B2 as inverted tests titled by their rules; then
             the requirements review; then the build.
 
-            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`, @spec.Turn and
-            @spec.WriteAhead with `specs.log` notes. Evidence: this Task's comments.
+            May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`, @spec.Schedules
+            and @spec.Records with `specs.log` notes. Evidence: this Task's comments.
 
             False pass: a sequence test whose expected results come from running the code → caught by the ledger derived
             from the Spec before any code, and a blind derivation of a sample of steps. User's read: the new R25 text;
@@ -2514,18 +2566,19 @@ tasks
               cleared while unarmed) pass, each first landed as an inverted test.
             - No schedule issue is stored: a type cannot hold one, a lint rule refuses one, and four planted faults (a
               stored issue, a check writing another's field, a skipped hold step, a lost refused marker) are caught.
-            - Turn R25 carries the proposal's text; P1 and P2 are in Turn and WriteAhead R4, each with a
-              `specs.log` note.
-            - Record format 6 with its step from 5; restore after a reason, key or schedule is added, removed
-              or renamed.
+            - @spec.Schedules states the R25 text, P1 and P2 as built (R5, R14), with a `specs.log` note for
+              each change.
+            - Record format 6 with the schedule row of its one step from 5 (@spec.Records R12); restore after a reason,
+              key or schedule is added, removed or renamed.
             - `nub run check`, the suite, stress and generated Stories over fresh seeds, and `nub run docs:build` pass.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Schedules (R1–R17, I1–I18): each Invariant is checked by a package sequence test, after every step,
-              where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Schedules
+              (R1–R17, I1–I18); the Invariants its tests check after every step are @spec.Schedules (I1–I18;
+              tests T1–T8).
         comment     2026-11-20T16:01:46Z
             State inventory (lead): one state, a schedule timer's check outcomes; today it is split between `Tracked`
             and a stored issue list, which is the freedom (two writers over time). After: each field below is written
@@ -2680,6 +2733,9 @@ tasks
             Contradiction with the v3 Spec: May change names @spec.Turn and @spec.WriteAhead (superseded); the rules
             live in @spec.Schedules now, so Spec fixes go there (specs.log). 'Format 5 to 6' is stated against that
             Spec's one format step (Schedules R14, @spec.Records R12).
+        comment     2026-11-21T19:26:57Z
+            Contradiction resolved: Turn and WriteAhead cites re-pointed to @spec.Schedules and @spec.Records; the
+            format row is the schedule row of Records R12's one step 5 to 6, which @task.V3.T92 extends.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -2687,16 +2743,16 @@ tasks
         priority    high
         blocked_by  [@T113]
         description
-            Build the turn's parts as @proposal.algo-turn sections 4 to 8 and 11 give them: `runTurn`'s walk, the one
-            applier `apply` with rows C1 to C7, the alarm heap with `tick` and the one host wake, the mailbox and the
-            index layer.
+            Build the turn's parts as @spec.Changes gives them (`model`, `operations`, `algorithm`, `realization`):
+            `runTurn`'s walk, the one applier `apply` with rows C1 to C7, the alarm heap with `tick` and the one host
+            wake, the mailbox and the index layer.
 
             **Why now:** fragments (@task.V3.T109), emits and the operations Tasks all write through `apply` and
             `tx.alarms`; the user placed this Task before T109 (@proposal.spec-handover).
 
-            **Read first:** @proposal.algo-resolutions sections 1.2 and 2 (C1, C3, C4, C6); @proposal.algo-turn;
-            @proposal.spec-turn-parts. Spec: @spec.Changes (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9, I12–I15,
-            I17), companion `wiki/specs/v3/Changes.md`.
+            **Read first:** @proposal.spec-turn-parts; the alarm heap and `tick`, the throw family rule, emit timing and
+            `stepEnds` are in @spec.Changes `model` and `algorithm`. Spec: @spec.Changes (R1–R11, R14, R15, R17, R18,
+            R21–R26, I3–I7, I9, I12–I15, I17), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2757,8 +2813,8 @@ tasks
             lines 355-478) and the timers there (about 312-352), and the accepted branch of `serve.ts#turn`. Do not
             delete it before its replacement lands and the suite passes.
 
-            **Risk:** the design's model covers part of the text (@proposal.algo-resolutions hole 1); the unchecked
-            invariants are this Task's first failing checks.
+            **Risk:** the design's model covers part of the text (@spec.Changes `open`; companion holes H1, H2); the
+            unchecked invariants are this Task's first failing checks.
         acceptance
             - A package sequence test checks I5, I7, I9, I12, I13 and I15 to I17 of @spec.Changes, red first.
             - `tick` dispatches the six alarm kinds by a total match; a planted seventh kind does not compile.
@@ -2769,12 +2825,16 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9, I12–I15, I17): each Invariant is checked by a package
-              sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9, I12–I15, I17); the Invariants its tests check after every
+              step are @spec.Changes (I1–I17; tests T2–T8, T10–T14).
         comment     2026-11-21T19:08:52Z
             Read first names no v3 Spec: Changes is the Spec for this Task. Its fit table keeps tree.ts chainOf and
             leafOf, which Types deletes (see @task.V3.T113); delete only once no caller remains.
+        comment     2026-11-21T19:26:58Z
+            Contradiction resolved: Types' answer stands; Changes.md now deletes chainOf and leafOf, and this Task
+            deletes them once the walk reads Node.chain; algo proposal cites re-pointed to @spec.Changes sections.
 
     T120
         title       Declared schedules: the runtime half
@@ -2785,11 +2845,12 @@ tasks
             `pausedBy`), its construction checks, and the key and selection codecs in `Compiled.schedules`.
 
             **Why now:** @task.V3.T118 then builds once on final shapes with one format step; the user chose this order
-            (@proposal.algo-schedules question 6). The public types follow in @task.V3.T113 and change no runtime.
+            (companion `Schedules.md`, the build-order table). The public types follow in @task.V3.T113 and change
+            no runtime.
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-types section 5.2;
-            @proposal.algo-schedules section 14. Spec: @spec.Types (R8, R12, I11, I13, I14), companion
-            `wiki/specs/v3/Types.md`; @spec.Schedules (R14, R16, I11, I14), companion `wiki/specs/v3/Schedules.md`.
+            **Read first:** @spec.Types R8 (declared schedules) and its `model`; @spec.Schedules `composition`. Spec:
+            @spec.Types (R8, R12, I11, I13, I14), companion `wiki/specs/v3/Types.md`; @spec.Schedules (R14, R16, I11,
+            I14), companion `wiki/specs/v3/Schedules.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2813,12 +2874,16 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Types
-              (R8, R12, I11, I13, I14), @spec.Schedules (R14, R16, I11, I14): each Invariant is checked by a package
-              sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R8,
+              R12, I11, I13, I14), @spec.Schedules (R14, R16, I11, I14); the Invariants its tests check after every step
+              are @spec.Types (I8, I11, I13, I14; tests T1, T2, T4, T5, T9), @spec.Schedules (I11, I14; tests T2, T7).
         comment     2026-11-21T19:08:51Z
             Order check: Schedules' companion and Records R12 want one format step for every schedule field; this Task
             builds the codecs, so the step itself lands in @task.V3.T118 or @task.V3.T56, not here.
+        comment     2026-11-21T19:26:58Z
+            Contradiction resolved: no format step here; @task.V3.T118 writes the schedule row of the one step 5 to 6
+            and @task.V3.T92 adds the rest (@spec.Records R12); algo cites re-pointed to Spec sections.
 
     T121
         title       Operation endings and the retry guards
@@ -2833,10 +2898,11 @@ tasks
             `O.x.retryable` read lane state that the records and operations designs restructure, and five fixtures
             use them.
 
-            **Read first:** @proposal.algo-resolutions sections 1.4 (O1, O2, O3) and 2 (C3); @proposal.algo-operations
-            sections 6.5, 6.7 and 6.8; @proposal.algo-records section 6.6; code:packages/flow-state-v3/src/core/turn.ts.
-            Spec: @spec.Operations (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), companion
-            `wiki/specs/v3/Operations.md`; @spec.Records (R1–R3, R16, I6, I7), companion `wiki/specs/v3/Records.md`.
+            **Read first:** @spec.Operations `algorithm` (Rows, Issue view, Catalog, A failure crossing cleanup, the
+            throw family rule); @spec.Records `algorithm` (Lanes and rows across a reload);
+            code:packages/flow-state-v3/src/core/turn.ts. Spec: @spec.Operations (R1, R2, R6, R7, R11, R15, I8, I13–I16,
+            I20, I21, I23), companion `wiki/specs/v3/Operations.md`; @spec.Records (R1–R3, R16, I6, I7),
+            companion `wiki/specs/v3/Records.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2858,7 +2924,7 @@ tasks
             and the suite passes.
 
             **Risk:** the lane policies (`latest`, `serialize`, `cancel`, `reject`) are in no design; their Spec is
-            written from the code (@proposal.algo-resolutions hole 5).
+            written from the code (companion `Operations.md`, open hole 12).
         acceptance
             - Ending mappers receive `(value, { input, key })`, inferred from the contract with no annotation in
               any fixture.
@@ -2870,9 +2936,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), @spec.Records (R1–R3, R16, I6,
-              I7): each Invariant is checked by a package sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), @spec.Records (R1–R3, R16, I6, I7); the Invariants
+              its tests check after every step are @spec.Operations (I8, I11, I13–I16, I18, I20, I21, I23; tests T1–T6),
+              @spec.Records (I1, I4–I7, I11, I16, I18; tests T1–T6, T9–T15).
 
     T122
         title       Read entries and read slots
@@ -2886,8 +2954,8 @@ tasks
             **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); production reads resources
             only as far as the fixtures need.
 
-            **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6, C8); @proposal.algo-operations
-            sections 6.1 to 6.3 and 6.6. Spec: @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25),
+            **Read first:** @spec.Operations `algorithm` (Dispatch of a settled call, Entry table, Slot cells, Occasions
+            that do not compare, Alarms). Spec: @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25),
             companion `wiki/specs/v3/Operations.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
@@ -2904,7 +2972,8 @@ tasks
             code:packages/flow-state-v3/src/host/driver.ts#Lookup. Do not delete it before its replacement lands and the
             suite passes.
 
-            **Risk:** the public event a view sends for `refetch` has no design (@proposal.algo-resolutions hole 6).
+            **Risk:** the public event a view sends for `refetch` has no design (companion `Operations.md`, open
+            hole 11).
         acceptance
             - The entry table of @spec.Operations holds cell by cell, shown by a generated sequence test.
             - An entry with no hold is removed at `gcTime` by `Alarm.Collect`; `gcTime: 0` removes it in the same step.
@@ -2914,9 +2983,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25): each Invariant is checked by a
-              package sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25); the Invariants its tests check after every step are
+              @spec.Operations (I1–I10, I12, I22, I24, I25; tests T1, T2, T4, T5, T7).
 
     T123
         title       Placements and release
@@ -2929,8 +2999,8 @@ tasks
 
             **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover; @plan.Runtime.O6).
 
-            **Read first:** @proposal.algo-resolutions sections 1.4 and 2 (C1, C6); @proposal.algo-operations section
-            6.4. Spec: @spec.Operations (R8, I4, I11, I22), companion `wiki/specs/v3/Operations.md`.
+            **Read first:** @spec.Operations `algorithm` (Releases, Alarms). Spec: @spec.Operations (R8, I4, I11, I22),
+            companion `wiki/specs/v3/Operations.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2941,7 +3011,7 @@ tasks
             the code audit lists it as L5, and its `cleanups.test.ts:313-368` assertions move). Do not delete it before
             its replacement lands and the suite passes.
 
-            **Risk:** placements were not attacked in the design round (@proposal.algo-operations hole H4).
+            **Risk:** placements were not attacked in the design round (companion `Operations.md`, open hole 4).
         acceptance
             - A placement released within the disposal bound shows no issue; past it, `ReleaseOverdue` shows for every
               incarnation that holds the call's key, with no host code.
@@ -2951,9 +3021,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R8, I4, I11, I22): each Invariant is checked by a package sequence test, after every
-              step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R8, I4, I11, I22); the Invariants its tests check after every step are @spec.Operations (I4, I11, I22;
+              tests T1, T2, T4, T5).
 
     T124
         title       Persisted resources
@@ -2967,9 +3038,9 @@ tasks
             **Why now:** one of the four parts of @task.V3.T21 (@proposal.spec-handover); restored resource data waits
             on it (routed from @task.V3.T20).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section 6.10;
-            @proposal.algo-records sections 6.4 and 6.7. Spec: @spec.Operations (R12, I24), companion
-            `wiki/specs/v3/Operations.md`; @spec.Records (R8, R18, I12, I19), companion `wiki/specs/v3/Records.md`.
+            **Read first:** @spec.Operations `algorithm` (Entry store); @spec.Records `algorithm` (Reference table,
+            Occasions that do not compare). Spec: @spec.Operations (R12, I24), companion `wiki/specs/v3/Operations.md`;
+            @spec.Records (R8, R18, I12, I19), companion `wiki/specs/v3/Records.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2984,9 +3055,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R12, I24), @spec.Records (R8, R18, I12, I19): each Invariant is checked by a package
-              sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R12, I24), @spec.Records (R8, R18, I12, I19); the Invariants its tests check after every step are
+              @spec.Operations (I24; tests T4), @spec.Records (I12, I19; tests T8, T14, T15).
 
     T127
         title       Declared emits at the root
@@ -2999,9 +3071,9 @@ tasks
 
             **Why now:** the first half of @task.V3.T77 (@review.spec-cohesion-r2 question 15); the toaster waits on it.
 
-            **Read first:** @proposal.algo-resolutions sections 1.2 (X6) and 2 (C4); @proposal.algo-turn section 6.10;
-            @proposal.algo-host section 6.3; @proposal.spec-boundary-channels. Spec: @spec.Changes (R19, I5), companion
-            `wiki/specs/v3/Changes.md`; @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
+            **Read first:** @spec.Changes `algorithm` (Emits); @spec.Host `algorithm` (Emits);
+            @proposal.spec-boundary-channels. Spec: @spec.Changes (R19, I5), companion `wiki/specs/v3/Changes.md`;
+            @spec.Host (R3, I4), companion `wiki/specs/v3/Host.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3020,9 +3092,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R19, I5), @spec.Host (R3, I4): each Invariant is checked by a package sequence test, after every step,
-              where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R19, I5), @spec.Host (R3, I4); the Invariants its tests check after every step are @spec.Changes (I5,
+              I14), @spec.Host (I4; tests T1, T8).
 
     T128
         title       Fragment emits
@@ -3035,7 +3108,7 @@ tasks
 
             **Why now:** the second half of @task.V3.T77 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 5 (row G6); @proposal.algo-turn section 6.10;
+            **Read first:** @spec.Types `model` (row G6, a fragment event's address); @spec.Changes `algorithm` (Emits);
             @proposal.spec-boundary-channels. Spec: @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
@@ -3050,8 +3123,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R19): each Invariant is checked by a package sequence test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R19); the Invariants its tests check after every step are @spec.Changes (I5, I14).
 
     T129
         title       UI primitives wave 2: toaster
@@ -3063,9 +3137,9 @@ tasks
 
             **Why now:** the first half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.spec-boundary-channels;
-            @convention.fixture-catalog. Spec: @spec.Schedules (R8, R11, R12), companion `wiki/specs/v3/Schedules.md`;
-            @spec.Changes (R19), companion `wiki/specs/v3/Changes.md`.
+            **Read first:** @proposal.spec-boundary-channels; @convention.fixture-catalog. Spec: @spec.Schedules (R8,
+            R11, R12), companion `wiki/specs/v3/Schedules.md`; @spec.Changes (R19),
+            companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3079,9 +3153,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Schedules (R8, R11, R12), @spec.Changes (R19): each Invariant is checked by a package sequence test,
-              after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Schedules
+              (R8, R11, R12), @spec.Changes (R19); the Invariants its tests check after every step are @spec.Schedules
+              (I5, I7, I15; tests T1, T3–T6), @spec.Changes (I5, I14).
 
     T130
         title       UI primitives wave 2: menu
@@ -3093,8 +3168,8 @@ tasks
 
             **Why now:** the second half of @task.V3.T72 (@review.spec-cohesion-r2 question 15).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.spec-boundary-channels;
-            @convention.fixture-catalog. Spec: @spec.Changes (R12, R13, I1, I2), companion `wiki/specs/v3/Changes.md`.
+            **Read first:** @proposal.spec-boundary-channels; @convention.fixture-catalog. Spec: @spec.Changes (R12,
+            R13, I1, I2), companion `wiki/specs/v3/Changes.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3108,9 +3183,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover @spec.Changes
-              (R12, R13, I1, I2): each Invariant is checked by a package sequence test, after every step, where the Spec
-              names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
+              (R12, R13, I1, I2); the Invariants its tests check after every step are @spec.Changes (I1, I2, I11; tests
+              T1, T6).
 
     T131
         title       Construction trust: the doors
@@ -3123,9 +3199,9 @@ tasks
             **Why now:** the first half of @task.V3.T98, placed before @task.V3.T113's `derive.ts` and @task.V3.T109
             (@review.spec-cohesion-r2 question 15; @proposal.spec-errors-trust PD5).
 
-            **Read first:** @proposal.algo-resolutions section 6; @proposal.algo-operations section 6.9;
-            @proposal.spec-errors-trust. Spec: @spec.Operations (R10, I19), companion `wiki/specs/v3/Operations.md`;
-            @spec.Types (R11, I4, I5), companion `wiki/specs/v3/Types.md`.
+            **Read first:** @spec.Operations `algorithm` (Construction trust); @proposal.spec-errors-trust. Spec:
+            @spec.Operations (R10, I19), companion `wiki/specs/v3/Operations.md`; @spec.Types (R11, I4, I5),
+            companion `wiki/specs/v3/Types.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3138,8 +3214,8 @@ tasks
             `src/compile-names.ts`, `src/machine.ts`, `src/host/testing/run.ts` twice). Do not delete it before its
             replacement lands and the suite passes.
 
-            **Risk:** the door table was attacked once, on paper (@proposal.algo-operations hole H8); authoring doors do
-            not raise for a finding if the user accepts @proposal.algo-types question 1.
+            **Risk:** the door table was attacked once, on paper (companion `Operations.md`, open hole 8); authoring
+            doors do not raise for a finding if the user accepts @spec.Types.Q1.
         acceptance
             - Every public constructor goes through the door; the surface walk over both routes finds no other.
             - A value made by a second loaded copy of Flow is read as made.
@@ -3148,6 +3224,7 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. Tests cover
-              @spec.Operations (R10, I19), @spec.Types (R11, I4, I5): each Invariant is checked by a package sequence
-              test, after every step, where the Spec names one.
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R10, I19), @spec.Types (R11, I4, I5); the Invariants its tests check after every step are
+              @spec.Operations (I19; tests T5, T6), @spec.Types (I4, I5, I7, I14; tests T4, T7–T9).

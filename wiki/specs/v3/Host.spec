@@ -731,7 +731,8 @@ algorithm
         (`Records`' I1 and I2), reading batch values, which the fake's batch log keeps beside `keys`
         (`fake.ts:586-598`); and the turns rules read `Turn`.
 
-    The judge (machine rules). One function, `host/judge.ts`, run by the driver between a step and its sink, over the
+    The judge (machine rules). One function, `host/judge.ts` (module-local; `Operations`' `owners.ts#judge` is a
+        different function and keeps its name), run by the driver between a step and its sink, over the
 
     step's evidence. The record in the batch, the invariant rules placed at the actor's state, the turns rules on the
 

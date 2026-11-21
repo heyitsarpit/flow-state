@@ -611,3 +611,8 @@ note 2026-11-20T14:17:28Z
 note 2026-11-21T19:04:19Z
     Six v3 Specs written from the algorithm round: Schedules, Changes, Records, Operations, Types, Host (wiki/specs/v3/,
     each with a companion .md); best-guess guidance before coding.
+
+note 2026-11-21T19:27:12Z
+    @spec.Changes companion: tree.ts chainOf and leafOf are deleted, as @spec.Types (DerivedFields) says; moveOf and
+    historyAfter stay. Schedules: the per-schedule saved value is ScheduleShape (was Shape, a name Records uses for
+    every saved map). Host: host/judge.ts is module-local, apart from owners.ts#judge. Reverse: restore the old lines.

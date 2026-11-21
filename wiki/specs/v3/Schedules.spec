@@ -272,7 +272,8 @@ model
 
     SavedForm = one Schema is the source of both sides: its encoded side is the record, and `Tracked`'s type is its
         decoded side with `Live` added to a saved run. A field added to a timer is added to the Schema or does not
-        exist. The saved timer is `TimerShape` and the saved per-schedule value is `Shape` for `Position.schedules`;
+        exist. The saved timer is `TimerShape` and the saved per-schedule value is `ScheduleShape`, one entry of 
+            `Records`' `PositionShape["schedules"]`;
         `Records` owns every saved Schema name.
 
         ```ts
@@ -285,7 +286,7 @@ model
             arming: Idle | Refused { code, slot } | Due { armedAt, attempt, dueAt } | Held { armedAt, attempt, left },
             firing?: { code, slot },                // absent: Clean
         }
-        Shape = { [name]: TimerShape | ReadonlyArray<TimerShape> }   // keyed: a list in key-text order
+        ScheduleShape = TimerShape | ReadonlyArray<TimerShape>   // keyed: a list in key-text order
         ```
 
         Every timer of the scope is saved, idle ones included: an idle timer with a baseline is the debounce a reload
@@ -303,7 +304,7 @@ model
         // CHANGED: Turn drops `exited`, renames `armed` to `started`; Firing carries `arming` and `next`; no `adds`
         decide(schedule: Schedule, before: Option<Scheduled>, occasion: Occasion, env: Env)
             : { after: Scheduled; raised: ReadonlyArray<Raised>; seen: ReadonlyArray<Seen> }
-        wake(schedule: Schedule, saved: Option<Shape>, env: Env)               // decode, then Wake
+        wake(schedule: Schedule, saved: Option<ScheduleShape>, env: Env)               // decode, then Wake
             : { after: Scheduled; raised: ReadonlyArray<Raised>; seen: readonly [] }
         type Env = { reads: ScheduleReads<Values, string>; now: number; mint: () => ArmingId };
 
@@ -578,7 +579,7 @@ algorithm
         Selection's result; `raised` lists the failures met in the order firing, keys, `restartOn`, arming, reasons.
 
         ```ts
-        wake(schedule, saved, env):                           // the only reader of Shape; the decoder table
+        wake(schedule, saved, env):                           // the only reader of ScheduleShape; the decoder table
             before = saved decoded per entry; each Due or Held run gets arming: env.mint() and
                 cursor: env.reads.resume(key, armedAt, attempt), or Broken(f) when resume throws
             return decide(schedule, before, Wake, env)          // `seen` is empty: Wake records no evidence
@@ -618,7 +619,7 @@ composition
 
         - **Offers** `Scheduled`: one value per schedule per scope, in the owner's map by activation id.
         - **Offers** `Occasion`: the closed list of the operations and the lifecycle table.
-        - **Offers** `Shape`: the Schema of the saved form and the decode table, for `Records`.
+        - **Offers** `ScheduleShape`: the Schema of the saved form and the decode table, for `Records`.
         - **Offers** `scheduleIssues`: this module's part of the issues; `Operations` owns `issuesOf`, the 
             concatenation of
             every source's issues. The memo is this module's, keyed by the owner's map identity, inside the core; the 
