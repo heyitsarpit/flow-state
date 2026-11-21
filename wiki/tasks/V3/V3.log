@@ -568,3 +568,7 @@ note 2026-11-21T19:08:00Z
 note 2026-11-21T20:14:41Z
     The user accepted all 36 open calls as recommended (2026-11-22); recorded in the v3 Specs, three Plans, P4's Order
     line and the Epic.
+
+note 2026-11-21T20:27:19Z
+    Slice T89 (T131, T120) started alone as a calibration run at the user's word (2026-11-22); R48's phase review is
+    skipped for this one slice, by the user's scope.

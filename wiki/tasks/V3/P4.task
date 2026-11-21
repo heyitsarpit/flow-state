@@ -976,7 +976,7 @@ tasks
             both emit halves.
     T89
         title       Slice: Foundations
-        status      draft
+        status      open
         priority    high
         description
             Execution slice: its children run together through one requirements phase, requirements review, build and
@@ -2927,7 +2927,7 @@ tasks
 
     T120
         title       Declared schedules: the runtime half
-        status      draft
+        status      in_progress
         priority    high
         parent      [@T89]
 
@@ -3308,7 +3308,7 @@ tasks
               T1, T6).
     T131
         title       Construction trust: the doors
-        status      draft
+        status      in_progress
         priority    high
         parent      [@T89]
 
