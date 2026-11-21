@@ -153,7 +153,7 @@ description
     - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
       fails today.
     - The user's page: one page at a slice's close on what an app author will notice.
-skill        workflow@2eb3b47
+skill        workflow@4f316bf
 run
     To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
     you never build.

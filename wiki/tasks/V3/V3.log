@@ -539,3 +539,14 @@ note 2026-11-20T22:06:17Z
 note 2026-11-20T22:06:31Z
     Merged `@proposal.epic-trim` is deleted; last commit holding it: git show
     5c2b3152:wiki/plans/flow/references/proposals/2026-11-21-epic-trim.md
+
+note 2026-11-21T05:24:51Z
+    Decided (user, 2026-11-21): @review.spec-cohesion-r2#typing-does-machine-capture-its-body, Typing: does `machine()`…
+
+note 2026-11-21T05:24:52Z
+    All 15 questions in @review.spec-cohesion-r2 6a accepted as recommended, as prior art: each Spec's challenge step
+    re-weighs them.
+
+note 2026-11-21T07:06:37Z
+    [decided: user 2026-11-21] Library pin moved to workflow@4f316bf, the skills repo's main. Why: the user asked for
+    the latest. Reverse: pin back to 2eb3b47.
