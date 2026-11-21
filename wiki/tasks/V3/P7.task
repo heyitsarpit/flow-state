@@ -32,7 +32,8 @@ description
     **Gates:** example type-checking and generated-docs freshness, which reject one deliberately broken example and one
     stale page.
 
-    **Failure limit:** 2.
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
 
     **Stops:** the docs criteria, once; any public name a section introduces.
 

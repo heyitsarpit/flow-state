@@ -40,7 +40,8 @@ description
     - the browser run, which rejects its own planted fault (built by @task.V3.T58);
     - `nub run verify`.
 
-    **Failure limit:** 2.
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
 
     **Stops:**
 
@@ -2357,8 +2358,8 @@ tasks
             hostility, including P5's T29 Fake world items (Fake.http, Fake.Refused, Fake.Closed, duplicate, times,
             control-call overwrite, idempotency keys); storeContract (built by T58) is the contract for Fake.storage.
         comment     2026-11-21T18:31:22Z
-            [answered: user 2026-11-22] Owns the mutation applier: Fake.storage.mutate(kind) over the alphabet @proposal.algo-records 9.2
-            exports as data (@proposal.algo-resolutions C5).
+            [answered: user 2026-11-22] Owns the mutation applier: Fake.storage.mutate(kind) over the alphabet
+            @proposal.algo-records 9.2 exports as data (@proposal.algo-resolutions C5).
         comment     2026-11-21T18:46:49Z
             Takes the fake-server items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4).
         comment     2026-11-21T19:27:26Z

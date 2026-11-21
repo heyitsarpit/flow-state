@@ -21,7 +21,8 @@ description
 
     **Gates:** each app's Stories in `nub run verify`, which reject one deliberately broken Story per app.
 
-    **Failure limit:** 2.
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
 
     **Stops:** picking the apps; accepting each app.
 

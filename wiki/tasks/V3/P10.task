@@ -28,7 +28,8 @@ description
 
     **Gates:** the packed-consumer check, which rejects a tarball packed with one entry point removed.
 
-    **Failure limit:** 2.
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
 
     **Stops:** before each ship stage (publish, land, tag); the published name.
 

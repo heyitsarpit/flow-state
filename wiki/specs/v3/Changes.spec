@@ -183,7 +183,7 @@ open
             record value works. Against: one more declared field in user code. Test: a `Date` reset value
             compared across a reload is equal under the declared Schema and refused without it.
 
-    Q4  Whether a hidden page is a core input. [decided: user 2026-11-22] It is not, in v1; timers keep their
+    Q4  Whether a hidden page is a core input. [decided: user 2026-11-22] It is not, in v1; timers keep their 
         deadlines. Why: an autosave keeps saving and no occasion is added. Reverse: a hidden input and a row in
         every scope's table. Also closes `Schedules` Q2.
         outcome  The host's edge reads `hidden()` for its capture only (`Host`).

@@ -119,11 +119,14 @@ description
 
     ## Limits
 
-    No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10). Failure limit (the
-    default for each phase): 2 failures with the same root cause after convergence. Usage reserve: the run stops at 100
-    percent weekly usage, all models (the user, 2026-11-15); at the reserve the lead finishes its step, commits and
-    leaves a resume note. Usage always means the weekly window, never the 5-hour one, read from the harness's usage
-    view. The user changes the reserve at any time: a new value is an edit here and a note.
+    No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10). No failure limit
+    (the user, 2026-11-22; this overrides skill:build-a-loop's default and its stop): a slice that fails again on one
+    root cause after convergence does not stop the run or hold the phase. The orchestrator records the root cause and
+    what is left as a comment on the slice's Tasks, leaves those Tasks open, and goes on to the next slice. Usage
+    reserve: the run stops at 100 percent weekly usage, all models (the user, 2026-11-15); at the reserve the lead
+    finishes its step, commits and leaves a resume note. Usage always means the weekly window, never the 5-hour one,
+    read from the harness's usage view. The user changes the reserve at any time: a new value is an edit here and
+    a note.
 
     ## Glossary
 
@@ -207,8 +210,8 @@ instructions
       whole-slice state inventory, one requirements review, one build and one build review. The parent closes when every
       child is accepted and the slice review has checked the seams between them. Tasks stay the unit of acceptance. A
       Task with no parent is its own slice. Slices run in the order of the phase's Task order. The orchestrator may
-      regroup by moving `parent`, with the reason in a V3 log note. The failure limit counts per slice, and a slice fits
-      one builder run inside one 5-hour usage window.
+      regroup by moving `parent`, with the reason in a V3 log note. A slice fits one builder run inside one 5-hour
+      usage window.
     - Correctness (the user, 2026-11-22): every Task that builds or changes a v3 design says in its acceptance how its
       correctness is established, as one "Correctness:" item. Each of these holds: a corresponding fixture app exists
       that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the

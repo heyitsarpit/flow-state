@@ -116,7 +116,7 @@ requirements
                 value.
 
 open
-    Q1  Construction returns a value instead of throwing for a finding. Overturns `machine()` throwing
+    Q1  Construction returns a value instead of throwing for a finding. Overturns `machine()` throwing 
         (@plan.Machines.O1 as written) and the earlier ruling to keep the throw. Limited by Q12: a definition with a
         finding must still hand out every token, or module-level code such as `const Idle = Toaster.S.IDLE` throws at
         import and hides the module again; a definition finding that cannot hand out tokens keeps raising at
@@ -125,24 +125,24 @@ open
         outcome  A: construction is a value; the tokens are still handed out. B keeps the throw (an import that
                  fails with a `FlowError` exits 1 and prints that error's findings), C is today.
 
-    Q2  `Machine<D, R>`'s default for `R` is `never`, so `M.rules.Typo` on an annotated machine is an error; the
+    Q2  `Machine<D, R>`'s default for `R` is `never`, so `M.rules.Typo` on an annotated machine is an error; the 
         alternative `string` makes it `RuleToken | undefined`. Both compiled. [decided: user 2026-11-22] Why: a
         misspelt rule is a type error. Reverse: B defaults `R` to `string`.
         outcome  A: `R` defaults to `never`; an annotated `Machine<typeof X>` loses only the rule tokens either way.
 
-    Q3  The body gives the machine's type only its rule names, and `turn` is a body token, not an imported function.
+    Q3  The body gives the machine's type only its rule names, and `turn` is a body token, not an imported function. 
         The earlier snippet (`body: B & Exact<...>` with no conditional, `const B`) is corrected: the conditional is
         required and `const` is inert. [decided: user 2026-11-22] Why: a token's memory type comes from the machine
         it is handed out by. Reverse: B is an imported `Flow.turn`.
         outcome  A: `turn` is a body token; B compiles too but its memory type rests on the surrounding record.
 
-    Q4  Every declared pause reason has a callback in every placement. [decided: user 2026-11-22] Why: a reason
-        that can never hold at a placement is a type error, not a silent no-op. Reverse: B makes the callback
+    Q4  Every declared pause reason has a callback in every placement. [decided: user 2026-11-22] Why: a reason that 
+        can never hold at a placement is a type error, not a silent no-op. Reverse: B makes the callback
         optional.
         outcome  A: required; B makes the callback optional, so `pausedBy` may name a reason that can never hold
                  at that placement.
 
-    Q5  A rule has no `enabled`; the Runtime setup chooses `rules: "judge" | "off"`, read from the app's own
+    Q5  A rule has no `enabled`; the Runtime setup chooses `rules: "judge" | "off"`, read from the app's own 
         environment at the host edge, and Stories and the CLI always judge. Overturns the decided `enabled` flag of
         @plan.Rules.O6: `enabled: import.meta.env.DEV` is evaluated at import; under the plain CLI `import.meta.env`
         is undefined, the body throws and the machine is refused. The run rules are one list in one module the config
@@ -154,7 +154,7 @@ open
             the switch at the Runtime edge is read once. B keeps the decided API but every app writes its own
             environment read, and the CLI must stub it.
 
-    Q6  Terminals are proved by `flow check` only, as the finding `TerminalLeft`; no run-time terminal rule exists, so
+    Q6  Terminals are proved by `flow check` only, as the finding `TerminalLeft`; no run-time terminal rule exists, so 
         `RuleBroken` never names a terminal. [decided: user 2026-11-22] Why: a graph proof covers every run, so a
         run-time judge can only repeat it. Reverse: B also judges at run time.
         outcome  A: `flow check` proves terminals; B also judges at run time.
@@ -162,13 +162,13 @@ open
             token. B catches a terminal left through a path the proof over-approximates away, which cannot
             happen: guards are treated as passable, so the proof is never short.
 
-    Q7  Source locations come from the CLI's adapter, which resolves file and export by identity and adds the line by
+    Q7  Source locations come from the CLI's adapter, which resolves file and export by identity and adds the line by 
         reading that file along the definition path. [decided: user 2026-11-22] Why: `discover` already knows which
         module exported which machine. Reverse: B captures at `machine()` from a stack and breaks I9. The adapter's
         algorithm is not spiked.
         outcome  A, after a spike (@task.V3.T22). B captures at `machine()` from a stack and breaks I9.
 
-    Q8  `Compiled` holds the saved codecs and the schedule codecs. Granted, with the same question in `Records`: one
+    Q8  `Compiled` holds the saved codecs and the schedule codecs. Granted, with the same question in `Records`: one 
         answer, once. [decided: user 2026-11-22] Why: the core must decode a saved key. Reverse: B keeps codecs on
         the definition.
         outcome  A, for both Specs; B keeps codecs on the definition, so the core cannot decode a saved key.

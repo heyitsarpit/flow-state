@@ -32,7 +32,8 @@ description
 
     **Gates:** P8's slowed builds; `nub run faults`.
 
-    **Failure limit:** 2.
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
 
     **Stops:** the real-phone run, which holds only that item.
 

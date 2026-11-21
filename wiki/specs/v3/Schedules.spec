@@ -169,8 +169,8 @@ open
         outcome  A build-time choice in @task.V3.T118's description: land it with a bench row, or leave it out.
                  Level 0 checks gated against ungated.
 
-    Q2  A hidden page is no use change in v1: no schedule row mentions it, timers keep their deadlines, and a
-        throttled wake fires each overdue timer once. [decided: user 2026-11-22] Why: an autosave keeps saving and no
+    Q2  A hidden page is no use change in v1: no schedule row mentions it, timers keep their deadlines, and a throttled 
+        wake fires each overdue timer once. [decided: user 2026-11-22] Why: an autosave keeps saving and no
         occasion is added. Reverse: a use change that clears alarms while hidden.
         outcome  Closed by `Changes` Q4: a hidden page is not a core input in v1.
 

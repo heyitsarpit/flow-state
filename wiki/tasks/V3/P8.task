@@ -33,7 +33,8 @@ description
 
     **Gates:** one slowed build per budget; tamper checks on the browser runs.
 
-    **Failure limit:** 2.
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
 
     **Stops:** the budget targets, set by the user after the baselines.
 
