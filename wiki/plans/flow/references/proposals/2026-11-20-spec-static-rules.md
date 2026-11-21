@@ -557,13 +557,13 @@ proposal text says `RuleBroken` (@proposal.rules line 90). Recommended: `Termina
 - Trace B (`RuleBroken`): the same finding and a run's evidence record share one name; a reader cannot tell a proof
   from an observation, and `off: "all"` reads as if it applied.
 
-**Ask 2. If the rule-name spike fails, rule tokens are checked at the Story, not by the type.** [open: 2026-11-21; recommend run the spike first; fallback only] Recommended: run the
+**Ask 2. If the rule-name spike fails, rule tokens are checked at the Story, not by the type.** [answered: user 2026-11-21; not needed: rule names are typed, as prior art: @review.spec-cohesion-r2#rule-names-on-the-type-machined-names-or-machined---rules-] Recommended: run the
 spike first; this is only the fallback.
 - Trace A (spike passes): `.rules({ expectBroken: [M.rules.SetLandsInBound] })` is a type error.
 - Trace B (fallback): `M.rules` is a record of tokens by name; the same typo compiles and `Story` refuses it when
   built, naming the rule and the machine's rule names. `Machine<D>` is untouched either way.
 
-**Ask 3. `flow story run` exits 1 when the run's verdict has a broken rule.** [open: 2026-11-21; recommend exit 1] @plan.CommandLine.O2 says `story run`
+**Ask 3. `flow story run` exits 1 when the run's verdict has a broken rule.** [answered: user 2026-11-21; exit 1, as prior art: @review.spec-cohesion-r2#cli-exits] @plan.CommandLine.O2 says `story run`
 has "no pass or fail on correctness"; @plan.Rules.O4 says every Story judges; test tooling gives the CLI the same
 `verdictOf`. Recommended: exit 1, result on stdout, `status: "failed"`; exit 2 stays for a rejected run.
 - Trace A (exit 1): CI runs `flow story run shop/refund`; `RefundKeepsTotal` breaks; stdout holds the checkpoints
@@ -571,7 +571,7 @@ has "no pass or fail on correctness"; @plan.Rules.O4 says every Story judges; te
 - Trace B (exit 0, report only): the same run prints the broken rule and exits 0; CI passes a broken rule unless it
   parses the document.
 
-**Ask 4. A definition that fails construction is a `check` error (exit 1); a module that does not load is exit 2.** [open: 2026-11-21; recommend A, check error exit 1]
+**Ask 4. A definition that fails construction is a `check` error (exit 1); a module that does not load is exit 2.** [answered: user 2026-11-21; A, as prior art: @review.spec-cohesion-r2#cli-exits]
 The Plan says a graph that fails to load is an invocation failure; the Spec draft and the lazy Plan say findings.
 - Trace A (recommended): a duplicate state name gives `error DuplicateName …` beside the other machines' findings,
   exit 1; a syntax error in the file gives `flow: could not load pay.machine.ts`, exit 2.

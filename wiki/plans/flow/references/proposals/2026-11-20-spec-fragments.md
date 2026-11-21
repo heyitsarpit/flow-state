@@ -404,7 +404,7 @@ Trace A: `onGone` for r1 removes r2 from the list: commit sets `unsettled`; befo
 occasion ends r2 and runs its `onGone`. Trace B: `onGone` writes only `gone`: facts match, no follow-up. This widens
 the Plan's "pending reset" to lists.
 
-**PD5. A Task for the turn's parts ahead of T109, sized by the spike.** [open: 2026-11-21; recommend as proposed] Scope change; the user's call.
+**PD5. A Task for the turn's parts ahead of T109, sized by the spike.** [answered: user 2026-11-21; yes: @proposal.spec-handover#task-changes] Scope change; the user's call.
 Trace A: with it, T109's first commit runs `raise` into a trait on day one. Trace B: without it, T109 builds the
 walk inside a lifecycle Task and two states get one Task.
 

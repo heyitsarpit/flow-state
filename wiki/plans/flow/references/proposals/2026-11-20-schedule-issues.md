@@ -1,6 +1,7 @@
 ---
 proposal schedule-issues
-status proposed 2026-11-20
+status accepted user 2026-11-21
+    proposed 2026-11-20
 ---
 # Schedule issues: stop storing them
 

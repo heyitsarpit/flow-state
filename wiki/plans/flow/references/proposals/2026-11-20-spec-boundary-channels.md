@@ -407,7 +407,7 @@ no `Configure`. Open: the three probable upstream bugs its proposal names; pin t
 Each has two traces. PD1 to PD3 are public shape (the user's); PD4 to PD7 are implementation calls the orchestrator
 may take.
 
-**PD1. `onProps` takes the context-slot form: `P.count.change({ when?, event })`** [open: 2026-11-21; recommend as proposed] (recommended), replacing
+**PD1. `onProps` takes the context-slot form: `P.count.change({ when?, event })`** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#boundary-channel-api-as-proposed] (recommended), replacing
 `{ select, when, event }`. Why: decisions Q5 says "shaped like `onContext`", and `onContext` has since become
 `C.slot.change`; with one prop per reaction the baseline is the prop's previous value, which the props turn already
 holds, so `Incarnation.propsBaselines`, table 3.5's first row and I9 disappear.
@@ -417,13 +417,13 @@ Trace 2 (a `select` that reads memory, `({ props, memory }) => props.count - mem
 `Next` turn, no reaction runs, and the next unrelated props patch fires a stale difference; the token form cannot
 express that selection, and `when(now, before, { props, memory })` reads memory at the turn instead.
 
-**PD2. A fragment emit's handler is `(payload, { key, keys })`:** [open: 2026-11-21; recommend as proposed] `key` is the innermost copy's key, `keys` every
+**PD2. A fragment emit's handler is `(payload, { key, keys })`:** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#boundary-channel-api-as-proposed] `key` is the innermost copy's key, `keys` every
 key along the address, outermost first; a root or plain-trait handler receives `{}`.
 Trace 1: `uploads: { Done: (p, { key }) => … }` with address `[{ slot: "uploads", key: "r1" }]` gets `key: "r1"`.
 Trace 2: `boards: { cards: { Focus: (_, { key, keys }) => … } }` at `[boards b1, cards c7]` gets `key: "c7"`,
 `keys: ["b1", "c7"]`; with `key` alone, two boards' cards `c7` are indistinguishable.
 
-**PD3. A Story asserts emits exactly:** [open: 2026-11-21; recommend as proposed] an `emits([...])` step compares the whole ordered list since the previous
+**PD3. A Story asserts emits exactly:** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#boundary-channel-api-as-proposed] an `emits([...])` step compares the whole ordered list since the previous
 step; a Story with emits and no such step fails coverage.
 Trace 1: Escape then OutsideClick; `emits([Focus({ target: "trigger" })])` after both passes; a build that also
 emits on OutsideClick fails. Trace 2: with a "contains" assertion the same wrong build passes.
@@ -435,7 +435,7 @@ step's 100-item yield (`defaults.ts:39`) falls between them; a subscriber sees `
 show, the alternative is to run reaction events inside the props turn's step unconditionally; the lead measures
 which the driver already guarantees before choosing.
 
-**PD5. Split T77 (root, fragment) and T72 (toaster, menu)** [open: 2026-11-21; recommend as proposed] as in section 5.
+**PD5. Split T77 (root, fragment) and T72 (toaster, menu)** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#second-wave-task-boundaries] as in section 5.
 Trace 1 (split): T77a, T76, T78 and the toaster start after `derive.ts`. Trace 2 (no split): all five Tasks wait
 for the turn-parts Task and T109, though none of the number input's or toaster's rules reads an `Address`.
 
@@ -443,7 +443,7 @@ for the turn-parts Task and T109, though none of the number input's or toaster's
 Trace 1: a focus handler throws once on a missing element; it is reported, and the next Escape focuses. Trace 2
 (detach, today's sink rule): the first throw removes it and every later Escape does nothing, with no report.
 
-**PD7. An explicit `undefined` in `setProps` returns that prop to its default; an absent key keeps its value.** [open: 2026-11-21; recommend as proposed]
+**PD7. An explicit `undefined` in `setProps` returns that prop to its default; an absent key keeps its value.** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#boundary-channel-api-as-proposed]
 Trace 1: `setProps({ max: undefined })` after `max: 3` gives the default 10. Trace 2: `setProps({ value: 2 })`
 leaves `max: 3`. `useActor` passes every key each render, so an omitted prop returns to its default there
 (@plan.React.O2) without a second rule.

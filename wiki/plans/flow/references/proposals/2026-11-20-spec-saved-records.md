@@ -368,7 +368,7 @@ reported. Replaces the runner's ruling for owed records (W8) and answers `revisi
 the others. Trace 1: rows `[paid, retired-op row, refunded]`: today none is delivered; proposed two are. Trace 2:
 all rows read: no change.
 
-**D5. Task boundary:** [open: 2026-11-21; recommend as proposed] T92 is the codec and owns no state; T56 owns the fate, quarantine's exits included.
+**D5. Task boundary:** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#second-wave-task-boundaries] T92 is the codec and owns no state; T56 owns the fate, quarantine's exits included.
 
 Not proposed: a rename map or `version` hook (the user's Q1 stands; `revisit.md:23` names the reopen case).
 

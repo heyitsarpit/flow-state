@@ -312,11 +312,11 @@ refused for quota; the machine maps `NotSent { why: "StorageFailure" }`, the sna
 `StorageFailure [quota]`. Trace B (today): the same event is `StorageRefused` to the machine, `StorageFailure`
 in the snapshot and `StoreRefused` to the adapter author. Reverse: keep `why` as is and rename only the rest.
 
-**PD2. Flow-made values are sealed: `textOfKey`, `call` and a token's `make` leave the public face.** [open: 2026-11-21; recommend as proposed] Trace A:
+**PD2. Flow-made values are sealed: `textOfKey`, `call` and a token's `make` leave the public face.** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#public-surface-trims-as-proposed] Trace A:
 `Keeper.operations.keep.textOfKey` is `undefined`; the core reaches it by identity. Trace B (today): the call
 with `null` throws a raw `TypeError`. Reverse: keep them public and wrap each as an `entry`.
 
-**PD3. `render` and `renderAll` are exported from the root route.** [open: 2026-11-21; recommend as proposed] Trace A: an app logs
+**PD3. `render` and `renderAll` are exported from the root route.** [answered: user 2026-11-21; as proposed, as prior art: @review.spec-cohesion-r2#public-surface-trims-as-proposed] Trace A: an app logs
 `renderAll(error)` and a machine named with an ANSI escape prints as `\u{1b}`. Trace B: the app prints
 `error.message`, which carries the raw name. Reverse: keep them internal to the CLI.
 
@@ -324,7 +324,7 @@ with `null` throws a raw `TypeError`. Reverse: keep them public and wrap each as
 config that dies prints `Defect at story` and exits 2. Trace B (today): it prints `Cause.pretty` with a stack.
 Reverse: none inside @plan.Diagnostics.O3; a debug flag would need the Plan changed.
 
-**PD5. Doors land before TM's `derive.ts`** [open: 2026-11-21; recommend as proposed] (T98a moves up; T98b stays first in P5). Trace A: TM's new builders
+**PD5. Doors land before TM's `derive.ts`** [answered: user 2026-11-21; C, T98a before derive.ts and T109, as prior art: @review.spec-cohesion-r2#t98s-place] (T98a moves up; T98b stays first in P5). Trace A: TM's new builders
 are born through `capture` and `made`. Trace B: they are written with marks and rewritten by T98.
 
 **Sidecar log** (three Haiku sidecars ran; the fourth, Effect prior art, was refused by the host's limit).

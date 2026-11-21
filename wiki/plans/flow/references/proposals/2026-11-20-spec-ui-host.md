@@ -404,18 +404,18 @@ Risk, highest first: emits after commit (R-E1) when the listener's view did not 
 
 ## 8. Proposed decisions
 
-**PD1. One notify per publication, replacing React O3's "one notify per task".** [open: 2026-11-21; recommend A, one notify per publication]
+**PD1. One notify per publication, replacing React O3's "one notify per task".** [answered: user 2026-11-21; A, as prior art: @review.spec-cohesion-r2#one-notify-per-publication-and-a-second-tab-without-persistence-until-it-reloads]
 Trace A (per publication): a click sends `Add` then `Recount` in one task; two slices publish versions 8 and 9;
 listeners are told twice; React batches both into one render that reads version 9. Trace B (per task): the first slice
 notifies, the second is held for the next task; the render shows version 8, then a second render shows 9: two renders
 and a frame of old data. Recommendation: A. It needs no task-boundary state.
 
-**PD2. T111 builds Attachment, Lease and Publication whole; T30 becomes channels and the hydrate overlay.** [open: 2026-11-21; recommend A]
+**PD2. T111 builds Attachment, Lease and Publication whole; T30 becomes channels and the hydrate overlay.** [answered: user 2026-11-21; A, as prior art: @review.spec-cohesion-r2#second-wave-task-boundaries]
 Trace A: T111 ships table 3.3; T30 adds a props input and S5 and touches no row. Trace B (as written): T111 ships a
 "least that renders" attach; T30 rewrites it for grace, Strict Mode and Activity, and the fixtures' browser runs are
 re-proved. Recommendation: A.
 
-**PD3. A second tab stays without persistence until it reloads.** [open: 2026-11-21; recommend A]
+**PD3. A second tab stays without persistence until it reloads.** [answered: user 2026-11-21; A, as prior art: @review.spec-cohesion-r2#one-notify-per-publication-and-a-second-tab-without-persistence-until-it-reloads]
 Trace A: tab 1 closes; tab 2 keeps running, saves nothing; its reload boots as `Owner` and restores tab 1's data.
 Trace B (promotion): tab 2 takes the lock with a live world that never saw tab 1's records and must merge both.
 Recommendation: A, which Persistence O7 already implies.

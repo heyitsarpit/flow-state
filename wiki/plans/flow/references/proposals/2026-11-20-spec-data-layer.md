@@ -425,7 +425,7 @@ Tests are Stories on fixtures, expected results derived from the tables above, e
 
 Each is proposed; two traces each.
 
-**PD1. Split T24 into confirmed records (T24a) and claims (T24b).** [open: 2026-11-21; recommend as proposed] The states have different owners and T115
+**PD1. Split T24 into confirmed records (T24a) and claims (T24b).** [answered: user 2026-11-21; yes: @proposal.spec-handover#task-changes] The states have different owners and T115
 needs only the first.
 - Trace 1: the server renders ticket 7 at `rev 4`; the client holds `rev 5` with a predicted title. Hydrate calls
   the judge: `Stale`. No claim code runs; the prediction still shows. T24a alone decides it.
