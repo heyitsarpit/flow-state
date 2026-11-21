@@ -694,3 +694,6 @@ note 2026-11-21T20:59:48Z
 
 note 2026-11-21T21:22:24Z
     Types G3: deny codes stay inline in guards, not declared on the definition (the user, 2026-11-22).
+
+note 2026-11-21T21:23:43Z
+    Schedules.spec and Types.spec: the user's 2026-11-22 decision voids the body Flow.keyed form (see @task.V3.T120).

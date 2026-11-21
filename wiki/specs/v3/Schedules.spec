@@ -154,6 +154,7 @@ requirements
                 [decided: user 2026-11-21] answered "A, as recommended" to the question of where the `restartOn`
                 selection gets its codec: the declaration names its Schema beside `key` and `pausedBy`; the body's
                 `restartOn` returns that type and the baseline is saved as its canonical text.
+                The user's 2026-11-22 decision makes the body `Flow.keyed` form and body-declared names void.
 
     R17  Cost is in proportion to what changed
         source  Agreed by the user for the algorithm round: cheap operations over the graph.

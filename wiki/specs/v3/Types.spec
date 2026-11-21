@@ -66,6 +66,7 @@ requirements
                 [decided: user 2026-11-20] `key` and `pausedBy` are in the declaration.
                 [decided: user 2026-11-21] the declaration names the `restartOn` Schema beside `key` and `pausedBy`;
                 a key is a field record, always a struct with one canonical text.
+                The user's 2026-11-22 decision makes the body `Flow.keyed` form and body-declared names void.
 
     R9  The machine's type carries its rule names
         source  @plan.Rules.O3.

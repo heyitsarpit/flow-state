@@ -502,22 +502,23 @@ outcomes
         Hover or press state that only holds a clock is a `paused` reason, not a stored stamp; short-lived state itself
         follows `code:wiki/conventions/interaction-state.md`.
 
-        `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }` names each reason; any true
-        pauses the timer; `paused` is always a record, never a bare function. The snapshot shows `pausedBy`, the active
-        reason names in declaration order, beside `left`; reason names are a literal union, so `pausedBy` is typed. A
-        turn runs keys, then `restartOn`, then `paused`, after each committed turn. Every lane change, including a
-        denied or unhandled ending's admission, re-checks `keys` and `paused`. True holds the time left of the current
-        delay (`left = dueAt - now`, at least 0); false resumes from it (`dueAt = now + left`). Paused time never counts
-        toward a delay; an unused actor, a frozen trait and a closed page still count. Arming or restarting while paused
-        holds the full delay. A pause right after a firing holds the next step's full delay. A multi-step Schedule
-        pauses inside its current delay, and its `attempt` does not advance. `disarmOn`, exit or a key leaving removes a
-        paused timer; nothing fires later.
+        `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }` has one callback per reason the
+        definition declares in `pausedBy` [decided: user 2026-11-22] (see @task.V3.T120); any true pauses the timer;
+        `paused` is always a record, never a bare function. The snapshot shows `pausedBy`, the active reason names in
+        declaration order, beside `left`; reason names are a literal union, so `pausedBy` is typed. A turn runs keys,
+        then `restartOn`, then `paused`, after each committed turn. Every lane change, including a denied or unhandled
+        ending's admission, re-checks `keys` and `paused`. True holds the time left of the current delay (`left =
+        dueAt - now`, at least 0); false resumes from it (`dueAt = now + left`). Paused time never counts toward a
+        delay; an unused actor, a frozen trait and a closed page still count. Arming or restarting while paused holds
+        the full delay. A pause right after a firing holds the next step's full delay. A multi-step Schedule pauses
+        inside its current delay, and its `attempt` does not advance. `disarmOn`, exit or a key leaving removes a paused
+        timer; nothing fires later.
 
-        A keyed schedule's keys return key records from the after memory and after lanes (inside a fragment its own
-        rows; under .each that copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves,
-        firing once with key; a repeated key keeps its first position with `listRepair` evidence; `restartOn` is
-        evaluated per key, ({ key, memory, props, context }) => value; `armOn` on a keyed schedule is a
-        construction error.
+        A schedule whose definition declares a `key` is keyed [decided: user 2026-11-22] (see @task.V3.T120): its `keys`
+        return key records from the after memory and after lanes (inside a fragment its own rows; under .each that
+        copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves, firing once with key; a
+        repeated key keeps its first position with `listRepair` evidence; `restartOn` is evaluated per key, ({ key,
+        memory, props, context }) => value; `armOn` on a keyed schedule is a construction error.
 
         Per-key timers persist by key with `dueAt` or `left`, and on restore the restored memory's keys win.
 

@@ -265,6 +265,10 @@ tasks
             in a keyed send mapper to @task.V3.T109; `listRepair` evidence and the repo R12 red to T109; an unkeyed send
             mapper still types `key` as `ScheduleKey` to @task.V3.T113; Turn I9's context-wave run-rule gap to
             @task.V3.T112; a disarmed or restarted series leak at `schedule-steps.ts:54`.
+        comment     2026-11-21T21:23:34Z
+            Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment):
+            `Flow.keyed` as public API and the body-declared names are void; the definition declares key, reasons
+            and `restartOn`.
     T21
         title       Reads and operations (slice 5)
         status      draft
@@ -1110,6 +1114,9 @@ tasks
             a guard plus the codec pin, since today's text is already canonical. Rejected: a trapped body (not a made
             value; its throw is already a body Defect); a test for the `no-mark-probe` rule file (outside the package):
             a requirement for the builder instead.
+        comment     2026-11-21T21:23:35Z
+            Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment): closes
+            the `Flow.keyed` question outright, not only the earlier acceptance tag.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -2289,6 +2296,9 @@ tasks
         comment     2026-11-21T19:26:56Z
             Contradiction resolved: superseded @spec.Compile dropped from Read first; @spec.Changes (R12, R13, R16) is
             the Spec.
+        comment     2026-11-21T21:23:35Z
+            Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment): the
+            routed pin of `pausedBy` as a literal union from the body is replaced by the declaration route.
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -2628,6 +2638,9 @@ tasks
             Contradiction resolved: Types' answer stands (chainOf and leafOf deleted for Node.chain and Node.leaf);
             Changes.md now says so; Supersedes notes T119 deletes them with the walk's move; Turn cites re-pointed to
             @spec.Schedules R16.
+        comment     2026-11-21T21:23:36Z
+            Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment): the pin
+            of types "typed by the body" is replaced by types from the declaration.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -3669,3 +3682,57 @@ tasks
             build review.
         acceptance
             - Every child accepted, and the seams between the children checked by the slice review.
+
+    T140
+        title       Declared schedules: every user migrated, old form deleted
+        status      open
+        priority    high
+        parent      [@T89]
+        blocked_by  [@T120]
+        description
+            Rewrite every user of schedules to the declared form, so nothing in the package, the fixtures, the tests or
+            the Plans uses the body-declared form or `Flow.keyed`, and delete what the declaration makes redundant.
+
+            **Why now:** the user decided (2026-11-22) that declared schedules supersede the body-declared form outright
+            (@task.V3.T120's comment). @task.V3.T120 builds the declaration and its runtime half; this Task migrates its
+            users. Everything after slice T89 builds on schedules, so the run does not continue until this lands. A
+            plain body `schedules:` block with no declaration is refused `ScheduleUndeclared` (@spec.Types I13), so most
+            sites change.
+
+            **Read first:** the worklist
+            code:wiki/plans/flow/references/proposals/2026-11-22-declared-schedules-inventory.md (every site with
+            `file:line` and its rewrite); @spec.Types (R8, I13) and @spec.Schedules (R14, R16), companions in
+            `wiki/specs/v3/`. The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build,
+            not a strict contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Scope:** 27 fixture sites in 12 machine files and 2 Story files; about 75 test sites in 27 files; 21 rows
+            in `src/` (9 old-form symbols, 5 body inferences, 7 readers of names or keys as `string`); 8 places in 3
+            Plans; 10 in the Specs and the fixture catalog; 6 in open Tasks (T72, T109, T113, T118). Docs and bench
+            have none.
+
+            **Supersedes:** every old-form symbol the worklist names in `src/` (`Flow.keyed`, `KeyedConfig`,
+            `KeyedSchedule`, `ScheduleKey`, `ScheduleParts`, `ErasedEntry`, the keyed mark, body-side key and reason
+            inference, the casts that restored them). Delete each once its users are migrated and the suite passes;
+            simplify freely under the user's decision.
+
+            **Risk:** a fixture's Story meaning must not change while its shape does: each migrated machine keeps its
+            Stories green, and saved fixtures still restore (the format step is @task.V3.T118's).
+
+            May change: `packages/flow-state-v3/src/`, `fixtures/`, `tests/`, `wiki/plans/flow/*.plan`,
+            `wiki/specs/v3/`, `wiki/conventions/fixture-catalog.md`, open Task text.
+        acceptance
+            - No body-declared schedule, `Flow.keyed` or old-form symbol remains in `src/`, `fixtures/` or `tests/` (a
+              grep check in the suite), and every fixture machine declares each schedule it places.
+            - Every fixture Story keeps its meaning and passes; every migrated test still checks the rule it cited.
+            - Readers of schedule names, keys and reasons in the snapshot, evidence, trace and saved timers are typed
+              from the declaration; the casts that restored them are gone.
+            - The Plans, the fixture catalog and the open Tasks the worklist names describe only the declared form; each
+              old decision sentence carries a note that the user's 2026-11-22 decision supersedes it.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R8,
+              I13) and @spec.Schedules (R14, R16) across every migrated fixture.

@@ -40,15 +40,15 @@ outcomes
         Static explanations show possible transitions, denials and fallthrough without evaluating guards, each commit's
         operation, contract, verb, policy and lane key with its cardinality (and subject for a fragment operation), each
         stream placement (kind, session per key, fills, idle time, reconnect, catch-up), each schedule's path to a
-        write, whether it declares `keys` and `restartOn`, and its pause reasons by name, each transition's emits and
-        the copy denials that can refuse a fan-out raise, a listen entry's covers terms, and for a commit to a domain
-        write its predicted entity, key and field names, the reads they can repair, their carriers and the placements
-        that subscribe them; or domain reads and their impact. explain --trace <artifact|-> --at <checkpoint> uses
-        recorded evidence only and says "evidence unavailable" for what fell outside the window. explain <release>
-        --since <release> (proposed spelling) compares two compiled releases and says per definition: its saved state
-        resets, records saved in a removed state reset, it restores, or its identity fields changed (old-version
-        records, kept, never reset); writes in flight are always kept. It compares two releases, not the chain a record
-        went through.
+        write, whether its definition declares a `key` and a `restartOn` Schema, and its pause reasons by name, each
+        transition's emits and the copy denials that can refuse a fan-out raise, a listen entry's covers terms, and for
+        a commit to a domain write its predicted entity, key and field names, the reads they can repair, their carriers
+        and the placements that subscribe them; or domain reads and their impact. explain --trace <artifact|-> --at
+        <checkpoint> uses recorded evidence only and says "evidence unavailable" for what fell outside the window.
+        explain <release> --since <release> (proposed spelling) compares two compiled releases and says per definition:
+        its saved state resets, records saved in a removed state reset, it restores, or its identity fields changed
+        (old-version records, kept, never reset); writes in flight are always kept. It compares two releases, not the
+        chain a record went through.
 
         Invalid, missing, repeated or conflicting arguments fail with InvalidUsage before application loading. Selectors
         are data and never execute expressions. Artifact-only commands accept no source selection options and load no

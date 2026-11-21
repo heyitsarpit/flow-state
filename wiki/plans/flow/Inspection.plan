@@ -23,12 +23,12 @@ outcomes
 
         The Model lists the app and entries (eager or lazy), each machine's schemas (props and emits included), states,
         transitions, guards with their possible deny codes, actions (each naming the operation it commits or reads),
-        schedules (with keys and `restartOn` declared, and each pause reason by name), placements, outcome edges,
-        context reads and persistence opt-ins; fragments, .each copies, fused transitions and contract summaries
-        (fragment operations and emits included) under their instance names; every operation with its contract, verb,
-        concurrency, key fields and services; each entity domain as recorded (predicted field names, runtime markers and
-        many, never functions; a guarded write's targets); the static actor-send graph and a fingerprint. It holds no
-        live state, closures, Effects or services.
+        schedules (with `key` and `restartOn` declared on the definition, and each pause reason by name), placements,
+        outcome edges, context reads and persistence opt-ins; fragments, .each copies, fused transitions and contract
+        summaries (fragment operations and emits included) under their instance names; every operation with its
+        contract, verb, concurrency, key fields and services; each entity domain as recorded (predicted field names,
+        runtime markers and many, never functions; a guarded write's targets); the static actor-send graph and a
+        fingerprint. It holds no live state, closures, Effects or services.
 
         A constant in a condition is a literal up to a named default size set from the bench (D25), otherwise its hash;
         a sensitive constant is never exported raw.
