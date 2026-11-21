@@ -190,8 +190,9 @@ outcomes
         commit in actions.
 
         Definition literals, payloads, context, operation names and state paths infer without assertions, explicit
-        generics or wrappers; invalid machine additions are also type errors. Definitions expose Event, State, Input,
-        Memory and Snapshot Schemas.
+        generics or wrappers; a misspelt name (a state, event, field, operation, schedule, reason or rule) is a type
+        error, while an unknown structural key (`gaurd`) is refused at construction and by `flow check`, never by types
+        (@spec.Types Q19). Definitions expose Event, State, Input, Memory and Snapshot Schemas.
 
         Event decodes only public _tag envelopes; State accepts complete leaf paths. E.X(payload) validates on every
         call and throws InvalidEvent on mismatch; payload-free constructors take no argument. Persisted-value

@@ -9,14 +9,18 @@ outcomes
         A Story runs an app, one machine or one fragment in isolation on the production Runtime, with typed inputs
         and fixtures.
 
-        Story.app(setup, { id, fixtures?, world?, storage?, seed? }) accepts a typed RuntimeSetup.
-        Story.machine(machine, { id, input?, context?, props?, fixtures?, world?, seed? }) tests one fresh actor; input
-        and context are required exactly when declared and have their declared types; props are optional and start from
-        their defaults.
+        Story.app(setup, { id, runRules, fixtures?, world?, storage?, seed? }) accepts a typed RuntimeSetup.
+        Story.machine(machine, { id, runRules, input?, context?, props?, fixtures?, world?, seed? }) tests one fresh
+        actor; input and context are required exactly when declared and have their declared types; props are optional
+        and start from their defaults.
 
-        Story.fragment(fragment, { id, fixtures?, world?, seed? }) tests a trait or a subroutine alone, in an invisible
-        stand-in host whose placement its declaration alone decides. Handing the wrong kind of subject to a constructor
-        is a type error.
+        Story.fragment(fragment, { id, runRules, fixtures?, world?, seed? }) tests a trait or a subroutine alone, in an
+        invisible stand-in host whose placement its declaration alone decides. Handing the wrong kind of subject to a
+        constructor is a type error. `runRules` is Flow's run-rules list (@plan.Rules.O4), required on all three
+        constructors and passed once in a Story helper; it was `rules`, renamed so a machine's `.rules(...)` keeps its
+        own word. Rules attached to the subject and its placed fragments ride the value and are judged by Story tooling
+        only (@plan.Rules.O6). [decided: user 2026-11-22] Why: one word per meaning. Reverse: the earlier option
+        name `rules`.
 
         Every subject's Effect requirements (a fragment's included) must be met by fixtures, so a missing fake is a type
         error at the constructor. App Stories exercise real App wiring. A Story id is nonempty and unique across the

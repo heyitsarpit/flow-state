@@ -496,6 +496,11 @@ tasks
         comment     2026-11-21T19:26:59Z
             Contradiction resolved: story run's exit code for a rejected run moved to @task.V3.T114 (CLI exit table) and
             tab steps to @task.V3.T112, per @spec.Host.
+        comment     2026-11-21T22:34:33Z
+            [decided: user 2026-11-22] No outcome change. The "wrong subject kind for a Story constructor" test covers
+            `runRules` being required on all three constructors; `tests/rules/sweep.ts` run rules are
+            unaffected (@proposal.external-rules).
+
     T31
         title       CLI outputs designed for people
         status      draft
@@ -615,7 +620,7 @@ tasks
             Contradiction resolved: description now builds channels, the hydrate overlay, emit delivery in React, props
             and eligibility; publication and the binding are @task.V3.T111's, per @spec.Host.
     T106
-        title       Rules on machines: invariants, turns and terminals, with rule coverage
+        title       Rules with `.rules(build)`: invariants, turns and terminals, judged by Story tooling, with coverage
         status      draft
         priority    high
         parent      [@T137]
@@ -631,20 +636,25 @@ tasks
                     @plan.Rules.O8
                     ]
         description
-            Build @plan.Rules: app authors declare `invariants`, `turns` and `terminals` in `machine()`, every Story,
-            generated run and sweep judges them, `flow check` proves terminals, and rule coverage reports what no run
-            exercised. Terminals and `RuleSubjectUnreachable` extend @task.V3.T22's `flow check` analyzer as one more
-            row, and `RuleBroken` is one more verdict kind in @task.V3.T114's run verdict.
+            Build @plan.Rules as @proposal.external-rules settles it (the user, 2026-11-22): a chained `.rules(build)`
+            on the value `machine()`, `trait()` and `subroutine()` return gives it typed tokens
+            (`OrderMachine.rules.PaidHasReceipt`); rules are optional, and only Story tooling judges them (Stories,
+            generated runs, sweeps, `propertyTest`), never a Runtime. `flow check` proves terminals, so does Story
+            start, and rule coverage reports what no run exercised and every value with no rules. Terminals,
+            `RuleSubjectUnreachable`, `RulesBypassed` and the unknown-key refusal extend @task.V3.T22's `flow check`
+            analyzer, and a break is one more `Broken` in @task.V3.T114's run verdict.
 
             **Why now:** an app's guarantees are hand-written checks in single Stories today (NUMBER-12's bounds
-            filter), which the generator and sweeps never judge. The design was settled with the user on 2026-11-19 and
-            2026-11-20 and is the Plan; nothing in it is open but its Q1.
+            filter), which the generator and sweeps never judge. The earlier `rules`-in-the-body design, the Runtime
+            `rules` option and `RuleBroken` evidence are superseded by the user's 2026-11-22 decision; only Plan Q1
+            is open.
 
             **Read first:** @plan.Rules (every outcome; its goal lists what was not adopted and why), @plan.Testing
             (Stories, the generator, sweeps), @plan.Machines.O2 (fragments, tokens, `S.X.is`),
             code:packages/flow-state-v3/tests/rules/rules.ts (Flow's run rules; `checked` is deleted by @task.V3.T114),
-            code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12); @spec.Types (R9,
-            I12, I13; code:wiki/specs/v3/Types.md); @spec.Host (R11, R12, I14, I15, I21; code:wiki/specs/v3/Host.md).
+            code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12);
+            @proposal.external-rules (the design; its API, refusals and Story cases), @spec.Types (R9, I12, I13, Q19;
+            code:wiki/specs/v3/Types.md); @spec.Host (R8, R11, R12, I14, I15, I21; code:wiki/specs/v3/Host.md).
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -655,27 +665,34 @@ tasks
             @task.V3.T114, which the Spec makes the owner of the verdict and judge). Do not delete it before its
             replacement lands and the suite passes.
 
-            **Risk:** the type surface: rule tokens need the machine's body type, which comes from @task.V3.T113, and
-            shared bodies such as code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still
-            compile (@plan.Rules.O3); write the type tests first. Rules over `operations` depend on when a row turns
+            **Risk:** the type surface: `Machine<D, N>` reads `N` from the keys of the builder's result alone (no body
+            capture, @spec.Types Q19), the trait and subroutine forms and an app's tokens for placed fragments are
+            unspiked on the real package, and shared bodies such as
+            code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still compile
+            (@plan.Rules.O3); write the type tests first. Rules read private memory, which the public snapshot hides, so
+            `verdictOf` reads the run's internal incarnation records. Rules over `operations` depend on when a row turns
             busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109) and the raise
-            (@task.V3.T110); its `Story.fragment` part lands with @task.V3.T109, which builds `Story.fragment`.
+            (@task.V3.T110, whose `hostEvents` the rules builder's `E` includes); its `Story.fragment` part lands
+            with @task.V3.T109.
 
             **Approach:** write the Spec from @plan.Rules with skill:to-spec, then its requirements as failing checks:
-            type tests (@plan.Rules.V1), then the rules handed to @task.V3.T114's judge and the switch, rule coverage,
-            terminals and `RuleSubjectUnreachable` in `flow check`, then `enabled` and `RuleBroken` outside tests.
-            Rename the run rules' `breaches` and `breachesOf` to `broken` and `brokenOf` in the same change. Measure the
-            suite with rules on and off before setting a budget.
+            type tests (@plan.Rules.V1), then the construction refusals (`RulesEmpty`, `RuleNameTwice`, `InvalidName`,
+            `RulesWrongSubject`, an unknown key), `storyCompiled` (terminals at Story start, `RulesDiffer`), the rules
+            handed to @task.V3.T114's `verdictOf`, rule coverage, `flow check` (terminals, `RuleSubjectUnreachable`,
+            `RulesBypassed`) and the lint rules `no-bare-export` and `rules-argument`. No Runtime switch, `enabled` flag
+            or `RuleBroken` evidence is built. Rename the run rules' `breaches` and `breachesOf` to `broken` and
+            `brokenOf` in the same change. Measure the suite with rules on and off before setting a budget.
 
             **Build-time choice (rules across copies and the static proofs):** no v3 Spec covers rules yet; @plan.Rules
             fixes the behaviour, these four mechanisms are the builder's to choose and test.
 
-            1. Judging a fragment rule per placement and `.each` copy. A: the host judge walks each published copy by
-               address (@spec.Changes instances) and calls the rule with that copy's before and after. B: the core
-               records, per turn, the addresses whose fragment state changed, and the judge visits only those. A is
-               simpler and matches "judged on each copy separately"; B is O(changed copies), which @spec.Host R10's
-               per-step cost rule may require. Test: a 150-copy fan-out Story with rules on; if A's judge cost per step
-               grows with copies past the bench budget, take B. Both must skip a copy's entry, reset and exit.
+            1. Judging a fragment rule per placement and `.each` copy. A: `verdictOf` walks each published copy by
+               address (@spec.Changes instances) over the run's evidence and calls the rule with that copy's before and
+               after. B: the core records, per turn, the addresses whose fragment state changed, and `verdictOf` visits
+               only those. A is simpler and matches "judged on each copy separately"; B is O(changed copies), which
+               @spec.Host R10's per-step cost rule may require. Test: a 150-copy fan-out Story with rules on; if A's
+               cost per step grows with copies past the bench budget, take B. Both must skip a copy's entry, reset
+               and exit.
             2. The terminal proof in `flow check`. A: a pass over `Compiled` that, per listed terminal, collects every
                handler that may fire there (ancestors, subroutine exits, `onContext`, schedules, late endings) and
                reports each edge out as `TerminalLeft`. B: reuse @task.V3.T22's reachability graph and ask whether an
@@ -690,11 +707,13 @@ tasks
                "exercised"; B inflates coverage with vacuous passes. Take A; test with a rule whose `in` state is never
                reached: it must list as unseen with that reason.
 
-            May change: `packages/flow-state-v3/src/`, `src/host/testing/`, `tests/`, `fixtures/` and a new Spec;
-            @plan.Rules only through @plan.Pending, when the build shows it wrong.
+            May change: `packages/flow-state-v3/src/` (a new `rules.ts`), `src/host/testing/` (`storyCompiled`),
+            `tests/`, `fixtures/`, the lint rules and a new Spec; @plan.Rules only through @plan.Pending, when the build
+            shows it wrong.
         acceptance
             - A Spec written from @plan.Rules with skill:to-spec.
-            - @plan.Rules.V1 to V7 pass; V8 passes for host Stories and for `Story.fragment` (built by @task.V3.T109).
+            - @plan.Rules.V1 to V7 pass (V6: nothing judges outside a Story); V8 passes for host Stories and for
+              `Story.fragment` (built by @task.V3.T109).
             - Rule cost on the suite is measured with rules on and off and recorded in a comment on this Task.
             - `nub run check`, the suite and stress pass.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
@@ -703,8 +722,11 @@ tasks
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R9,
-              I12, I13), @spec.Host (R11, R12, I14, I15, I21); the Invariants its tests check after every step are
-              @spec.Types (I12, I13; tests T1, T4, T9), @spec.Host (I14, I15, I21; tests T1, T2, T8).
+              I12, I13, Q19), @spec.Host (R8, R11, R12, I14, I15, I21); the Invariants its tests check after every step
+              are @spec.Types (I12, I13; tests T1, T4, T9), @spec.Host (I14, I15, I21; tests T1, T2, T8).
+            - Refusals and checks of @proposal.external-rules each have a test: `RulesDiffer`, `RulesEmpty`,
+              `RulesWrongSubject`, terminals at Story start, the unknown-key refusal by construction and `flow check`,
+              `RulesBypassed`, and the lint rules `no-bare-export` and `rules-argument`.
         comment     2026-11-20T10:16:39Z
             Rewritten from scratch on @plan.Rules (the user, 2026-11-20); the earlier draft and its comments are in git
             history before this change.
@@ -724,6 +746,10 @@ tasks
         comment     2026-11-21T19:27:00Z
             Contradiction resolved: rules are handed to @task.V3.T114's judge (Approach), and Read first says checked is
             deleted by T114, per @spec.Host R8 to R14.
+        comment     2026-11-21T22:33:47Z
+            Rewritten as the build of @proposal.external-rules [decided: user 2026-11-22]: `.rules(build)`, Story-only
+            judging, no Runtime switch or `RuleBroken`. Supersedes the `rules` block in `machine()` and the setup
+            `rules` option. Why: see @plan.Rules O6. Reverse: the earlier description (git history).
     T108
         title       Story presentation: StoryPlayer and definePresentation
         status      draft
@@ -789,6 +815,12 @@ tasks
             of code:packages/flow-state-v3/src/host/cli/main.ts (Host companion, section 4). Do not delete it before its
             replacement lands and the suite passes.
 
+            Machine rules ride the values a run holds (`.rules(build)`, @plan.Rules.O6), not `Compiled.rules`.
+            `verdictOf` judges them once over the run's evidence after the run, through `storyCompiled`, with no live
+            judge, no per-Runtime `last` map and no `RuleBroken` evidence; it reads the run's internal incarnation
+            records, since rules read private memory. Host R8 becomes "a Story that breaks a rule fails, however it was
+            run" (a plain Runtime test judges nothing). Read @proposal.external-rules section 2.
+
             May change: `src/host/testing/`, `tests/`, `fixtures/`. Evidence: this Task's comments.
 
             False pass: a run that passes with a leaked resource or an unused wiring rule → caught by a Story that leaks
@@ -825,6 +857,10 @@ tasks
         comment     2026-11-21T19:27:01Z
             Contradiction resolved: description and acceptance now name the verdict, judge, propertyTest and CLI exit
             table (@spec.Host R8 to R14), taking story run's exit code from @task.V3.T29.
+        comment     2026-11-21T22:33:52Z
+            [decided: user 2026-11-22] The judge reads the rules the run's values carry, after the run, not
+            `Compiled.rules` or a live driver judge (@proposal.external-rules). Why: Story-only judging. Reverse: a
+            driver judge with `last`.
     T115
         title       Server data: dehydrate, hydrate and the merge table
         status      draft

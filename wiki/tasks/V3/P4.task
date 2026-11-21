@@ -569,6 +569,10 @@ tasks
             - `flow graph` prints each `emit` part as an edge named as in the turn's evidence, and `flow explain` lists
               each schedule's pause reasons by name, emit and `onProps` edges, one fan-out edge per copy state, and the
               copy denials that refuse (@spec.Types.R4).
+            - `flow check` refuses an unknown key in a body (`UnknownField`, @spec.Types Q19), shown by a CLI test in
+              `tests/cli/`; its rows for terminals, `RuleSubjectUnreachable`, `RulesBypassed` and an unknown rules key
+              are built by @task.V3.T106 and owned here (@proposal.external-rules); `flow explain` lists a machine's
+              rules and every value with no rules.
             - Fixtures first (@convention.fixtures): step 10 of @convention.fixture-catalog: every fixture run with no
               new feature, as the step says; each scenario red before the build, and the step's cells marked used at
               the close.
@@ -606,6 +610,10 @@ tasks
         comment     2026-11-21T19:26:53Z
             Contradiction resolved: superseded @spec.StaticCli, @spec.Compile and @spec.Diagnostics cites re-pointed to
             @spec.Types (R4–R6) and @spec.Host (R13).
+        comment     2026-11-21T22:34:14Z
+            [decided: user 2026-11-22] `flow check` gains the unknown-body-key finding (Q19: not a type error) and
+            @proposal.external-rules' rows; T106 builds them, this Task owns the command. Why: exactness is runtime
+            only. Reverse: a type-level excess check.
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -815,6 +823,8 @@ tasks
               extends it.
             - Local handles have `setProps(partial)` and `createActor` takes props; a ref on a machine with props is a
               type error and refused at construction (R9, R10); `PropWithoutDefault`.
+            - `Story.machine(machine, { id, runRules, ... })` takes the run rules list on its first slice, and judges
+              the machine's `.rules(...)` through @task.V3.T106.
             - Each new rule has a planted fault that `nub run faults` catches.
             - Fixtures first (@convention.fixtures): step 5 of @convention.fixture-catalog: `command-palette`, `search`
               gain the features, scenarios and sources of their rows; each scenario red before the build, and the step's
@@ -850,6 +860,11 @@ tasks
         comment      2026-11-21T19:26:53Z
             Contradiction resolved: Risk names @task.V3.T127 as the blocker in place of T77 (blocked_by already had it);
             @spec.Turn.R28 re-pointed to @spec.Changes.R20.
+        comment      2026-11-21T22:34:33Z
+            [decided: user 2026-11-22] `Story.machine`'s first slice also takes the required `runRules` option, as all
+            three Story constructors do (@proposal.external-rules; the machine's own rules ride its value). Why: one
+            word per meaning. Reverse: the earlier option name `rules`.
+
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
         status       draft
@@ -2274,6 +2289,12 @@ tasks
             - Fixtures first (@convention.fixtures): the fragment rows of step 2 of @convention.fixture-catalog, in the
               apps that row names, and the subroutine and `whenAbandoned` rows, gain their features, scenarios and
               sources; each scenario red before the build, and those cells marked used at the close.
+            - `.rules(build)` on a trait and on a subroutine is typed on the real package: a trait's builder has `E` and
+              `turn` but no `S`, `terminals` or `in`; a subroutine's has its own `S` and `E` with `hostEvents`; an app
+              Story's rule tokens include the tokens of fragments its definitions place, shown by a two-sided type test
+              at depth two (@proposal.external-rules section 1).
+            - `Story.fragment(Upload, { id, runRules })` judges the trait's rules alone; a placed fragment's rules ride
+              every placement and copy, and `RulesDiffer` and `flow check` walk placements (T106 owns the checks).
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -2289,7 +2310,8 @@ tasks
             Proposed owner (from @task.V3.T57 fix round, the user to confirm): typing a snapshot's timers by the machine
             body (schedule names, keys, `pausedBy` as a literal union; `today` pin in `tests/types/schedules.test-d.ts`)
             and a typed key in a keyed schedule's send mapper. Both need the body type carried past `machine()`, which
-            the advisor question 1 type spike at this Task's start covers; inferring the body loses excess-key checks.
+            the advisor question 1 type spike at this Task's start covers; inferring the body loses excess-key checks
+            (excess keys are now a runtime refusal, @spec.Types Q19).
         comment     2026-11-20T11:27:08Z
             Routed from T57 (orchestrator, 2026-11-20): two inverted type pins: pausedBy as a literal union in the
             snapshot (a Snapshot is typed by the definition, which holds no body schedules) and a typed key in a keyed
@@ -2315,6 +2337,10 @@ tasks
         comment     2026-11-21T21:23:35Z
             Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment): the
             routed pin of `pausedBy` as a literal union from the body is replaced by the declaration route.
+        comment     2026-11-21T22:34:22Z
+            [decided: user 2026-11-22] The excess-key comment of 2026-11-20 is superseded: no body capture (@spec.Types
+            Q19). Fragment rules are `.rules(build)` on a trait or subroutine (@proposal.external-rules); this Task
+            proves their types and `Story.fragment`'s `runRules`. Why: Story-only judging. Reverse: see T106's comment.
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -2369,6 +2395,10 @@ tasks
         comment     2026-11-21T19:26:56Z
             Contradiction resolved: Turn R30 re-pointed to @spec.Changes.R15 in the description, Read first
             and acceptance.
+        comment     2026-11-21T22:34:33Z
+            [decided: user 2026-11-22] No text change: the rules builder's `E` of a subroutine or trait includes
+            `hostEvents`, built in @task.V3.T106 (@proposal.external-rules section 1).
+
     T111
         title       Fixtures in real browsers: minimal React, Chrome and Safari
         status      draft
@@ -2540,7 +2570,7 @@ tasks
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
             @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R9, R10,
-            R13–R15, I1–I4, I10, I12), companion `wiki/specs/v3/Types.md`.
+            R13–R15, I1–I4, I10, I12, Q19), companion `wiki/specs/v3/Types.md`.
 
             **Build-time choice (definition findings and tokens, @spec.Types Q12):** the first spike walks today's
             definition findings. For each finding, A: `definition()` still hands out every token (`S`, `E`, `O`) and the
@@ -2585,27 +2615,30 @@ tasks
             and the suite passes.
 
             **Approach:** design the whole Task at once, a type spike first:
-            - carry the body type and keep excess-key checks, since inferring the body loses them;
+            - no captured body type and no excess-key type check: an unknown key is refused by construction and `flow
+              check` (@spec.Types Q19, decided by the user 2026-11-22, superseding the earlier "carry the body type"
+              bullet); only misspelt names stay type errors;
             - a phantom, type-only `Type` on event tokens (`E.X.Type`, the envelope with its payload) and on memory
               tokens (`Def.M.field.Type`), mirroring Schema's `.Type`;
             - an ending mapper's parameter inferred from the operation's contract where `E.X.from` sits inside
               `outcomes(...)`; if the spike shows that needs a new word, the fallback is one exported ending-value type
               per contract, so `{ why: string }` copies become one name. This Task owns the carried type's shape:
               @task.V3.T76 (props), @task.V3.T77 (emit summary), @task.V3.T109 (fragment summary) and @task.V3.T106
-              (rule tokens) only add fields through it.
+              (rule tokens, now `.rules(build)`'s; it adds no field here) only add fields through it.
 
             May change: `src/`, `tests/types/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`. Evidence: this
             Task's comments.
 
             False pass: a type that infers on the happy path only → caught by type tests with a mistyped key, a shared
-            body such as `PayBody`, and an excess key.
+            body such as `PayBody`, and an unknown key (a runtime refusal, not a type test).
         acceptance
             - A Snapshot is typed by the body plus the definition: `pausedBy` is a literal union of the body's pause
               reasons (@spec.Schedules R16, @plan.Machines.O8), shown by a type test that replaces the inverted pin
               in `tests/types/schedules.test-d.ts`.
             - A keyed schedule's send mapper receives the typed key (@spec.Schedules R16), shown by a type test.
             - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
-            - Excess keys in a body still fail to compile, and shared bodies still compile.
+            - An unknown key in a body is refused by construction and by `flow check` (runtime tests, @spec.Types Q19),
+              and shared bodies still compile.
             - `E.X.Type` and `Def.M.field.Type` exist as phantom types, each shown by two-sided type tests (the derived
               type equals the payload or field exactly; a wrong field fails to compile).
             - An ending mapper's parameter is the contract's value or error type, shown by two-sided type tests (a wrong
@@ -2657,6 +2690,11 @@ tasks
         comment     2026-11-21T21:23:36Z
             Superseded by the user's decision of 2026-11-22 (declared schedules; see @task.V3.T120's comment): the pin
             of types "typed by the body" is replaced by types from the declaration.
+        comment     2026-11-21T22:34:05Z
+            [decided: user 2026-11-22] Body capture and the excess-key type check are gone (@spec.Types Q19, option C),
+            and rules are `.rules(build)`, not body keys (@proposal.external-rules). Why: a captured body costs about a
+            quarter of check time and excess keys are a runtime refusal. Reverse: restore the capture bullet from git.
+            T104's comment on body and returned-key exactness at run time is the prior art.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -3175,9 +3213,10 @@ tasks
             B3, the twin rule, each refusal with its reason (Types R8, I13): 8. `ScheduleUndeclared`,
             `ReasonUndeclared`, `ReasonMissing` (a `toString` reason, a second placement), `KeysMissing`,
             `KeysUnexpected`, `RestartOnUndeclared`, `RestartOnMissing`, and `InvalidName`/`DuplicateName` on declared
-            reasons. The Spec's twin list lacked `RestartOnMissing`: added. `KeyOmitsField` (contract keys) and
-            `RuleNameTwice` (rules) are not schedule rows: @task.V3.T113 and @task.V3.T106. 9. A declared schedule
-            placed nowhere constructs (I14); its warning is reported through @task.V3.T22's `Built.warnings`.
+            reasons. The Spec's twin list lacked `RestartOnMissing`: added. `KeyOmitsField` (contract keys) is not a
+            schedule row: @task.V3.T113. `RuleNameTwice` (rules) is @task.V3.T106's: `.rules()` refuses it
+            (@proposal.external-rules). 9. A declared schedule placed nowhere constructs (I14); its warning is reported
+            through @task.V3.T22's `Built.warnings`.
 
             B4, Correctness: fixture home, Room declared; restore under a declared build, reorder, add, remove, rename
             (the store is read only, through `Fake.storage.put`); wrong ending Types T8.1, a misspelt reason refused

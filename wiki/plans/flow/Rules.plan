@@ -5,8 +5,11 @@ goal
     An app author writes what must always hold beside the machine it is about, in the machine's own typed tokens, and
     Flow checks it everywhere it already runs the machine: every Story, generated run and sweep. Rule coverage shows
     which rules no run exercised, so an unexercised rule is never mistaken for a passed one. A rule that is about the
-    graph, a terminal state, is proved by `flow check` instead. Rules are claims, never guards: the core never calls
-    one, and outside tests a rule runs only where the Runtime setup says `rules: "judge"`.
+    graph, a terminal state, is proved by `flow check` and when a Story starts. Rules are claims, never guards: the core
+    never calls one. They are optional, attached with a chained `.rules(build)`, and judged only by Story tooling; a
+    Runtime never reads them. [decided: user 2026-11-22] Why: most values have no rules, and the Runtime judge, its
+    switch and `RuleBroken` cost more than they protect. Reverse: the Runtime setup's `rules: "judge" | "off"` of the
+    earlier text (@proposal.external-rules supersedes it).
 
     Today an app's own guarantees are hand-written checks inside single Stories (NUMBER-12's bounds filter), which the
     generator and sweeps never judge. Rules replace those with one declaration that every run judges.
@@ -21,26 +24,34 @@ goal
     (kept simple; see @O5's limit).
 outcomes
     O1  Rule kinds and what they read
-        A machine declares rules in a `rules` block in its `machine()` callback, where its `S`, `E` and `O` tokens
-        exist; no rule names a state, event or operation by string. Two kinds are judged by runs:
+        A machine declares rules with a chained `.rules(build)` on the value `machine()` returns; the builder receives
+        the definition's `S` and `E` tokens and `turn`, so no rule names a state, event or operation by string. Rules
+        are optional: a value with no `.rules(...)` has none, and there is no `none`. [decided: user 2026-11-22] Why:
+        most values have no rules and a mandatory empty form edits every one. Reverse: require `.rules(...)` on every
+        value a Story runs. This supersedes the earlier text, where rules were a `rules` block in the `machine()`
+        callback, superseded by the user's 2026-11-22 decision (@proposal.external-rules). Two kinds are judged by runs:
 
         - `invariants`: true at every publication.
         - `turns`: true of every accepted turn, given the snapshot before and after it. Named turns, not transitions:
           the rule is judged on every accepted turn, including turns that only update memory, and "transition" already
           means a handler's `target`.
 
-        An entry is a function, or an object `{ check, in? }` for an invariant and `{ check, on? }` for a turns rule.
-        `in: S.X` and `on: E.X` name the rule's subject: a rule is exercised only when its subject comes up, and a rule
-        without one at every publication or accepted turn. `in` on a compound holds in it and every state below it, as
-        `S.X.is` means. `on: E.X` matches every accepted turn of X, whatever sent it: a user, an `onContext` reaction, a
-        schedule, an operation ending or a host's raise into a fragment.
+        An invariant entry is a function, or an object `{ check, in? }`; a turns entry is a bare function (no `event`),
+        or `turn({ on, check })`, which types `event`. `in: S.X` and `on: E.X` name the rule's subject: a rule is
+        exercised only when its subject comes up, and a rule without one at every publication or accepted turn. `in` on
+        a compound holds in it and every state below it, as `S.X.is` means. `on: E.X` matches every accepted turn of X,
+        whatever sent it: a user, an `onContext` reaction, a schedule, an operation ending or a host's raise into
+        a fragment.
 
         A rule reads what a guard reads except `context`: `state`, `memory`, `props`, `operations` and `schedules`. Only
         turns rules also read `context`, as the turn's guards saw it (`before.context`). `before` is the last snapshot
         published before the turn, which may follow publications that were not turns. A consumer's context changes a
         publication before its own state and memory react, so a rule comparing context with a memory copy of it breaks
         on correct code during that lag; a rule over context agrees only with guards that read context directly. A turns
-        rule that names `on: E.X` also gets `event`, typed as X's payload; without `on` there is no `event`.
+        rule written `turn({ on: E.X, check })` also gets `event`, typed as X's payload; the bare function has no
+        `event`. `turn` comes from the rules builder, not the machine body (supersedes Types Q3, "`turn` a body token").
+        [decided: user 2026-11-22] Why: a token's memory type comes from the definition, which `.rules` has, and the
+        body no longer holds rules. Reverse: `turn` back as a body token.
 
         Only accepted turns are judged by turns rules and counted for them. A denied or unhandled turn runs no handler,
         but it may still publish a lane change (@spec.Turn.R19): invariants judge that publication, turns rules skip it.
@@ -50,35 +61,35 @@ outcomes
 
         ```ts
         // existing: definition, machine, S, E, snapped (stepping.ts)
-        // NEW: rules, invariants, turns, in, on, check, event (in a turns check); the Runtime setup's `rules`
+        // NEW: .rules (chained on what machine() returns), invariants, turns, turn, in, on, check, event
+        // moved: turn (from the machine body's tokens to the rules builder's)
         // user-defined: StartedWhileHolding, SetLandsInBounds, CommitMovesByOne, CommitDiffersFromStart
         export const StepperMachine = machine(Stepper, ({ S, E }) => ({
           default: S.IDLE,
           on: {/* handlers, unchanged */},
           states: {/* states, unchanged */},
-          rules: {
-            invariants: {
-              StartedWhileHolding: { in: S.HOLD_REPEAT, check: ({ memory }) => memory.started !== null },
-            },
-            turns: {
-              SetLandsInBounds: {
-                on: E.Set,
-                check: ({ event, before, after }) =>
-                  after.memory.value === (event.value === null ? null : snapped(before.memory.settings, event.value)),
-              },
-              // Every commit, whichever event made it (Release, Cancel, Blur, Key, WheelDue): no `on`.
-              CommitMovesByOne: ({ before, after }) =>
-                after.memory.lastCommit.seq === before.memory.lastCommit.seq ||
-                after.memory.lastCommit.seq === before.memory.lastCommit.seq + 1,
-              CommitDiffersFromStart: ({ before, after }) =>
-                after.memory.lastCommit.seq === before.memory.lastCommit.seq ||
-                after.memory.lastCommit.value !== (before.memory.started?.from ?? before.memory.value),
-            },
+        })).rules(({ S, E, turn }) => ({
+          invariants: {
+            StartedWhileHolding: { in: S.HOLD_REPEAT, check: ({ memory }) => memory.started !== null },
+          },
+          turns: {
+            SetLandsInBounds: turn({
+              on: E.Set,
+              check: ({ event, before, after }) =>
+                after.memory.value === (event.value === null ? null : snapped(before.memory.settings, event.value)),
+            }),
+            // Every commit, whichever event made it (Release, Cancel, Blur, Key, WheelDue): the bare form, no `on`.
+            CommitMovesByOne: ({ before, after }) =>
+              after.memory.lastCommit.seq === before.memory.lastCommit.seq ||
+              after.memory.lastCommit.seq === before.memory.lastCommit.seq + 1,
+            CommitDiffersFromStart: ({ before, after }) =>
+              after.memory.lastCommit.seq === before.memory.lastCommit.seq ||
+              after.memory.lastCommit.value !== (before.memory.started?.from ?? before.memory.value),
           },
         }))
 
         // context, read by a turns rule, where Begin's guard reads `context.count` itself
-        CartNotEmptyOnBegin: { on: E.Begin, check: ({ before }) => before.context.count > 0 },
+        CartNotEmptyOnBegin: turn({ on: E.Begin, check: ({ before }) => before.context.count > 0 }),
         ```
 
         A value range such as "value stays within min and max" is not an invariant of this Stepper: `Configure` may
@@ -94,31 +105,37 @@ outcomes
         and the state it can leave; an empty list or a state listed twice is refused; a listed state is never warned as
         likely stuck. Guard functions are opaque, so the proof counts any handler that may fire in the terminal; a
         state-token guard (`guard: [S.IDLE]`) narrows where its branch fires, and the error names the handler so the
-        author can restructure it. Being about the graph, terminals are proved by `flow check` only, never judged by
-        runs; they have no token, `RuleBroken` never names one, and neither the switch (@O4, `off: "all"` included) nor
-        the Runtime's `rules` option (@O6) applies to them. [decided: user 2026-11-22] Why: a graph proof covers every
-        run, so a run-time judge could only repeat it. Reverse: also judge terminals at run time. See @spec.Types (Q6).
+        author can restructure it. Being about the graph, terminals are proved by `flow check` and again when a Story
+        starts (memoised per value; a `TerminalLeft` fails the Story's verdict, in `storyCompiled`); runs never judge
+        them, so they have no token and the switch (@O4, `off: "all"` included) does not apply to them. [decided: user
+        2026-11-22] Why: a graph proof covers every run, so a run-time judge could only repeat it, and a value only a
+        test runs is otherwise never proved. Reverse: `flow check` only, as the earlier text of this paragraph had it
+        (superseded by the user's 2026-11-22 decision, @proposal.external-rules). See @spec.Types (Q6).
 
-        Terminals live in `rules`, not on the definition's states list: a terminal is a claim, not shape, and changes no
-        behaviour. Flow does not stop an actor in a terminal state.
+        Terminals live in the machine's `.rules(...)`, not on the definition's states list: a terminal is a claim, not
+        shape, and changes no behaviour. Flow does not stop an actor in a terminal state.
 
         ```ts
         // states: ["PENDING", { SHIPPED: ["IN_TRANSIT", "DELIVERED"] }, "REFUNDED", "CANCELLED"]
-        rules: {
+        OrderMachine = machine(Order, body).rules(({ S }) => ({
           terminals: [S.REFUNDED, S.CANCELLED, S.SHIPPED.DELIVERED],   // NEW: terminals
-        },
+        }))
         ```
     O3  Rule names and tokens
         Rules have their own namespace under `rules`, apart from the shared namespace of states, memory keys,
         operations, props, emits and trait instances. A name is unique across `invariants` and `turns` in one machine or
-        fragment: a duplicate is a type error, and `machine()` also refuses it at construction for casts and plain
-        JavaScript. Each rule is a typed token, `machine.rules.<Name>` or `fragment.rules.<Name>`.
+        fragment: a duplicate inside one object is a type error, one across the two objects is refused at construction
+        (`RuleNameTwice`), as are casts and plain JavaScript. Each rule is a typed token, `machine.rules.<Name>` or
+        `fragment.rules.<Name>`, and the token carries the definition id (`Shop/Order.PaidHasReceipt`).
 
-        Typing the tokens changes `machine()`: today it returns a fixed `Machine<D>`, so it needs the body's type as a
-        second parameter. A shared body typed through the constraint (a `Parameters<typeof machine<…>>` alias) or a
-        machine annotated `Machine<typeof X>` loses the tokens; `Machine`'s second parameter defaults so such code still
-        compiles, and its rules are reached by name only where the type is kept. A type spike showed the duplicate error
-        and inferred check inputs can coexist; the build repeats it in `tests/types/` against the real `machine()`.
+        `machine()` is unchanged: it returns `Bare<D>`, and `.rules(build)` returns `Machine<D, N>`, where `N` is the
+        rule names read from the keys of the builder's result alone. Nothing captures the body or the checks.
+        `Machine<D, N>` assigns to `Machine<D>`, and a `Machine<D>` annotation loses the tokens, so such code still
+        compiles and reaches a rule by name only where the type is kept. A shared build is typed by `rules(Definition,
+        build)`, which returns the build itself. An unknown key (`chek`, `terminalz`) is refused at construction and by
+        `flow check`, never by types (@spec.Types Q19). This replaces the earlier text, where `machine()` took the
+        body's type as a second parameter, superseded by the user's 2026-11-22 decision (@proposal.external-rules). The
+        build repeats the type spike in `tests/types/` against the real `machine()`, `trait()` and `subroutine()`.
     O4  Judging in tests
         Every Story, generated run, reload sweep and pair sweep judges every rule with no extra call. A broken rule
         fails the run with the shortest Story that shows it (the generator's shrink), naming the rule, the snapshot
@@ -135,9 +152,14 @@ outcomes
         Generated runs and sweeps started from a Story inherit its switch.
 
         ```ts
-        // NEW: .rules, expectBroken, off, machine.rules.<Name>
-        // A planted fault: a Stepper variant whose Set skips the clamp.
-        export const setUnclamped = Story.machine(UnclampedStepperMachine, { id: "number-input/set-unclamped" })
+        // NEW: .rules, expectBroken, off, machine.rules.<Name>; renamed: runRules (the run rules option)
+        // A planted fault: a Stepper variant whose Set skips the clamp; it shares the original's build, so the token
+        // is the same rule.
+        export const UnclampedStepperMachine = machine(Stepper, unclampedBody).rules(stepperRules)
+        export const setUnclamped = Story.machine(UnclampedStepperMachine, {
+          id: "number-input/set-unclamped",
+          runRules,
+        })
           .rules({ expectBroken: [UnclampedStepperMachine.rules.SetLandsInBounds] })
           .send(Stepper.E.Configure({ settings: bounded }))
           .send(Stepper.E.Set({ value: 99 }))
@@ -156,39 +178,47 @@ outcomes
         rule no run exercised is listed as unseen, with why (its state never reached, its event never accepted, its
         fragment never placed), never as passed. Unseen is a measurement, not a failure: it never fails the suite, and
         nothing marks a rule as allowed to be unseen. Rules that are `off` are left out of the total; expected rules are
-        counted and listed as expected. A fragment rule is one row per placement, its copies added together. Rule
-        coverage is computed by the run and never stored, so `flow check` does not show it. It is its own report, apart
-        from Story coverage (`story list --coverage`) and Inspection's unseen.
+        counted and listed as expected. A fragment rule is one row per placement, its copies added together, named
+        beside the rule's id (the id carries the definition, not the placement). Every value with no rules is listed
+        too, as information. Rule coverage is computed by the run and never stored, so `flow check` does not show it. It
+        is its own report, apart from Story coverage (`story list --coverage`) and Inspection's unseen.
 
         ```text
         Rule coverage  12 of 14 exercised (86%)
           Number/Stepper.SetLandsInBounds     checked  seen 214 (on Set)
           Number/Stepper.CommitMovesByOne     checked  seen 1,930 turns
-          Desk/Editor/uploads.CancelSticks    checked  seen 6 (copies a, b, c)
+          Ui/Upload.CancelSticks at Desk/Editor/uploads    checked  seen 6 (copies a, b, c)
           unseen  Number/Stepper.StartedWhileHolding    in HOLD_REPEAT, never reached
           unseen  Shop/Pay/card.NumberBeforeCheck       CardEntry never placed
+          no rules  Shop/Pay
         ```
 
         The limit: a rule counts its subject, not the condition inside its check. "If cancelled, it stays cancelled"
         counts every turn of its subject even when nothing was ever cancelled. The exact format is settled in the build.
     O6  Outside tests
-        Rules stay inline in `machine()`, so every Story, sweep and tool finds them with the machine and nothing needs
-        registering on the app. A rule has no `enabled` flag. **Judging outside tests.** [decided: user 2026-11-22] The
-        Runtime setup chooses `rules: "judge" | "off"`, read once at the host edge from the app's own environment;
-        Stories and the CLI always judge, and there the switch (@O4) decides. Why: a flag read in a rule's body is
-        evaluated at import, where the plain CLI has no `import.meta.env`, so the machine would be refused. Reverse:
-        keep `enabled` as a boolean the user computes. See @spec.Types (Q5). The run rules are one list in one module
-        that the config and `Story.app` both import (@spec.Host).
+        Only Story tooling judges rules: Stories and everything built from them (generated runs, sweeps,
+        `propertyTest`). A Runtime and `app()` never read rules, so there is no Runtime switch, no `rules` setup option,
+        no `enabled` flag, no live judge and no `RuleBroken` evidence kind; rules ship in the bundle and never run
+        outside a Story. [decided: user 2026-11-22] Why: most values have no rules and the Runtime judge costs a switch,
+        a `last` map and a redaction for a claim a test already makes. Reverse: the Runtime setup's `rules: "judge" |
+        "off"` with `RuleBroken` evidence. This supersedes the earlier O6 text (rules inline in `machine()`, the
+        Runtime's `rules: "judge" | "off"`, `RuleBroken` redaction and a build-time constant), superseded by the user's
+        2026-11-22 decision (@proposal.external-rules); the 2026-11-22 `rules` setup option ruling (@spec.Types Q5) is
+        superseded with it, and its `enabled` overturn stands. The run rules are one list in one module that the config
+        and `Story.app` both import (@spec.Host).
 
-        When the setup says `judge`, the host judges the rules after each publication or accepted turn, keeping the
-        previous published snapshot as `before`. A broken rule becomes a `RuleBroken` evidence record that inspectors
-        and logs receive, with `Flow.private` memory fields redacted, and the app carries on: the publication has
-        happened, so nothing is thrown. The core never calls a rule. An author who wants rules out of a production
-        bundle can wrap the block in a build-time constant (`rules: import.meta.env.DEV ? {...} : undefined`); that is
-        user code, not Flow API.
+        The case that remains is rules written while the bare value is the one that runs. It is closed without making
+        rules mandatory: a run holding two values of one id with different rules is refused (`RulesDiffer`); a lint rule
+        stops a module that calls `X.rules(...)` from exporting `X` (`no-bare-export`), and another accepts only an
+        arrow or an identifier as the argument (`rules-argument`); rule coverage and `flow explain` list every value
+        with no rules; and `flow check` warns `RulesBypassed` when an app or Story runs a bare value of an id some
+        loaded value has ruled. A shared build typed `rules(Order, build)` never needs the bare value exported. Every
+        Story route starts through one function, `storyCompiled`, which also proves each ruled value's terminals.
     O7  Fragments
-        A `trait` or `subroutine` body holds the same `rules` block as `machine()`. Placing the fragment brings its
-        rules, and a host can never remove or weaken one. A fragment's rules read only what the fragment declares: its
+        A `trait` or `subroutine` value takes the same chained `.rules(build)` as `machine()`: a trait's builder gets
+        `E` and `turn` (no `S`, `terminals` or `in`), a subroutine's gets its own `S`, `E` and `turn`. The definition
+        places the value, so placing the fragment brings its rules and a host can never remove or weaken one
+        (`RulesDiffer` and `flow check` walk placements). A fragment's rules read only what the fragment declares: its
         own memory, operations and schedules, and for a subroutine its own states (a trait has none). Never props,
         context or the host's data, which a fragment cannot declare or see. Subjects are its own `S` and `E` tokens,
         `hostEvents` included; `on` matches a host's raise into the fragment.
@@ -196,14 +226,15 @@ outcomes
         Rules are judged while the incarnation is live, on each placement and each `.each` copy separately; a frozen
         `.resumable()` trait is not judged. Turns rules skip a copy's entry, reset (`resetOn`) and exit, as they skip a
         restore: there is no before or after of the same copy. `Story.fragment` judges them alone against its stand-in
-        host; host Stories judge them where placed. Rule coverage names the placement
-        (`Desk/Editor/uploads.CancelSticks`), and a broken rule also names the copy (`uploads[a]`). A fragment token
-        (`Upload.rules.CancelSticks`) switches every placement. Built with fragments and `Story.fragment`.
+        host; host Stories judge them where placed. Rule coverage names the placement (`at Desk/Editor/uploads`), and a
+        broken rule also names the copy (`uploads[a]`). A fragment token (`Upload.rules.CancelSticks`) carries the trait
+        id (`Ui/Upload.CancelSticks`), not a placement, and switches every placement. Built with fragments
+        and `Story.fragment`.
 
         ```ts
         // existing (Plan shape): trait, definition, machine, Flow.input, Flow.initial, .each, raise,
         //   Story.fragment, enter, leave, Story.machine
-        // NEW: rules in a trait body
+        // NEW: .rules on a trait (E and turn; no S)
         // user-defined: Upload, CancelSticks, RefNeverChanges, Editor, EditorMachine, Attach, CancelAll,
         //   attachments, uploads, uploadAlone, twoUploads
         export const Upload = trait(
@@ -217,14 +248,13 @@ outcomes
           },
           () => ({
             on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } },
-            rules: {
-              turns: {
-                CancelSticks: ({ before, after }) => !before.memory.cancelled || after.memory.cancelled,
-                RefNeverChanges: ({ before, after }) => before.memory.ref === after.memory.ref,
-              },
-            },
           }),
-        )
+        ).rules(() => ({
+          turns: {
+            CancelSticks: ({ before, after }) => !before.memory.cancelled || after.memory.cancelled,
+            RefNeverChanges: ({ before, after }) => before.memory.ref === after.memory.ref,
+          },
+        }))
 
         export const Editor = definition({
           id: "Desk/Editor",
@@ -247,29 +277,32 @@ outcomes
         }))
 
         // The fragment alone: Upload.CancelSticks and Upload.RefNeverChanges, seen 2 each.
-        export const uploadAlone = Story.fragment(Upload, { id: "upload/alone" })
+        export const uploadAlone = Story.fragment(Upload, { id: "upload/alone", runRules })
           .enter({ ref: "file-1" })
           .send(Upload.E.Cancel({}))
           .send(Upload.E.Cancel({}))
           .leave()
 
         // The host: Desk/Editor/uploads.CancelSticks and .RefNeverChanges, seen 2 each (copies a, b, one raise each).
-        export const twoUploads = Story.machine(EditorMachine, { id: "editor/two-uploads" })
+        export const twoUploads = Story.machine(EditorMachine, { id: "editor/two-uploads", runRules })
           .send(Editor.E.Attach({ ref: "a" }))
           .send(Editor.E.Attach({ ref: "b" }))
           .send(Editor.E.CancelAll({}))
         ```
     O8  Tools
-        `flow explain` lists each machine's rules. `flow check` proves terminals (@O2) and warns
-        `RuleSubjectUnreachable` when the compiled graph cannot reach a rule's `in` state or no reachable state handles
-        its `on` event. Guards make the graph an over-approximation, so that warning is never false; it is a warning,
-        not an error, so a machine mid-edit still checks, and it separates "impossible" from "not tested yet", which
-        rule coverage alone cannot. The test reporter prints rule coverage (@O5).
+        `flow explain` lists each machine's rules and every value with no rules. `flow check` proves terminals (@O2),
+        warns `RulesBypassed` (an app or Story runs a bare value whose ruled form it also loads), refuses an unknown key
+        in a rules object, and warns `RuleSubjectUnreachable` when the compiled graph cannot reach a rule's `in` state
+        or no reachable state handles its `on` event. Guards make the graph an over-approximation, so that warning is
+        never false; it is a warning, not an error, so a machine mid-edit still checks, and it separates "impossible"
+        from "not tested yet", which rule coverage alone cannot. The test reporter prints rule coverage (@O5).
 verification
     V1  Type tests prove rule tokens, inputs and subjects against the real `machine()`: `machine.rules.<Name>` exists
         for each rule and not for others; a duplicate name across kinds is a type error; `event` is typed from `on` and
         absent without it; `in` on a turns rule and `on` on an invariant are errors; `context` is readable in turns
-        rules only; each check's input is inferred; a shared body and a `Machine<typeof X>` annotation still compile.
+        rules only; each check's input is inferred; `.rules` twice and a wrong definition's build are errors; a shared
+        `rules(Def, build)` and a `Machine<typeof X>` annotation still compile; the trait and subroutine forms hold on
+        the real types.
     V2  Stories prove every run judges: a planted broken invariant and a planted broken turns rule each fail a Story,
         a generated run (with its shortest Story) and the reload sweep; denied and unhandled turns are not judged by
         turns rules while their lane changes are judged by invariants; a restore is judged by invariants only; several
@@ -282,13 +315,16 @@ verification
     V5  `flow check` tests prove terminals (an ancestor handler, a late ending and a subroutine exit each give
         `TerminalLeft`; restarts, self-transitions and a branch whose state-token guard excludes the terminal do not; an
         empty or duplicate list is refused) and `RuleSubjectUnreachable`; `flow explain` lists rules.
-    V6  Runtime tests prove the setup's `rules` option outside tests: `off` judges nothing, a broken rule under
-        `judge` records `RuleBroken` with private fields redacted and the app carries on, and the core calls no rule.
+    V6  Tests prove nothing judges outside a Story: a plain Runtime test with a broken rule passes, `RulesDiffer`
+        refuses a bare and a ruled value of one id in a run, `RulesEmpty` and `RulesWrongSubject` refuse at
+        construction, terminals are proved at Story start, `flow check` warns `RulesBypassed`, the lint rules
+        `no-bare-export` and `rules-argument` fire, and the core calls no rule.
     V7  NUMBER-12's hand check and at least one other become declared rules; each rule kind and terminals has a
-        planted fault caught by `nub run faults --only`; `machine()` refuses a duplicate rule name passed past the
-        types; the run rules' `broken` rename is complete.
+        planted fault caught by `nub run faults --only`; `.rules()` refuses a duplicate rule name passed past the types;
+        the run rules' `broken` rename is complete.
     V8  With fragments: per-copy judging, turns rules skipping a copy's entry, reset and exit, `on` matching a host's
-        raise, coverage by placement, `Story.fragment` judging alone, and a host unable to remove a fragment's rule.
+        raise, coverage by placement, `Story.fragment` judging alone, and a host unable to remove a fragment's
+        rule (`RulesDiffer`).
 questions
     Q1  Deferred to build time
         The suite and bench cost of rules, measured with rules on and off before a budget is set. Whether an operation

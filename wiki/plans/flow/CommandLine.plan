@@ -35,7 +35,8 @@ outcomes
         schedule listing its pause reasons by name), `emit` parts (a fragment's under its instance path), `onProps`
         reactions, a fan-out raise's edge per copy state (handled or skipped) and `whenAbandoned` callbacks are edges;
         what data cannot say is listed as unseen (@plan.Inspection.O6 renders it). explain accepts a machine, state path
-        and public event, or a domain with an optional --read.
+        and public event, or a domain with an optional --read. It lists a machine's rules and every value with no
+        rules (@plan.Rules.O8).
 
         Static explanations show possible transitions, denials and fallthrough without evaluating guards, each commit's
         operation, contract, verb, policy and lane key with its cardinality (and subject for a fragment operation), each
@@ -128,7 +129,9 @@ outcomes
         flow check checks the complete declared graph, including lazy entries, from each machine's compiled data view,
         without running application callbacks other than entity domain recorded positions, which App construction calls
         once with recording proxies. It reports invalid declarations, wiring, ownership and recorded domain rules as
-        errors, including violations that untyped input would otherwise bypass.
+        errors, including violations that untyped input would otherwise bypass: an unknown key in a body or a rules
+        object is one. It also proves terminals and warns `RulesBypassed` when an app or Story runs a bare value whose
+        ruled form it also loads (@plan.Rules.O2, O8).
 
         Domain validity follows @plan.EntityDomains.O1. A Story hydrate naming a label its source never dehydrates is an
         error. Deny codes come from declared types; missing complete type facts fails instead of claiming a complete

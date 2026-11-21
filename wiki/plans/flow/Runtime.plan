@@ -48,14 +48,16 @@ outcomes
         services Layer, the Store in it, then reads storage before any actor starts.
 
         runtimeSetup({ app, services?, scope?, persistence?, repairSlots?, audit? }).construct() is synchronous and
-        inert. scope is an optional nonempty string naming whose data the Runtime holds, such as a user, workspace or
-        tenant id. It partitions saved data (@plan.Persistence.O1) and stamps and checks hydration payloads
-        (@plan.ServerRendering.O6); machines, operations and conditions never read it. `repairSlots` (a named default
-        set from the bench, D25) and audit (default false, for development and tests only) are @plan.EntityDomains.O5
-        and @plan.EntityDomains.O4. services is an Effect Layer typed by the machines' R: it must provide every service
-        the app's contracts list in their services, lazy entries included; a missing service is a type error, and the
-        boot refuses, by machine, operation and service, an operation whose service it lacks, so no write is marked
-        unknown for a missing service.
+        inert. A Runtime never reads a machine's rules and has no rules option: Story tooling judges them
+        (@plan.Rules.O6; supersedes the setup's `rules: "judge" | "off"`, decided by the user 2026-11-22 and superseded
+        by the user's same-day decision, @proposal.external-rules). scope is an optional nonempty string naming whose
+        data the Runtime holds, such as a user, workspace or tenant id. It partitions saved data (@plan.Persistence.O1)
+        and stamps and checks hydration payloads (@plan.ServerRendering.O6); machines, operations and conditions never
+        read it. `repairSlots` (a named default set from the bench, D25) and audit (default false, for development and
+        tests only) are @plan.EntityDomains.O5 and @plan.EntityDomains.O4. services is an Effect Layer typed by the
+        machines' R: it must provide every service the app's contracts list in their services, lazy entries included; a
+        missing service is a type error, and the boot refuses, by machine, operation and service, an operation whose
+        service it lacks, so no write is marked unknown for a missing service.
 
         Each service is acquired once per Runtime.
 
