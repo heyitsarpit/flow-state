@@ -157,12 +157,15 @@ open
         build.
         outcome  The type proof (the types Spec owns the derivation).
 
-    Q6  The user's calls on this design (the fault model, one `work` record, a head's one unknown, no version tags, a 
-        carried obligation, a kept orphan, claims in the head, `Compiled.saved`, one step 5 to 6, SR's D2 to D4,
-        one `admit`, a reset actor not woken, a memory field that does not read, `persist` turned off) are listed in
-        the companion with their recommendations and stay proposed.
-        outcome  Each answer is recorded as a tag beside the text it governs; every `[proposed]` in this Spec
-                 follows its answer.
+    Q6  The calls on this design are listed in the companion (its section 7) with their traces.
+        outcome  [decided: agent orchestrator 2026-11-22] internal rules, as this Spec states them: one `work`
+                 record, a head's one unknown, no version tags in keys, a carried obligation, claims in the head,
+                 `Compiled.saved`, one `admit`, a reset actor not woken. Why: each B fails its trace in the companion
+                 (a head decoded beside its success; an unknown heard once per reload; a mapper called with no
+                 input). Reverse: the companion's B for that item.
+                 The user's calls stay proposed, with reasoning in the companion: the fault model, a kept orphan,
+                 one step 5 to 6, the earlier saved-record choices, a memory field that does not read, `persist`
+                 turned off.
 
 model
     Boot = one `ready()` of a persistent Runtime: read, step formats, structure, admission, install.
@@ -227,7 +230,8 @@ model
         S9  a head's unknown: absent or `{ ending, kept }`. Owner the ledger (`Operations`). Writers boot derivation,
             the wire, a heard turn. Readers `Start`, the work encoder. Saved in the head.
         S10 reports: `FieldDropped`, `RecordShapeChanged`, `RecordUndecodable`, `ObligationCarried`, `RecordKept`,
-            `RecordNotPersisted`. Derived; nobody writes them. Readers evidence, CLI. Not saved.
+            `RecordNotPersisted`. Derived; nobody writes them. Readers evidence, CLI, and `Operations`' `recordIssues`,
+            which shows as an issue only a report its catalog row marks `issue: true` (`RecordUndecodable`). Not saved.
         Not this Spec's state, but saved through it: memory, timers (`Schedules`), instances (`Changes`), lanes and
         rows (`Operations`), entries and entity records (the entity store). Each crosses as a typed value with a codec
         in `Compiled.saved`. Marks: `apply` marks the position for any change inside the actor, instances included,
@@ -839,7 +843,8 @@ realization typescript
         `restoredLaneId` and `restoredAttemptId` (`world.ts:41`) are deleted. `brandedAs` on the T92 branch is the
         cast this forbids.
     Derived, not hand-written. The typed side of `PositionShape` derives from the definition: `memory` from the
-        declared fields, `schedules` from the declared schedules (`Schedules`' `Tracked`), `slots` from declared
+        declared fields, `schedules` from the declared schedules (`Schedules`' `TimerShape`, typed `Scheduled`), 
+            `slots` from declared
         context, `instances` from fragment slots. The types Spec proves the derivation; this Spec states it.
     `Compiled.saved` (new): one struct holding every codec a record reads.
     Public types touched: `Store`, `StoreWrite`, `StoreScope` unchanged. `persist: true` unchanged. The boot reports
@@ -861,7 +866,8 @@ realization typescript
         `shapeOf`: once per machine at compile.
         marks per step: `O(touched identities)`; today `markMailbox` scans every owed row while mail is queued: mark
             from the tx's touched rows instead.
-        saved timers: `O(timers)`; today idle timers by states by schedules: `Schedules` saves `Tracked` as it stands.
+        saved timers: `O(timers)`; today idle timers by states by schedules: `Schedules` saves every timer as a 
+            `TimerShape`.
         Indexes built once at compile: `Compiled.saved`; declared names per reference map as a `Map`; `shapeOf`.
         Hot-path allocations: one body object and one text per marked key; no per-row list copies. The body re-encode
         in row 7 doubles the boot's encode work; the bench decides whether it runs in production or only under the

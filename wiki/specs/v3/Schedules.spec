@@ -85,8 +85,12 @@ requirements
         must    Each callback receives exactly the inputs of the table in `model`; `now` reaches only the delay.
                 `keys`, the reasons and `restartOn` are functions of memory, context, props and lanes and never of
                 the clock.
-                [proposed] `now` no longer reaches `restartOn`, the reasons and `keys` at run time (their public types
-                never had it).
+                [
+                decided: agent orchestrator 2026-11-22
+                ] `now` no longer reaches `restartOn`, the reasons and `keys` at run time (their public types
+                never had it). Why: `readOf` hands `now` to all of them today, so a callback can read the clock its
+                type hides, and a Story replay or a skipped pass would then differ. Reverse: put `now` back in
+                `readOf` and in the three public types.
 
     R11  Starts, stops and steps
         source  @plan.Machines.O5.
@@ -162,7 +166,8 @@ open
         and skips a schedule only when all are the same, the occasion carries nothing for it, it is not a `Wake` and no
         timer of the schedule is `Refused`. It is a cache and lands only when the bench shows the reads matter. This is
         the gate's one home: `Changes` passes every scope that hears an occasion and builds no gate. [proposed]
-        outcome  Land it with a bench row, or leave it out. Level 0 checks gated against ungated.
+        outcome  A build-time choice in @task.V3.T118's description: land it with a bench row, or leave it out.
+                 Level 0 checks gated against ungated.
 
     Q2  A hidden page is proposed to be no use change in v1: no schedule row mentions it, timers keep their deadlines, 
         and a throttled wake fires each overdue timer once. Awaiting the user's call. [proposed]
@@ -174,10 +179,13 @@ open
 
     Q4  Scoped `armOn` and `disarmOn` are resolved by the walk in `Changes` (its own open item); either answer gives 
         the same inputs here.
-        outcome  Closed when `Changes` closes it.
+        outcome  Closed: `Changes` resolves them in the walk (its algorithm, the arms of a turn).
 
     Q5  A next step past the limit and a throwing `resume` were not exercised by the scratch model of the tables.
-        outcome  Add them to the Level 0 alphabet before code.
+        outcome  [
+                 decided: agent orchestrator 2026-11-22
+                 ] added to T1's closure as atoms. Why: both write `Refused` or a firing failure,
+                 states no other atom reaches. Reverse: keep them one-shot Stories as T3 has them.
 
     Q6  A computed Effect Schedule is planned again from the memory at wake (R11's stated limit); a saved cursor would 
         end it.
@@ -279,22 +287,18 @@ model
         `Records` owns every saved Schema name.
 
         ```ts
-        // CHANGED: TimerShape is the Schema of a timer, not a name and six optional fields (`vocabulary.ts`)
-        TimerShape = {
-            key?: encoded key,                      // by the declared key Schema
-            selection?: canonical text,             // absent: Unselected
-            selectionFailed?: { code, slot },       // absent: Read
-            reasons?: ReadonlyArray<string>,        // the value of `reasons`; absent: []
-            arming: Idle | Refused { code, slot } | Due { armedAt, attempt, dueAt } | Held { armedAt, attempt, left },
-            firing?: { code, slot },                // absent: Clean
-        }
+        // CHANGED: TimerShape is the Schema of a timer, not a name and six optional fields (`vocabulary.ts`);
+        // its one spelling is `Records`' `TimerShape`. The decode rows below read it.
         ScheduleShape = TimerShape | ReadonlyArray<TimerShape>   // keyed: a list in key-text order
         ```
 
         Every timer of the scope is saved, idle ones included: an idle timer with a baseline is the debounce a reload
         must not forget, so `savedTimersOf`'s filter and its `armsOnEntry` scan go. Activation ids are not saved: the
         record holds each scope's schedules by its state path, and `wake` files them under the new activation.
-        `Refused`, `firing` and a failed selection save their failure. [proposed] The JSON spelling, the format number
+        `Refused`, `firing` and a failed selection save their failure. [decided: agent orchestrator 2026-11-22] Why: R5 
+            shows an issue
+        while its check's last outcome failed; unsaved, a reload would clear an issue whose cause stands (R3).
+        Reverse: save the arming only and re-read every check at wake. The JSON spelling, the format number
         and the step are `Records`'.
 
     OccasionTypes = the signatures, the occasions and the callback reads, in TypeScript.
@@ -654,7 +658,8 @@ composition
         - `Records`. One format step for every schedule field at once; it reads no definition, while `wake` does. The
             reference table gains the decode rows; the key and selection decode use the Schemas in `Compiled`; instance
             schedules are saved inside the instance's body.
-        - `Operations`. A schedule issue's source (`IssueSource.Schedule`: name, key, reasons); `issuesOf`; a branded 
+        - `Operations`. A schedule issue's source (`IssueSource.Schedule`: name, key, at, as
+            `Operations` spells it); `issuesOf`; a branded
             slot
             name; lane rows typed where `keys` and reasons read them.
         - `Types`. The declaration's types, `TimersOf<D>`, the evidence `Paused` and `Resumed` typed by declared name, 
@@ -801,13 +806,15 @@ coverage
 
 tests
     T1  Level 0, pure and complete: `decide` and `wake`, one schedule, over every reachable state of the two-key 
-        fixture, breadth first to closure, on abstract time. About 50,000 state and world pairs (22,464 for a Duration
-            and 52,608 for a two-step series in the scratch model, closed in 5 to 12 seconds). Catches the tables' 
+        fixture, breadth first to closure, on abstract time. About 50,000 state and world pairs (history, not 
+        acceptance: 22,464 for a
+            Duration and 52,608 for a two-step series in a scratch model outside the repository, closed in 5 to 12 
+                seconds). Catches the tables'
                 faults for
             sequences of any length, not owner faults (`before` is given). I1 to I5, I7, I10 and I13 are checked at 
                 every
             pair; I6 holds with no exception; the pseudo-code and the tables must never disagree. A next step past the
-            limit and a throwing `resume` are to be added (open item Q5). [@I1, @I2, @I3, @I4, @I5, @I6, @I7, @I10, 
+            limit and a throwing `resume` are atoms of this closure (Q5). [@I1, @I2, @I3, @I4, @I5, @I6, @I7, @I10, 
                 @I13]
     T2  Level 1, Stories at depth 3: every 3-step sequence through public Stories and the snapshot, as 
         `tests/turn/schedule-sequences.test.ts`; 29 atoms, 24,389 rows plus the named rows. Catches the owner and the
@@ -835,7 +842,7 @@ tests
     T4  Named rows and the Story of the wrong ending. Fixture as today: `t` keyed by `good` and `bad`, one minute,
             reason A per key, `restartOn` reading one number, `disarmOn: [Stop]`, `bad`'s delay out of range while 
                 `far`.
-            Letters are the ledger's. Expected results are lookups in the tables.
+            Letters are the steps' initials. Expected results are lookups in the tables.
             `plsk` Stop / selection throws / reload / selection changes: `good` restarts and fires once; the reload 
                 kept the
                 baseline (Selection; S-1).

@@ -259,24 +259,25 @@ Each answer's traces, for the record:
   definition edit that makes a saved key unreadable starts its keys again from step one; the alternative leaves an
   armed key unarmed with no issue.
 
-Open or proposed (in the Spec's `open` section): the input gate (proposed), the hidden page (proposed, the user's
-call), the Plan's `Flow.keyed` wording (the user's edit), scoped `armOn` (closed by `Changes`), the two Level 0
-atoms, and the computed-series debt. Proposed and the integrator's to accept, not questions: saving whole failures;
-the name `Tracked`; the input gate; the arming id in `Firing`; the activation id as the map's key; `Cursor.Broken`;
-`now` no longer passed to `restartOn`, the reasons and `keys`.
+Open or proposed (in the Spec's `open` section): the input gate is a build-time choice of @task.V3.T118 (Q1); the
+hidden page is the user's call (Q2); the Plan's `Flow.keyed` wording is the user's edit (Q3); scoped `armOn` is
+closed by `Changes` (Q4); the two Level 0 atoms are decided into T1 (Q5); the computed-series debt is a stated limit
+(Q6). Decided by the agent pass of 2026-11-22, as the Spec states them: saving whole failures (R14, so a reload keeps
+an issue whose cause stands); `now` no longer passed to `restartOn`, the reasons and `keys` (R10); the name
+`Tracked`, kept so the fit rows and faults keep their targets; the arming id in `Firing`, which makes a break
+between `next` and the send visible; the activation id as the map's key, since a re-entry must inherit nothing (R11);
+`Cursor.Broken`, the one host-view state for a cursor whose arming is gone.
 
 ## 8. Open holes
 
-1. The Level 0 closure was run on a scratch model of the tables outside the repository. It held I1 to I5, I7, I10
-   and I13 and found seven of eight seeded faults; it did not exercise a next step past the limit or a throwing
-   `resume`. The model that guards this Spec belongs in the package's tests before code (the Spec's T1).
-2. The types half (RT1 to RT4 and the cast deletions) waits for the two type spikes in `Types`, which need a compile
-   against the package; until then the families are handled at one point and the casts stand.
-3. The fit table cites sites by name; its line numbers and the 1,641-line total were taken when the design was
-   written and were not recounted.
-4. The `Context` pass after a `Wake` and a thaw is specified here and implemented in `Changes`; the two have not
-   been compared by a model.
-5. The alarm kind order at one instant is `Changes`' (its Q9) and was not run in a model.
+1. The Level 0 closure belongs in the package's tests before code: the Spec's T1, an obligation of @task.V3.T118;
+   the two missing atoms are now in it (Q5).
+2. The types half (RT1 to RT4 and the cast deletions) waits for the type spikes, the first acceptance rows of
+   @task.V3.T113.
+3. Fit-table line numbers are hints; cites are by symbol, and the builder reads the code by symbol.
+4. The `Context` pass after a `Wake`: the "differs" rule here and `Changes`' unconditional pass give the same views
+   (`Changes`, Views and the fold); Schedules T2's wake atoms run through the real driver check it (@task.V3.T119).
+5. The alarm kind order at one instant is a build-time choice in @task.V3.T119's description (`Changes` Q9).
 
 ## 9. Process notes
 

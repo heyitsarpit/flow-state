@@ -154,13 +154,16 @@ open
     Q11  The hide drain blocks the page for the owed chain's length; no measure of a long chain at `pagehide`.
         outcome  Bench, browser tier.
 
-    Q12  The user's calls on this design (a publication is a slice that leaves no mail owed; the run rules in one module
-        both `flow.config.ts` and `Story.app` import; emits once per publishing slice; `Out.touched` in the core; a
-        reload runs `pagehide` first; every seed runs; a `Later` mark during backoff waits; the verdict is a record of
-        four facts; a capture reads only a world with no mail; a hide issues behind a flying batch; matched
-        `expectBroken`; a hung store holds disposal until its bound) are in the companion with their
-        recommendations and stay proposed.
-        outcome  Each answer is recorded as a tag beside the text it governs; every `[proposed]` follows its answer.
+    Q12  The calls on this design are listed in the companion (its section 6) with their traces.
+        outcome  [decided: agent orchestrator 2026-11-22] internal rules, as this Spec states them: a publication is
+                 a slice that leaves no mail owed; `Out.touched` and `lifeChanged` in the core; a `Later` mark during
+                 backoff waits; the binding's props before attach are creation's; a capture reads only a world with
+                 no mail; a hide issues behind a flying batch; a hung store holds disposal until its bound. Why: each
+                 B fails its trace in the companion (a stale render at 100 of 150; lost follow-ups on reload; METHOD
+                 lost under both fates). Reverse: the companion's B for that item.
+                 The user's calls stay proposed, with reasoning in the companion: the run rules module (`Types` Q5),
+                 emits once per publishing slice (R3), the `pagehide`-first reload and the `inflight` word, every seed
+                 running in `propertyTest`, the verdict record, and matched `expectBroken`.
 
 model
     Publication = the host's one act of telling readers: compare each touched actor's new snapshot against the last

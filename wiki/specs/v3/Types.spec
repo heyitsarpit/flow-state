@@ -164,7 +164,7 @@ open
         outcome  The user's word closes it for both Specs; B keeps codecs on the definition, so the core cannot decode
                  a saved key.
 
-    Q9  Closed by `Schedules` R16: a schedule's `key` is a field record, always a struct with one canonical text.
+    Q9  Closed by R8: a schedule's `key` is a field record, always a struct with one canonical text.
         outcome  Closed.
 
     Q10  A schedule's `send` mapper takes one argument, the firing's metadata `({ key, attempt, armedAt, dueAt,
@@ -271,7 +271,8 @@ model
         G5 `PropsOf<D>` (new alias): `D["props"]`, for `setProps`.
         G6 `EventOf<D>` (new), with a fragment event's address `{ slot, key }`.
         G7 the public `Published<D>` and `Turn<D>` faces: `EvidenceOf<D>`, fields by `Host`.
-        G8 `ScheduleReads<Key, Why>`, a schedule issue's source: name, key, reasons from the declaration.
+        G8 `ScheduleIssueSource<Key>`, a schedule issue's source: `{ name, key, at }`, as `Operations`' 
+            `IssueSource.Schedule`.
 
     DeclaredSchedules = the declaration and the types it derives (a schedule's name, key, reasons and selection).
 

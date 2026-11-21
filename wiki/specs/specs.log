@@ -653,3 +653,17 @@ note 2026-11-21T19:43:01Z
     User's calls left proposed, each now with its reasoning beside it: resetOn Schema (@spec.Changes Q3), hidden page
     (Q4), rule enabled and terminals (@spec.Types Q5, Q6), persist-off and an unread field (@spec.Records R8, reference
     table), emit timing (@spec.Host R3). Nothing decided for the user.
+
+note 2026-11-21T19:47:45Z
+    Companion holes closed or homed: Schedules R10 (no now in checks), R14 (failures saved), Q5 atoms in T1, Operations
+    Q14 (CleanupFailed not an issue) decided by agent; Host Q12 and Records Q6 split agent-decided internal rules from
+    the user's calls. Others point at a Spec item or a Task's build-time choice.
+
+note 2026-11-21T19:47:45Z
+    Build-time choices written into Task descriptions: T118 (input gate), T119 (Changes Q9's three orders), T113
+    (findings and tokens), T131 (door table), T122 (entries), T123 (placements), T124 (gcTime 0), T92 (graph,
+    Flow.input), T56 (codecSig), T48 (lazy adoption). Each gives both answers and the test that picks one.
+
+note 2026-11-21T19:48:35Z
+    Review minors: M3 (ScheduleIssueSource), M4 (issue source is { name, key, at }), M6, M8, M9 (only catalog issue:true
+    reports are issues), M10 (judge is Host's), M12, M13 (walk row W0), M14 (model counts marked history) fixed.

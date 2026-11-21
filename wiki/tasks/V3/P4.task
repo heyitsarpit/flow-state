@@ -391,6 +391,12 @@ tasks
             @spec.Records (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), companion `wiki/specs/v3/Records.md`;
             @spec.Schedules (R14, I11), companion `wiki/specs/v3/Schedules.md`.
 
+            **Build-time choice (`codecSig`, @spec.Records Q4):** the fingerprint must be stable under module load order
+            and a minified build. A: hash the Schema AST's encoded side, field names sorted. B: hash the declared names
+            and kinds only. A also catches a changed field type; B survives more builds but misses type changes, which
+            decode then catches anyway (the stamp never admits, R19). Test: spike A on the fixtures under two load
+            orders and a minified build; if any stamp differs, take B. A miss costs a refused hydrate only.
+
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
@@ -980,6 +986,15 @@ tasks
             **Read first:** @task.V3.T20 (its 2026-11-18T06:49 field list and 07:05 review), @convention.boundaries.
             Spec: @spec.Records (R4, R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5, I8–I10, I14),
             companion `wiki/specs/v3/Records.md`.
+
+            **Build-time choice (@spec.Records companion holes H2 and H11):** (1) `graph` stores other identities'
+            wiring a second time. A: derive it at a boot wake from the provider's own record where one exists, saving
+            only providers with no record. B: keep `graph` as saved. A keeps each fact in one place; B is needed if a
+            boot wake reads the wiring before the provider's record is admitted. Test: trace the boot wake's readers of
+            `graph`; if none reads it before admission, take A and plant `graph-stored-twice`. (2) Whether today's saved
+            memory holds `Flow.input` fields. Test first: save a fixture whose machine has a `Flow.input` field and read
+            the record; if the field is there, step 5 to 6 removes it and the `memory` row reports nothing (as the Spec
+            says), otherwise no step row is needed.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2350,6 +2365,17 @@ tasks
             @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R9, R10,
             R13–R15, I1–I4, I10, I12), companion `wiki/specs/v3/Types.md`.
 
+            **Build-time choice (definition findings and tokens, @spec.Types Q12):** the first spike walks today's
+            definition findings. For each finding, A: `definition()` still hands out every token (`S`, `E`, `O`) and the
+            finding waits for construction's value (Types Q1); B: that finding keeps raising at `definition()`, as a
+            wrong-kind argument does. A is correct only if the token's name is known without the failing part (a
+            duplicate state name is not: two tokens would share one name). B is correct whenever a token would be
+            ambiguous. Test: per finding, a module with `const Idle = X.S.IDLE` at top level; if the token is
+            well-defined, take A and assert the module imports; otherwise B, listed in the Spec's construction rows. Q13
+            to Q16 are this Task's build rows: compile each `Changes` row as its code lands, record check time per step
+            with the construction benches (Q15), and inventory Family D against `derive.ts` (Q16).
+
+
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
@@ -2496,7 +2522,7 @@ tasks
         title       Schedule issues derived from timer state, proven by sequence tests
         status      open
         priority    high
-        blocked_by  [@proposal.spec-handover#cohesion-of-all-eleven-designs, @T120]
+        blocked_by  [@T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
         description
             Schedule issues are no longer stored: each timer keeps the last outcome of each of its own checks, and the
@@ -2560,6 +2586,13 @@ tasks
             3-step sequence on a two-key fixture, checked after each step against the ledger of owed firings from the
             Spec), red on today's code, with T57's fourth-review B1 and B2 as inverted tests titled by their rules; then
             the requirements review; then the build.
+
+            **Build-time choice (the input gate, @spec.Schedules Q1):** A: `pass` keeps the identities of memory,
+            context, props and lanes and skips a schedule whose inputs and occasion are unchanged, never on a `Wake` or
+            with a `Refused` timer. B: no gate; every scope that hears an occasion runs its reads. B is simpler and
+            cannot be wrong; A saves the reads of `keys`, the reasons and `restartOn` when one copy of many changes.
+            Test: add `turn.schedules.keyed-50` with a turn that touches one scope; if the reads are a measurable share
+            of the turn, land A with the Level 0 check that gated and ungated runs give the same decisions, else B.
 
             May change: `packages/flow-state-v3/src/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`, @spec.Schedules
             and @spec.Records with `specs.log` notes. Evidence: this Task's comments.
@@ -2748,6 +2781,9 @@ tasks
         comment     2026-11-21T19:40:56Z
             Status back to open from in_progress: blocked by T120 (slice 1); its red sequence test stays. Dead R25/P1/P2
             cites mapped to @spec.Schedules R5, R13, R14.
+        comment     2026-11-21T19:48:34Z
+            Dropped the blocker on a proposal anchor (spec-handover cohesion section, no such heading); the cohesion
+            work is in the v3 Specs.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -2765,6 +2801,22 @@ tasks
             **Read first:** the alarm heap and `tick`, the throw family rule, emit timing and `stepEnds` are in
             @spec.Changes `model` and `algorithm`. Spec: @spec.Changes (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9,
             I12–I15, I17), companion `wiki/specs/v3/Changes.md`.
+
+            **Build-time choice (@spec.Changes Q9, three rules no trace has tested):**
+
+            1. The alarm kind order at one instant. A: `Bound`, `Silent`, `Release`, `Collect`, `Grace`, `Schedule`, as
+               `algorithm` states (endings and releases settle before a firing reads the lanes). B: by deadline, then
+               admission, kind-blind. Some total order is needed for replay either way. A is more useful if a firing at
+               the same instant as a release would otherwise read a lane still `Out`. Test: a Story where a `Release`
+               and a `Schedule` share an instant and the schedule's reason reads that lane; if A and B give the same
+               views on every fixture, keep A as the stated total order.
+            2. The command order of a step: releases before starts. A: a release frees its slot before a start on the
+               same key sees it busy. B: emission order. Test: a replacing lane policy Story (one key, a running call
+               replaced in one step); B shows the start waiting on the release, A does not.
+            3. The wave skip when committed state and root memory are the same objects. A: skip the context wave. B:
+               always run it. B cannot be wrong; A saves a wave per no-op turn. Test: Level 0 compares A against B on
+               T1's closure (same views), then the bench decides whether A is worth landing.
+
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2969,6 +3021,14 @@ tasks
             that do not compare, Alarms). Spec: @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25),
             companion `wiki/specs/v3/Operations.md`.
 
+            **Build-time choice (entries, @spec.Operations Q19 and companion holes 1 and 3):** the step model found that
+            Clear on a Running entry that lost its holds mid-step starts a call from `again` that the step's end then
+            releases. A: leave it (wasteful, not wrong; the release is exact). B: `again` starts only when the entry
+            still has a hold at the step's end. B is cheaper on the wire but adds a step-end check to a hot row. Test:
+            re-run the reads step model (Spec T2) with `besideOf` as fixed, counting started-then-released calls; if
+            they appear in any fixture Story, take B. Also build to the Plan sentences no design covers yet: `value`
+            firing by `Equal.equals` and `InvalidWrite` (@plan.Operations.O2, O3), each with a red test first.
+
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
@@ -3013,6 +3073,13 @@ tasks
             **Read first:** @spec.Operations `algorithm` (Releases, Alarms). Spec: @spec.Operations (R8, I4, I11, I22),
             companion `wiki/specs/v3/Operations.md`.
 
+            **Build-time choice (placements, @spec.Operations Q12):** placements are unchanged and unattacked. A: attack
+            the placement table on paper first (a placement released within the disposal bound, a slot that leaves
+            mid-call, a placement under a frozen life), then build. B: keep today's placement code and only move it onto
+            `releasing`. A is required by the Plan's "released within the disposal bound", which no code shows today.
+            Test: a Story that disposes during a placement's call and asserts the release lands within `disposalBound`;
+            red today means A.
+
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
@@ -3052,6 +3119,12 @@ tasks
             **Read first:** @spec.Operations `algorithm` (Entry store); @spec.Records `algorithm` (Reference table,
             Occasions that do not compare). Spec: @spec.Operations (R12, I24), companion `wiki/specs/v3/Operations.md`;
             @spec.Records (R8, R18, I12, I19), companion `wiki/specs/v3/Records.md`.
+
+            **Build-time choice (`persist: true` with `gcTime: 0`, @spec.Operations Q15):** such an entry is saved but
+            never installs, since its last hold removes it in the same step. A: `encodeStore` skips an entry whose
+            `gcTime` is 0 (a construction warning names it). B: keep saving and let the install drop it. A writes
+            nothing that is never read (@spec.Records R8); B keeps one code path. Test: a Story that reloads a `persist:
+            true, gcTime: 0` resource; if the saved entry is never shown, take A.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -3213,6 +3286,13 @@ tasks
             **Read first:** @spec.Operations `algorithm` (Construction trust), R10 and Q16. Spec: @spec.Operations (R10,
             I19), companion `wiki/specs/v3/Operations.md`; @spec.Types (R11, I4, I5),
             companion `wiki/specs/v3/Types.md`.
+
+            **Build-time choice (the door table, @spec.Operations Q16):** the table was attacked once, on paper. Where
+            internals live is settled (a second registered symbol, Q6), so the surface walk skips that one symbol. A:
+            attack the hostile table first as a test file (a copy, a getter that throws, another definition's token, a
+            second loaded copy, a value on Flow's prototype by hand), then build to it. B: build from the table and
+            attack after. A is the safer order: each row is a red test before code. Test: every row of the hostile table
+            fails on today's `entry.ts` marks or names why it already holds.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change

@@ -367,8 +367,10 @@ All proposed; recommendation first. Each departs from an earlier design, a Plan,
 | H8  | high     | A definition with a finding must still hand out every token: which of today's definition findings allow that was not walked, and Q1 A depends on it      | the definition's finding list was not walked   |
 | H9  | low      | Rule tokens are typed on a machine that is not `Built`, where the record is empty; bounded by `Loading`, not removed                                     | accepted as a stated limit                     |
 
-The spikes of H2 and H8 are the first acceptance rows of @task.V3.T113 and @task.V3.T22. The Spec's open section
-carries each hole as Q12 to Q17.
+Where each hole goes: H2 and H8 are the first acceptance rows of @task.V3.T113 and @task.V3.T22, and H8's per-finding
+answer is a build-time choice in @task.V3.T113's description; H1, H3, H5 and H6 are build rows of @task.V3.T113
+(Spec Q13, Q15, Q16); H4 is proved when `Records`' shapes are code (@task.V3.T92, Spec Q14); H7 is spiked with the
+source adapter; H9 is a stated limit (Q17). The Spec's open section carries each as Q12 to Q17.
 
 ## 11. Process notes
 

@@ -366,23 +366,20 @@ wave skip; a raise counts nothing toward the loop guard; the names `apply`, `Cha
 
 ## 8. Open holes
 
-- **H1. The revised tables were not run through a model. Blocks build of @task.V3.T119, not the Spec.** The first
-  draft's model failed I1, I8, I9 and I14 on its literal text and passed 9.8 million sequences only under five
-  readings, all written into the tables since; three rules were never run (`HostEnded` runs no callback, the changer
-  is a site, W6 is a path rule). The Spec's T1 is the first step: a package sequence test, not a scratch model.
-- **H2. Seven invariants have no mechanical check.** I5, I7, I9, I12, I13 and I15 to I17 rest on reading alone;
-  they become the first failing checks of the turn-parts Task.
+- **H1. The revised tables were not run through a model.** The Spec's T1 is the package check that runs them; an
+  obligation of @task.V3.T119 before its build.
+- **H2. Seven invariants had no mechanical check.** Each is now a first failing check of the Spec's T1 or a planted
+  fault of T13; I12 is the shared `alarmsMatch` (T14).
 - **H3. Closed.** A `resetOn` that throws under `Begin` is `StoredSource.Slot` of `Operations`, by the family rule.
-- **H4. A lazy fragment's adoption is not designed.** Blocks build for @task.V3.T48 only; the Spec names the tenth
-  `Change` it needs.
-- **H5. How a view addresses a fragment's public event.** Blocks build; `Mail.Event.at` exists, the public call that
-  fills it has no design.
-- **H6. The public face of `Published.incarnation` and of the `Turn` in evidence.** Blocks the host's Spec.
-- **H7. A chain of dependent ends costs a reconcile per copy.** Minor; the bench should hold a case of it.
-- **H8. The readers outside the area (section 5) were found by one grep.** Minor.
-- **H9. The command order of a step is proposed without a trace of what it changes today.** Minor; lanes already
-  interrupt before they invoke.
-- **H10. The alarm kind order and the Expect-style traces of the wave skip were not run in a model.** Minor.
+- **H4. A lazy fragment's adoption.** A build-time choice in @task.V3.T48's description (the Spec's Q7).
+- **H5. How a view addresses a fragment's public event.** `Host` owns it (its Q6).
+- **H6. The public face of `Published.incarnation` and of the `Turn` in evidence.** `Host` owns the faces.
+- **H7. A chain of dependent ends costs a reconcile per copy.** Decided: a stated cost (the Spec's Q8); the bench
+  holds a case of it in @task.V3.T109.
+- **H8. The readers outside the area were found by one grep.** Decided: the type checker finds the rest once the
+  superseded types are deleted, so no further survey is needed.
+- **H9, H10. The command order, the alarm kind order and the wave skip.** A build-time choice in @task.V3.T119's
+  description (the Spec's Q9).
 
 ## 9. Process notes
 

@@ -98,7 +98,7 @@ requirements
 
     R15  Who a raise reaches
         source  @plan.Machines.O1; @plan.Machines.O3.
-        must    A raise reaches the instances live after the source's own patch (R0). An `.each` raise reaches
+        must    A raise reaches the instances live after the source's own patch (W0). An `.each` raise reaches
                 every live copy in list order and no frozen one; a plain slot that is frozen or absent refuses.
 
     R16  When `whenAbandoned` runs
@@ -191,6 +191,10 @@ open
     Q5  Whether `Published` carries the incarnation and `why` has three values (`Begin`, `Turn`, `Other`; an end is 
         `Finished`). The public type that shows it is the host's.
         outcome  Written as proposed in `algorithm` (applier). [proposed: needs the user's call]
+        reasoning  For: one record a rule reads holds state, memory, instances, props and issues; an end already has
+            `Finished`, so a fourth `why` would have no assigner. Against: the public face changes shape
+            (`Host` owns it). Test: a rule over an instance's memory needs the incarnation; under the old shape
+            it cannot be written.
 
     Q6  How a view addresses a fragment's public event: `Mail.Event.at` exists in the core, the public call that fills 
         it has no design.
@@ -205,8 +209,8 @@ open
 
     Q9  Three proposed rules with no trace against them: the command order of a step (releases before starts), the 
         alarm kind order at one instant, and the wave skip when committed state and root memory are unchanged.
-        outcome  Proposed; revisable when building shows one wrong. This Spec owns the kind order (it owns `tick`);
-                 `Operations` and `Schedules` state no order of their own.
+        outcome  A build-time choice in @task.V3.T119's description, with a test for each. This Spec owns the kind
+                 order (it owns `tick`); `Operations` and `Schedules` state no order of their own.
 
 model
     Segment = a record of slot and key
@@ -422,11 +426,11 @@ invariants
         is closed; a subject-held row is heard only by an instance whose subject equals its audience.
         [@R3, @R5, @R17]
 
-    I10  Scopes are live: every part but an `Abandoned` one has the address of an instance that was `Live` after R0; 
+    I10  Scopes are live: every part but an `Abandoned` one has the address of an instance that was `Live` after W0; 
          every part's own scope has not been ended earlier in its turn; no schedule callback of a scope runs
         after that scope's `End` in the same turn. [@R4, @R23]
 
-    I11  Rounds end: after the walk, `reconcile` runs at most once more than the instances live after R0. [@R1, @R12]
+    I11  Rounds end: after the walk, `reconcile` runs at most once more than the instances live after W0. [@R1, @R12]
 
     I12  Alarms match: the heap holds exactly one alarm per live owner fact and no other: `Schedule` per `Armed(Due)` 
          run of an awake scope, `Grace` per free actor, `Bound` per disposal in progress, `Silent` per awaited
@@ -592,21 +596,21 @@ algorithm
         Dropped: no; no (its lanes are `Retired`, see `Operations`)
 
     Rounds, reconcile inside the turn. `reconcile` runs at two points with the same table and the facts as they stand.
-        R0, after the source's patch: facts are the pre-turn chain and the memory with the source's patch; steps
+        W0, after the source's patch: facts are the pre-turn chain and the memory with the source's patch; steps
             applied: every `End` and every `Start`.
         rounds, after the walk: facts are the chain after the changer's move and the memory with every patch so
             far; steps applied: every `End`, each round; then, once stable, every `Start`, `Freeze` and `Thaw`.
-        R0 decides which instances the source's raises reach: a copy its patch added is reached, a copy its patch
+        W0 decides which instances the source's raises reach: a copy its patch added is reached, a copy its patch
         removed is not, and a trait its patch reset is the new one. A started instance's before view is its initial
-        memory. Only R0 and the rounds change who is live: a copy whose key a notify removed in mid-walk is still
-        reached by a raise already under way. After the walk, the `Abandoned` parts owed by R0's ends are visited
+        memory. Only W0 and the rounds change who is live: a copy whose key a notify removed in mid-walk is still
+        reached by a raise already under way. After the walk, the `Abandoned` parts owed by W0's ends are visited
         first, in step order, each with everything it notifies. Then a round: `reconcile`; for each new `End` whose
         cause runs callbacks, its `Abandoned` parts. If their patches or the changer's move changed the facts,
         another round follows. An ended instance's memory stays readable to its own `whenAbandoned` mappers until
         the turn returns. After the walk every `reconcile` but the last ends at least one instance and none starts
-        one, so there are at most as many as the instances live after R0, plus one. A key that returns to a list
+        one, so there are at most as many as the instances live after W0, plus one. A key that returns to a list
         after its copy ended is a `Start` of a new instance in the stable round. `Turn.steps` holds every step in
-        the order applied: R0's, each round's ends, then the stable ones.
+        the order applied: W0's, each round's ends, then the stable ones.
 
     Holders: what each step does to work and to its owed rows, queued or waiting. Owner: the ledger and the lanes
         owner, called from row C4.
@@ -871,7 +875,7 @@ algorithm
             acc = { parts: [], changer: none, written: Map<scope, Map<key, Site>>, memory: before,
                 live: input.instances, steps: [], owed: [] }     // owed: ends whose Abandoned parts are to run
             visit(acc, source, Source, input.event, path = [])
-            settle(acc, facts(the pre-turn chain, acc.memory), starts = true)                    // R0
+            settle(acc, facts(the pre-turn chain, acc.memory), starts = true)                    // W0
             walkOut(acc, parts[0], path = [source's site])
             loop:                                       // after the walk
                 for end in acc.owed, in step order: for callback in its whenAbandoned:
@@ -1131,7 +1135,7 @@ tests
          on `incarnations.ts` and 21 on `context.ts`) edit code that becomes `apply.ts` or a pure decider; each keeps
              its test and takes a new `find`.
              `settle-as-follow-up` (ends applied by a later turn): I1, T6
-             `r0-ends-untold` (an end decided at R0 runs no `Abandoned` part): I8
+             `r0-ends-untold` (an end decided at W0 runs no `Abandoned` part): I8
              `fold-reads-before` (a site's second run reads the pre-turn key): T6
              `second-site-overwrites` (two sites write one key): I6
              `abandoned-on-exit`, `abandoned-skipped-on-keygone`, `abandoned-at-actor-end`, `abandoned-with-host`: I8,

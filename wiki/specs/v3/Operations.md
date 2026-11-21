@@ -284,36 +284,25 @@ alternative, two positions, lands stale data that views can show.
 
 ## 8. Open holes
 
-The Spec's `open` section lists each with its outcome. Their plain statement:
+Each now has a home:
 
-1. **The models are narrower than the text. Blocks the build of entries.** `besideOf` (an interrupt beside two other
-   reasons) was fixed after the last run and not re-run. The step model found that Clear on a Running entry that has
-   lost its holds mid-step starts a call from `again` that the step's end then releases (about 150 times in 900,000
-   steps): wasteful, not wrong, not fixed. The data layer's holds, `install`, `intake`, the issue view and I14 are in
-   no model.
-2. **The types were not compiled. Blocks build.** `MapperContext` through `outcomes`, the `resource` key rule and
-   the excluded `TimeoutError` are stated; `Types` owns the proof.
-3. **Not every source was read in full.** The four T21 Tasks were not found; the tests were read through a survey;
-   callers of `life.ts`, `frozen.ts`, `same.ts` and `operation-checks.ts` were not swept. Plan sentences found
-   uncovered and not designed: `value` firing by `Equal.equals`, `InvalidWrite` (@plan.Operations.O2, O3), a
-   placement "released within the disposal bound".
-4. **Placements are unchanged and unattacked. Blocks the placements Task.** Streams and sessions have no design;
-   `releasing` is shaped to take them.
-5. **Hydrate against restore is not answered. Blocks @task.V3.T115.**
-6. **`CleanupFailed` as a lasting issue. Minor.** The quarantine of a ref (`driver.ts:81`) is host state; whether
-   the snapshot shows it through `issuesOf` or beside it was not traced.
-7. **`persist: true` with `gcTime: 0` saves an entry that never installs. Minor.**
-8. **The door table was attacked once, on paper. Blocks the doors Task.** Where internals live decides whether the
-   surface walk must skip one symbol.
-9. **Starvation under endless invalidation. Minor.** No bound is designed.
-10. **An entry's `last` is shown to a slot that joined after the failure. Minor.** A per-slot fact would be one more
-    field.
-11. **The public event a view sends for `refetch` has no design. Blocks the build of entries.** The release alarm's
-    publish is closed: `stepEnds` is the last row of the core's `step` and `releaseDue` marks holders touched.
-12. **The lane policy table is in no design. Blocks the Spec of the operation-endings Task.** It is written from
-    `core/lanes.ts`. The alarm kind order at one instant was run in no model.
-13. **Not checked:** context propagation (@plan.Runtime.O5); the entry table against the model line by line; the text
-    around each resolution beyond the lines the adversaries read.
+1. **The models are narrower than the text.** A build-time choice in @task.V3.T122's description (re-run the step
+   model; the Clear-from-`again` waste).
+2. **The types were not compiled.** Built and pinned with @task.V3.T121 and @task.V3.T122; `Types` owns the proof.
+3. **Not every source was read in full.** The four T21 Tasks are @task.V3.T121 to @task.V3.T124; the uncovered Plan
+   sentences are in @task.V3.T122's and @task.V3.T123's build-time choices.
+4. **Placements.** A build-time choice in @task.V3.T123's description (Q12).
+5. **Hydrate against restore.** Answered in `Records` (Q13).
+6. **`CleanupFailed` as a lasting issue.** Decided: not an issue (Q14; the catalog row).
+7. **`persist: true` with `gcTime: 0`.** A build-time choice in @task.V3.T124's description (Q15).
+8. **The door table.** A build-time choice in @task.V3.T131's description (Q16); internals are answered (Q6).
+9. **Starvation under endless invalidation.** Decided: no bound until a bench or Story shows one (Q17).
+10. **An entry's `last` shown to a late slot.** Decided: kept until a fixture needs it per slot (Q18).
+11. **The public event for `refetch`.** `Host` owns it (its Q6).
+12. **The lane policy table.** Written from `core/lanes.ts` by the operation-endings Task's Spec (Q20); the alarm
+    kind order is `Changes`' (its Q9).
+13. **Not checked:** context propagation and a line-by-line pass of the entry table against the model; the reads model
+    of the Spec's T1 is that pass, run by @task.V3.T122.
 
 ## 9. Process notes
 

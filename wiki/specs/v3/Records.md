@@ -152,8 +152,9 @@ separate record); **sync**, **player**, **number-input** (nothing saved: I12).
 
 ## 7. Questions for the user
 
-Each is a departure from an earlier concept or an open choice. All are proposed; none is decided by the user. Each
-recommends A. "Agent-answered" means the agent's resolution round answered it A; the user has not accepted it.
+Items 2, 3, 4, 5, 7, 8, 11 and 12 are decided by the agent pass of 2026-11-22 (the Spec's Q6), each by the trace
+beside it. Items 1, 6, 9, 10 and 13 (and `persist` turned off, R8) are the user's calls: they stay proposed, and
+the trace beside each is the reasoning.
 
 1. **The fault model** (proposed, recommend A; user call). A: Spec `model`, FaultModel; "forged but valid" is out of
    scope, its `it.fails` tests are deleted, and the caveat is written into R2. B: defend meaning against forgery,
@@ -212,39 +213,26 @@ recommends A. "Agent-answered" means the agent's resolution round answered it A;
 
 ## 8. Open holes
 
-- **H1. Not every earlier requirement was checked against these tables. Blocks acceptance.** See the Spec's open Q3.
-- **H2. `graph` stores other identities' wiring a second time. Blocks build for @task.V3.T92's "stored once".**
-  Deriving it where the provider has a record is the option; who reads it at a boot wake was not traced.
-- **H3. `codecSig` is not spiked. Blocks build for @task.V3.T56.** Stable under module load order and a minified
-  build. A miss is harmless for records and costs a refused hydrate.
-- **H4. Hydrate's merge is not designed here. Blocks Spec for @task.V3.T115.** The precedence of positions and the
-  "install fires nothing" rule are given; the merge, the "no `onContext`" question and the next-publication rule
-  stay open.
-- **H5. Streams and bookmarks have no design. Blocks Spec for @task.V3.T25.** `bookmarks` is a reserved map.
-- **H6. `Flow.private` fields are saved in clear text. Minor here.** Whether a refresh token belongs in IndexedDB is
-  `Operations`' trust question.
-- **H7. A later format that moves facts between keys needs a rollback rule. Minor now.** One line in the format
-  plan; no trace was run.
-- **H8. The order of Attempts on one entity record across identities is not saved. Blocks Spec for the entity
-  store's claims Task (@task.V3.T126).** The entity store's record queue needs it or a rule that rebuilds it.
-- **H9. The body re-encode in stage 1 row 7 has no measured cost. Minor.** The bench decides.
-- **H10. Prior art was not surveyed. Minor.** Canonical-text round trips, upcasters that read no schema and
-  stamp-as-hint are applied from known practice.
-- **H11. Whether today's saved memory holds `Flow.input` fields was not traced. Minor.** If it does, step 5
-  leaves them and the `memory` row drops them without a report.
-- **H12. The entity record's and the entry's reference rows are thin. Blocks Spec for @task.V3.T125.** What
-  confirmed data persists saves is answered only as `CacheShape`.
-- **H13. The executable model covers no timer, instance, cache record or format step 1 to 4. Blocks build for
-  @task.V3.T92, not the Spec.** The earlier untraced P2 failures were a model bug: the model placed a carried row
-  by index and it fell off the end of the list; with `Place.Row{after}` as written, the P2 check passes on every
-  case run. Known failures that remain: a field's declared initial made unreadable (impossible with a typed
-  initial) and one `nothingLost` pair in the second table of Lanes and rows.
-- **H14. The types were not compiled. Blocks build.** `RefMapsOf`, `RefRows` and the step table's totality are
-  stated, not proved; `Types` owns the proof.
-- **H15. How a `Kept(NotPersisted)` or orphan record is ever removed.** The Spec names `forget` and a build that
-  declares or persists the machine again; no CLI path to remove one by hand is designed. Proposed to leave it so.
-- **H16. "That entry stays in `displaced`, Carried" is finer than any `Place`.** Both readings give the same
-  results in the model; the Spec keeps the wording.
+Each now has a home:
+
+- **H1.** Earlier requirements against these tables: the Spec's Q3, checked by @task.V3.T92's requirements review.
+- **H2.** `graph` stored twice: a build-time choice in @task.V3.T92's description.
+- **H3.** `codecSig`: a build-time choice in @task.V3.T56's description (Q4).
+- **H4.** Hydrate's merge: designed in @task.V3.T115's Spec.
+- **H5.** Streams and bookmarks: @task.V3.T25 (no design yet); `bookmarks` stays reserved.
+- **H6.** `Flow.private` in clear text: decided in `Operations` (its answered table).
+- **H7.** A rollback rule for a later format that moves facts: decided when such a format is proposed; format 6 moves
+  none.
+- **H8.** The order of Attempts on one entity record: designed in @task.V3.T126's Spec.
+- **H9.** The stage 1 re-encode cost: a bench row of @task.V3.T92.
+- **H10.** Prior art: closed as stated; no design rests on a survey.
+- **H11.** `Flow.input` in saved memory: a build-time check in @task.V3.T92's description.
+- **H12.** The entity record's reference rows: designed in @task.V3.T125's Spec.
+- **H13.** The executable model's gaps: the Spec's T1 to T3, run by @task.V3.T92 before its build.
+- **H14.** The types: proved by `Types` (its Q14) once the shapes are code.
+- **H15.** Removing a kept record by hand: decided, no CLI path; the CLI stays at check, explain, graph, story and
+  trace, and `forget` or a build that reads the machine again removes it.
+- **H16.** "Stays in `displaced`, Carried": decided, the wording stands; both readings gave the same results.
 
 ## 9. Process notes
 

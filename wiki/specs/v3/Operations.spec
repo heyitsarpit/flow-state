@@ -162,22 +162,24 @@ open
 
     Q12  Placements are unchanged and unattacked; streams and sessions have no design (`releasing` is shaped to take
         them). Blocks the placements Task.
-        outcome  Attack the placement table on paper before building it.
+        outcome  A build-time choice in @task.V3.T123's description: attack the placement table first.
 
     Q13  Hydrate against restore.
         outcome  Answered in `Records`; nothing open here.
 
     Q14  `CleanupFailed` as a lasting issue is minor: a quarantined ref (`driver.ts:81`) is host state; whether the
         snapshot shows it through `issuesOf` or beside it was not traced.
-        outcome  Trace it with the host's snapshot.
+        outcome  [decided: agent orchestrator 2026-11-22] not an issue: the catalog row is `issue: false, report:
+                 true`, and an issue needs a standing cause in core state (R6), while a quarantined ref is host
+                 state shown by inspection. Reverse: make the row `issue: true` and give the ref a core fact.
 
     Q15  `persist: true` with `gcTime: 0` saves an entry that never installs. Minor: a construction finding, or another
         bound for a saved entry's age.
-        outcome  Decide with the persisted-resources Task.
+        outcome  A build-time choice in @task.V3.T124's description.
 
     Q16  The door table was attacked once, on paper. Blocks the doors Task. Where internals live is answered (Q6):
         the surface walk skips the one internals symbol.
-        outcome  An attack on the hostile table before the doors Task builds.
+        outcome  A build-time choice in @task.V3.T131's description: attack the hostile table first.
 
     Q17  Starvation under endless invalidation is minor: invalidations that never pause for one round trip starve the
         waiters, and no bound is designed. One answer is also thrown away when an invalidate arrives mid-flight and
@@ -885,7 +887,8 @@ composition
             of the tests and an abort-ignoring fake for reads; the Story clock driving the two alarms; `flow explain`
             and inspection showing `releasing`, entries and a row's refusal; the host calling nothing for the release
             alarm (the step's last row and the holders' touch derive the publish); the public event a view sends for
-            `refetch` (`Host` Q6); the rule judge stays local to `host/testing`, and `owners.ts#judge` keeps its name.
+            `refetch` (`Host` Q6); the rule judge is `Host`'s (`host/judge.ts`); this Spec keeps only 
+                `owners.ts#judge`, under its name.
         - Tasks: @task.V3.T21's acceptance still says `{ value, input, key, attempt }`; the user's decision is
             `(value, { input, key })`. No Task's scope is changed here. Doors are @task.V3.T131 (T98a); `intake` is
             @task.V3.T132 (T98b); the catalog and renderer are @task.V3.T100; operation endings, retry guards and
@@ -1017,7 +1020,8 @@ tests
             invalidate, written, clear, a tick, Collect due, the settle of any open call (success, failure, 
                 Interrupted),
             Runtime ends. The oracle is the fake host's own log (calls opened and settled, versions) and the rows, never
-            the table. The scratch model passed 20,000 runs (899,873 steps) for I1 to I12, caught two planted mutations
+            the table. History, not acceptance: a scratch model outside the repository passed 20,000 runs (899,873 
+                steps) for I1 to I12, caught two planted mutations
             (no Owe in Written; no Release at the last hold), and passed 80,000 runs over three seeds with Written 
                 clearing
             `again`. The generator lives in `tests/generated` before `entries.ts` exists. Not in any model: the data

@@ -172,8 +172,9 @@ flags, Story helper type names), @task.V3.T117 (cost rows), @task.V3.T27, @task.
 
 ## 6. Questions for the user
 
-Each is a departure from an earlier concept or an open choice. All are proposed; none is decided by the user. Where a
-resolution round answered a question, it is marked agent-answered and stays proposed until the user accepts it.
+Items 1, 4, 7, 9, 10, 11 and 13 are decided by the agent pass of 2026-11-22 (the Spec's Q12), each by the trace
+beside it. Items 2, 3, 5, 6, 8 and 12 change the public API or overturn an earlier placement: they stay proposed
+for the user, and the trace beside each is the reasoning.
 
 1. **A publication is a slice that leaves no mail owed.** [proposed; recommend A, agent-answered] Departs from "a
    drained slice". Trace B: one click, 150 consumers, `drainYield` 100: publication at 100, a render showing 50
@@ -253,7 +254,7 @@ Every departure: 1 (the "drained slice" rule), 2 (the placement of run rules), 3
 | O5  | low      | `Locks` fake rows beyond the tab table (two scopes, a disposing same-document owner) are the binding's lock table's, not re-derived here                            | @task.V3.T27's table stands                              |
 | O6  | low      | The model checks the tables, not the package; the package sequences of the Spec's `tests` are not written                                                           | design round                                             |
 | O8  | medium   | The revised tables (several flying batches, the quiet capture, matched `expectBroken`) were not re-run in the executable model; the edge's three changed cells were | usage; the revision kept to the reviews' findings        |
-| O9  | medium   | The public event a view sends for `refetch` is not designed; blocks build for @task.V3.T122                                                                         | outside this design                                      |
+| O9  | closed   | The public event a view sends for `refetch`: owned by this Spec (its Q6), designed before @task.V3.T122 builds                                                      | -                                                        |
 | O10 | closed   | The mutation generator: the alphabet is `Records`', the applier and the sweep are @task.V3.T112's                                                                   | -                                                        |
 | O11 | medium   | Generated runs and `quieting()` with several tabs: per-tab views and whether samples draw tabs                                                                      | not designed; generated runs stay single-tab until it is |
 | O12 | low      | One version across actors in one render: the binding's read (one external store over the version, or per actor) is not chosen                                       | @task.V3.T111 with the React spike (O4)                  |
@@ -262,6 +263,12 @@ Every departure: 1 (the "drained slice" rule), 2 (the placement of run rules), 3
 | O15 | minor    | The edge keeps `Out.waiting` and `Out.at` as `Option`s: the invariant that guards it is model-checked, not typed                                                    | a stated trade                                           |
 | O16 | low      | The expected-break matching rule (an Expect matches every fitting break; two Expects may match the same break) was not re-run in the model                          | text only                                                |
 | O17 | low      | Context propagation across the host (the runtime plan's context outcome) was not checked against the publication table                                              | not checked                                              |
+
+Homes of the rest: O1, O15 and O16 are stated limits (the Spec's Q4, Q10); O2 is caught by `PublicationDrift`
+(Q5); O3, O4, O12 and O13 are browser-tier or React checks of @task.V3.T27 and @task.V3.T111; O5 is
+@task.V3.T27's lock table; O6 and O8 are the Spec's T1, run by @task.V3.T112 and @task.V3.T97 before their builds;
+O11 keeps generated runs single-tab until designed (Q7); O14 is @task.V3.T97's; O17 is checked with
+@plan.Runtime.O5's Task.
 
 ## 8. Process notes
 

@@ -221,6 +221,15 @@ tasks
             **Read first:** @plan.LazyFeatures.O1; @spec.Records (R9, R13, R17, I14, I16;
             code:wiki/specs/v3/Records.md); @spec.Changes (R26, I14; open Q7; code:wiki/specs/v3/Changes.md).
 
+            **Build-time choice (adoption of a lazy fragment, @spec.Changes Q7):** adoption is a fact `reconcile` reads
+            that no `Turn` writes. A: a tenth `Change`, `Adopt { address }`, through `apply` row C1 to C7, whose
+            reconcile can only return `Start`; one applier stays the only writer (Changes I4). B: adoption rides the
+            next `Turn` of the host as a pending flag. B adds a stored flag and a follow-up, which the Spec removed from
+            instances (its question 1); A keeps the round rule. Prefer A unless the builder finds a fact a `Change`
+            cannot carry. Test: a Story that adopts a fragment while its host is idle; under B nothing starts until the
+            host's next event, under A the copy starts at adoption and publishes once.
+
+
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
