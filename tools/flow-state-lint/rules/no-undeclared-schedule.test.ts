@@ -16,6 +16,10 @@ plantRules({
       `${Plain} const ticks = { tick: { schedule: 1000, send: Plain.E.T } }; machine(Plain, ({ S }) => ({ default: S.ON, states: { ON: { schedules: ticks } } }));`,
       `${Plain} const on = (send) => ({ schedules: { tick: { schedule: 1000, send } } }); machine(Plain, ({ S, E }) => ({ default: S.ON, states: { ON: on(E.T) } }));`,
       `${Declared} machine(Declared, ({ S, E }) => ({ default: S.ON, states: { ON: { schedules: { tock: { schedule: 1000, send: E.T } } } } }));`,
+      `${Plain} const tick = { schedule: 1000, send: Plain.E.T }; machine(Plain, ({ S }) => ({ default: S.ON, states: { ON: { schedules: { tick } } } }));`,
+      `${Plain} const base = { tick: { schedule: 1000, send: Plain.E.T } }; machine(Plain, ({ S }) => ({ default: S.ON, states: { ON: { schedules: { ...base } } } }));`,
+      `${Plain} const schedules = { tick: { schedule: 1000, send: Plain.E.T } }; machine(Plain, ({ S }) => ({ default: S.ON, states: { ON: { schedules } } }));`,
+      'const wrapped = { "~flow": "keyed", config: {} };',
       "Flow.keyed({ keys: () => [], schedule: 1000, send: Plain.E.T });",
       "const wrap = Flow.keyed;",
       "type Old = KeyedConfig<never, never, string, never, never>;",
@@ -23,6 +27,7 @@ plantRules({
     ],
     quiet: [
       `${Declared} machine(Declared, ({ S, E }) => ({ default: S.ON, states: { ON: { schedules: { tick: { schedule: 1000, send: E.T } } } } }));`,
+      `${Declared} const ticks = { tick: { schedule: 1000, send: Declared.E.T } }; machine(Declared, ({ S }) => ({ default: S.ON, states: { ON: { schedules: ticks } } }));`,
       "const timers = snapshot.schedules;",
       'const text = "schedules";',
     ],

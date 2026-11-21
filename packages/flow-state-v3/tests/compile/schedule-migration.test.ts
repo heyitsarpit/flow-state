@@ -90,7 +90,7 @@ describe("the old form is refused (Types R8, I13)", () => {
     ).toContain("ScheduleUndeclared");
   });
 
-  it.fails("Types R8: Flow.keyed is gone; a keyed schedule is one whose declaration has a key", () => {
+  it.fails("Types R8: Flow.keyed is gone from Flow", () => {
     expect(Object.keys(Flow)).not.toContain("keyed");
   });
 });

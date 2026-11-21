@@ -744,3 +744,7 @@ note 2026-11-21T23:12:21Z
 note 2026-11-21T23:12:22Z
     Operations, Changes, Types.md: schedule example declares schedules; Changes R12 cites Machines O3; Types.md H9
     marked superseded with an agent tag (the specs lead).
+
+note 2026-11-22T23:30:00Z
+    Types: `ScheduleUndeclared` is a construction and `flow check` finding, not a type error, and R8 checks the body
+    by type only where a key is required, as Q19 (option C) gives every unknown body key; slice T89's reconcile.

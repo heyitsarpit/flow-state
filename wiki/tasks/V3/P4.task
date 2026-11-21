@@ -1149,6 +1149,20 @@ tasks
             in tests/compile/schedule-migration.test.ts, the lint guard's planted test (fails: no rule), a baseline of
             the four old-shape faults (4 of 4 caught); commit 1500188d. Left, in order: an independent fixtures-proof
             sidecar review of T140's proof; a flip re-run after any edit; then T140 to review.
+        comment     2026-11-21T23:24:11Z
+            Reds reconciled with the decisions after the pause (requirements lead). Changed: T120's type pin "a
+            schedule's name, key and reasons come only from the declaration" deleted: under Q19 no type check refuses an
+            unknown body key, so it could never flip; its runtime twins (`ScheduleUndeclared` in
+            `schedule-declarations.test.ts` and `schedule-migration.test.ts`) stand, and the `flow check` finding is
+            @task.V3.T22's (no `check` command yet). Types R8 and "Placement" edited to match Q19, logged. T140: the
+            "Flow.keyed is gone" red retitled to what it asserts; the lint test gains shorthand, spread and whole-map
+            `schedules`, the hand-written keyed mark and a quiet declared non-literal map. Unchanged: no red tests rules
+            in a body; none cites a changed CHECKS row or `codecs` on the compiled `Schedule`. All 42 inverted reds
+            flipped: each fails its own assertion. T140 review log: names, shorthand and spread fires, the stale pin
+            accepted; `keyedSchedule` (a derived local, not old form) and wide readers in the grep (T113's types)
+            rejected; reference-app coverage needs its own oxlint run, since the planted harness keeps outside-package
+            silence; planted builders and helper-built test bodies are guarded by their own tests, which fail once an
+            undeclared body is refused.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -3747,7 +3761,7 @@ tasks
 
     T140
         title       Declared schedules: every user migrated, old form deleted
-        status      open
+        status      review
         priority    high
         parent      [@T89]
         blocked_by  [@T120]
@@ -3844,3 +3858,9 @@ tasks
             `ScheduleUndeclared`; combos: persistence (wizard, home restore), context and lanes (home); variety: 11
             apps, keyed and unkeyed, shared and value-named; sources: the worklist's file and line per site; red today:
             the T140 reds. The catalog gains this Task's line.
+        comment     2026-11-21T23:24:12Z
+            Requirements update (requirements lead): item 4's type pin is withdrawn under Q19 (an unknown body key is
+            never a type error); the readers' typing is shown by @task.V3.T113's pins and here by the
+            `ScheduleUndeclared` reds. Item 1: the reference apps are covered by an oxlint run over `checkout` and
+            `dispatch-desk`, not by the planted harness. Proof sources: no real source; the worklist names each site.
+            Mix and pair membership of the migrated apps is unchanged.

@@ -65,7 +65,8 @@ requirements
     R8  Declared schedules
         source  @plan.Machines.O5; `Schedules` R16.
         must    A schedule's name, key, pause reasons and selection type are declared on the definition; the body entry
-                is checked against the declaration, by type and at construction. `key` has one derived type in every
+                is checked against the declaration at construction and by `flow check`, and by type where a key is
+                required (a declared reason, `keys`; Q19). `key` has one derived type in every
                 callback, the send mapper included, and is `undefined` in an unkeyed one. A body schedule must be
                 declared; a declared schedule placed nowhere is a warning. Every refusal the types make has a
                 construction row of the same meaning (the twin rule).
@@ -418,7 +419,8 @@ model
         TypeScript limit was hit. `Flow.keyed`, `KeyedConfig`, `KeyedSchedule`, `ScheduleKey` and the
         `"~flow": "keyed"` wrapper are deleted.
 
-        Placement. A body schedule must be declared (a type error and a construction finding, `ScheduleUndeclared`).
+        Placement. A body schedule must be declared (a construction finding, `ScheduleUndeclared`, which `flow check`
+        reports; not a type error, Q19).
         A declared name may be placed in several states; all placements share the name, key, reasons and selection
         type; `Schedules` decides what an active placement inherits. A declared schedule placed nowhere is the
         warning `ScheduleUnplaced`. Every declared reason has its callback in every placement (Q4).
