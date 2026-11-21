@@ -1163,6 +1163,13 @@ tasks
             rejected; reference-app coverage needs its own oxlint run, since the planted harness keeps outside-package
             silence; planted builders and helper-built test bodies are guarded by their own tests, which fail once an
             undeclared body is refused.
+        comment     2026-11-21T23:24:41Z
+            [decided: agent orchestrator 2026-11-22] Rulings on the lead's two calls after reconciling: (1) the flow
+            check finding for an undeclared schedule is T22's, which builds the command; T120 keeps its construction
+            reds. (2) T140's lint guard over the reference apps runs as a separate oxlint invocation over
+            wiki/plans/flow/references/checkout and dispatch-desk, wired into nub run check, with the harness unchanged.
+            Why: the command does not exist yet; a second invocation is simpler than changing the shared harness.
+            Reverse: a harness change, or a red in T120 once the command lands.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
