@@ -1128,6 +1128,11 @@ tasks
             faults`. (4) The lint guard's verdict: one writer, the rule. Seam with T120: keyedness is read from a body's
             `keys` in five core places; the twin rows make it agree with the declaration, so it stays derived, not a
             second fact.
+        comment     2026-11-21T21:36:24Z
+            Paused (requirements lead). Done for @task.V3.T140: inventory, requirements, fixtures proof, 5 inverted reds
+            in tests/compile/schedule-migration.test.ts, the lint guard's planted test (fails: no rule), a baseline of
+            the four old-shape faults (4 of 4 caught); commit 1500188d. Left, in order: an independent fixtures-proof
+            sidecar review of T140's proof; a flip re-run after any edit; then T140 to review.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -3700,7 +3705,7 @@ tasks
 
     T140
         title       Declared schedules: every user migrated, old form deleted
-        status      review
+        status      open
         priority    high
         parent      [@T89]
         blocked_by  [@T120]
