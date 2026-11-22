@@ -260,6 +260,19 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "store-contract-passes-any-records",
+    tests: ["tests/restore/store-contract.test.ts"],
+    says: "the store contract accepts any records a store loads, so a store that mangles a text passes",
+    rule: "Pending D9",
+    edits: [
+      {
+        file: "src/host/testing/store-contract.ts",
+        find: "    sameRecords(loaded, expected)\n",
+        replace: "    sameRecords(loaded, loaded)\n",
+      },
+    ],
+  },
+  {
     name: "bench-drops-a-round",
     tests: ["tests/bench/run.test.ts"],
     says: "the bench times a Story with its last round of steps cut, so it does less work than the tested run",

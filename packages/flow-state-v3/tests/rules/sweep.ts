@@ -176,14 +176,20 @@ const faultOf = (fault: unknown) =>
     ? ({ kind: "skipped" } satisfies Variant)
     : ({ kind: "faulted", fault: String(fault) } satisfies Variant);
 
-// What one variant adds to the sweep: a skip, or the breaches and faults it shows.
-const judgedVariant = (name: string, variant: Variant) => {
-  if (variant.kind === "skipped") return { skipped: true, failed: [] };
+const nameAt = (story: Story<string>, at: number) => `${story.id} with a reload at ${at}`;
 
-  if (variant.kind === "faulted") return { skipped: false, failed: [`${name}: ${variant.fault}`] };
+// What the variant at position `at` adds to the sweep: a skip, or the breaches and faults it shows.
+const judgedVariant = (story: Story<string>, at: number, variant: Variant) => {
+  const name = nameAt(story, at);
+
+  if (variant.kind === "skipped") return { at, skipped: true, failed: [] };
+
+  if (variant.kind === "faulted")
+    return { at, skipped: false, failed: [`${name}: ${variant.fault}`] };
   const silent = variant.run.evidence.length === 0 ? [`${name}: no evidence`] : [];
 
   return {
+    at,
     skipped: false,
     failed: [...breachesOf(variant.run).map((b) => `${name}: ${b}`), ...silent],
   };
@@ -201,8 +207,6 @@ export type Swept = {
     | { readonly kind: "ran"; readonly run: StoryRun }
     | { readonly kind: "failed"; readonly fault: string };
 };
-
-const nameAt = (story: Story<string>, at: number) => `${story.id} with a reload at ${at}`;
 
 // The cut right after the reload lets Restore I1 judge every position.
 const reloaded = Step.checkpoint({ name: "~reloaded" });
@@ -228,7 +232,7 @@ export const replayed = async (
       .run({ steps })
       .then((run) => ({ kind: "ran", run }) satisfies Variant, faultOf);
 
-    verdicts.push(judgedVariant(nameAt(story, at), variant));
+    verdicts.push(judgedVariant(story, at, variant));
   }
 
   return story.run().then(
@@ -259,7 +263,7 @@ export const forked = (
               onSuccess: (run) => ({ kind: "ran", run }) satisfies Variant,
               onFailure: faultOf,
             }),
-            Effect.map((variant) => void verdicts.push(judgedVariant(nameAt(story, at), variant))),
+            Effect.map((variant) => void verdicts.push(judgedVariant(story, at, variant))),
           )
         : Effect.void,
     ).pipe(
@@ -283,12 +287,12 @@ export const differences = (story: Story<string>, a: Swept, b: Swept) => {
 
   const ownOf = (s: Swept) => (s.own.kind === "ran" ? "ran" : s.own.fault);
 
-  const positions = a.verdicts.flatMap((x, at) => {
-    const y = b.verdicts[at];
+  const positions = a.verdicts.flatMap((x, n) => {
+    const y = b.verdicts[n];
 
     return y === undefined || same(x, y)
       ? []
-      : [`${story.id} at ${at}: ${Formatter.format(x)} against ${Formatter.format(y)}`];
+      : [`${story.id} at ${x.at}: ${Formatter.format(x)} against ${Formatter.format(y)}`];
   });
 
   const counts =

@@ -10,8 +10,10 @@ never used again.
 ```ts
 import { Store, layerIndexedDb } from "flow-state/persistence"   // NEW: the Store service tag
 import { storeContract } from "flow-state/testing"               // NEW
+import { describe, it } from "vitest"                            // your runner's own
 
-storeContract("my store", layerMyStore)   // user-defined Layer of Store; the same cases Flow's own stores pass
+// user-defined Layer of Store; the same cases Flow's own stores pass
+storeContract("my store", layerMyStore, { describe, it })   // the runner argument came in T141
 ```
 
 The `Store` sees plain records and keys only, never Flow's internal attempts or purposes, so a custom adapter has

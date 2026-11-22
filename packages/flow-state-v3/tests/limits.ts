@@ -62,8 +62,8 @@ export const LIMITS = {
   benchProofs: limitFrom(21_100),
   /** A bench run a bench-limit test starts: slowest 7.0 s (a hang and a spinner to their deadlines). */
   benchChild: limitFrom(7000),
-  /** A bench module loaded in a nub process: slowest 0.23 s (the bench runner's list). */
-  benchLoad: limitFrom(230),
+  /** A bench module loaded in a nub process: slowest 0.58 s (a planted bench through a worker). */
+  benchLoad: limitFrom(580),
   /** A bench-limit test: twice its child's limit, so a child stopped at its limit is still reported. */
   benchTest: 2 * limitFrom(7000),
   /** Memory and a selection 100,000 deep, alone and mixed: 1.8 s. */

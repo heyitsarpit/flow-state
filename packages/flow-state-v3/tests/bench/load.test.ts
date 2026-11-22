@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { benches } from "../../bench/benches/index.ts";
-import { runner } from "./limits-support.ts";
+import { planted, runner } from "./limits-support.ts";
 import { LIMITS } from "../limits.ts";
 
 const at = (path: string) => fileURLToPath(new URL(path, import.meta.url));
@@ -45,6 +45,27 @@ describe("the bench loads the way `nub run bench` loads it", () => {
 
       expect(done.stdout.split("\n").filter((l) => l !== "")).toEqual([]);
       expect(done.status).toBe(0);
+    },
+    2 * LIMITS.benchLoad,
+  );
+
+  it(
+    "a bench worker runs a planted bench, and the backfill starts with no commits",
+    () => {
+      const run = underNub([
+        runner,
+        "--benches",
+        planted,
+        "--dev",
+        "--only",
+        "turn.planted.last.per-turn-ms",
+      ]);
+
+      const backfill = underNub([at("../../bench/backfill.ts")]);
+
+      expect(run.status).toBe(0);
+      expect(/^turn\.planted\.last\.per-turn-ms\s+\d/mu.test(run.stdout)).toBe(true);
+      expect(backfill.status).toBe(0);
     },
     2 * LIMITS.benchLoad,
   );

@@ -5275,3 +5275,18 @@ tasks
                outside imports, no temporary names, nothing that re-creates Effect.
             7. Runs: `nub run check` 0. Coverage suite: 199 of 202 files pass; 3 outside the diff timed out while my
                `check` ran beside them, and they pass alone (44 of 44). The narrow `--dev` bench exits 0.
+        comment     2026-11-22T09:32:01Z
+            Fix round (builder): all four items done; `nub run check`, the suite and three planted faults pass.
+
+            1. The line separator is back, written `"a b"`. Origin: my Write-tool rewrite in d8c06dbf. The formatter
+               keeps the escape, and the tool's JSON input decodes an escape to the raw character. The new tests in
+               code:packages/flow-state-v3/tests/restore/store-contract.test.ts collect the cases through a recording
+               runner. A sound store fails none. Each mangled text (U+2028 to a space, astral to `?`, `""` dropped, cut
+               at 65,535) fails exactly "text and keys are kept exactly", and a dropped last record fails "what landed".
+               The U+2028 test went red on the space text. New fault `store-contract-passes-any-records` is caught.
+            2. The load guard now also runs a planted bench through a real worker and starts `backfill.ts` with no
+               commits. A named runner import in `worker.ts` turns it red. `LIMITS.benchLoad` was re-measured at 0.58 s.
+            3. Each verdict carries its position, so `differences` names the real one in replay form (checked by a
+               direct call).
+            4. The T58 page shows `storeContract("my store", layerMyStore, { describe, it })`; `Package.plan`
+               is untouched.

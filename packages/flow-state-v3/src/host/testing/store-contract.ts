@@ -20,7 +20,7 @@ const set = (key: string, text: string): StoreWrite => ({ key, value: Option.som
 const removal = (key: string): StoreWrite => ({ key, value: Option.none() });
 
 // The texts a store keeps exactly: empty, an emoji, a line separator, and one of a megabyte.
-const texts = ["", "\u{1F600} café", "a b", "x".repeat(1_000_000)];
+const texts = ["", "\u{1F600} café", "a\u2028b", "x".repeat(1_000_000)];
 
 // Keys with the characters Flow's own keys use.
 const keys = ["actor/A/b", "lane/A/b|pay|{}", 'actor/A/{"id":1}'];
