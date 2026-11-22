@@ -5914,7 +5914,7 @@ tasks
 
     T143
         title       The typed machine (b): named crossings and Compiled's derived fields
-        status      in_progress
+        status      review
         priority    high
         parent      [@T142]
 
@@ -6091,6 +6091,32 @@ tasks
             not in the quick tier. Why: no body is reachable otherwise without writing a body twice or a factory; the
             blind sidecar found no third way that keeps config in the machine. Reverse: manifests declare
             construct entries.
+        comment     2026-11-22T12:21:37Z
+            Build notes (builder). Origins of the reds fixed: R13's from per-site casts in Flow's code (`machine.ts`,
+            `definition.ts`, `events.ts`, `contract.ts`, `flow.ts`, `handles.ts`, `send.ts`, `host/refs.ts`), now in
+            `door`, `slot` and `made.ts#describe`; R14's from `core/compiled.ts#Node` and `Compiled` lacking the fields,
+            now written by `compile-index.ts#indexOf`. `handled-tags-root-dropped` first escaped its target: origin the
+            test, since T5 imported fixture modules at the top level, so a machine that refused (a reaction to a
+            root-only event) failed the file with no named test; T5 now names every machines module that does not build.
+            Faults with moved text re-anchored (12; origin the de-indent of the erased doors). Extra files:
+            `vite.config.ts` (the option-bag exemption moves from `machine.ts` to `compile-body.ts`, where AnyBody now
+            lives), `bench/benches/construct.ts`, the four fault modules, and dead `code:` links made plain text in P4,
+            P5, `Schedules.spec` and one advisor record.
+        comment     2026-11-22T12:21:38Z
+            Close (builder): every acceptance item holds; set to review. Gates: `nub run check` 0 errors and 0 warnings;
+            package suite 25136 passed, 17 expected fail (R13's inversion deleted), 0 type errors; `docs:build` exit 0
+            with no generated change; `faults --only` 16 of 16 caught (`index-chain-stale`, `handled-tags-root-dropped`,
+            `cast-outside-crossing`, `cast-under-block-disable`, and 12 re-anchored). Ratchet pinned: `MOST = 20`
+            production, `MOST_IN_TESTING = 8`; each crossing counted once; every disable form counted. Flip A: every
+            Node and handledTags pin flipped, each with a paired refusal; `rg 'it\.fails'` over T143's tests is empty.
+            Check time (Q15, tsc 7.0.2, whole package): before 0.89 s, 4.92 M instantiations, 919 k types; after 0.83 s,
+            4.99 M, 922 k. Construct benches (`--dev`, one run each): small 0.040 ms, wide 0.232 ms, deep 0.096 ms.
+            Generated Stories at `FLOW_SEEDS=40`: only home-rooms seed 15 Turn I9, the breach that predates T113 and is
+            routed to @task.V3.T97. Not run: stress (no stress Story or sweep touched).
+        comment     2026-11-22T12:21:38Z
+            Open for the orchestrator: no fixture machine is deeper than 2 or wider than 9 states (probe of all 47), so
+            `construct.wide` and `.deep` time the widest and deepest there are, and T5 guards depth 2, not 3. A
+            real-shaped deep or wide machine would need a catalog row; proposed, not built.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
         status      open
