@@ -182,9 +182,9 @@ run
 instructions
     **Models and agents**
 
-    - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead runs at medium effort; Haiku review
-      sidecars at high, read-only sweeps at medium (the user, 2026-11-14; overrides the effort defaults of R30
-      and skill:policy-delegation).
+    - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead runs at medium effort, except the
+      requirements lead, which runs at high (the user, 2026-11-22); Haiku review sidecars at high, read-only sweeps at
+      medium (the user, 2026-11-14; overrides the effort defaults of R30 and skill:policy-delegation).
     - Agents at once: one lead, building or reviewing, never both (the user, 2026-11-16; was one of each). The lead runs
       up to eight sidecars and decides how many and which jobs they do, never one per angle by default (the user,
       2026-11-14 to 2026-11-16). A review runs between builds: the builder stops at `review`, the review runs, then the

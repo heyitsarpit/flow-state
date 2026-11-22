@@ -33,5 +33,7 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
 
 ## Already merged
 
+- The requirements lead runs at high effort; other leads stay medium (Epic, the user, 2026-11-22). Check over the
+  next slices that it cuts fold-in rounds.
 - Builder decisions tagged and reversible, Specs not kept in step; logs only via `wk log add`; mid-build design
   validated (Epic, commit `afac37e9`).
