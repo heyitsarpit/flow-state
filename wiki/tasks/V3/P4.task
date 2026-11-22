@@ -1248,6 +1248,44 @@ tasks
             log add refuses: the last note is stamped 2026-11-22T23:30Z, ahead of the clock): Operations' made-function
             prototype, sealed Maps and Compiled internals; Types' DuplicateName for a schedule placed in a state and a
             state below it.
+        comment     2026-11-22T01:43:21Z
+            Slice close review (reviewer, revision f68c5d64): ISSUES. T131 has one blocking finding (the face is not
+            deeply frozen); T120 and T140 pass. Coverage run: `vp test run --coverage` with the report forced (`nub run
+            test:coverage --` drops its flags, and a failed run writes no report: both already @task.V3.T97's). Flip A:
+            22 of 22 planted faults are caught, each by its own row. `nub run check` is clean.
+
+            Seams:
+            - Compiled on the machine's face, as designed, is what produced T131's finding. The face carries every user
+              callback inside Compiled's Maps, and only the walkers moved under the internals key.
+            - Schedule key text has no single owner. The slice inventory's addendum names the declared codec as owner,
+              but after the build `Compiled.schedules` has no reader and timers still key by `keyOf`. The state is
+              written but not read until @task.V3.T118, which must take it over (T120's comment).
+            - Recognition (inventory row 3) was meant to replace five scattered checks with `madeOf`. Three remain:
+              `isMade`, the owner checks in `compile-body.ts` and `tokens.get` (T131's routed note, to @task.V3.T132).
+            - The declaration and the body's `keys` agree through the twin rows, as designed.
+
+            Close runs predate the slice. The Turn I9 context-wave gap was routed on 2026-11-20 (T112, then T97). The
+            coverage timeouts (shop's large cart, the seeds world) are T97's, and both tests pass at HEAD
+            without coverage.
+
+            Specs, helped or misled: this first slice built from the v3 Specs shows the loop works. Tables in the Specs
+            became red rows and planted faults, and each flipped for its stated reason. Every finding here sits where a
+            Spec was silent (a collection's contents; nested placements), and in both places the builder's edit
+            described the code rather than the design. Spec edits that a build makes need the same review as
+            a requirement.
+
+            Sidecar log (six Haiku, effort high; I re-checked each finding before using it). Accepted:
+            - blind's unfrozen Map contents: re-run with a probe, now T131's blocking finding;
+            - blind's throwing token read as WrongKind, re-run with a probe;
+            - cohesion's unread codecs, three key-text writers, two codec builders, split owner checks and two freezers
+              (read; the fault run confirmed the owner checks);
+            - the Spec sidecar's activation-keyed map and its claim that the Compiled sentence is false (read; probe);
+            - the T140 sidecar's grep and its silent paths in the rule (read; lint flip). Changed: blind's event token
+              as a guard and its NaN `Duration`, from findings to routed notes (both predate the slice). Rejected:
+            - the 72 plain comments: there were 417 before the slice, so this is house practice;
+            - Spec ids in fixture Stories: existing practice;
+            - `T8.1` read as a Task id: it is Types' test T8.1;
+            - `made` freezing caller objects: a face is immutable by contract.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -3374,6 +3412,32 @@ tasks
             edited, specs.log note waiting as on T131). All T120 reds pass; twelve planted faults
             (tests/declaration-faults.ts) are caught. home's refused builders show each twin row
             (fixtures/home/stories/structure.ts). ScheduleUnplaced is not reported until T22's Built.warnings.
+        comment     2026-11-22T01:43:20Z
+            Close review (reviewer, revision f68c5d64): PASS, with the seam below for @task.V3.T118. All 12 declaration
+            faults are caught by their own rows (Flip A), and every twin row refuses with its reason. The codecs write
+            field names in order and decode exactly.
+
+            Routed:
+            - `Compiled.schedules` is written (`machine.ts:454`) and nothing in `src/` reads it. Restore decodes a saved
+              key as `Record(String, Unknown)` and keys timers with `core/schedules.ts#keyOf` (`encodeCanonical`), so "a
+              saved key decodes through it" holds only for the codec on its own. That use is T118's under the agreed
+              requirements. T118 must make the declared codec the one writer of key text and the decoder of `keys`
+              output. Today there are three writers (`keyOf`, `contract.ts#keyTextBy`, `lane-moves`) and two builders of
+              the same sorted codec (`contract.ts#codecsOf`, which picks, and `compile-schedules.ts#keyCodecOf`, which
+              refuses extra fields).
+            - The Types "Placement" edit (DuplicateName) rests on the runtime's map of one timer per name
+              (`world.ts#trackOf`). Schedules keys the owner's map by activation (model, `Activation`; R13), so two
+              nested placements would be two scopes. The edit records the runtime's deviation as the design, and its
+              Reverse points to Schedules text that does not exist. Two traces (outer and inner place `poll`; enter
+              both, exit inner): today the outer timer is dropped. Under Schedules' model both timers live and the exit
+              stops only the inner one. To T118, to decide with the activation map; the refusal is safe until then.
+            - Coverage: `compile-schedules.ts:235` (`schedules: { tick: null }`, one WrongKind) needs a row. A
+              `Duration.millis(NaN)` delay arms at 0 ms with no finding (`partsOf` skips a Duration). Both predate the
+              slice and go to T118.
+
+            Specs, helped or misled: Types R8's twin list and Schedules I14 helped. Each refusal became one test and one
+            fault, and the requirements review caught the field-order key text from I14. Types misled on placement: it
+            left nesting to Schedules, and the build settled it from the runtime instead.
     T121
         title       Operation endings and the retry guards
         status      draft
@@ -3826,6 +3890,46 @@ tasks
             Compiled's internals, T113's Supersedes text (decodedOf and endingValue deleted). Spec: Operations
             construction trust edited; its specs.log note waits, since the log's last note is stamped 23:30Z, ahead of
             the clock, so wk log add refuses.
+        comment     2026-11-22T01:43:19Z
+            Close review (reviewer, revision f68c5d64): ISSUES, one blocking finding. Flip A holds: the six door faults
+            are caught, each by its own row; `nub run check` is clean; the 22 reds pass.
+
+            Blocking:
+            1. A made value's face is not deeply frozen, and Compiled puts unregistered functions on it (A3 item 13, A1
+               item 2, Operations I19). `made.ts#heldBy` walks only `Reflect.ownKeys`, so no Map or Set entry is ever
+               sealed. Over the manifest apps, `machine.compiled` holds 2445 user callbacks
+               (`states.get(s).on.get(e)[i].guards[j].check.run`, `update.value.run`) and 7702 unfrozen objects, and
+               `compiled.states.get(s).on.set(...)` succeeds. Red check: the `facesOf` walk in
+               `tests/surface/doors.test.ts`, extended to walk Map and Set entries (scratch probe `deepface.ts`). Why
+               the tests missed it: the test's walk and `seal` read the same own keys, so both miss what a collection
+               holds. One rule is written twice; `core/frozen.ts#makeFreezer` is a third walker and does read entries.
+               No requirement treated a collection's contents as part of the face. Fix with one walker for both, and
+               with the Spec's sentence "what the core calls of it sits under the internals key", which the `Slot`
+               closures make false.
+
+            Routed:
+            - Recognition is still split: `isMade`, which drops the Defect (`config.ts`, `construction.ts`);
+              hand-written owner checks in `compile-body.ts:50` and `:164`; `tokens.get` for a guard's state token. So
+              the planted `owner-compare-skipped` fault gets past the hostile table's ForeignToken row and is caught
+              only by `context-slots.test.ts`. A throwing token as `default`, `target`, `send` or `guard` gives
+              WrongKind, not one Defect. To @task.V3.T132: once intake lifts each value once, `madeOf` is its
+              only reader.
+            - Not built, and no Task row tracks them: `door(name, args, run)` (`src/entry.ts` still has four
+              registration writers) and the construction-time `InvariantViolation` for an unregistered face function.
+            - Sealing gaps for the fix above: a Map the app froze keeps its native writers (`sealOne` skips a
+              non-extensible value); a non-empty typed array stays writable (`Result.try` swallows the freeze error).
+            - To @task.V3.T132: `app()` with a null machine entry gives a Defect at `app`, not WrongKind at its path.
+              Any function, an event token included, passes a guard or callback slot (`config.ts#Fn`; this predates
+              the slice).
+            - Coverage: `machine.ts:191-199` (a `when` that is not a function) and `compile-body.ts:42`/`:45` (another
+              definition's state token as a guard) need refusal tests in `construction.test.ts`. `made.ts:277` and
+              `:283` read a value again, which only a defect reaches (R10 says read once: T132). `made.ts:86` is a
+              prototype body nothing calls.
+
+            Specs, helped or misled: Operations helped most. The `madeOf` table and the hostile table gave a red row
+            before any code, and every row flipped for its own reason. It misled in one place: "deeply frozen" never
+            says what a Map holds. The build's Spec edit then said Compiled's callables were off the face when they are
+            not. The made-function prototype is sound but serves no current caller.
     T133
         title       Slice: Fragments
         status      draft
@@ -3987,3 +4091,28 @@ tasks
             already show the declared form; the catalog, T72 and the T57 page say it. Close runs: stress and 20 fresh
             seeds fail only on known gaps present at dd451cf2: home-rooms Turn I9 (the context-wave gap routed to T112)
             and the stress sweep shard timeouts (T97, T112).
+        comment     2026-11-22T01:43:20Z
+            Close review (reviewer, revision f68c5d64): PASS. The old form is gone: no `Flow.keyed`, `KeyedConfig`,
+            `KeyedSchedule`, `ScheduleKey`, `ScheduleParts`, `ErasedEntry`, keyed mark, `erase<` or cast is left in
+            `src/`, `fixtures/`, `tests/`, `bench/` or either reference app. Every worklist site is declared. The four
+            faults tied to the old shape are caught on the declared form. The supersede notes are in place (T57 at
+            `P4.task:269`, Schedules and Types).
+
+            Flip A on the guard: a copy of checkout's Pay feature with `retry` and `expire` left undeclared is refused
+            by `oxlint -c tools/flow-state-lint/no-undeclared-schedule.oxlintrc.json`. Both definitions are imported
+            from sibling files, so the rule follows imports. `check:references` runs inside `nub run
+            check` (`package.json:13-14`).
+
+            Routed:
+            - The rule passes silently on any definition it cannot read: a first argument that is not an identifier,
+              `loose(...)`, a default or namespace import, a barrel re-export, a declaration that is not a literal
+              (`fixtures/cells/machines/cells.ts:16`), and `schedules: f()`. No planted case checks the silent path. In
+              the package the runtime's `ScheduleUndeclared` still catches these; the reference apps use none of these
+              shapes. Route to the lint's owner: report an unreadable definition, or plant one quiet case on purpose.
+            - The rule test's reference-app part only matches script text. The flip above is the real check.
+            - Keyedness is still read from the body's `keys` in the core (`schedule-decision.ts:232`, `:335`). The twin
+              rows keep it in step with the declaration, as the inventory allows. When T118 moves its readers, it should
+              read the declaration.
+
+            Specs, helped or misled: the worklist's three passes were the real Spec here and held. No site was missed.
+            The Types Q19 reconcile correctly withdrew a type pin that could never flip.
