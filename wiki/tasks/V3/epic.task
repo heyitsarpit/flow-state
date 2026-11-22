@@ -342,6 +342,10 @@ instructions
       this project's house patterns: tokens not strings, `$match` or tag tables, branded ids, `X.use`, Schema-derived
       types. One sidecar takes cohesion as its fixed angle.
     - A ruling is asked as two traces of the same Story, not as prose.
+    - Loop findings (the user, 2026-11-22): at each slice's close the orchestrator also adds to @proposal.loop-findings
+      what worked and what should change for future slices, only lessons that apply beyond that slice, each marked
+      proposed; the user confirms them, confirmed items are merged into the Epic or a convention and removed from
+      the record.
     - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
       user, 2026-11-12); that is in stops.
     - Benchmarks follow @convention.bench (the user, 2026-11-18): no agent sits blocked on a bench; `--dev` while
