@@ -203,6 +203,8 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
         p: pay.outcomes({
           success: E.Done.from((v) => {
             expectTypeOf(v).toEqualTypeOf<Receipt>();
+            // @ts-expect-error Compile R9: the commit's success holds receipt, not ref
+            void v.ref;
 
             return { receipt: v.receipt };
           }),

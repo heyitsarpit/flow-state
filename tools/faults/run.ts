@@ -1,12 +1,14 @@
 // Shows that Flow State's tests tell a right runtime from a wrong one. In scratch copies of the
 // package it runs the tests three ways: unchanged (must pass), with a dead core whose step changes
 // nothing (every test should fail), and once per planted fault in tests/faults.ts (at least one
-// test should fail). The unchanged run and the dead core run the whole suite, stress files
-// included. A fault runs its own target tests first and the whole suite only when they let it
-// through, so its verdict is the whole suite's whenever the targets miss. A fault counts as caught
-// only when its run fails and still prints its test summary with a failed test: a timeout, output
-// past the buffer, a run with no summary, or one whose summary shows no failed test is reported as
-// such and is never caught (tools/faults/verdict.ts, checked by verdict.test.ts before every run).
+// of its target tests should fail). The unchanged run and the dead core run the whole suite, stress
+// files included. A fault is judged by its own target tests alone: one they let through is MISSED,
+// never handed to the whole suite, so a wrong target shows and is re-aimed. Faults cover runtime
+// rules only; a type or lint rule's own tests are two-sided, so the copies run no type-check. A
+// fault counts as caught only when its run fails and still prints its test summary with a failed
+// test: a timeout, output past the buffer, a run with no summary, or one whose summary shows no
+// failed test is reported as such and is never caught (tools/faults/verdict.ts, checked by
+// verdict.test.ts before every run).
 // The unchanged run goes first, and a test red there never counts as a fault's catch.
 // It exits 1 when the unchanged tests fail, a fault is missed, stale or not judged, or a target
 // file is missing, so a fault the tests stop catching shows; it is never a CI gate. Copies sized
@@ -19,8 +21,7 @@
 //
 // FLOW_FAULTS_EVERY_CATCH=true lists every catching test, to tell which faults give the same
 // signal: a fault's target run then covers the target files of every fault of its rule and does
-// not stop at its first failing test. A fault the targets miss is still judged by the whole suite,
-// stopping at its first failing test, so its list is partial.
+// not stop at its first failing test.
 //
 // `--background` runs at the lowest CPU priority (nice 19, which every test run it starts
 // inherits) on 2 copies x 2 workers, so it blocks no other work, and writes everything it prints to
@@ -32,7 +33,7 @@ import { availableParallelism, setPriority, tmpdir, totalmem } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults as allFaults } from "../../packages/flow-state-v3/tests/faults.ts";
 import { runGrouped, stopAll, stopOnSignals } from "./group.ts";
-import { applyEdits, credited, failedTestsOf, parseArgs, redsKnown, type Run, summaryOf, verdictOf } from "./verdict.ts";
+import { applyEdits, failedTestsOf, judge, parseArgs, type Run, summaryOf } from "./verdict.ts";
 
 const asked = parseArgs(allFaults, process.argv.slice(2));
 
@@ -111,12 +112,6 @@ const makeCopy = () => {
       "  test: {",
       '    include: [tier === "stress" ? stress : "packages/**/*.test.ts"],',
       '    exclude: [...configDefaults.exclude, plants, ...(tier === "usual" ? [stress] : [])],',
-      "    // Type tests run as the default suite runs them, so a fault in a type is caught by its type test.",
-      "    typecheck: {",
-      '      enabled: tier !== "stress",',
-      '      include: ["packages/flow-state-v3/**/*.test-d.ts"],',
-      '      tsconfig: "packages/flow-state-v3/tsconfig.json",',
-      "    },",
       "  },",
       "});",
       "",
@@ -176,41 +171,8 @@ const run = async (root: string, files: ReadonlyArray<string>, flags: ReadonlyAr
   return { kind: "ran", passed: usual.passed && stress.passed, out: `${usual.out}\n${stress.out}` };
 };
 
-// The tests red in the unchanged run, and the files it covered: a fault is caught only by a test
-// outside them. A run judged over files the unchanged run did not cover (a `--only` fault's
-// whole-suite fallback) first runs the unchanged whole suite once, in a copy of its own.
+// The tests red in the unchanged run: a fault is caught only by a test outside them.
 let knownRed: ReadonlySet<string> = new Set();
-let unchangedFiles: ReadonlyArray<string> | "whole" = "whole";
-let wholeUnchanged: Promise<boolean> | undefined;
-
-const unchangedWhole = () => {
-  wholeUnchanged ??= (async () => {
-    const result = await run(makeCopy(), []);
-
-    if (result.kind === "broken") return false;
-    knownRed = new Set([...knownRed, ...failedTestsOf(result.out)]);
-    unchangedFiles = "whole";
-    console.log(`unchanged whole suite, for a fallback: ${summaryOf(result.out) ?? "no test summary"}`);
-
-    return true;
-  })();
-
-  return wholeUnchanged;
-};
-
-// A fault's verdict over some files, where a test red in the unchanged run never counts as the
-// catch. The run stops at its first failing test unless one of its files holds such a test, and a
-// stopped run that lost its failed test's report runs again whole.
-const judged = async (root: string, files: ReadonlyArray<string>, everyCatch = false) => {
-  if (!redsKnown(unchangedFiles, files.length === 0 ? "whole" : files) && !(await unchangedWhole()))
-    return { verdict: "NOT JUDGED (the unchanged whole suite did not finish)", tests: [] };
-  const paths = new Set(files.map((file) => join(pkg, file)));
-  const mayBail = !everyCatch && ![...knownRed].some((test) => files.length === 0 || paths.has(test.split(" > ")[0] ?? ""));
-  const first = await run(root, files, mayBail ? ["--bail=1"] : []);
-  const result = verdictOf(first) === "NOT JUDGED (no failed test)" ? await run(root, files) : first;
-
-  return credited(verdictOf(result), result.kind === "ran" ? failedTestsOf(result.out) : [], knownRed);
-};
 
 // Applies the edits in one copy, runs the body, and puts the files back. Returns false when an
 // edit's path leaves the copy or its text is not in its file exactly once, so a stale fault is
@@ -313,25 +275,21 @@ const deadCore = async (root: string) => {
   }
 };
 
-// A fault's verdict: its target tests first, the whole suite when they let it through.
+// The files that judge a fault: its own targets, or with every catch listed, every target of its rule.
+const targetsOf = (fault: Fault) =>
+  EVERY_CATCH ? [...new Set(allFaults.filter((other) => other.rule === fault.rule).flatMap((other) => other.tests))] : fault.tests;
+
+// A fault's verdict, by its target tests alone.
 const verdictFor = async (root: string, fault: Fault) => {
   const missing = fault.tests.filter((file) => !existsSync(join(repo, pkg, file)));
 
   if (fault.tests.length === 0 || missing.length > 0)
-    return { verdict: `STALE (target tests missing: ${missing.join(", ") || "none named"})`, by: "", tests: [] };
+    return { verdict: `STALE (target tests missing: ${missing.join(", ") || "none named"})`, tests: [] };
 
-  let outcome = { verdict: "STALE", by: "", tests: [] as ReadonlyArray<string> };
-
-  const targets = EVERY_CATCH
-    ? [...new Set(allFaults.filter((other) => other.rule === fault.rule).flatMap((other) => other.tests))]
-    : fault.tests;
+  let outcome = { verdict: "STALE", tests: [] as ReadonlyArray<string> };
 
   await planted(root, fault.edits, async () => {
-    const targeted = await judged(root, targets, EVERY_CATCH);
-
-    outcome = targeted.verdict.startsWith("caught")
-      ? { ...targeted, by: "targets" }
-      : { ...(await judged(root, [])), by: `whole suite; targets ${targeted.verdict}` };
+    outcome = await judge({ files: targetsOf(fault), pkg, knownRed, everyCatch: EVERY_CATCH }, (files, flags) => run(root, files, flags));
   });
 
   return outcome;
@@ -340,16 +298,14 @@ const verdictFor = async (root: string, fault: Fault) => {
 const plantAll = async () => {
   const verdicts = new Map<string, string>();
   const queue = [...faults];
-  let wholeSuite = 0;
 
   const worker = async (root: string) => {
     for (let fault = queue.shift(); fault !== undefined; fault = queue.shift()) {
       // oxlint-disable-next-line no-await-in-loop -- one fault at a time per copy
-      const { verdict, by, tests } = await verdictFor(root, fault);
+      const { verdict, tests } = await verdictFor(root, fault);
 
-      if (by.startsWith("whole")) wholeSuite += 1;
       verdicts.set(fault.name, verdict);
-      console.log(`${fault.name} [${fault.rule}]: ${verdict}${by === "" ? "" : ` by ${by}`}`);
+      console.log(`${fault.name} [${fault.rule}]: ${verdict}`);
 
       for (const test of tests) console.log(`  ${test}`);
     }
@@ -358,12 +314,10 @@ const plantAll = async () => {
   const [controlRoot = "", deadRoot = "", ...rest] = roots;
 
   // The unchanged run comes first, beside the dead core, so every fault is judged against it. With
-  // `--only` there is no dead core, and the unchanged run covers the named faults' targets.
+  // `--only` there is no dead core, and the unchanged run covers the files that judge the named faults.
   const dead = only ? Promise.resolve() : deadCore(deadRoot);
-  const targets = [...new Set(faults.flatMap((fault) => fault.tests))];
-  const result = await run(controlRoot, only ? targets : []);
+  const result = await run(controlRoot, only ? [...new Set(faults.flatMap(targetsOf))] : []);
 
-  unchangedFiles = only ? targets : "whole";
   const passed = result.kind === "ran" && result.passed && summaryOf(result.out) !== undefined;
 
   console.log(`unchanged: ${passed ? "pass" : "FAIL"} (${result.kind === "ran" ? (summaryOf(result.out) ?? "no test summary") : result.why})`);
@@ -384,7 +338,7 @@ const plantAll = async () => {
 
   const caught = [...verdicts.values()].filter((verdict) => verdict.startsWith("caught")).length;
 
-  console.log(`\nfaults caught: ${caught} of ${faults.length}; ${wholeSuite} needed the whole suite`);
+  console.log(`\nfaults caught by their targets: ${caught} of ${faults.length}`);
 
   if (!passed) console.log(`the unchanged run fails ${knownRed.size} tests; no fault is credited with them`);
 

@@ -1,9 +1,9 @@
 import type { Fault } from "./faults.ts";
 
 /**
- * Wrong runtimes that give a fact a second owner: a second record writer, a second holder of owed
- * rows, a second builder of reports, a batch per identity, or a start that does not adopt; each
- * planted alone like the runtime's other faults.
+ * Wrong runtimes around one owner of each fact: a start that does not adopt, a boot that unparks
+ * its own rows, an owed row never queued, a lane's record kept on disk, a batch per identity, or a
+ * second batch out; each planted alone like the runtime's other faults.
  */
 export const consolidationFaults: ReadonlyArray<Fault> = [
   {
@@ -56,47 +56,6 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
         file: "src/core/persist.ts",
         find: "    tx.dropLane(id);\n    saveLane(lane.actor, id);",
         replace: "    tx.dropLane(id);\n    void lane;",
-      },
-    ],
-  },
-  {
-    name: "rows-dropped-outside-ledger",
-    tests: ["tests/write-lanes/one-builder.test.ts"],
-    says: "a forget clears the identity's owed rows itself instead of closing them in the ledger",
-    rule: "WriteLanes R10",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: "    ledger.suspend(actor, forgetting);",
-        replace:
-          "    if (forgetting) tx.set({ ...tx.world(), owed: tx.world().owed });\n    else ledger.suspend(actor, false);",
-      },
-    ],
-  },
-  {
-    name: "second-record-writer",
-    tests: ["tests/write-lanes/one-builder.test.ts"],
-    says: "an incarnation's end writes its records itself, outside the step-end projection",
-    rule: "WriteAhead I21",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: "    ledger.suspend(actor, false);",
-        replace:
-          "    tx.command(Command.Persist({ writes: [], due: Due.Now() }));\n    ledger.suspend(actor, false);",
-      },
-    ],
-  },
-  {
-    name: "second-report-builder",
-    tests: ["tests/write-lanes/one-builder.test.ts"],
-    says: "the disposal builds its RuntimeDisposed report itself, not from an act",
-    rule: "WriteLanes composition",
-    edits: [
-      {
-        file: "src/core/disposal.ts",
-        find: "    tx.act(Act.RuntimeEnded());",
-        replace: "    tx.insertEvidence(Evidence.RuntimeDisposed());",
       },
     ],
   },

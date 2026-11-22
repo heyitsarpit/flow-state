@@ -99,7 +99,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "unknown-target-inverted",
     "Compile R9",
-    ["tests/compile/construction.test.ts"],
+    ["tests/compile/unknown-target.test.ts"],
     "an unknown: mapped to a Flow.uncertain event is refused and a plain event accepted",
     "src/operation-checks.ts",
     "if (target !== undefined && !isUncertain(target))",
@@ -243,7 +243,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "entered-keeps-activation",
     "Turn I5",
-    ["tests/turn/schedules.test.ts"],
+    ["tests/write-lanes/payment-leave-and-reload.test.ts"],
     "an entered state keeps the activation at its depth instead of a new one",
     "src/core/serve.ts",
     "activations: [...kept, ...move.enters.map(() => tx.mintActivation())],",
@@ -306,7 +306,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "late-routed-as-current",
     "Turn T14",
-    ["src/core/turn.test.ts", "tests/player/player.test.ts"],
+    ["tests/write-lanes/payment-leave-and-reload.test.ts"],
     "a late ending is routed from the current leaf, as if it were current",
     "src/core/serve.ts",
     "onSome: (owner) => depthBelow(incarnation, owner),",
@@ -333,7 +333,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "not-sent-mapped-unknown",
     "WriteLanes R4",
-    ["tests/cells/structure.test.ts"],
+    ["tests/write-lanes/payment-leave-and-reload.test.ts"],
     "a NotSent ending is mapped by the unknown: mapper instead of notSent:",
     "src/core/serve.ts",
     "Write: (w) => w.notSent,",
@@ -342,7 +342,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "sent-without-persistence",
     "WriteLanes R12",
-    ["tests/actors/edges.test.ts"],
+    ["tests/restore/deep-inputs.test.ts"],
     "a persisted identity's commit in a Runtime without persistence is sent, not declined NoPersistence",
     "src/core/lanes.ts",
     "      !tx.world().persistence &&\n",

@@ -6512,3 +6512,42 @@ tasks
             3. Every remaining fault caught by targets: `nub run faults --only <group>` over groups covering every name
                reports each group N of N caught by targets.
             4. Gates: `nub run check` at 0, the package suite, `wk check`.
+        comment     2026-11-22T14:27:58Z
+            Classification (builder): 495 faults before, 486 runtime, 4 type, 5 lint. Method: each patch type-stripped
+            (Bun transpiler) and compared; 492 change emitted code, 3 change types only (`body-capture-dropped`,
+            `cast-outside-crossing`, `cast-under-block-disable`). The three renames change code but break Types R1
+            (helpers stop compiling); the three one-builder faults change code but break a source-shape rule only a scan
+            of `src/core` sees. Every other fault on a source-scanning file was checked to be caught by a runtime
+            assertion (doors, life, face, index, story).
+        comment     2026-11-22T14:27:59Z
+            Deleted faults and their two-sided tests (builder). Type: `body-capture-dropped` by
+            `tests/types/excess-keys.test-d.ts`; `sync-repo-renamed` by derived.test-d.ts (SyncRepo payload pinned,
+            `repository` refused; a helper on E.X.Type refuses a missing field); `account-renamed` by testing.test-d.ts
+            (a read memory field the definition lacks is refused) and derived.test-d.ts (D.M.field.Type);
+            `receipt-renamed` by endings.test-d.ts (unannotated mapper equals Receipt; new: `v.ref` refused). That every
+            helper is derived, so breaks on a rename, is the `no-hand-typed-callback` lint rule (its must-flag and
+            allowed cases). Lint: `cast-outside-crossing`, `cast-under-block-disable` by derivation.test.ts (exact cast
+            ratchet, absorbed list naming send.ts#send, every disable form flagged and a plain comment not);
+            `rows-dropped-outside-ledger`, `second-record-writer`, `second-report-builder` by one-builder.test.ts (new:
+            each scan flags its planted shape and passes the owner call).
+        comment     2026-11-22T14:44:48Z
+            [decided: agent builder 2026-11-22] A fault caught only by a scan of source text (the cast ratchet,
+            one-builder) is a lint fault and goes, once its scan has a must-flag and a must-pass case. Why: the scan is
+            a lint rule written as a test; with both cases it is two-sided like a rule test. Reverse: restore the five
+            faults from 3dea2481 with their targets.
+        comment     2026-11-22T14:44:50Z
+            Re-aimed (builder): 10 runtime faults their targets missed, each now caught by its own targets. Re-targeted
+            to the catching test: `actor-never-saved` (standing-order; rule relabelled Restore R1; Turn I2 is about
+            choosing an alternative), `refused-turn-reported` and `refused-publishes-nothing` (rules/refusal-window),
+            `sent-without-persistence` (restore/deep-inputs), `entered-keeps-activation`, `late-routed-as-current` and
+            `not-sent-mapped-unknown` (write-lanes/payment-leave-and-reload). With a test: `fork-clock-zero`
+            (fork.test.ts never forked after time passed; now picks a Story with an advance), `unknown-target-inverted`
+            (its case shared a file whose module-level definitions threw on load; moved to
+            tests/compile/unknown-target.test.ts with an accepting case), `bare-function-accepted` (the door refuses a
+            hand-made Compiled first, so the check is unreachable from the public path; new src/core/well-formed.test.ts
+            calls malformedOf).
+        comment     2026-11-22T14:44:52Z
+            [decided: agent builder 2026-11-22] The BareFunction check is shown by a unit test beside malformedOf, not
+            through runtimeSetup. Why: Operations R10 refuses a hand-made Compiled as a copy at the door, so no public
+            path reaches it; the check stays as the Runtime guard. Reverse: delete the check and its fault if the guard
+            is judged dead code.

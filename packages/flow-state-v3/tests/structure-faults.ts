@@ -83,7 +83,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "refused-publishes-nothing",
-    tests: ["tests/shop/pay.test.ts"],
+    tests: ["tests/rules/refusal-window.test.ts"],
     says: "a refused event turn publishes no issue-only snapshot",
     rule: "Turn I14",
     edits: [
@@ -218,7 +218,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "bare-function-accepted",
-    tests: [COMPILED],
+    tests: ["src/core/well-formed.test.ts"],
     says: "a Runtime boots a Compiled holding a function that is not a Slot",
     rule: "Compile R17, T8",
     edits: [

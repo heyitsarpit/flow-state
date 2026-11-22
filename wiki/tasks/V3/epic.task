@@ -142,8 +142,9 @@ description
       a named point in a Story where the run records the time, the runtime cut, what each fake received and the store.
     - Run rule: a function from a finished run to its breaches of one Spec rule, applied to every Story run.
     - Planted fault: this project's mutant: a named wrong behaviour of the runtime with the rule it breaks, in
-      `packages/flow-state-v3/tests/faults.ts`. `nub run faults` plants each in a scratch copy and reports which the
-      tests catch. Dead core: the null implementation, a `step` that changes nothing, planted the same way.
+      `packages/flow-state-v3/tests/faults.ts`. `nub run faults` plants each in a scratch copy and reports which its own
+      target tests catch; runtime rules only. Dead core: the null implementation, a `step` that changes nothing, planted
+      the same way.
     - Bridge: the old hand cases rehosted in `tests/bridge/`, deleted file by file as they become Story tests.
     - Slice (the user, 2026-11-22): an execution slice, a parent Task's open children run together through one loop
       (Building a Task, Slices); a Task with no parent is its own slice. Before 2026-11-22 a slice meant one Task of P3

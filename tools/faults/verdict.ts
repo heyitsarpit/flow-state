@@ -60,10 +60,26 @@ export const credited = (verdict: string, failed: ReadonlyArray<string>, knownRe
   };
 };
 
-// Whether the unchanged run's reds are known for a judged run: the unchanged run covered the whole
-// suite, or every file the judged run covers. "whole" is the whole suite.
-export const redsKnown = (unchanged: ReadonlyArray<string> | "whole", judged: ReadonlyArray<string> | "whole") =>
-  unchanged === "whole" || (judged !== "whole" && judged.every((file) => unchanged.includes(file)));
+// A fault's verdict over its target files alone. The run stops at its first failing test unless a
+// target holds a test red in the unchanged run (or every catch is asked for), and a stopped run
+// that lost its failed test's report runs the same targets again whole. A fault its targets let
+// through is MISSED: no other file runs, so a wrong target shows as a miss and is re-aimed.
+export const judge = async (
+  asked: {
+    readonly files: ReadonlyArray<string>;
+    readonly pkg: string;
+    readonly knownRed: ReadonlySet<string>;
+    readonly everyCatch: boolean;
+  },
+  run: (files: ReadonlyArray<string>, flags: ReadonlyArray<string>) => Promise<Run>,
+) => {
+  const paths = new Set(asked.files.map((file) => `${asked.pkg}/${file}`));
+  const mayBail = !asked.everyCatch && ![...asked.knownRed].some((test) => paths.has(test.split(" > ")[0] ?? ""));
+  const first = await run(asked.files, mayBail ? ["--bail=1"] : []);
+  const result = verdictOf(first) === "NOT JUDGED (no failed test)" ? await run(asked.files, []) : first;
+
+  return credited(verdictOf(result), result.kind === "ran" ? failedTestsOf(result.out) : [], asked.knownRed);
+};
 
 // What a run is asked for: every fault, or with `--only` (repeatable) the named ones in the order
 // given; `--background` for a low-priority run. An unknown flag (`--only=x` included), a name not

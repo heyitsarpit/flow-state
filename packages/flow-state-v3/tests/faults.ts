@@ -50,8 +50,9 @@ export type Fault = {
  *
  * Edit and test paths are relative to the package root. Each `find` must occur exactly once in its
  * file; a fault whose text has moved is rewritten or removed, never skipped. `tests` names the
- * files run first; the whole suite runs only when they let the fault through, so a wrong name
- * costs time, never a verdict.
+ * files that judge the fault, and no other file runs: a fault they let through is reported missed,
+ * and is re-aimed (better targets, or a test), never dropped. Faults cover runtime rules only; a
+ * type or lint rule is shown by its own two-sided tests.
  */
 export const faults: ReadonlyArray<Fault> = [
   {
@@ -200,9 +201,9 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "actor-never-saved",
-    tests: ["tests/shop/pay.test.ts"],
+    tests: ["tests/transfers/standing-order.test.ts"],
     says: "an actor's record always saves its initial state, so after a reload it runs from a state it never published",
-    rule: "Turn I2",
+    rule: "Restore R1",
     edits: [
       {
         file: "src/core/actor-record.ts",
@@ -226,7 +227,7 @@ export const faults: ReadonlyArray<Fault> = [
   },
   {
     name: "refused-turn-reported",
-    tests: ["tests/turn/refusal.test.ts"],
+    tests: ["tests/rules/refusal-window.test.ts"],
     says: "a refused turn keeps a turn report besides its issue",
     rule: "Turn I14",
     edits: [

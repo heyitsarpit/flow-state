@@ -34,12 +34,13 @@ const words = (story: Story<string>) =>
   story.steps.flatMap((step) => (step._tag === "world" ? step.words : []));
 
 // The median-length Story with each kind of world a reload must carry over: a held call, a held write,
-// the network down, and a reload of its own.
+// the network down, a reload of its own, and time passed, so a fork opens at the saved time.
 const kinds: ReadonlyArray<(story: Story<string>) => boolean> = [
   (s) => words(s).some((w: WorldWord) => w._tag === "wire" && w.word === "hold"),
   (s) => words(s).some((w: WorldWord) => w._tag === "storage" && w.word === "hold"),
   (s) => words(s).some((w: WorldWord) => w._tag === "network" && w.word === "offline"),
   (s) => s.steps.some((step) => step._tag === "reload"),
+  (s) => s.steps.some((step) => step._tag === "advance"),
 ];
 
 const chosen = [
@@ -61,7 +62,7 @@ const reloads: ReadonlyArray<Reload> = [
 const marked = Step.checkpoint({ name: "~reloaded" });
 
 describe("A reload forked from a saved world", () => {
-  it("covers a held call, a held write, the network down and a reload", () => {
+  it("covers a held call, a held write, the network down, a reload and time passed", () => {
     expect(kinds.every((kind) => chosen.some(kind))).toBe(true);
   });
 

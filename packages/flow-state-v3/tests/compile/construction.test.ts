@@ -322,29 +322,6 @@ describe("identity fields (Compile R7, I9, T12)", () => {
   });
 });
 
-describe("operations declared once (Compile R9, I10, I11, T3)", () => {
-  it("an unknown: target that is not Flow.uncertain is UnknownNotUncertain; two writes of one contract are SharedContract", () => {
-    expect(
-      refusal(() =>
-        definition({
-          id: "Compile/Ops",
-          states: ["A"],
-          events: {},
-          internalEvents: { Saved: {}, Unsure: Flow.uncertain({}) },
-          operations: ({ E }) => ({
-            // @ts-expect-error Compile R9: a certain event is no unknown target; the run-time refusal is checked below
-            first: save.outcomes({ success: E.Saved, failure: {}, unknown: E.Saved }),
-            second: save.outcomes({ success: E.Saved, failure: {}, unknown: E.Unsure }),
-          }),
-        }),
-      ),
-    ).toEqual([
-      ["UnknownNotUncertain", null, "operations.first.unknown"],
-      ["SharedContract", null, "operations.second"],
-    ]);
-  });
-});
-
 const Lamp = definition({
   id: "Compile/Lamp",
   states: ["OFF", { ON: ["DIM", "BRIGHT"] }],
