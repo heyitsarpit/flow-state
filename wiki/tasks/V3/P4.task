@@ -526,11 +526,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records
-              (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), @spec.Schedules (R14, I11); the Invariants its tests check
-              after every step are @spec.Records (I3, I4, I11–I13, I15, I17; tests T1–T3, T8–T10, T12–T15),
-              @spec.Schedules (I11; tests T2).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Records (R6–R8, R12, R13, R19, I4, I12, I13, I15, I17), @spec.Schedules (R14, I11); the Invariants
+              its tests check after every step are @spec.Records (I3, I4, I11–I13, I15, I17; tests T1–T3, T8–T10,
+              T12–T15), @spec.Schedules (I11; tests T2).
         comment     2026-11-16T11:06:05Z
             Routed from T17: history is not in the actor record (WriteAhead R4, Persistence O2), so S.X.history after a
             reload enters the default; land it with record migration.
@@ -667,8 +667,8 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
               (R4–R6, I6, I8, I9, I14), @spec.Host (R13, I22); the Invariants its tests check after every step are
               @spec.Types (I6, I8, I9, I14; tests T4, T6, T8, T9), @spec.Host (I22).
         comment     2026-11-16T06:19:55Z
@@ -803,10 +803,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R3, R4, R5), @spec.Schedules (R8), @spec.Changes (R19); the Invariants its tests check after every step
-              are @spec.Operations (I7, I9, I10; tests T1, T2), @spec.Schedules (I7; tests T1, T2), @spec.Changes (I5).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R3, R4, R5), @spec.Schedules (R8), @spec.Changes (R19); the Invariants its tests check
+              after every step are @spec.Operations (I7, I9, I10; tests T1, T2), @spec.Schedules (I7; tests T1, T2),
+              @spec.Changes (I5).
         comment     2026-11-20T13:01:57Z
             Breakdown review (orchestrator, 2026-11-20, R48): fixtures line names only this Task's rows of catalog step
             8: the combobox in kanban, the tree in draft and the token input in chat.
@@ -932,9 +933,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes (R8,
-              R20, I16); the Invariants its tests check after every step are @spec.Changes (I16).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R8, R20, I16); the Invariants its tests check after every step are @spec.Changes (I16).
         comment      2026-11-16T15:38:52Z
             Fixtures first (the user, 2026-11-16): local actors through createActor with props get a fixture first; its
             Stories are this Task's first requirements.
@@ -1071,9 +1072,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R19, R20, I16); the Invariants its tests check after every step are @spec.Changes (I5, I14, I16).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R19, R20, I16); the Invariants its tests check after every step are @spec.Changes (I5,
+              I14, I16).
         comment     2026-11-21T18:39:42Z
             [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
             both emit halves.
@@ -1500,10 +1502,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records (R4,
-              R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5, I8–I10, I14); the Invariants its tests check after every
-              step are @spec.Records (I1–I3, I5, I6, I8–I10, I14, I16, I18, I19; tests T1–T3, T5–T10, T15).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Records (R4, R5, R9–R11, R14, R15, R17, R20, R21, I1–I3, I5, I8–I10, I14); the Invariants its tests
+              check after every step are @spec.Records (I1–I3, I5, I6, I8–I10, I14, I16, I18, I19; tests T1–T3,
+              T5–T10, T15).
         comment     2026-11-19T07:01:22Z
             Status: deferred. The format-4 build stopped at the failure limit (2) after three close reviews; its work is
             on branch `t92-format-4` (tip d92e802f), and flow-rewrite's code and Specs were restored to fef46251. The
@@ -1792,10 +1795,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R8,
-              I23), @spec.Types (R15); the Invariants its tests check after every step are @spec.Host (I13, I15, I23;
-              tests T1, T2, T5, T8), @spec.Types (I3; tests T2).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host
+              (R8, I23), @spec.Types (R15); the Invariants its tests check after every step are @spec.Host (I13, I15,
+              I23; tests T1, T2, T5, T8), @spec.Types (I3; tests T2).
         comment     2026-11-18T19:39:06Z
             Owes (proposed, P3 close fix round): review item A118, T94's admit-throw acceptance as a Story test, not a
             runtime.test.ts case. See code:wiki/tasks/V3/P3-routing.md.
@@ -1980,10 +1983,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R9, R13, I17, I18); the Invariants its tests check after every step are @spec.Operations (I17, I18; tests
-              T3, T5, T6).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R9, R13, I17, I18); the Invariants its tests check after every step are @spec.Operations
+              (I17, I18; tests T3, T5, T6).
         comment     2026-11-18T19:39:14Z
             Also owes (proposed, P3 close fix round): faults for the Diagnostics gaps I1, I2, R4, R7 to R10
             in code:wiki/tasks/V3/P3-coverage.md.
@@ -2561,10 +2564,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R12, R13, R16, I1, I2, I8, I10, I11); the Invariants its tests check after every step are @spec.Changes
-              (I1, I2, I8, I10, I11; tests T1, T6, T10).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R12, R13, R16, I1, I2, I8, I10, I11); the Invariants its tests check after every step are
+              @spec.Changes (I1, I2, I8, I10, I11; tests T1, T6, T10).
         comment     2026-11-20T08:11:40Z
             Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
             T57's split, are this Task's.
@@ -2641,9 +2644,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R15, I6); the Invariants its tests check after every step are @spec.Changes (I6).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R15, I6); the Invariants its tests check after every step are @spec.Changes (I6).
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): repurposed (same id): was subroutines and whenAbandoned,
             now moved to T109. It takes the Turn R30 raise into .each traits and FanOutNeverHandled from T109, reading
@@ -2722,10 +2725,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R1–R4,
-              R6, I1–I10, I19, I20, I24) and @spec.Types (R13, I4); the Invariants its tests check after every step are
-              @spec.Host (I1–I10, I19, I20, I24; tests T1, T2, T4–T9).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host
+              (R1–R4, R6, I1–I10, I19, I20, I24) and @spec.Types (R13, I4); the Invariants its tests check after every
+              step are @spec.Host (I1–I10, I19, I20, I24; tests T1, T2, T4–T9).
         comment     2026-11-21T18:31:21Z
             [proposed] Builds @proposal.algo-host 6.1 to 6.4 with the edge cells and the Out.hiddenRetried field of
             @proposal.algo-resolutions 1.6 (re-run in the model: no stuck ticket, stranded mark or hidden livelock).
@@ -2796,10 +2799,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R5,
-              R7, I11, I12); the Invariants its tests check after every step are @spec.Host (I9, I11, I12; tests T1,
-              T2, T7–T9).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host
+              (R5, R7, I11, I12); the Invariants its tests check after every step are @spec.Host (I9, I11, I12; tests
+              T1, T2, T7–T9).
         comment     2026-11-20T07:17:01Z
             Routed from T58's second close review (orchestrator): the fake's own connection life (closing mid-run; a
             boot load pending when dispose releases the services); a check that the Store wrapper refuses a late use on
@@ -2938,8 +2941,8 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
               (R1–R3, R8's type side, R10, R15, I1–I3); the Invariants its tests check after every step are @spec.Types
               (I1–I3; tests T1–T3).
         comment     2026-11-20T13:01:52Z
@@ -3502,10 +3505,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R10,
-              I18), @spec.Schedules (R17, I18); the Invariants its tests check after every step are @spec.Host (I18;
-              tests T3), @spec.Schedules (I18; tests T8).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host
+              (R10, I18), @spec.Schedules (R17, I18); the Invariants its tests check after every step are @spec.Host
+              (I18; tests T3), @spec.Schedules (I18; tests T8).
         comment     2026-11-21T18:46:48Z
             Takes the coverage-run items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4); the item
             list is @proposal.spec-test-tooling R11. [proposed] Also owns @proposal.algo-host section 10's rows.
@@ -3615,10 +3618,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Schedules
-              (R1–R17, I1–I18); the Invariants its tests check after every step are @spec.Schedules (I1–I18;
-              tests T1–T8).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Schedules (R1–R17, I1–I18); the Invariants its tests check after every step are @spec.Schedules
+              (I1–I18; tests T1–T8).
         comment     2026-11-20T16:01:46Z
             State inventory (lead): one state, a schedule timer's check outcomes; today it is split between `Tracked`
             and a stored issue list, which is the freedom (two writers over time). After: each field below is written
@@ -4568,7 +4571,7 @@ tasks
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
-        status      draft
+        status      in_progress
         priority    high
         blocked_by  [@T113]
         description
@@ -4657,23 +4660,29 @@ tasks
 
             **Risk:** the design's model covers part of the text (@spec.Changes `open`; companion holes H1, H2); the
             unchecked invariants are this Task's first failing checks.
+
+            False pass: the old walk keeps running beside the new one and the Stories pass on it → caught by the
+            Supersedes list deleted at the close and the dead-core plant on the new `apply`.
         acceptance
             - A package sequence test checks I5, I7, I9, I12, I13 and I15 to I17 of @spec.Changes, red first.
             - `tick` dispatches the six alarm kinds by a total match; a planted seventh kind does not compile.
             - An ended scope's schedule callbacks do not run in the turn that ended it (the X3 trace), with a
               planted fault.
-            - Each new rule has a planted fault that `nub run faults` catches.
-            - Fixtures first (@convention.fixtures): no new matrix cell of of @convention.fixture-catalog: every fixture
+            - An actor-to-actor send into a refused schedule start has a Story that checks its resendable flag, with a
+              planted fault on that flag (routed from @task.V3.T118).
+            - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
+              catches with its own target tests.
+            - Fixtures first (@convention.fixtures): no new matrix cell of @convention.fixture-catalog: every fixture
               app of step 1 runs unchanged on the new walk, applier, alarms and mail, each scenario that pins a rule red
               before the build.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9, I12–I15, I17); the Invariants its tests check after every
-              step are @spec.Changes (I1–I17; tests T2–T8, T10–T14).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R1–R11, R14, R15, R17, R18, R21–R26, I3–I7, I9, I12–I15, I17); the Invariants its tests
+              check after every step are @spec.Changes (I1–I17; tests T2–T8, T10–T14).
         comment     2026-11-21T19:08:52Z
             Read first names no v3 Spec: Changes is the Spec for this Task. Its fit table keeps tree.ts chainOf and
             leafOf, which Types deletes (see @task.V3.T113); delete only once no caller remains.
@@ -4730,10 +4739,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R8,
-              R12, I11, I13, I14), @spec.Schedules (R14, R16, I11, I14); the Invariants its tests check after every step
-              are @spec.Types (I8, I11, I13, I14; tests T1, T2, T4, T5, T9), @spec.Schedules (I11, I14; tests T2, T7).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              (R8, R12, I11, I13, I14), @spec.Schedules (R14, R16, I11, I14); the Invariants its tests check after every
+              step are @spec.Types (I8, I11, I13, I14; tests T1, T2, T4, T5, T9), @spec.Schedules (I11, I14; tests
+              T2, T7).
         comment     2026-11-21T19:08:51Z
             Order check: Schedules' companion and Records R12 want one format step for every schedule field; this Task
             builds the codecs, so the step itself lands in @task.V3.T118 or @task.V3.T56, not here.
@@ -4927,11 +4937,11 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), @spec.Records (R1–R3, R16, I6, I7); the Invariants
-              its tests check after every step are @spec.Operations (I8, I11, I13–I16, I18, I20, I21, I23; tests T1–T6),
-              @spec.Records (I1, I4–I7, I11, I16, I18; tests T1–T6, T9–T15).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), @spec.Records (R1–R3, R16, I6,
+              I7); the Invariants its tests check after every step are @spec.Operations (I8, I11, I13–I16, I18, I20,
+              I21, I23; tests T1–T6), @spec.Records (I1, I4–I7, I11, I16, I18; tests T1–T6, T9–T15).
         comment     2026-11-22T03:54:01Z
             Fix 2: owns `ledger.ts#start` and `#restore` (owed rows, the head's unknown Restored); @task.V3.T119 keeps
             only the call site. R48 breakdown review (2026-11-22, P4 comment).
@@ -5005,10 +5015,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25); the Invariants its tests check after every step are
-              @spec.Operations (I1–I10, I12, I22, I24, I25; tests T1, T2, T4, T5, T7).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25); the Invariants its tests check
+              after every step are @spec.Operations (I1–I10, I12, I22, I24, I25; tests T1, T2, T4, T5, T7).
     T123
         title       Placements and release
         status      draft
@@ -5055,10 +5065,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R8, I4, I11, I22); the Invariants its tests check after every step are @spec.Operations (I4, I11, I22;
-              tests T1, T2, T4, T5).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R8, I4, I11, I22); the Invariants its tests check after every step are @spec.Operations
+              (I4, I11, I22; tests T1, T2, T4, T5).
     T124
         title       Persisted resources
         status      draft
@@ -5100,10 +5110,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R12, I24), @spec.Records (R8, R18, I12, I19); the Invariants its tests check after every step are
-              @spec.Operations (I24; tests T4), @spec.Records (I12, I19; tests T8, T14, T15).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R12, I24), @spec.Records (R8, R18, I12, I19); the Invariants its tests check after every
+              step are @spec.Operations (I24; tests T4), @spec.Records (I12, I19; tests T8, T14, T15).
         comment     2026-11-22T03:54:14Z
             Fix 11: owns the resource-entry persist gate (`gcTime: 0`, Q15); @task.V3.T56 owns the discard of machine
             records under `persist: false`. R48 breakdown review (2026-11-22, P4 comment).
@@ -5143,10 +5153,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R19, I5), @spec.Host (R3, I4); the Invariants its tests check after every step are @spec.Changes (I5,
-              I14), @spec.Host (I4; tests T1, T8).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R19, I5), @spec.Host (R3, I4); the Invariants its tests check after every step are
+              @spec.Changes (I5, I14), @spec.Host (I4; tests T1, T8).
         comment     2026-11-22T03:54:13Z
             Fix 11: owns the emit listener set; @task.V3.T111 owns publication and keeps the single call (C4). Catalog
             step 3 rows added to acceptance. R48 breakdown review (2026-11-22, P4 comment).
@@ -5182,9 +5192,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R19); the Invariants its tests check after every step are @spec.Changes (I5, I14).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R19); the Invariants its tests check after every step are @spec.Changes (I5, I14).
     T129
         title       UI primitives wave 2: toaster
         status      draft
@@ -5213,10 +5223,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Schedules
-              (R8, R11, R12), @spec.Changes (R19); the Invariants its tests check after every step are @spec.Schedules
-              (I5, I7, I15; tests T1, T3–T6), @spec.Changes (I5, I14).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Schedules (R8, R11, R12), @spec.Changes (R19); the Invariants its tests check after every step are
+              @spec.Schedules (I5, I7, I15; tests T1, T3–T6), @spec.Changes (I5, I14).
     T130
         title       UI primitives wave 2: menu
         status      draft
@@ -5244,10 +5254,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R12, R13, I1, I2); the Invariants its tests check after every step are @spec.Changes (I1, I2, I11; tests
-              T1, T6).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Changes (R12, R13, I1, I2); the Invariants its tests check after every step are @spec.Changes (I1,
+              I2, I11; tests T1, T6).
     T131
         title       Construction trust: the doors
         status      done
@@ -5293,10 +5303,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R10, I19), @spec.Types (R11, I4, I5); the Invariants its tests check after every step are
-              @spec.Operations (I19; tests T5, T6), @spec.Types (I4, I5, I7, I14; tests T4, T7–T9).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations (R10, I19), @spec.Types (R11, I4, I5); the Invariants its tests check after every step
+              are @spec.Operations (I19; tests T5, T6), @spec.Types (I4, I5, I7, I14; tests T4, T7–T9).
         comment     2026-11-21T20:57:24Z
             Requirements (requirements lead), each red today unless marked guard, mapped to acceptance. Reds:
             `tests/surface/doors.test.ts` (15 inverted), the 4 inverted tests in `tests/surface/surface.test.ts`,
@@ -5519,9 +5529,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R8,
-              I13) and @spec.Schedules (R14, R16) across every migrated fixture.
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              (R8, I13) and @spec.Schedules (R14, R16) across every migrated fixture.
         comment     2026-11-21T21:34:48Z
             Requirements (requirements lead), mapped to acceptance. Reds: `tests/compile/schedule-migration.test.ts` (5
             inverted), `tools/flow-state-lint/rules/no-undeclared-schedule.test.ts` (fails: no rule).
@@ -6030,10 +6040,10 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R7,
-              R13, R14, I4, I10); the Invariants its tests check after every step are @spec.Types (I4, I10; tests T5,
-              T7, T9, T10).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              (R7, R13, R14, I4, I10); the Invariants its tests check after every step are @spec.Types (I4, I10; tests
+              T5, T7, T9, T10).
         comment     2026-11-22T10:44:27Z
             Requirements (requirements lead), one item per acceptance item, split from @task.V3.T113. The reds are in
             `src/derive.test-d.ts` and `tests/surface/derivation.test.ts`.
@@ -6289,9 +6299,9 @@ tasks
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R1,
-              I1); the Invariants its tests check after every step are @spec.Types (I1; tests T1, T3).
+              in user code); each new runtime rule has a planted fault its own target tests catch. See the existing
+              tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
+              (R1, I1); the Invariants its tests check after every step are @spec.Types (I1; tests T1, T3).
         comment     2026-11-22T10:44:27Z
             Requirements (requirements lead), one item per acceptance item, split from @task.V3.T113. Done-checks are
             run from `packages/flow-state-v3`, and each must return only its listed out-of-class lines.

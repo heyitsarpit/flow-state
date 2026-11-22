@@ -779,3 +779,8 @@ note 2026-11-22T16:09:27Z
     Run paused for handoff to a new orchestrator: tree clean, no live agents, cron removed. Next: T119 (draft,
     unblocked), write its full text with skill:to-task, then its requirements lead. Unread page:
     @page.T142-typed-machine. Open: loop findings 1-11 (proposed). Weekly usage ~81%.
+
+note 2026-11-22T16:13:34Z
+    Run resumed at 0ee8d57a, workflow@4f316bf. T119 opened (own slice; fault wording updated, T118's routed Story and a
+    False pass line added) and in progress; its requirements lead starts now. No live agents; cron 7 * * * * re-created.
+    Weekly 82%, 5-hour 19%. Unread: @page.T142-typed-machine (holds T119's close).
