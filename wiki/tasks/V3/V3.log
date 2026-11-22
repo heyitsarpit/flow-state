@@ -818,3 +818,7 @@ note 2026-11-22T20:19:33Z
 note 2026-11-22T20:19:34Z
     T119's slice close held (Epic stops): @page.T142-typed-machine is unread. T119 stays in review with its PASS until
     the user reads it; then done.
+
+note 2026-11-22T20:20:20Z
+    Slice T92 (own slice) started: opened with acceptance re-pointed to @spec.Records and a restore-after-edit item;
+    requirements lead (high) starts. Weekly 90%.

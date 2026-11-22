@@ -1389,7 +1389,7 @@ tasks
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
-        status      draft
+        status      in_progress
         priority    high
         blocked_by  [@T118]
 
@@ -1499,8 +1499,11 @@ tasks
               lane, are in the fixtures' step samples and run by every runner, before the build; the proof is posted as
               a Task comment.
             - Identity and key text are parsed in one place: the six hand-parsing sites the P3 close-out named are gone.
-            - Restore and Codec Specs updated with `specs.log` notes; `nub run check`, the suite and stress pass; `nub
-              run faults --only` catches this Task's planted faults.
+            - Each deviation from @spec.Records is a tagged decision in a Task comment (editing the Spec is optional);
+              `nub run check`, the suite and stress pass; each new runtime rule has a planted fault in `tests/faults.ts`
+              that `nub run faults --only <names>` catches with its own target tests.
+            - A persisted shape changes, so restore after a definition edit is shown: a reorder, an add, a remove and
+              a rename.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -1586,6 +1589,11 @@ tasks
         comment     2026-11-22T04:00:19Z
             [decided: user 2026-11-22] The 2026-11-22 Order supersedes the 2026-11-19 deferral: T92 runs sixth, before
             the T21 slice and T56. Why: R48 fix 13. Reverse: re-park it and drop T121's and T124's blockers on it.
+        comment     2026-11-22T20:20:11Z
+            Opened (orchestrator, 2026-11-23): Restore R5, R7 and R8 in the acceptance are the rules now in
+            @spec.Records (re-pointed 2026-11-21); the deferred branch t92-format-4 (tip d92e802f) and its traps are
+            prior art and requirements, not code to merge. Held for the user: Restore Q4 forged-but-valid records
+            stay it.fails.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
