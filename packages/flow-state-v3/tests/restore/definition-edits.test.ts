@@ -127,7 +127,7 @@ describe("restore after the booking's definition is edited (Records R7, referenc
     }
   });
 
-  it.fails("Records reference table, state: a saved state the definition lacks (removed or renamed) resets the position to the initial state and memory, reported, never restored", async () => {
+  it("Records reference table, state: a saved state the definition lacks (removed or renamed) resets the position to the initial state and memory, reported, never restored", async () => {
     for (const states of [
       ["PICKING", "HELD", "EXPIRED"],
       ["PICKING", "HELD", "CONFIRMED", "EXPIRED"],
@@ -142,7 +142,7 @@ describe("restore after the booking's definition is edited (Records R7, referenc
     }
   });
 
-  it.fails("Records reference table, memory: a state and a field added restore the record as saved, the new field at its declared initial, with nothing reported", async () => {
+  it("Records reference table, memory: a state and a field added restore the record as saved, the new field at its declared initial, with nothing reported", async () => {
     const restored = await bookingUnder({
       states: [...STATES, "CANCELLED"],
       memory: { ...MEMORY, note: Flow.initial(Schema.String, "none") },
@@ -156,7 +156,7 @@ describe("restore after the booking's definition is edited (Records R7, referenc
     });
   });
 
-  it.fails("Records reference table, memory: a field removed or renamed is dropped and reported FieldDropped naming it, a renamed field starts at its initial, and the rest restores", async () => {
+  it("Records reference table, memory: a field removed or renamed is dropped and reported FieldDropped naming it, a renamed field starts at its initial, and the rest restores", async () => {
     const removed = await bookingUnder({
       states: STATES,
       memory: { slotId: MEMORY.slotId, heldUntil: MEMORY.heldUntil },
@@ -282,12 +282,12 @@ const accountBuild = (edit: OperationEdit) => {
   return machine(declared, ({ S }) => ({ default: S.READY }));
 };
 
-// The account's held transfer, booted under a later build and ensured.
+// The account's transfer, out at the reload, booted under a later build and ensured.
 const accountUnder = async (edit: OperationEdit) => {
   const saved = checked(
     await bankStory("records/held-transfer")
       .ensure(account)
-      .world(Bank.transfer.drop({ at: "response" }))
+      .world(Bank.transfer.hold())
       .send(account, Transfers.E.Send({ transferId: "t1", cents: 500 }))
       .checkpoint("held")
       .run(),
@@ -326,11 +326,11 @@ describe("restore after the account's operations are edited (Records reference t
     expect((await accountUnder("added")).heard).toEqual(["Unsure"]);
   });
 
-  it.fails("Records reference table: an operation renamed in the machine over the same contract restores its lane, since the saved name is the contract's", async () => {
+  it("Records reference table: an operation renamed in the machine over the same contract restores its lane, since the saved name is the contract's", async () => {
     expect((await accountUnder("renamed")).heard).toEqual(["Unsure"]);
   });
 
-  it.fails("Records reference table, Carried (Retired): a removed operation or a renamed contract leaves its lane carried byte for byte, not heard, and reported", async () => {
+  it("Records reference table, Carried (Retired): a removed operation or a renamed contract leaves its lane carried byte for byte, not heard, and reported", async () => {
     for (const edit of ["removed", "contractRenamed"] as const)
       expect(await accountUnder(edit)).toEqual({ heard: [], carried: 1, kept: true });
   });
@@ -403,7 +403,7 @@ const switcherUnder = async (edit: "removed" | "renamed") => {
 };
 
 describe("restore after a slot is edited (Records reference table, slots)", () => {
-  it.fails("Records reference table, slots: a slot removed or renamed is dropped and reported FieldDropped naming it, and the rest of the record restores", async () => {
+  it("Records reference table, slots: a slot removed or renamed is dropped and reported FieldDropped naming it, and the rest of the record restores", async () => {
     for (const edit of ["removed", "renamed"] as const) {
       const { saved, recent, dropped } = await switcherUnder(edit);
 

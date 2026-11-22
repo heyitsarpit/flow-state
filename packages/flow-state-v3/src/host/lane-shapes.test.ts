@@ -53,6 +53,7 @@ const exactRecords = [
     | "value"
     | "route"
     | "delivery"
+    | "input"
   >,
   true satisfies Equal<keyof Lane, "actor" | "operation" | "head" | "queue">,
   true satisfies Equal<
@@ -73,6 +74,8 @@ const exactRecords = [
     | "marked"
     | "withheld"
     | "quarantined"
+    | "carried"
+    | "legacy"
     | "ended"
     | "life"
     | "lanesOfActor"

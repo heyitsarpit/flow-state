@@ -15,7 +15,7 @@ reads were small enough to do directly. Nothing here is decided.
 ### Holes
 
 1. **breaks: one retired operation hides every owed row of its identity.** Owed rows live in one record per identity
-   (code:packages/flow-state-v3/src/core/record.ts#OwedJson, lines 48-60; `owedRecordKey` line 78). With rows'
+   (`packages/flow-state-v3/src/core/record.ts#OwedJson`, lines 48-60; `owedRecordKey` line 78). With rows'
    operation decoded as a closed `OperationName` literal, a release that removes `void` makes the whole owed record
    fail; @spec.Restore.R5 then reads none of its rows. Scenario: Pay owes `charge` Succeeded and `void` Failed; the
    release drops `void`; after reload `charge`'s ending is never heard. The proposal's "rows kept, OperationRetired"
@@ -104,7 +104,7 @@ the user's Q1 and Q4 first.
    codes.
 4. **gap: the shared decode helper cannot return Findings.** Q3 recommends `decodeAt(schema)` returning
    `Result<Type, Findings>` for the gate and the boot; a record's failure is a `ReadFailure` that quarantines or
-   resets (code:packages/flow-state-v3/src/core/record-format.ts#decodeBy), never a finding at a user path. Share
+   resets (`packages/flow-state-v3/src/core/record-format.ts#decodeBy`), never a finding at a user path. Share
    only "Exit to `Result<Type, Issue | Defect>`"; each boundary maps its own.
 5. **minor: two decodes per event.** A gated `E.X(payload)` decodes, then `send` decodes again through its walker;
    the design should say which one is the boundary. The Exit adapter itself costs nothing extra (spike below).

@@ -70,7 +70,7 @@ describe("Fake storage words", () => {
         .map((b) => [b.tab.open, b.status]);
 
     const lanes = (run: StoryRun<"reloaded">) =>
-      [...run.checkpoints.reloaded.records.stored.keys()].filter((k) => k.startsWith("lane/"));
+      [...run.checkpoints.reloaded.records.stored.keys()].filter((k) => k.startsWith("work/"));
 
     expect(acknowledging(aborted)).toEqual([[1, "aborted"]]);
     expect(lanes(aborted)).toEqual([]);

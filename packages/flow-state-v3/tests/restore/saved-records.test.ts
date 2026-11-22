@@ -89,7 +89,7 @@ const keptUnread = (run: StoryRun<"after">, key: string, text: string) => ({
 });
 
 describe("a saved work record (Records Types WorkShape; R16)", () => {
-  it.fails("Records R16: an Out head restores Held, and its one unknown Restored is heard at the start", async () => {
+  it("Records R16: an Out head restores Held, and its one unknown Restored is heard at the start", async () => {
     const run = await bootAccount(
       "records/out-head",
       ACCOUNT_WORK,
@@ -102,7 +102,7 @@ describe("a saved work record (Records Types WorkShape; R16)", () => {
     ]);
   });
 
-  it.fails("Records R14, I6: a work record whose head and a row hold one Attempt is kept unread, byte for byte, and nothing of it is heard", async () => {
+  it("Records R14, I6: a work record whose head and a row hold one Attempt is kept unread, byte for byte, and nothing of it is heard", async () => {
     const lane = { displaced: [], head: head("Out", { cents: 500 }), queue: [] };
     const control = await bootAccount("records/head-alone", ACCOUNT_WORK, transferWork(lane));
 
@@ -138,10 +138,12 @@ describe("a lane holds a head, or a queue behind one, or displaced Attempts (Rec
       .run()
       .then(checked);
 
-  it.fails("Records Types LaneShape, R16: a lane with no head, or a queue with no head before it, is kept unread, and no queued commit is heard from it", async () => {
+  it("Records Types LaneShape, R16: a lane with no head, or a queue with no head before it, is kept unread, and no queued commit is heard from it", async () => {
     const control = await boot(
       "records/queue-behind-head",
-      workText({ "Git/sync": { [FLOW]: { displaced: [], head: head("Out", {}), queue: [{}] } } }),
+      workText({
+        "Lanes/sync-serialize": { [FLOW]: { displaced: [], head: head("Out", {}), queue: [{}] } },
+      }),
     );
 
     expect(heard(control, 2, "sync")).toEqual(["NotSent", "Unsure"]);
@@ -150,7 +152,7 @@ describe("a lane holds a head, or a queue behind one, or displaced Attempts (Rec
       { displaced: [], queue: [] },
       { displaced: [], queue: [{}] },
     ]) {
-      const forged = workText({ "Git/sync": { [FLOW]: lane } });
+      const forged = workText({ "Lanes/sync-serialize": { [FLOW]: lane } });
       const run = await boot("records/headless-lane", forged);
 
       expect(keptUnread(run, SERIALIZE_WORK, forged)).toEqual({ reported: true, bytes: true });
@@ -161,29 +163,29 @@ describe("a lane holds a head, or a queue behind one, or displaced Attempts (Rec
 
 describe("an obligation whose saved names no longer read is carried (Records reference table, Carried; I16)", () => {
   // The lane's JSON stays as it was, it is not delivered, its key stays held, and it is reported.
+  // What the boot hears is read from a run that sends nothing, so the send's own decline is not
+  // counted.
   const carried = async (id: string, forged: string, keyHeld: boolean) => {
-    const run = checked(
-      await bankStory(id)
-        .world(Fake.storage.put(ACCOUNT_WORK, forged))
-        .reload()
-        .ensure(account)
-        .checkpoint("after")
-        .send(account, send("t1"))
-        .checkpoint("sent")
-        .run(),
-    );
+    const booted = bankStory(id)
+      .world(Fake.storage.put(ACCOUNT_WORK, forged))
+      .reload()
+      .ensure(account)
+      .checkpoint("after");
+
+    const run = checked(await booted.run());
+    const sent = checked(await booted.send(account, send("t1")).checkpoint("sent").run());
 
     return {
       reported: reports(run, 2).includes(`ObligationCarried ${ACCOUNT_WORK}`),
       heard: heard(run, 2, "transfer"),
       bytes: run.checkpoints.after.records.stored.get(ACCOUNT_WORK) === forged,
       declined: keyHeld
-        ? run.checkpoints.sent.read(account)?.memory.notice === "not sent Rejected"
+        ? sent.checkpoints.sent.read(account)?.memory.notice === "not sent Rejected"
         : true,
     };
   };
 
-  it.fails("Records reference table: a head whose rest no longer reads with its key, or whose rest holds a key field, is carried and its key declines a send; a key text that no longer reads is carried", async () => {
+  it("Records reference table: a head whose rest no longer reads with its key, or whose rest holds a key field, is carried and its key declines a send; a key text that no longer reads is carried", async () => {
     const control = await bootAccount(
       "records/reads",
       ACCOUNT_WORK,
@@ -203,21 +205,43 @@ describe("an obligation whose saved names no longer read is carried (Records ref
       });
     }
 
-    const badKey = workText({
-      "Bank/transfer": {
-        '{"transferId":1}': { displaced: [], head: head("Out", { cents: 500 }), queue: [] },
-      },
-    });
+    // A key text whose value its Schema refuses, and one the operation would never write.
+    for (const text of ['{"transferId":1}', '{"transferId": "t1"}']) {
+      const badKey = workText({
+        "Bank/transfer": {
+          [text]: { displaced: [], head: head("Out", { cents: 500 }), queue: [] },
+        },
+      });
 
-    expect(await carried("records/key-unread", badKey, false)).toEqual({
-      reported: true,
-      heard: [],
-      bytes: true,
-      declined: true,
-    });
+      expect(await carried("records/key-unread", badKey, false)).toEqual({
+        reported: true,
+        heard: [],
+        bytes: true,
+        declined: true,
+      });
+    }
   });
 
-  it.fails("Records reference table, lanes contract: a lane of a read operation is carried, never restored as a write, while the identity's write lane restores", async () => {
+  it("Records Carried: a cancel naming a carried lane's key lets it go, so the next send on that key goes ahead", async () => {
+    const forged = transferWork({ displaced: [], head: head("Out", { cents: "500" }), queue: [] });
+
+    const run = checked(
+      await bankStory("records/carried-cancelled")
+        .world(Fake.storage.put(ACCOUNT_WORK, forged))
+        .reload()
+        .ensure(account)
+        .send(account, Transfers.E.Abandon({ transferId: "t1" }))
+        .checkpoint("cancelled")
+        .send(account, send("t1"))
+        .checkpoint("sent")
+        .run(),
+    );
+
+    expect(run.checkpoints.cancelled.records.stored.get(ACCOUNT_WORK) ?? "").not.toContain('"500"');
+    expect(run.checkpoints.sent.read(account)?.memory.notice).not.toBe("not sent Rejected");
+  });
+
+  it("Records reference table, lanes contract: a lane of a read operation is carried, never restored as a write, while the identity's write lane restores", async () => {
     const SESSION_WORK = 'work/Auth/Session/{"email":"elif@kamp.us"}';
     const ELIF = '{"email":"elif@kamp.us"}';
     const save = { displaced: [], head: head("Out", { handle: "elif-kaya" }), queue: [] };
@@ -240,7 +264,13 @@ describe("an obligation whose saved names no longer read is carried (Records ref
     expect(heard(control, 2, "save")).toEqual(["SaveUnsure"]);
 
     const forged = workText({
-      "Auth/me": { [ELIF]: { displaced: [], head: head("Out", {}), queue: [] } },
+      "Auth/me": {
+        [ELIF]: {
+          displaced: [],
+          head: { ...head("Out", {}), attempt: "att-000000000000000000006d61696e3a31-2" },
+          queue: [],
+        },
+      },
       "Auth/set-username": { [ELIF]: save },
     });
 
@@ -254,7 +284,7 @@ describe("an obligation whose saved names no longer read is carried (Records ref
     ]);
   });
 
-  it.fails("Records reference table, lanes contract (Retired): a lane of a contract no machine declares is carried byte for byte beside the rows its identity still hears", async () => {
+  it("Records reference table, lanes contract (Retired): a lane of a contract no machine declares is carried byte for byte beside the rows its identity still hears", async () => {
     const opens = answeredWhileDisposing.steps.filter((s) => s._tag === "reload").length + 1;
     const ended = checked(await answeredWhileDisposing.run()).end.records.stored;
     const key = "work/Lanes/serialize/serialize-1";
@@ -352,7 +382,7 @@ describe("format 5 lane and owed records step to one work record (Records R12, F
     retryCount: 0,
   });
 
-  it.fails("Records R12, R16: a format 5 Held head with no owed row is told unknown Restored once, and the capture that writes its work record removes the legacy keys", async () => {
+  it("Records R12, R16: a format 5 Held head with no owed row is told unknown Restored once, and the capture that writes its work record removes the legacy keys", async () => {
     const run = checked(
       await bankStory("records/upgrade-5-to-6")
         .world(Fake.storage.put(LANE, laneFive))
@@ -373,7 +403,7 @@ describe("format 5 lane and owed records step to one work record (Records R12, F
     expect(keys.filter((k) => k.startsWith("lane/") || k.startsWith("owed/"))).toEqual([]);
   });
 
-  it.fails("Records R12, Format plan: an owed row that ends a format 5 head's Attempt fails the step, so both legacy keys are kept byte for byte and nothing of them is heard", async () => {
+  it("Records R12, Format plan: an owed row that ends a format 5 head's Attempt fails the step, so both legacy keys are kept byte for byte and nothing of them is heard", async () => {
     const owedFive = canonicalText({
       ...identity,
       format: 5,
@@ -439,7 +469,7 @@ describe("an install fires nothing (Records R17, I14)", () => {
 });
 
 describe("a format step reads no definition (Records I17, R12)", () => {
-  it.fails("Records I17, R12: a format 5 lane of an operation the machine lacks steps with its siblings and is carried, while the sibling lane of a known operation restores", async () => {
+  it("Records I17, R12: a format 5 lane of an operation the machine lacks steps with its siblings and is carried, while the sibling lane of a known operation restores", async () => {
     const known = canonicalText({
       attempt: ATTEMPT,
       displaced: [],

@@ -21,22 +21,42 @@ const Armed = Schema.Struct({ arming: Schema.Struct({ _tag: Schema.String }) });
 
 const ActorRecord = Schema.fromJsonString(
   Schema.Struct({
-    schedules: Schema.Record(
-      Schema.String,
-      Schema.Record(Schema.String, Schema.Union([Armed, Schema.Array(Armed)])),
-    ),
+    body: Schema.Struct({
+      schedules: Schema.Record(
+        Schema.String,
+        Schema.Record(Schema.String, Schema.Union([Armed, Schema.Array(Armed)])),
+      ),
+    }),
   }),
 );
 
 // How many of a record's timers are armed, due or held.
 const armedIn = (record: typeof ActorRecord.Type) =>
-  Object.values(record.schedules)
+  Object.values(record.body.schedules)
     .flatMap((byName) => Object.values(byName))
     .flatMap((entry) => ("arming" in entry ? [entry] : entry))
     .filter((t) => t.arming._tag === "Due" || t.arming._tag === "Held").length;
 
-const LaneRecord = Schema.fromJsonString(
-  Schema.Struct({ inFlight: Schema.Boolean, retryCount: Schema.Number }),
+// A work record's heads (Records Types HeadShape): out or Held, with the retryCount it carries.
+const WorkRecord = Schema.fromJsonString(
+  Schema.Struct({
+    body: Schema.Struct({
+      lanes: Schema.Record(
+        Schema.String,
+        Schema.Record(
+          Schema.String,
+          Schema.Record(
+            Schema.String,
+            Schema.Struct({
+              head: Schema.optionalKey(
+                Schema.Struct({ hold: Schema.String, retryCount: Schema.Number }),
+              ),
+            }),
+          ),
+        ),
+      ),
+    }),
+  }),
 );
 
 const actorRecord = (cut: Cut, key: string) =>
@@ -45,9 +65,22 @@ const actorRecord = (cut: Cut, key: string) =>
     Schema.decodeUnknownOption(ActorRecord),
   );
 
+// Each head of the store's work records, as out (in flight) or not, with its retryCount.
 const laneRecords = (cut: Cut) =>
   [...cut.records.stored].flatMap(([key, text]) =>
-    key.startsWith("lane/") ? Option.toArray(Schema.decodeUnknownOption(LaneRecord)(text)) : [],
+    key.startsWith("work/")
+      ? Option.toArray(Schema.decodeUnknownOption(WorkRecord)(text)).flatMap((r) =>
+          Object.values(r.body.lanes).flatMap((byContract) =>
+            Object.values(byContract).flatMap((byKey) =>
+              Object.values(byKey).flatMap((lane) =>
+                lane.head === undefined
+                  ? []
+                  : [{ inFlight: lane.head.hold === "Out", retryCount: lane.head.retryCount }],
+              ),
+            ),
+          ),
+        )
+      : [],
   );
 
 describe("lane records of Held heads (WriteAhead R5, I24)", () => {
@@ -246,10 +279,14 @@ const touchesAt = (cut: Cut) =>
     Option.flatMap(
       Option.fromUndefinedOr(cut.records.stored.get("actor/WriteAhead/Lamp/hall")),
       Schema.decodeUnknownOption(
-        Schema.fromJsonString(Schema.Struct({ memory: Schema.Struct({ touches: Schema.Number }) })),
+        Schema.fromJsonString(
+          Schema.Struct({
+            body: Schema.Struct({ memory: Schema.Struct({ touches: Schema.Number }) }),
+          }),
+        ),
       ),
     ),
-    (r) => r.memory.touches,
+    (r) => r.body.memory.touches,
   );
 
 describe("the default capture interval (WriteAhead R10, I12, Q3)", () => {

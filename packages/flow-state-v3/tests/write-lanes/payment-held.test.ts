@@ -62,9 +62,9 @@ describe("PAY-15 (WriteLanes R2, R5, R7, R8; Restore R3)", () => {
     expect(keys(sent)).toBe(2);
   });
 
-  it("PAY-15/reload-holds-exactly-once: a Held head is restored once", async () => {
+  it("PAY-15/reload-holds-exactly-once, Records R16: a head out at the reload is restored Held and told unknown Restored once", async () => {
     const run = await played(
-      onWire("PAY-15/reload-holds-exactly-once", Shop.confirm.drop())
+      onWire("PAY-15/reload-holds-exactly-once", Shop.confirm.hold())
         .reload()
         .checkpoint("reloaded"),
     );

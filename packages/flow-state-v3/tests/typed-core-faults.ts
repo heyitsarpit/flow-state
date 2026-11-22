@@ -60,34 +60,6 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "forget-drops-unreadable",
-    tests: ["src/core/ledger.test.ts"],
-    says: "forget drops every quarantined lane record, a record it could not read included",
-    rule: "Actors R21",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: "        Unreadable: () => [],",
-        replace:
-          '        Unreadable: () => [{ _tag: "Retired" as const, actor, record, operation: "", lane: "" as never }],',
-      },
-    ],
-  },
-  {
-    name: "restored-by-reason",
-    tests: ["src/core/ledger.test.ts"],
-    says: "Flow's restored marker is read from the reason, so a host's reason spelled Restored writes the owed record",
-    rule: "WriteLanes I15",
-    edits: [
-      {
-        file: "src/core/ledger.ts",
-        find: "  SAVED_DELIVERY[row.delivery._tag] || SAVED_ORIGIN[row.origin._tag];",
-        replace:
-          '  SAVED_DELIVERY[row.delivery._tag] || SAVED_ORIGIN[row.origin._tag] || Reflect.get(row, "reason") === "Restored";',
-      },
-    ],
-  },
-  {
     name: "owner-always-root",
     tests: ["tests/write-lanes/payment-leave-and-reload.test.ts"],
     says: "the work a state starts is owned by the root, so an ending is never late and a late turn leaves its state",

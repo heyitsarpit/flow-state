@@ -1,6 +1,8 @@
 import { Brand, Effect, Option, Result, Schema } from "effect";
 import { expect, it } from "vite-plus/test";
-import { decodeRecords, encodeLane, laneRecordKey } from "../core/record.ts";
+import { admit } from "../core/admit.ts";
+import { workKey } from "../core/persist.ts";
+import { encodeWork } from "../core/record-work.ts";
 import { attempt } from "../core/test/ids.ts";
 import { type CallId, laneId, OwnedBy, Phase } from "../core/world.ts";
 import { definition, Flow, machine, transaction } from "../index.ts";
@@ -36,6 +38,9 @@ const clientUnder = (concurrency: "serialize" | "cancel") => {
 
 const input = { repo: "flow" };
 
+// An Attempt id in the mint's form.
+const minted = (n: number) => `att-${"0".repeat(32)}-${n}`;
+
 // The endings a boot derives from one lane record that encodeLane wrote: a head on the wire with
 // commits queued behind it and the displaced Attempts owed an ending.
 const restoredFrom = (
@@ -47,7 +52,7 @@ const restoredFrom = (
     actor: { machine: compiled.id, name: "c" },
     operation: "write",
     head: {
-      id: attempt("att-2"),
+      id: attempt(minted(2)),
       input,
       retryCount: 0,
       owner: OwnedBy.Root(),
@@ -56,29 +61,46 @@ const restoredFrom = (
     queue: Array.from({ length: queued }, () => ({ input, owner: OwnedBy.Root() })),
   };
 
-  const record = Result.getOrThrow(
-    encodeLane(compiled, "write", lane.actor, Option.some(lane), displaced),
-  );
-
   const id = laneId(lane.actor, "write", '{"repo":"flow"}');
+  const machines = new Map([[compiled.id, compiled]]);
 
-  const restored = decodeRecords(
-    new Map([[compiled.id, compiled]]),
-    new Map([[laneRecordKey(id), record]]),
+  const work = Result.getOrThrow(
+    encodeWork(machines, {
+      actor: lane.actor,
+      lanes: [[id, lane]],
+      displaced: displaced.map((d) => ({
+        actor: lane.actor,
+        operation: "write",
+        lane: id,
+        head: { ...lane.head, id: attempt(d) },
+        owed: true,
+      })),
+      rows: [],
+      carried: [],
+    }),
   );
 
-  return restored.lanes.flatMap((l) =>
-    l.endings.map((e) => `${e.channel} ${e.reason} ${Option.getOrElse(e.attempt, () => "-")}`),
+  const restored = admit(
+    machines,
+    new Map([[workKey(lane.actor), Option.getOrElse(work.text, () => "")]]),
+  );
+
+  return restored.rows.flatMap(({ row, derived }) =>
+    derived ? [`${row.channel} ${row.reason} ${Option.getOrElse(row.attempt, () => "-")}`] : [],
   );
 };
 
-it("a lane record saves the displaced Attempts owed an ending, and a boot ends each unknown Restored (Restore R3; WriteLanes R10)", () => {
-  expect(restoredFrom(clientUnder("cancel"), 0, ["att-1"])).toEqual(["unknown Restored att-1"]);
+it("a work record saves the displaced Attempts owed an ending, and a boot ends each unknown Restored before the head's own (Records R16; WriteLanes R10)", () => {
+  expect(restoredFrom(clientUnder("cancel"), 0, [minted(1)])).toEqual([
+    `unknown Restored ${minted(1)}`,
+    `unknown Restored ${minted(2)}`,
+  ]);
 });
 
-it("a lane record saves its queue, and a boot ends each queued commit NotSent Restored (Restore R3; Operations O3)", () => {
+it("a work record saves a lane's queue, and a boot ends each queued commit NotSent Restored before the head's unknown (Records R16; Operations O3)", () => {
   expect(restoredFrom(clientUnder("serialize"), 2, [])).toEqual([
     "notSent Restored -",
     "notSent Restored -",
+    `unknown Restored ${minted(2)}`,
   ]);
 });

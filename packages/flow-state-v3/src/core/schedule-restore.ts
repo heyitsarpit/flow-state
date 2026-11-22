@@ -1,5 +1,5 @@
 import { readsOf, scopeOf } from "./reads.ts";
-import { Option, Predicate, Result, Schema } from "effect";
+import { Array as Arr, Option, Predicate, Result, Schema } from "effect";
 import {
   callSlot,
   Delay,
@@ -13,7 +13,7 @@ import { savedSchedule, savedTimer } from "./schedule-decision.ts";
 import { schedulesOf, seriesId } from "./schedule-plan.ts";
 import type { ScheduleSteps } from "./schedules.ts";
 import type { Machines, Tx } from "./tx.ts";
-import type { SavedSchedules, SavedTimer } from "./vocabulary.ts";
+import type { SavedSchedules, SavedTimer } from "./record-shape.ts";
 import { type Incarnation, trackOf } from "./world.ts";
 import {
   Arming,
@@ -77,10 +77,10 @@ export const savedTimerOf = (tracked: Tracked) => {
       },
     ),
     ...savedSelectionOf(tracked.selection),
-    ...Option.match(
-      Option.liftPredicate(reasons, (r) => r.length > 0),
-      { onNone: () => ({}), onSome: (r) => ({ reasons: r }) },
-    ),
+    ...Option.match(Option.liftPredicate(reasons, Arr.isReadonlyArrayNonEmpty), {
+      onNone: () => ({}),
+      onSome: (r) => ({ reasons: r }),
+    }),
     arming: savedArmingOf(tracked),
     ...Outcome.$match(tracked.firing, {
       Clean: () => ({}),

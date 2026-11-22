@@ -24,8 +24,8 @@ the lane and owed record shapes that @proposal.fragment-lifetimes and @proposal.
 
 Three symptoms, one cause. T20 hit its failure limit because `record.ts` decodes `machine`, `name`, `operation`
 and `lane` as `Schema.String` and then checks meaning by hand (`identityIn`, `keyNamesItself`, `rowOf`); each review
-found one more unchecked field (code:packages/flow-state-v3/src/core/record.ts#decodeRecords). Formats 4 and 5 each
-added fields with their own chained step (code:packages/flow-state-v3/src/core/actor-record.ts#decodeActor). A slot
+found one more unchecked field (`packages/flow-state-v3/src/core/record.ts#decodeRecords`). Formats 4 and 5 each
+added fields with their own chained step (`packages/flow-state-v3/src/core/actor-record.ts#decodeActor`). A slot
 a release adds fires once on reload because `seen` lacks it. All three come from the record being a second
 definition beside Compiled, which each Task extends and nothing compares to the release that reads it.
 

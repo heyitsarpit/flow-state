@@ -32,19 +32,6 @@ export const contextFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "baseline-saved-as-slot",
-    tests: ["tests/session/values.test.ts", "tests/actors/context.test.ts"],
-    says: "a record saves no reaction's own baseline, so a baseline a defect kept reads back as its slot's last value and a reload makes up an event",
-    rule: "Actors R18",
-    edits: [
-      {
-        file: "src/core/actor-record.ts",
-        find: "    if (!sameForm(baseline, Option.fromUndefinedOr(record.seen.get(reaction.slot))))",
-        replace: "    if (!sameForm(baseline, baseline))",
-      },
-    ],
-  },
-  {
     name: "record-forgets-provider-graph",
     tests: ["tests/session/values.test.ts"],
     says: "an actor record saves no provider graph, so a provider started again for it binds its entry's defaults",
@@ -338,19 +325,6 @@ export const contextFaults: ReadonlyArray<Fault> = [
         find: "          if (context.owes(incarnation)) tx.owe(incarnation.actor);",
         replace:
           '          if (context.owes(incarnation) && incarnation.actor.name === "") tx.owe(incarnation.actor);',
-      },
-    ],
-  },
-  {
-    name: "record-forgets-seen-context",
-    tests: ["tests/actors/context.test.ts"],
-    says: "an actor record saves no last-seen context, so a return after a reload compares against nothing it saw",
-    rule: "Actors R18",
-    edits: [
-      {
-        file: "src/core/actor-record.ts",
-        find: "      seen: Object.fromEntries([...record.seen].map(([slot, s]) => [slot, s.text])),",
-        replace: "      seen: {},",
       },
     ],
   },

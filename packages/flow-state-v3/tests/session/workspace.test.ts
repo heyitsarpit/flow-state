@@ -45,8 +45,12 @@ import { compiledOf } from "../../src/host/inspect.ts";
 // The fields read off a stored avatar record; a change to its format fails the decode.
 const AvatarRecord = Schema.fromJsonString(
   Schema.Struct({
-    memory: Schema.Struct({ seen: Schema.Number }),
-    seen: Schema.Struct({ user: Schema.NullOr(Schema.String) }),
+    body: Schema.Struct({
+      memory: Schema.Struct({ seen: Schema.Number }),
+      slots: Schema.Struct({
+        user: Schema.Struct({ seen: Schema.Struct({ value: Schema.NullOr(Schema.String) }) }),
+      }),
+    }),
   }),
 );
 
@@ -141,9 +145,9 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     const saved = run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar");
     const record = Schema.decodeUnknownSync(AvatarRecord)(saved ?? "");
 
-    expect(record.memory).toEqual({ seen: 2 });
+    expect(record.body.memory).toEqual({ seen: 2 });
     // The slot's Schema, UndefinedOr(String), writes undefined as null.
-    expect(record.seen).toEqual({ user: null });
+    expect(record.body.slots.user.seen).toEqual({ value: null });
     expect(run.checkpoints.reloaded.read(mainAvatar)?.memory.seen).toBe(2);
     expect(Object.entries(run.checkpoints.reloaded.read(mainAvatar)?.context ?? {})).toEqual([
       ["user", undefined],

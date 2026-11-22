@@ -14,7 +14,9 @@ import { checked } from "../rules/rules.ts";
 // The fields of a standing order's record these tests read (Codec R5).
 const OrderRecord = Schema.fromJsonString(
   Schema.Struct({
-    memory: Schema.Struct({ cents: Schema.Number, pausedUntil: Schema.NullOr(Schema.Unknown) }),
+    body: Schema.Struct({
+      memory: Schema.Struct({ cents: Schema.Number, pausedUntil: Schema.NullOr(Schema.Unknown) }),
+    }),
   }),
 );
 
@@ -25,7 +27,7 @@ const rentAt = (cut: Cut) =>
         ([key]) => key.startsWith("actor/Bank/StandingOrder/") && key.includes("rent"),
       ),
     ),
-    ([, text]) => Schema.decodeUnknownOption(OrderRecord)(text),
+    ([, text]) => Option.map(Schema.decodeUnknownOption(OrderRecord)(text), (r) => r.body),
   );
 
 // The batches issued after `from` up to `to`.

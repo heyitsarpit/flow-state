@@ -1,6 +1,6 @@
 import { makeFreezer } from "./frozen.ts";
 import assert from "node:assert/strict";
-import { Effect, Option, Result, Schema } from "effect";
+import { Brand, Effect, Option, Result, Schema } from "effect";
 import { describe, it } from "vite-plus/test";
 import { transaction } from "../contract.ts";
 import { definition } from "../definition.ts";
@@ -12,12 +12,16 @@ import {
   type Heard,
   keptOn,
   makeLedger,
+  Origin,
   type Owed,
+  type OwedId,
   Route,
   rowsOf,
 } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
-import { decodeRecords, encodeOwed, owedRecordKey } from "./record.ts";
+import { admit } from "./admit.ts";
+import { workKey } from "./persist.ts";
+import { encodeWork } from "./record-work.ts";
 import type { Channel } from "./vocabulary.ts";
 import { makeTx } from "./tx.ts";
 import { Life } from "./life.ts";
@@ -26,19 +30,49 @@ import { Input } from "./input.ts";
 import { step } from "./step.ts";
 import {
   actorKey,
-  type AttemptId,
   byCodeUnits,
   emptyWorld,
-  type LaneId,
   Mail,
   OwnedBy,
+  Place,
   Quarantine,
   type World,
 } from "./world.ts";
 import { compiledOf } from "../compiled-of.ts";
 
-const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
-  Result.getOrThrow(encodeOwed(...args)).text;
+// An identity's work record holding the given rows, as the encoder writes it.
+const workOf = (
+  actor: { readonly machine: string; readonly name: string },
+  rows: ReadonlyArray<{
+    readonly channel: Channel;
+    readonly reason: string;
+    readonly value: unknown;
+  }>,
+) =>
+  Option.getOrElse(
+    Result.getOrThrow(
+      encodeWork(payMachines, {
+        actor,
+        lanes: [],
+        displaced: [],
+        rows: rows.map((r, n) => ({
+          ...r,
+          id: Brand.nominal<OwedId>()(`owed-${n}`),
+          origin: Origin.Decided(),
+          actor,
+          to: Audience.Identity(),
+          operation: "pay",
+          attempt: Option.none(),
+          lane: Option.none(),
+          route: Route.Current(),
+          delivery: Delivery.Waiting(),
+          input: Option.some({ cents: 1 }),
+        })),
+        carried: [],
+      }),
+    ).text,
+    () => "",
+  );
 
 const actor = { machine: "Test/Ledger", name: "a" };
 
@@ -85,6 +119,7 @@ const ending = (lane: Option.Option<string>, to: Audience = Audience.Identity())
   actor,
   to,
   operation: "ring",
+  input: Option.some({}),
   attempt: Option.some(attemptOf("att-1")),
   lane: Option.map(lane, laneOf),
   channel: "unknown" as const,
@@ -147,21 +182,15 @@ describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", (
     const actor = { machine: "Shop/Pay", name: "s1" };
 
     const row = (channel: Channel) => ({
-      operation: "pay",
-      lane: Option.none<LaneId>(),
-      attempt: Option.none<AttemptId>(),
       channel,
       reason: "Cancelled",
-      value: null,
-      kept: false,
+      value: { why: "Cancelled" },
     });
 
-    const stored = new Map([
-      [`owed/${actorKey(actor)}`, encodeOwedText(actor, [row("notSent"), row("unknown")])],
-    ]);
+    const stored = new Map([[workKey(actor), workOf(actor, [row("notSent"), row("unknown")])]]);
 
     assert.deepEqual(
-      decodeRecords(payMachines, stored).rows.map((r) => r.channel),
+      admit(payMachines, stored).rows.map((r) => r.row.channel),
       ["notSent", "unknown"],
     );
   });
@@ -171,24 +200,16 @@ describe("a boot reads records in key order (Restore R3: the boot sorts by recor
   it("records written in any order decode in record-key order", () => {
     const record = (name: string) =>
       [
-        `owed/Shop/Pay/${name}`,
-        encodeOwedText({ machine: "Shop/Pay", name }, [
-          {
-            operation: "pay",
-            lane: Option.none(),
-            attempt: Option.none(),
-            channel: "unknown",
-            reason: "Restored",
-            value: null,
-            kept: false,
-          },
+        `work/Shop/Pay/${name}`,
+        workOf({ machine: "Shop/Pay", name }, [
+          { channel: "unknown", reason: "Restored", value: undefined },
         ]),
       ] as const;
 
     const stored = new Map([record("b"), record("a")]);
 
     assert.deepEqual(
-      decodeRecords(payMachines, stored).rows.map((r) => r.actor.name),
+      admit(payMachines, stored).rows.map((r) => r.row.actor.name),
       ["a", "b"],
     );
   });
@@ -341,7 +362,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   it("start: Waiting rows queue and Kept rows take their one try, adopted current from the root (Turn R20)", () => {
     const s = stepOver(emptyWorld(true));
     s.ledger.owe(ending(Option.some("L")));
-    s.ledger.restore([{ ...ending(Option.some("M")), kept: true }]);
+    s.ledger.restore([{ row: { ...ending(Option.some("M")), kept: true }, derived: false }]);
 
     for (const incarnation of live(s.tx.world()).incarnations.values())
       s.tx.putIncarnation(incarnation);
@@ -382,7 +403,7 @@ describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
 
     makeLedger(tx, makePersistence(tx)).owe({ ...ending(Option.none()), reason });
 
-    return tx.world().marked.has(owedRecordKey(actorKey(actor)));
+    return tx.world().marked.has(workKey(actor));
   };
 
   it("control: a host unknown Lost, queued, marks no owed record", () => {
@@ -396,21 +417,29 @@ describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
   });
 });
 
-describe("forget drops retired holds only (Actors R21)", () => {
-  it("forget drops its identity's retired lane record and keeps one it could not read", () => {
+describe("forget lets carried parts go (Actors R21; Records Carried)", () => {
+  it("forget lets go of its identity's carried parts and of its records kept unread (Records operations, forget)", () => {
     const shopper = { machine: "Shop/Pay", name: "s1" };
-    const retired = `lane/${actorKey(shopper)}|gone|{}`;
-    const garbled = `lane/${actorKey(shopper)}|pay|{}`;
+    const garbled = `work/${actorKey(shopper)}`;
 
     const world = {
       ...emptyWorld(true),
       life: Life.Open(),
-      quarantined: new Map<string, Quarantine>([
+      carried: new Map([
         [
-          retired,
-          Quarantine.Retired({ actor: shopper, operation: "gone", lane: laneOf(retired.slice(5)) }),
+          actorKey(shopper),
+          [
+            {
+              place: Place.Contract({ subject: "", contract: "Shop/gone" }),
+              json: {},
+              why: "Retired" as const,
+              held: Option.none(),
+            },
+          ],
         ],
-        [garbled, Quarantine.Unreadable({ code: "input", detail: Option.none() })],
+      ]),
+      quarantined: new Map<string, Quarantine>([
+        [garbled, Quarantine.Kept({ why: "Structure", detail: "schema" })],
       ]),
     };
 
@@ -421,7 +450,8 @@ describe("forget drops retired holds only (Actors R21)", () => {
       step: () => Option.none(),
     });
 
-    assert.deepStrictEqual([...out.world.quarantined.keys()], [garbled]);
-    assert.deepStrictEqual(out.evidence.filter((e) => e._tag === "HoldForgotten").length, 1);
+    assert.deepStrictEqual([...out.world.quarantined.keys()], []);
+    assert.deepStrictEqual([...out.world.carried.keys()], []);
+    assert.deepStrictEqual(out.evidence.filter((e) => e._tag === "HoldForgotten").length, 2);
   });
 });

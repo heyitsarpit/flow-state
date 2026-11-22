@@ -167,15 +167,15 @@ describe("unsettledWrites (Actors R20, R26)", () => {
 
 describe("the boot report of unbound lanes (Runtime O6; Actors R20)", () => {
   it("Actors R20: a held transfer whose account was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
-    await unboundAtEachBoot(unsureAccountRemoved, "lane/Bank/Transfers/acct-1|transfer|");
+    await unboundAtEachBoot(unsureAccountRemoved, "work/Bank/Transfers/acct-1");
   });
 
   it("Actors R20: an unsure payment whose checkout was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
-    await unboundAtEachBoot(unsurePayRemoved, "lane/Checkout/Pay/");
+    await unboundAtEachBoot(unsurePayRemoved, "work/Checkout/Pay/");
   });
 
   it("Actors R20: an unsure handle save whose session was removed is reported UnboundLane at each boot until adopted, and not after", async () => {
-    await unboundAtEachBoot(unsureSaveRemoved, "lane/Auth/Session/");
+    await unboundAtEachBoot(unsureSaveRemoved, "work/Auth/Session/");
   });
 });
 

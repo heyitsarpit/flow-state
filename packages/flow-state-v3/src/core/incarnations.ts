@@ -11,19 +11,17 @@ import { makeScheduleRestore } from "./schedule-restore.ts";
 import { Act } from "./evidence-of.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { LedgerSteps } from "./ledger.ts";
-import { actorRecordKey, decodeRecords, laneRecordKey } from "./record.ts";
+import { admit } from "./admit.ts";
+import { positionKey, workKey } from "./persist.ts";
+import { ownerText, parseKey, RecordKey } from "./record-key.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { isInFlight, type Tx } from "./tx.ts";
 import {
   type ActorId,
   actorKey,
-  type ActorKey,
   type ActorRecord,
-  type LaneId,
   Mail,
-  Quarantine,
-  quarantineText,
-  sameActor,
+  Place,
   byStart,
   type Use,
   type Wiring,
@@ -114,21 +112,6 @@ export const makeIncarnations = (
     if (returned) apply(live(actor), Change.Use({ returned }));
   };
 
-  // A record the boot could not read is never restored: the identity starts fresh, reported, and
-  // its first save overwrites the record.
-  const startsFresh = (key: ActorKey) => {
-    const quarantined = tx.world().quarantined.get(actorRecordKey(key));
-
-    if (quarantined !== undefined)
-      tx.act(
-        Act.Reported({
-          code: "RecordUndecodable",
-          record: Option.some(actorRecordKey(key)),
-          reason: quarantineText(quarantined),
-        }),
-      );
-  };
-
   const ensure = (
     actor: ActorId,
     use: Option.Option<Use>,
@@ -142,8 +125,6 @@ export const makeIncarnations = (
 
       if (Option.isSome(record) || mode === "create") {
         const compiled = tx.machines.get(actor.machine);
-
-        if (Option.isNone(record)) startsFresh(key);
 
         start(
           actor,
@@ -211,26 +192,67 @@ export const makeIncarnations = (
     tx.dropUses(actor);
     removeActor(actor);
 
-    if (tx.world().quarantined.has(actorRecordKey(key)))
-      tx.drop("quarantined", actorRecordKey(key));
+    if (tx.world().quarantined.has(positionKey(actor))) tx.drop("quarantined", positionKey(actor));
 
-    if (forgetting) forgetRetired(actor);
+    if (forgetting) forgetUnread(actor);
   };
 
-  // A held lane whose operation this release no longer has never decoded; forget drops its record.
-  const forgetRetired = (actor: ActorId) => {
-    const retired = [...tx.world().quarantined].flatMap(([record, reason]) =>
-      Quarantine.$match(reason, {
-        Unreadable: () => [],
-        Retired: (r) => (sameActor(r.actor, actor) ? [{ record, ...r }] : []),
-      }),
+  // What an earlier build left that this one could not read: carried parts and records kept
+  // unread. Forget lets each go; the identity's next work write removes the kept records.
+  const forgetUnread = (actor: ActorId) => {
+    const carried = tx.world().carried.get(actorKey(actor)) ?? [];
+
+    const kept = [...tx.world().quarantined.keys()].flatMap((record) =>
+      Option.toArray(
+        Option.filter(
+          parseKey(record),
+          (key) => ownerText(key.owner) === actorKey(actor) && record !== positionKey(actor),
+        ),
+      ).map((key) => ({ record, key })),
     );
 
-    for (const { record, operation, lane } of retired) {
-      tx.drop("quarantined", record);
-      persistence.saveLane(actor, lane);
-      tx.act(Act.HoldForgotten({ actor, operation, record }));
-    }
+    if (carried.length === 0 && kept.length === 0) return;
+
+    for (const { record } of kept) tx.drop("quarantined", record);
+    tx.drop("carried", actorKey(actor));
+    tx.put("legacy", actorKey(actor), [
+      ...(tx.world().legacy.get(actorKey(actor)) ?? []),
+      ...kept.map((k) => k.record).filter((record) => record !== workKey(actor)),
+    ]);
+    persistence.saveWork(actor);
+
+    for (const part of carried)
+      tx.act(
+        Act.HoldForgotten({
+          actor,
+          operation: Option.match(part.held, {
+            onNone: () =>
+              Place.$match(part.place, {
+                Subject: ({ subject }) => subject,
+                Contract: ({ contract }) => contract,
+                Lane: ({ contract }) => contract,
+                Displaced: ({ contract }) => contract,
+                Row: () => "",
+              }),
+            onSome: (h) => h.operation,
+          }),
+          record: workKey(actor),
+        }),
+      );
+
+    for (const { record, key } of kept)
+      tx.act(
+        Act.HoldForgotten({
+          actor,
+          operation: RecordKey.$match(key, {
+            Actor: () => "",
+            Work: () => "",
+            Lane: ({ operation }) => operation,
+            Owed: () => "",
+          }),
+          record,
+        }),
+      );
   };
 
   /**
@@ -261,7 +283,7 @@ export const makeIncarnations = (
       Act.SendTargetAbsent({
         actor,
         event: event.tag,
-        reason: tx.world().quarantined.has(actorRecordKey(key)) ? "RecordUndecodable" : "NoRecord",
+        reason: tx.world().quarantined.has(positionKey(actor)) ? "RecordUndecodable" : "NoRecord",
         sender,
       }),
     );
@@ -288,73 +310,36 @@ export const makeIncarnations = (
     }
   };
 
+  /**
+   * Installs what the boot admitted from the store: positions, lanes, rows, carried parts and the
+   * records it did not read, each map replaced once; the keys whose saved form changed marked for
+   * the next capture; each record's report; and a wake for each identity owed an ending whose
+   * position was restored. It calls no user code and fires no event: the start of each identity it
+   * wakes delivers what it is owed.
+   */
   const boot = (stored: ReadonlyMap<string, string>) => {
-    const restored = decodeRecords(tx.machines, stored);
+    const admitted = admit(tx.machines, stored);
 
-    tx.replace("records", new Map(restored.records.map((r) => [actorKey(r.actor), r])));
+    tx.replace("records", new Map(admitted.records.map((r) => [actorKey(r.actor), r])));
 
-    for (const { id, lane } of restored.lanes)
-      for (const l of Option.toArray(lane)) tx.putLane(id, l);
-    tx.replace("quarantined", new Map(restored.quarantined.map((q) => [q.key, q.reason])));
-    ledger.restore(restored.rows);
+    for (const [id, lane] of admitted.lanes) tx.putLane(id, lane);
+    tx.replace("quarantined", new Map(admitted.quarantined));
+    tx.replace("carried", new Map(admitted.carried));
+    tx.replace("legacy", new Map(admitted.legacy));
+    ledger.restore(admitted.rows);
 
-    // A lane or owed record the boot could not read is reported at each boot while it stays.
-    for (const q of restored.quarantined)
-      if (!Option.contains(q.kind, "actor/"))
-        tx.act(
-          Act.Reported({
-            code: "RecordUndecodable",
-            record: Option.some(q.key),
-            reason: quarantineText(q.reason),
-          }),
-        );
+    for (const [key, mark] of admitted.dirty) persistence.mark(key, mark);
 
-    // A lane's saved queue and displaced heads end at the boot, in lane-id order after the saved
-    // rows; the lane's record is rewritten without them in the same batch as the rows.
-    for (const { id, actor, endings } of restored.lanes)
-      if (endings.length > 0) {
-        ledger.restore(endings);
-
-        for (const ending of endings) tx.act(Act.Ended({ actor, ending }));
-        persistence.saveOwed(actor);
-        persistence.saveLane(actor, id);
-      }
-
-    // A boot owes, parks and delivers nothing: the start of each identity it wakes does. Only an
-    // identity owed an ending (a lane in flight at capture, a saved row, or a row the boot just
-    // derived) and holding an actor record that decodes is live at ready; a Held lane stays a
-    // record, and a disposed identity's rows wait for the incarnation an adopting ensure starts.
-    const owing = new Map([
-      ...restored.lanes
-        .filter((l) => l.inFlight || l.endings.length > 0)
-        .map(({ actor }) => [actorKey(actor), actor] as const),
-      ...restored.rows.map((r) => [actorKey(r.actor), r.actor] as const),
-    ]);
-
-    for (const actor of owing.values()) ensure(actor, Option.none(), "wake", Option.none());
-    reportUnbound(restored.lanes);
-  };
-
-  // A lane no actor holds is reported at each boot, until an adopting ensure or its owner's cancel
-  // ends it.
-  const reportUnbound = (
-    lanes: ReadonlyArray<{ readonly id: LaneId; readonly actor: ActorId }>,
-  ) => {
-    const unbound = lanes.filter(
-      ({ id, actor }) =>
-        tx.world().lanes.has(id) &&
-        incarnationOf(actor) === undefined &&
-        !tx.world().records.has(actorKey(actor)),
-    );
-
-    for (const { id } of unbound)
+    for (const report of admitted.reports)
       tx.act(
         Act.Reported({
-          code: "UnboundLane",
-          record: Option.some(laneRecordKey(id)),
-          reason: "no actor record holds it",
+          code: report.code,
+          record: Option.some(report.record),
+          reason: report.reason,
         }),
       );
+
+    for (const actor of admitted.owing) ensure(actor, Option.none(), "wake", Option.none());
   };
 
   return {

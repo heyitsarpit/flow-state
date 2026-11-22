@@ -145,15 +145,6 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     '  isNew &&\n  (Option.isSome(pass.schedule.keys) || pass.schedule.onEntry || Occasion.$is("Wake")(pass.occasion));',
   ),
   fault(
-    "format-four-drops-deadlines",
-    "Turn R17",
-    [RESTORE],
-    "the step from record format 4 drops its deadlines",
-    "src/core/actor-record.ts",
-    "          ...four.schedules.map((d) => ({",
-    "          ...four.schedules.filter(() => false).map((d) => ({",
-  ),
-  fault(
     "disarm-on-ignored",
     "Turn R14",
     [HOME, WIZARD],
@@ -225,15 +216,6 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "src/core/schedules.ts",
     "        if (Result.isFailure(step)) return Next.Over();",
     "        if (Result.isFailure(step)) return Next.Done();",
-  ),
-  fault(
-    "format-four-restarts-ended",
-    "Turn R17",
-    [RESTORE],
-    "the step from record format 4 saves no idle marker, so a warning that already fired fires again",
-    "src/core/actor-record.ts",
-    "          .map((s) => ({ name: s.name })),",
-    "          .map((s) => ({ name: s.name }))\n          .filter(() => false),",
   ),
   fault(
     "check-issue-never-cleared",
@@ -309,15 +291,6 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
-  fault(
-    "timer-shapes-loose",
-    "Codec I7",
-    ["tests/rules/rules.test.ts"],
-    "the record rule accepts a timer with fields of two shapes, so a timer both running and held passes",
-    "tests/rules/records.ts",
-    " && hasExactTimers(json),",
-    ",",
-  ),
   fault(
     "idle-forgets-reasons",
     "Turn R19",

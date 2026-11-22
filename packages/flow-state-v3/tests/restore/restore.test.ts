@@ -47,28 +47,35 @@ const heard = (run: StoryRun, open: number, operation: string) =>
 const batchesIn = (run: StoryRun, open: number) =>
   run.end.records.batches.filter((b) => b.tab.open === open);
 
-// A transfer whose answer is lost, so its lane is Held, and the key of that lane's record.
+// A transfer whose answer is lost, so its lane is Held, and the key of that identity's work record.
 const heldTransfer = bankStory("restore/held-transfer")
   .ensure(account)
   .world(Bank.transfer.drop({ at: "response" }))
   .send(account, send("t1"))
   .checkpoint("held");
 
-const heldLane = async () => {
-  const { held } = checked(await heldTransfer.run()).checkpoints;
-  const [entry] = [...held.records.stored].filter(([key]) => key.startsWith("lane/"));
+// A transfer still on the wire at the reload: its head is saved Out.
+const outTransfer = bankStory("restore/out-transfer")
+  .ensure(account)
+  .world(Bank.transfer.hold())
+  .send(account, send("t1"))
+  .checkpoint("held");
 
-  if (entry === undefined) throw new Error("the held transfer left no lane record");
+const heldWork = async () => {
+  const { held } = checked(await heldTransfer.run()).checkpoints;
+  const [entry] = [...held.records.stored].filter(([key]) => key.startsWith("work/"));
+
+  if (entry === undefined) throw new Error("the held transfer left no work record");
 
   return { key: entry[0], text: entry[1] };
 };
 
 describe("an identity owed a row the boot derives is live at ready (Restore R1, I1)", () => {
-  it("Restore R1, R3: a Held head's queued commit is heard NotSent Restored at the boot with no ensure, then the head's unknown Restored", async () => {
+  it("Restore R1, Records R16: an out head's queued commit is heard NotSent Restored at the boot with no ensure, then the head's unknown Restored", async () => {
     const run = checked(
       await lanesStory("restore/held-head-queue")
         .ensure(serializeClient)
-        .world(Git.sync.drop())
+        .world(Git.sync.hold())
         .send(serializeClient, Serialize.E.Commit({ repo: "flow" }))
         .send(serializeClient, Serialize.E.Commit({ repo: "flow" }))
         .reload({ reattach: false })
@@ -95,12 +102,12 @@ describe("displaced Attempts still on the wire at a reload (WriteAhead I17; Writ
   });
 });
 
-describe("a Held head across several reloads (Restore R3)", () => {
-  // Open, owned by the saved format's lanes and rows: a delivered unknown Restored is closed and
-  // leaves the owed record, while its lane stays Held, so every later start owes it again.
-  it.fails("Restore R3: a Held head's unknown Restored is heard once, not again at each later start", async () => {
+describe("a head across several reloads (Records R16, T5)", () => {
+  // A head out at the first reload is told unknown Restored once; the capture saves it Held with
+  // nothing owed, so no later start tells it again.
+  it("Records R16, T5: a head out at a reload hears its unknown Restored once, not again at each later start", async () => {
     const run = checked(
-      await heldTransfer.reload().advance("1 second").reload().advance("1 second").run(),
+      await outTransfer.reload().advance("1 second").reload().advance("1 second").run(),
     );
 
     const restored = [2, 3].flatMap((open) =>
@@ -112,11 +119,11 @@ describe("a Held head across several reloads (Restore R3)", () => {
 });
 
 describe("delivery order at restore (Restore R3, I5)", () => {
-  it("Restore I5: Held heads are heard in lane-id order, whatever order they were sent in", async () => {
+  it("Restore I5, Records rule order: heads out at the reload are heard in lane-id order, whatever order they were sent in", async () => {
     const run = checked(
       await bankStory("restore/lane-order")
         .ensure(account)
-        .world(Bank.transfer.drop({ at: "response" }), Bank.transfer.drop({ at: "response" }))
+        .world(Bank.transfer.hold(), Bank.transfer.hold())
         .send(account, send("t2"))
         .send(account, send("t1"))
         .reload()
@@ -140,48 +147,60 @@ describe("delivery order at restore (Restore R3, I5)", () => {
   });
 });
 
-describe("record formats (Restore R5, I10, I13)", () => {
+describe("record formats (Records Stage 1, Fates)", () => {
   for (const [what, format] of [
-    ["newer", "7"],
     ["null", "null"],
     ["fractional", "1.5"],
     ["a string", '"1"'],
   ] as const)
-    it(`Restore R5: a lane record whose format is ${what} is quarantined, its key still holds, and a cancel clears it`, async () => {
-      const lane = await heldLane();
-      const text = lane.text.replace('"format":6', `"format":${format}`);
+    it(`Records Stage 1 row 3, Fates Kept(Structure): a work record whose format is ${what} is kept byte for byte and reported, the position still restores, and a send on the identity is refused`, async () => {
+      const work = await heldWork();
+      const text = work.text.replace('"format":6', `"format":${format}`);
 
       const run = checked(
         await heldTransfer
-          .world(Fake.storage.put(lane.key, text))
+          .world(Fake.storage.put(work.key, text))
           .reload()
           .checkpoint("reloaded")
-          .send(account, send("t1"))
+          .send(account, send("t2"))
           .checkpoint("declined")
-          .send(account, Transfers.E.Abandon({ transferId: "t1" }))
-          .checkpoint("cleared")
-          .reload()
-          .checkpoint("again")
           .run(),
       );
 
-      const { reloaded, declined, cleared } = run.checkpoints;
+      const { reloaded, declined } = run.checkpoints;
 
-      // The record stays as it was, and another record of the scope still restores.
-      expect(reloaded.records.stored.get(lane.key)).toBe(text);
+      expect(reloaded.records.stored.get(work.key)).toBe(text);
       expect(reloaded.read(account)?.lifecycle).toBe("active");
-      expect(reports(run, 2)).toEqual([`RecordUndecodable ${lane.key}`]);
-      expect(declined.read(account)?.memory).toEqual({ notice: "not sent Rejected" });
-      expect(cleared.records.stored.has(lane.key)).toBe(false);
-      expect(reports(run, 3)).toEqual([]);
+      expect(reports(run, 2)).toEqual([`RecordUndecodable ${work.key}`]);
+      expect(declined.read(account)?.memory).toEqual({ notice: "not sent StorageRefused" });
+      expect(declined.records.stored.get(work.key)).toBe(text);
     });
 
-  it("Restore R5: a record of the current format restores as written", async () => {
-    const lane = await heldLane();
+  it("Records Stage 1 row 4: a work record of a newer format keeps its whole identity unread, its position too", async () => {
+    const work = await heldWork();
+    const text = work.text.replace('"format":6', '"format":7');
 
     const run = checked(
       await heldTransfer
-        .world(Fake.storage.put(lane.key, lane.text))
+        .world(Fake.storage.put(work.key, text))
+        .reload()
+        .checkpoint("reloaded")
+        .run(),
+    );
+
+    expect(run.checkpoints.reloaded.records.stored.get(work.key)).toBe(text);
+    expect(reports(run, 2)).toEqual([
+      "RecordUndecodable actor/Bank/Transfers/acct-1",
+      `RecordUndecodable ${work.key}`,
+    ]);
+  });
+
+  it("Records I1: a record of the current format restores as written", async () => {
+    const work = await heldWork();
+
+    const run = checked(
+      await heldTransfer
+        .world(Fake.storage.put(work.key, work.text))
         .reload()
         .checkpoint("reloaded")
         .run(),
@@ -193,19 +212,19 @@ describe("record formats (Restore R5, I10, I13)", () => {
     ]);
   });
 
-  it("Codec R3: a record whose text is not canonical is quarantined, never coerced", async () => {
-    const lane = await heldLane();
-    const spaced = lane.text.replace('"format":6', '"format": 6');
+  it("Records Stage 1 row 2: a record whose text is not canonical is kept, never coerced", async () => {
+    const work = await heldWork();
+    const spaced = work.text.replace('"format":6', '"format": 6');
 
     const run = checked(
       await heldTransfer
-        .world(Fake.storage.put(lane.key, spaced))
+        .world(Fake.storage.put(work.key, spaced))
         .reload()
         .checkpoint("reloaded")
         .run(),
     );
 
-    expect(reports(run, 2)).toEqual([`RecordUndecodable ${lane.key}`]);
+    expect(reports(run, 2)).toEqual([`RecordUndecodable ${work.key}`]);
     expect(run.checkpoints.reloaded.inspection.lanes).toEqual([]);
   });
 });
@@ -230,13 +249,13 @@ describe("an undecodable actor record (Restore R5, I11)", () => {
     expect(quarantined.read(account)?.lifecycle).toBe("quarantined");
     expect(quarantined.read(account)?.issues.map((i) => i.code)).toEqual(["RecordUndecodable"]);
     expect(quarantined.records.stored.get(actorKey)).toBe(broken);
-    // Its lane is unbound at the boot: the record does not decode and no actor runs (Actors R20).
+    // Its lane is unbound at the boot: the position resets and no actor runs (Actors R20).
     expect(reports(run, 2)).toEqual([
-      `UnboundLane lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}`,
       `RecordUndecodable ${actorKey}`,
+      "UnboundLane work/Bank/Transfers/acct-1",
     ]);
-    // The adopted lane's Held head is heard at the fresh start.
-    expect(heard(run, 2, "transfer")).toEqual(["Unsure"]);
+    // The adopted lane's Held head already told its unknown, so it owes nothing (Records R16).
+    expect(heard(run, 2, "transfer")).toEqual([]);
     expect(fresh.read(account)?.lifecycle).toBe("active");
     expect(fresh.records.stored.get(actorKey)).not.toBe(broken);
   });
@@ -248,10 +267,9 @@ describe("records under a name that does not decode (Restore R5, I10, I11; Codec
     const { booted, restored } = run.checkpoints;
     const { lane, actor, owed } = unreadableNames;
 
-    // A quarantined actor record is reported when an ensure starts its identity fresh, and no ref
-    // names this one.
+    // Each record the boot does not read is reported once, by its key.
     expect(reports(run, 2).toSorted()).toEqual(
-      [lane, owed].map((key) => `RecordUndecodable ${key}`).toSorted(),
+      [actor, lane, owed].map((key) => `RecordUndecodable ${key}`).toSorted(),
     );
     expect(booted.inspection.actors).toEqual([]);
     expect(booted.inspection.lanes).toEqual([]);
@@ -270,7 +288,9 @@ describe("records under names no ref gives (Restore R5; WriteAhead I3)", () => {
     const { booted, restored } = run.checkpoints;
 
     expect(reports(run, 2).toSorted()).toEqual(
-      oddNames.owed.map(({ key }) => `RecordUndecodable ${key}`).toSorted(),
+      [...oddNames.owed.map(({ key }) => key), oddNames.actor]
+        .map((key) => `RecordUndecodable ${key}`)
+        .toSorted(),
     );
     expect(booted.inspection.actors).toEqual([]);
     expect(booted.records.stored.get(oddNames.actor)).toBe(oddNames.actorText);
@@ -280,15 +300,27 @@ describe("records under names no ref gives (Restore R5; WriteAhead I3)", () => {
   });
 });
 
-describe("records whose key and content disagree (Restore R5; Codec R5)", () => {
-  it("Restore R5: a record whose content names another identity than its key, or whose key does not round-trip, or of another kind than its prefix, is quarantined; the identity it names restores its own record and hears no ending it never made", async () => {
+describe("records whose key and content disagree (Records R4, Stage 1, I17)", () => {
+  // A format 5 owed row of an operation the machine lacks steps definition-free and is carried in
+  // its identity's work record (Records I17, Carried); every other forged record is kept unread.
+  const GONE = 'owed/Shop/Cart/{"owner":"gone-op"}';
+
+  it("Records R4: a record whose content names another identity than its key, or whose key does not round-trip, or of another kind than its prefix, is kept unread and reported; the identity it names restores its own record and hears no ending it never made", async () => {
     const run = checked(await borrowedRecordsReload.run());
     const { booted, restored } = run.checkpoints;
 
+    const kept = [
+      ...borrowedRecords.owed,
+      ...borrowedRecords.lanes,
+      ...borrowedRecords.actors,
+      ...borrowedRecords.other,
+    ].filter(({ key }) => key !== GONE);
+
     expect(reports(run, 2).toSorted()).toEqual(
-      [...borrowedRecords.owed, ...borrowedRecords.lanes, ...borrowedRecords.other]
-        .map(({ key }) => `RecordUndecodable ${key}`)
-        .toSorted(),
+      [
+        ...kept.map(({ key }) => `RecordUndecodable ${key}`),
+        'ObligationCarried work/Shop/Cart/{"owner":"gone-op"}',
+      ].toSorted(),
     );
     expect(booted.inspection.actors).toEqual([]);
     expect(restored.read(mainCart)?.memory.lines).toEqual({
@@ -299,13 +331,7 @@ describe("records whose key and content disagree (Restore R5; Codec R5)", () => 
     expect(restored.inspection.owed).toEqual([]);
     expect(restored.inspection.lanes).toEqual([]);
 
-    for (const { key, text } of [
-      ...borrowedRecords.owed,
-      ...borrowedRecords.lanes,
-      ...borrowedRecords.actors,
-      ...borrowedRecords.other,
-    ])
-      expect(restored.records.stored.get(key)).toBe(text);
+    for (const { key, text } of kept) expect(restored.records.stored.get(key)).toBe(text);
   });
 });
 
@@ -313,7 +339,7 @@ describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () =>
   // Open: a record's context bindings are read without the identity check its own name gets, so a
   // binding to a local actor starts one from the store. A slot whose provider does not read is
   // dropped alone and reported; the rest of the record restores (Records R7, reference table).
-  it.fails("Records R4, I9, reference table (slots): a slot bound to a local actor is dropped and reported by its name, the boot wakes the cart it owes without starting a local actor, and the next ensure binds the slot to the ref's shopper", async () => {
+  it("Records R4, I9, reference table (slots): a slot bound to a local actor is dropped and reported by its name, the boot wakes the cart it owes without starting a local actor, and the next ensure binds the slot to the ref's shopper", async () => {
     const key = 'actor/Shop/Cart/{"owner":"main"}';
 
     const bound =
@@ -348,7 +374,12 @@ describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () =>
       ),
     ).toBe(true);
     expect(restored.read(mainCart)?.context.shopper).toBe("ada");
-    expect(restored.read(mainCart)?.memory.lines).toEqual({ l9: { quantity: 1, variantId: "v1" } });
+    // The saved line restores; the add out at the reload is told unknown Restored, and the cart's
+    // handler retries it, which lands l1.
+    expect(restored.read(mainCart)?.memory.lines).toEqual({
+      l9: { quantity: 1, variantId: "v1" },
+      l1: { quantity: 1, variantId: "v1" },
+    });
   });
 });
 

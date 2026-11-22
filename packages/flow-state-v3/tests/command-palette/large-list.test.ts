@@ -8,11 +8,13 @@ import { checked } from "../rules/rules.ts";
 const RECORD = "actor/Palette/Palette/palette-1";
 
 const Saved = Schema.fromJsonString(
-  Schema.Struct({ memory: Schema.Struct({ commands: Schema.Array(Schema.Unknown) }) }),
+  Schema.Struct({
+    body: Schema.Struct({ memory: Schema.Struct({ commands: Schema.Array(Schema.Unknown) }) }),
+  }),
 );
 
 const savedCommands = (cut: Cut) =>
-  Schema.decodeUnknownSync(Saved)(cut.records.stored.get(RECORD)).memory.commands.length;
+  Schema.decodeUnknownSync(Saved)(cut.records.stored.get(RECORD)).body.memory.commands.length;
 
 describe("a palette with a long list (Actors R8; WriteAhead R4; Codec R1)", () => {
   it("WriteAhead R4, Codec R1: 10,000 commands are saved whole and a reload brings them back; nothing is reported", async () => {

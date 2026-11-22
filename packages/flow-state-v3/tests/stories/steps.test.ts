@@ -187,7 +187,7 @@ describe("Story step words", () => {
     expect(held.read(Bank).receipts).toEqual({});
     expect(held.read(account)?.memory).toEqual({ notice: "" });
     expect(held.records.batches.every((b) => b.status === "landed")).toBe(true);
-    expect([...held.records.stored.keys()].some((k) => k.startsWith("lane/"))).toBe(true);
+    expect([...held.records.stored.keys()].some((k) => k.startsWith("work/"))).toBe(true);
 
     expect(done.read(Bank.transfer).map((c) => c.status)).toEqual(["answered"]);
     expect(Object.values(done.read(Bank).receipts)).toEqual(["r1"]);

@@ -18,7 +18,7 @@ story transfers/lost-then-reload
   17 main:1 task work#4 alarm started
   18 main:1 task work#3 wake Done
   19 main:1 task work#5 store started
-  20 main:1 write acknowledge [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}] acknowledges [att-000000000000000000006d61696e3a31-1] landed
+  20 main:1 write acknowledge [actor/Bank/Transfers/acct-1, work/Bank/Transfers/acct-1] acknowledges [att-000000000000000000006d61696e3a31-1] landed
   21 main:1 task work#5 store Done
   22 main:1 sent transfer att-000000000000000000006d61696e3a31-1
   23 main:1 task work#6 call/call-000000000000000000006d61696e3a31-5 started
@@ -30,18 +30,20 @@ story transfers/lost-then-reload
   29 main:1 step 5 reload
   30 main:2 task work#0 load silent started
   31 main:2 task work#0 load silent Interrupted
-  32 main:2 incarnated Bank/Transfers/acct-1
-  33 main:2 ended transfer att-000000000000000000006d61696e3a31-1 unknown Restored for Bank/Transfers/acct-1
-  34 main:2 published Bank/Transfers/acct-1 READY {"notice":""}
-  35 main:2 delivered transfer att-000000000000000000006d61696e3a31-1 as Unsure to Bank/Transfers/acct-1
-  36 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
-  37 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
-  38 main:2 task work#1 wake started
-  39 main:2 task work#2 alarm started
-  40 main:2 task work#1 wake Done
-  41 main:2 task work#3 store started
-  42 main:2 write flush [actor/Bank/Transfers/acct-1, lane/Bank/Transfers/acct-1|transfer|{"transferId":"t1"}, owed/Bank/Transfers/acct-1] landed
-  43 main:2 task work#3 store Done
-  44 main:2 task work#4 alarm started
-  45 main:2 task work#2 alarm Interrupted
-  46 main:2 step 6 checkpoint reloaded
+  32 main:2 ended transfer att-000000000000000000006d61696e3a31-1 unknown Restored for Bank/Transfers/acct-1
+  33 main:2 parked transfer att-000000000000000000006d61696e3a31-1
+  34 main:2 incarnated Bank/Transfers/acct-1
+  35 main:2 unparked transfer att-000000000000000000006d61696e3a31-1
+  36 main:2 published Bank/Transfers/acct-1 READY {"notice":""}
+  37 main:2 delivered transfer att-000000000000000000006d61696e3a31-1 as Unsure to Bank/Transfers/acct-1
+  38 main:2 turn Bank/Transfers/acct-1 Unsure READY -> READY parts [on.Unsure[0] root -> self]
+  39 main:2 published Bank/Transfers/acct-1 READY {"notice":"check your statement"}
+  40 main:2 task work#1 wake started
+  41 main:2 task work#2 alarm started
+  42 main:2 task work#1 wake Done
+  43 main:2 task work#3 store started
+  44 main:2 write flush [actor/Bank/Transfers/acct-1, work/Bank/Transfers/acct-1] landed
+  45 main:2 task work#3 store Done
+  46 main:2 task work#4 alarm started
+  47 main:2 task work#2 alarm Interrupted
+  48 main:2 step 6 checkpoint reloaded

@@ -28,6 +28,7 @@ const row: Owed = {
   value: undefined,
   route: Route.Current(),
   delivery: Delivery.Queued(),
+  input: Option.some({}),
 };
 
 // Each pair is a control that must compile and the wrong shape beside it, which must not.
@@ -61,15 +62,15 @@ const typed = () => [
 ];
 
 const quarantines = () => [
-  // Actors R21: a record the boot could not read names its reason from the catalogue; a retired
-  // hold names its operation, so forget never reads a reason's text.
-  Quarantine.Unreadable({ code: "operation", detail: Option.none() }),
-  Quarantine.Retired({ actor, operation: "save", lane: laneId(actor, "save", "{}") }),
-  // @ts-expect-error Actors R21: a misspelt reason is no read failure
-  Quarantine.Unreadable({ code: "operaton", detail: Option.none() }),
+  // Records Fates: a record the boot did not read names why from the fate table, so nothing reads
+  // a reason's text.
+  Quarantine.Reset({ why: "State", detail: "state GONE" }),
+  Quarantine.Kept({ why: "Structure", detail: "schema" }),
+  // @ts-expect-error Records Fates: a misspelt fate is no reason
+  Quarantine.Kept({ why: "Structur", detail: "schema" }),
 
   // WriteLanes I15: Flow's restored marker is the row's origin, never its reason.
-  { ...row, origin: Origin.HeldAtStart() } satisfies Owed,
+  { ...row, origin: Origin.ReadBack() } satisfies Owed,
   // @ts-expect-error WriteLanes I15: the reason text is no origin
   { ...row, origin: "Restored" } satisfies Owed,
 ];

@@ -11,17 +11,19 @@ import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel, Decline } from "./vocabulary.ts";
 import {
   type ActorId,
+  actorKey,
   type CallId,
+  type CarriedPart,
   Command,
   type Incarnation,
   laneId,
   type LaneId,
   OwnedBy,
   Phase,
+  Quarantine,
 } from "./world.ts";
-import type { Persistence } from "./persist.ts";
+import { type Persistence, workKey } from "./persist.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
-import { laneRecordKey } from "./record.ts";
 
 // A commit's cue by its operation's concurrency policy.
 const commitCue = {
@@ -134,11 +136,12 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   // A commit declined before its lane's table: no Attempt, no lane, one owed row.
-  const decline = (actor: ActorId, operation: string, why: Decline) =>
+  const decline = (actor: ActorId, operation: string, why: Decline, input: Values) =>
     void ledger.owe({
       actor,
       to: Audience.Identity(),
       operation,
+      input: Option.some(input),
       attempt: Option.none(),
       lane: Option.none(),
       channel: "notSent",
@@ -146,6 +149,15 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       value: { why },
       route: Route.Current(),
     });
+
+  const carriedOf = (actor: ActorId) => tx.world().carried.get(actorKey(actor)) ?? [];
+
+  const holds = (part: CarriedPart, operation: string, text: string) =>
+    Option.exists(part.held, (h) => h.operation === operation && h.keyText === text);
+
+  // Whether a carried part holds an identity's lane key.
+  const carriedOn = (actor: ActorId, operation: string, text: string) =>
+    carriedOf(actor).some((part) => holds(part, operation, text));
 
   const commit = (
     incarnation: Incarnation,
@@ -172,7 +184,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     // An input or key with no encoded form, or a persisted identity in a Runtime without
     // persistence, declines before the lane's table: nothing is sent or saved.
     if (Option.isNone(text) || !encodes) {
-      decline(incarnation.actor, operation.name, "Unencodable");
+      decline(incarnation.actor, operation.name, "Unencodable", input);
 
       return member;
     }
@@ -183,16 +195,28 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       !tx.world().persistence &&
       !incarnation.actor.name.startsWith(LOCAL_PREFIX)
     ) {
-      decline(incarnation.actor, operation.name, "NoPersistence");
+      decline(incarnation.actor, operation.name, "NoPersistence", input);
 
       return member;
     }
 
     const id = laneId(incarnation.actor, operation.name, text.value);
 
-    // A lane record the boot could not read still holds its key until a cancel clears it.
-    if (tx.world().quarantined.has(laneRecordKey(id))) {
-      decline(incarnation.actor, operation.name, "Rejected");
+    // A work record the boot kept unread cannot be written, so nothing new is acknowledged on it.
+    if (
+      Option.exists(
+        Option.fromUndefinedOr(tx.world().quarantined.get(workKey(incarnation.actor))),
+        Quarantine.$is("Kept"),
+      )
+    ) {
+      decline(incarnation.actor, operation.name, "StorageRefused", input);
+
+      return member;
+    }
+
+    // A carried lane, which the boot could not read, still holds its key until a cancel clears it.
+    if (carriedOn(incarnation.actor, operation.name, text.value)) {
+      decline(incarnation.actor, operation.name, "Rejected", input);
 
       return member;
     }
@@ -201,7 +225,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     // cancel policy the newer commit wins, so the lane's Kept rows are let go instead.
     if (keptOn(tx.world().owed, incarnation.actor, id)) {
       if (policyOf(operation) !== "cancel") {
-        decline(incarnation.actor, operation.name, "Rejected");
+        decline(incarnation.actor, operation.name, "Rejected", input);
 
         return member;
       }
@@ -251,14 +275,21 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         const at = atFor(incarnation, operation, key, own);
         const target = targetOf(key, at);
 
-        // A cancel on an Idle lane lets its Kept rows go, and clears a quarantined lane record on
-        // its key: the step removes the record.
+        // A cancel on an Idle lane lets its Kept rows go, and lets go of a carried lane on its
+        // key: the step writes the work record without it.
         for (const a of Option.toArray(at))
           if (!tx.world().lanes.has(a.id)) {
             ledger.letGoKept(incarnation.actor, a.id);
 
-            if (tx.world().quarantined.has(laneRecordKey(a.id)))
-              persistence.saveLane(incarnation.actor, a.id);
+            for (const text of Option.toArray(keyTextOf(operation, a.key)))
+              if (carriedOn(incarnation.actor, operation.name, text)) {
+                tx.put(
+                  "carried",
+                  actorKey(incarnation.actor),
+                  carriedOf(incarnation.actor).filter((c) => !holds(c, operation.name, text)),
+                );
+                persistence.saveWork(incarnation.actor);
+              }
           }
 
         applyNamed(operation, incarnation.actor, at, Cue.Cancel());

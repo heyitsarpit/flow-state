@@ -2,104 +2,8 @@ import { Option, Predicate, Result, Schema } from "effect";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import type { Rule } from "./rules.ts";
 
-// Formats 1 and 2 are read through their steps, so a store may still hold them until the record is
-// written again.
-const Actor = {
-  format: Schema.Literals([1, 2, 3, 4, 5, 6]),
-  machine: Schema.String,
-  name: Schema.String,
-};
-
-// Each kind's fields as WriteAhead R4 and R5 list them, and the timer shapes R4 gives: running,
-// held, or idle; format 4's running timers carried their send instead.
-const TimerHead = {
-  name: Schema.String,
-  key: Schema.optionalKey(Schema.Record(Schema.String, Schema.Json)),
-};
-
-const Timer = Schema.Union([
-  Schema.Struct({
-    ...TimerHead,
-    armedAt: Schema.Number,
-    attempt: Schema.Number,
-    dueAt: Schema.Number,
-  }),
-  Schema.Struct({
-    ...TimerHead,
-    armedAt: Schema.Number,
-    attempt: Schema.Number,
-    left: Schema.Number,
-    pausedBy: Schema.Array(Schema.String),
-  }),
-  Schema.Struct({ name: Schema.String, dueAt: Schema.Number, send: Schema.String }),
-  Schema.Struct(TimerHead),
-  // An idle timer keeps the pause reasons it last read true (Turn R19).
-  Schema.Struct({ ...TimerHead, pausedBy: Schema.NonEmptyArray(Schema.String) }),
-]);
-
-// Format 6's timer, as Records R12 spells `TimerShape`: an absent field is a clean outcome; its
-// arming is exactly one of idle, refused, due or held (Schedules R14, SavedForm).
+// Format 6's timer failure, as `Schedules` saves it.
 const Failed = Schema.Struct({ code: Schema.String, slot: Schema.String });
-
-const TimerSix = Schema.Struct({
-  key: Schema.optionalKey(Schema.Record(Schema.String, Schema.Json)),
-  selection: Schema.optionalKey(Schema.String),
-  selectionFailed: Schema.optionalKey(Failed),
-  reasons: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)),
-  arming: Schema.Union([
-    Schema.Struct({ _tag: Schema.Literal("Idle") }),
-    Schema.Struct({ _tag: Schema.Literal("Refused"), code: Schema.String, slot: Schema.String }),
-    Schema.Struct({
-      _tag: Schema.Literal("Due"),
-      armedAt: Schema.Number,
-      attempt: Schema.Number,
-      dueAt: Schema.Number,
-    }),
-    Schema.Struct({
-      _tag: Schema.Literal("Held"),
-      armedAt: Schema.Number,
-      attempt: Schema.Number,
-      left: Schema.Number,
-    }),
-  ]),
-  firing: Schema.optionalKey(Failed),
-});
-
-// Format 6's schedules: by state path, then name, a keyed schedule's timers as a list.
-const SchedulesSix = Schema.Record(
-  Schema.String,
-  Schema.Record(Schema.String, Schema.Union([TimerSix, Schema.Array(TimerSix)])),
-);
-
-const KINDS = {
-  "actor/": Schema.Struct({
-    ...Actor,
-    state: Schema.String,
-    memory: Schema.Json,
-    schedules: Schema.Union([Schema.Array(Timer), SchedulesSix]),
-  }),
-  "lane/": Schema.Struct({
-    ...Actor,
-    operation: Schema.String,
-    attempt: Schema.NullOr(Schema.String),
-    retryCount: Schema.Number,
-    inFlight: Schema.Boolean,
-  }),
-  "owed/": Schema.Struct({
-    ...Actor,
-    rows: Schema.Array(
-      Schema.Struct({
-        operation: Schema.String,
-        attempt: Schema.NullOr(Schema.String),
-        lane: Schema.NullOr(Schema.String),
-        channel: Schema.Literals(["success", "failure", "notSent", "unknown"]),
-        reason: Schema.String,
-        value: Schema.Json,
-        kept: Schema.Boolean,
-      }),
-    ),
-  }),
-} as const;
 
 const JsonText = Schema.fromJsonString(Schema.Json);
 
@@ -177,86 +81,6 @@ export const canonicalText = (root: Schema.Json) => {
   for (let step = stack.pop(); step !== undefined; step = stack.pop()) step();
 
   return out.join("");
-};
-
-const HasMayHaveApplied = Schema.Struct({ mayHaveApplied: Schema.Json });
-
-const kindOf = (key: string) =>
-  (["actor/", "lane/", "owed/"] as const).find((k) => key.startsWith(k));
-
-type Flaw = "not JSON" | "not canonical text" | "does not decode" | "has mayHaveApplied";
-
-const FLAW_TEXT: Record<Flaw, string> = {
-  "not JSON": "is not JSON",
-  "not canonical text": "is not canonical text",
-  "does not decode": "does not decode by its kind's Schema with its format",
-  "has mayHaveApplied": "has a mayHaveApplied field",
-};
-
-// A timer is exactly one of its shapes: a field of another shape, such as `left` beside `dueAt`,
-// makes it none.
-const hasExactTimers = (json: Schema.Json) =>
-  Predicate.hasProperty(json, "schedules") &&
-  Predicate.hasProperty(json, "format") &&
-  Option.isSome(
-    Schema.decodeUnknownOption(json.format === 6 ? SchedulesSix : Schema.Array(Timer))(
-      json.schedules,
-      { onExcessProperty: "error" },
-    ),
-  );
-
-const IS_KIND = {
-  "actor/": (json: Schema.Json) => Schema.is(KINDS["actor/"])(json) && hasExactTimers(json),
-  "lane/": Schema.is(KINDS["lane/"]),
-  "owed/": Schema.is(KINDS["owed/"]),
-} as const;
-
-const isMayHaveApplied = Schema.is(HasMayHaveApplied);
-
-// RETURN_TYPE: the flaws a judgement lists, so the not-JSON branch is typed as a Flaw list.
-const flawsOf = (kind: keyof typeof KINDS, text: string) =>
-  Option.match(Schema.decodeUnknownOption(JsonText)(text), {
-    onNone: () => ["not JSON" as const],
-    onSome: (json) => {
-      const found: Array<Flaw> = [];
-
-      if (canonicalText(json) !== text) found.push("not canonical text");
-
-      if (!IS_KIND[kind](json)) found.push("does not decode");
-
-      if (kind === "lane/" && isMayHaveApplied(json)) found.push("has mayHaveApplied");
-
-      return found;
-    },
-  });
-
-const flawsByText = (() => {
-  const byKey = new Map<string, Map<string, ReadonlyArray<Flaw>>>();
-
-  return (key: string, kind: keyof typeof KINDS, text: string) => {
-    const byText = byKey.get(key) ?? new Map<string, ReadonlyArray<Flaw>>();
-    byKey.set(key, byText);
-
-    const known = byText.get(text);
-
-    if (known !== undefined) return known;
-
-    const flaws = flawsOf(kind, text);
-    byText.set(text, flaws);
-
-    return flaws;
-  };
-})();
-
-const breachOf = (key: string, text: string, at: string) => {
-  const kind = kindOf(key);
-
-  if (kind === undefined)
-    return [`Codec I7: at ${at}, ${key} is not an actor, lane or owed record`];
-
-  const flaws = flawsByText(key, kind, text);
-
-  return flaws.map((flaw) => `Codec I7: at ${at}, ${key} ${FLAW_TEXT[flaw]}`);
 };
 
 // Format 6 as its writer emits it (Records `Types`): strict structs in normal form, each count a
@@ -346,15 +170,29 @@ const Lane = Schema.Union([
   }),
 ]);
 
-const Row = Schema.Struct({
-  subject: Schema.String,
-  contract: Schema.String,
-  keyText: Schema.String,
-  attempt: Schema.optionalKey(AttemptText),
-  rest: Schema.Json,
-  ending: Schema.Json,
-  kept: Schema.Boolean,
-});
+// A row holds its key and rest, but a decline whose input had no encoded form, which holds
+// neither.
+const Row = Schema.Union([
+  Schema.Struct({
+    subject: Schema.String,
+    contract: Schema.String,
+    keyText: Schema.String,
+    attempt: Schema.optionalKey(AttemptText),
+    rest: Schema.Json,
+    ending: Schema.Json,
+    kept: Schema.Boolean,
+  }),
+  Schema.Struct({
+    subject: Schema.String,
+    contract: Schema.String,
+    ending: Schema.Struct({
+      channel: Schema.Literal("notSent"),
+      reason: Schema.Literal("Unencodable"),
+      value: Schema.optionalKey(Schema.Json),
+    }),
+    kept: Schema.Boolean,
+  }),
+]);
 
 const NonEmptyMap = <S extends Schema.Top>(value: S) =>
   Schema.Record(Schema.String, value).check(
@@ -382,7 +220,9 @@ const attemptsOf = (work: typeof Work.Type) => [
       ),
     ),
   ),
-  ...work.rows.flatMap((r) => (r.attempt === undefined ? [] : [r.attempt])),
+  ...work.rows.flatMap((r) =>
+    "attempt" in r ? Option.toArray(Option.fromUndefinedOr(r.attempt)) : [],
+  ),
 ];
 
 /**
@@ -424,17 +264,47 @@ export const putBy = (run: StoryRun) =>
     ),
   );
 
-const breachesAt = (cut: Cut, at: string, put: ReadonlySet<string>) =>
-  [...cut.records.stored].flatMap(([key, text]) =>
-    put.has(`${key}\n${text}`) ? [] : breachOf(key, text, at),
+// A text's judgement, kept by key and text: a store holds the same text at many cuts.
+const writtenByText = (() => {
+  const known = new Map<string, boolean>();
+
+  return (key: string, text: string) => {
+    const at = `${key}\n${text}`;
+    const was = known.get(at);
+
+    if (was !== undefined) return was;
+
+    const judged = writtenForm(key, text);
+    known.set(at, judged);
+
+    return judged;
+  };
+})();
+
+// The identity part of a key: after its kind, and for a format 5 lane key before its first `|`.
+const ownerOf = (key: string) => {
+  const rest = key.slice(key.indexOf("/") + 1);
+
+  return key.startsWith("lane/") ? rest.slice(0, rest.indexOf("|")) : rest;
+};
+
+// A record of an identity whose records the Story put itself carries what it put byte for byte
+// (Records, Carried), so only the records of other identities are judged.
+const breachesAt = (cut: Cut, at: string, put: ReadonlySet<string>) => {
+  const owners = new Set([...put].map((entry) => ownerOf(entry.slice(0, entry.indexOf("\n")))));
+
+  return [...cut.records.stored].flatMap(([key, text]) =>
+    owners.has(ownerOf(key)) || writtenByText(key, text)
+      ? []
+      : [`Records I2, R11: at ${at}, ${key} is not in the form format 6's writer emits`],
   );
+};
 
 /**
- * WriteAhead I21, with Codec R4: only an actor record that cannot encode withholds its identity, so
- * a lane record is always written. Any UnencodableValue naming a lane record is a breach, whatever
- * its reason; one naming an owed record is a breach when it withholds (its reason starts
- * `withheld:`), since a value that cannot be saved is saved as null and only reported. Either way
- * that identity's sends would wait for ever.
+ * WriteAhead I21, with Codec R4: only a position that cannot encode withholds its identity, so a
+ * work record is always written. An UnencodableValue naming a work record is a breach when it
+ * withholds (its reason starts `withheld:`), since a value that cannot be saved is saved as unknown
+ * Restored and only reported; that identity's sends would wait for ever.
  */
 export const onlyActorsWithheld: Rule = {
   rule: "WriteAhead I21",
@@ -442,11 +312,7 @@ export const onlyActorsWithheld: Rule = {
     run.evidence.flatMap((e) =>
       e._tag === "Reported" &&
       e.code === "UnencodableValue" &&
-      Option.exists(
-        e.record,
-        (key) =>
-          key.startsWith("lane/") || (key.startsWith("owed/") && e.reason.startsWith("withheld:")),
-      )
+      Option.exists(e.record, (key) => key.startsWith("work/") && e.reason.startsWith("withheld:"))
         ? [
             `WriteAhead I21: ${Option.getOrElse(e.record, () => "")} withheld its identity: ${e.reason}`,
           ]
@@ -455,13 +321,12 @@ export const onlyActorsWithheld: Rule = {
 };
 
 /**
- * Codec I7, at every cut: every key the Runtime wrote is `actor/`, `lane/` or `owed/`, its text is
- * canonical (sorted keys, no whitespace) and decodes by its kind's Schema with the current
- * `format`, no lane record has `mayHaveApplied`, and every owed row has a channel. Canonical text
- * that decodes is its own round trip. A record the Story put in the store itself is not judged.
+ * Records I2 and R11, at every cut: every key the Runtime wrote is an actor or work record in the
+ * form format 6's writer emits (`writtenForm`). The records of an identity the Story put records
+ * for itself are not judged.
  */
 export const recordKinds: Rule = {
-  rule: "Codec I7",
+  rule: "Records I2",
   breaches: (run: StoryRun<string>) => {
     const put = putBy(run);
 

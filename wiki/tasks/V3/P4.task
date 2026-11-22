@@ -492,15 +492,15 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
-            **Supersedes:** code:packages/flow-state-v3/src/core/record-format.ts#FORMAT,
-            code:packages/flow-state-v3/src/core/record-format.ts#Format;
+            **Supersedes:** code:packages/flow-state-v3/src/core/record-shape.ts#FORMAT,
+            code:packages/flow-state-v3/src/core/record-shape.ts#FormatOf;
             code:packages/flow-state-v3/src/core/actor-record.ts#stepFour;
             code:packages/flow-state-v3/src/core/world.ts#Quarantine;
             code:packages/flow-state-v3/src/host/driver.ts#Quarantine;
             code:packages/flow-state-v3/src/core/persist.ts#capture,
             code:packages/flow-state-v3/src/core/persist.ts#byIdentity,
             code:packages/flow-state-v3/src/core/persist.ts#withhold;
-            code:packages/flow-state-v3/src/core/vocabulary.ts#SavedTimer,
+            code:packages/flow-state-v3/src/core/record-shape.ts#SavedTimer,
             code:packages/flow-state-v3/src/core/vocabulary.ts#ReadFailure. Do not delete it before its replacement
             lands and the suite passes.
 
@@ -1423,27 +1423,24 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
-            **Supersedes:** code:packages/flow-state-v3/src/core/record.ts#decodeRecords,
-            code:packages/flow-state-v3/src/core/record.ts#identityIn,
-            code:packages/flow-state-v3/src/core/record.ts#rowOf,
-            code:packages/flow-state-v3/src/core/record.ts#rowsRecord,
-            code:packages/flow-state-v3/src/core/record.ts#laneRecord,
-            code:packages/flow-state-v3/src/core/record.ts#keyNamesItself,
-            code:packages/flow-state-v3/src/core/record.ts#encodeLane,
-            code:packages/flow-state-v3/src/core/record.ts#encodeOwed,
-            code:packages/flow-state-v3/src/core/record.ts#rowJson;
-            code:packages/flow-state-v3/src/core/record-format.ts#ActorJson,
-            code:packages/flow-state-v3/src/core/record-format.ts#actorOf;
-            code:packages/flow-state-v3/src/core/actor-record.ts#encodeActor,
-            code:packages/flow-state-v3/src/core/actor-record.ts#decodeActor;
-            code:packages/flow-state-v3/src/core/world.ts#actorKey,
-            code:packages/flow-state-v3/src/core/world.ts#laneId,
-            code:packages/flow-state-v3/src/core/world.ts#restoredLaneId,
-            code:packages/flow-state-v3/src/core/world.ts#restoredAttemptId;
-            code:packages/flow-state-v3/src/core/incarnations.ts#boot,
-            code:packages/flow-state-v3/src/core/incarnations.ts#reportUnbound;
-            code:packages/flow-state-v3/src/core/persist.ts#laneWrite,
-            code:packages/flow-state-v3/src/core/persist.ts#owedWrite,
+            **Supersedes:** `packages/flow-state-v3/src/core/record.ts#decodeRecords`,
+            `packages/flow-state-v3/src/core/record.ts#identityIn`, `packages/flow-state-v3/src/core/record.ts#rowOf`,
+            `packages/flow-state-v3/src/core/record.ts#rowsRecord`,
+            `packages/flow-state-v3/src/core/record.ts#laneRecord`,
+            `packages/flow-state-v3/src/core/record.ts#keyNamesItself`,
+            `packages/flow-state-v3/src/core/record.ts#encodeLane`,
+            `packages/flow-state-v3/src/core/record.ts#encodeOwed`, `packages/flow-state-v3/src/core/record.ts#rowJson`;
+            `packages/flow-state-v3/src/core/record-format.ts#ActorJson`,
+            `packages/flow-state-v3/src/core/record-format.ts#actorOf`;
+            `packages/flow-state-v3/src/core/actor-record.ts#encodeActor`,
+            `packages/flow-state-v3/src/core/actor-record.ts#decodeActor`;
+            `packages/flow-state-v3/src/core/world.ts#actorKey`, `packages/flow-state-v3/src/core/world.ts#laneId`,
+            `packages/flow-state-v3/src/core/world.ts#restoredLaneId`,
+            `packages/flow-state-v3/src/core/world.ts#restoredAttemptId`;
+            `packages/flow-state-v3/src/core/incarnations.ts#boot`,
+            `packages/flow-state-v3/src/core/incarnations.ts#reportUnbound`;
+            `packages/flow-state-v3/src/core/persist.ts#laneWrite`,
+            `packages/flow-state-v3/src/core/persist.ts#owedWrite`,
             code:packages/flow-state-v3/src/core/persist.ts#actorWrite,
             code:packages/flow-state-v3/src/core/persist.ts#liveText; the boot's writes (`saveOwed`, `saveLane`,
             `incarnations.ts:446-456`). Do not delete it before its replacement lands and the suite passes.
@@ -1863,7 +1860,7 @@ tasks
               tests on the R16 control, and record-shapes.test.ts on missing work paths; confirm each stated assertion
               bites once R16 and the layout land.
             - record.ts holds seven `no-id-text` lines, not six; all go with the one key parser.
-            - Store writers the inventory missed: code:packages/flow-state-v3/src/core/incarnations.ts#forgetRetired
+            - Store writers the inventory missed: code:packages/flow-state-v3/src/core/incarnations.ts#forgetUnread
               (saveLane) and code:packages/flow-state-v3/src/host/close.ts#makeForget. Key builders to supersede:
               record.ts#owedRecordKey, #actorRecordKey, #laneRecordKey, and their importers snapshot.ts,
               lanes.ts, ids.test-d.ts.
@@ -4939,7 +4936,7 @@ tasks
             code:packages/flow-state-v3/src/core/incarnations.ts#start,
             `packages/flow-state-v3/src/core/incarnations.ts#setIncarnation`,
             `packages/flow-state-v3/src/core/incarnations.ts#publish`,
-            code:packages/flow-state-v3/src/core/incarnations.ts#retire,
+            code:packages/flow-state-v3/src/core/incarnations.ts,
             code:packages/flow-state-v3/src/core/incarnations.ts#end,
             code:packages/flow-state-v3/src/core/incarnations.ts#dispose,
             code:packages/flow-state-v3/src/core/incarnations.ts#graces,

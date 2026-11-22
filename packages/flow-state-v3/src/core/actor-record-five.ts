@@ -1,5 +1,5 @@
-import { Option, Result, Schema } from "effect";
-import type { SavedTimer } from "./vocabulary.ts";
+import { Array as Arr, Option, Result, Schema } from "effect";
+import type { SavedTimer } from "./record-shape.ts";
 
 // The schedule part of an actor record's step from format 5: one list of saved timers by name,
 // read as format 6's timers.
@@ -45,10 +45,10 @@ export const timerFromFive = (timer: typeof SavedTimerFive.Type): SavedTimer => 
 
   return {
     ...Option.match(key, { onNone: () => ({}), onSome: (k) => ({ key: k }) }),
-    ...Option.match(Option.fromUndefinedOr(timer.pausedBy), {
-      onNone: () => ({}),
-      onSome: (reasons) => ({ reasons }),
-    }),
+    ...Option.match(
+      Option.filter(Option.fromUndefinedOr(timer.pausedBy), Arr.isReadonlyArrayNonEmpty),
+      { onNone: () => ({}), onSome: (reasons) => ({ reasons }) },
+    ),
     arming,
   };
 };

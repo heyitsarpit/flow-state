@@ -215,7 +215,7 @@ State and mail:
 - `packages/flow-state-v3/src/core/incarnations.ts#setIncarnation`,
   `packages/flow-state-v3/src/core/incarnations.ts#publish`
   delete: row C2 and row C6.
-- code:packages/flow-state-v3/src/core/incarnations.ts#retire, code:packages/flow-state-v3/src/core/incarnations.ts#end,
+- code:packages/flow-state-v3/src/core/incarnations.ts, code:packages/flow-state-v3/src/core/incarnations.ts#end,
   code:packages/flow-state-v3/src/core/incarnations.ts#dispose
   change: `apply(End)`; `schedules.stopAll` is row C5's drop.
 - code:packages/flow-state-v3/src/core/incarnations.ts#graces

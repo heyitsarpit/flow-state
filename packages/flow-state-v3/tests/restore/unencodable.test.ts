@@ -121,9 +121,11 @@ const savedCount = (run: StoryRun<string>, checkpoint: string) => {
     ? undefined
     : Schema.decodeUnknownSync(
         Schema.fromJsonString(
-          Schema.Struct({ memory: Schema.Struct({ notes: Schema.Array(Schema.String) }) }),
+          Schema.Struct({
+            body: Schema.Struct({ memory: Schema.Struct({ notes: Schema.Array(Schema.String) }) }),
+          }),
         ),
-      )(text).memory.notes.length;
+      )(text).body.memory.notes.length;
 };
 
 describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1, R4)", () => {
@@ -142,7 +144,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
     );
 
     expect(reported(run)).toEqual([
-      "UnencodableValue withheld: loneSurrogate at $.memory.notes[0]",
+      "UnencodableValue withheld: loneSurrogate at $.body.memory.notes[0]",
     ]);
     expect(savedCount(run, "good")).toBe(5000);
     expect(savedCount(run, "withheld")).toBe(5000);
@@ -316,7 +318,7 @@ describe("an actor record that cannot encode (Actors R8; WriteAhead R4; Codec R1
       );
 
       expect(
-        [...run.checkpoints.held.records.stored.keys()].some((k) => k.startsWith("lane/")),
+        [...run.checkpoints.held.records.stored.keys()].some((k) => k.startsWith("work/")),
       ).toBe(true);
       expect(
         run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : [])),

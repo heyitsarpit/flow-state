@@ -79,6 +79,9 @@ describe("transfers", () => {
     const last = run.evidence.findLastIndex((e) => e._tag === "Turn");
 
     expect(run.evidence[last]).toEqual(expect.objectContaining({ event: "Unsure", from: "READY" }));
-    expect(run.evidence.slice(last + 1).filter((e) => e._tag === "Published")).toHaveLength(1);
+    // The reload's start publishes its Begin; the turn itself publishes once.
+    expect(
+      run.evidence.slice(last + 1).filter((e) => e._tag === "Published" && e.why === "Turn"),
+    ).toHaveLength(1);
   });
 });

@@ -14,12 +14,17 @@ const reports = (run: StoryRun, open: number) =>
       : [],
   );
 
-describe("an owed record the boot cannot read (Restore R5, I10)", () => {
-  it("Restore R5: it is reported RecordUndecodable at each boot and its bytes stay while nothing is owed", async () => {
+describe("an owed record the boot cannot read (Records Stage 1 row 4)", () => {
+  it("Records Stage 1 row 4: a newer owed record keeps its whole identity unread, reported at each boot, and its bytes stay", async () => {
     const run = checked(await unreadOwed.run());
 
-    expect(reports(run, 2)).toEqual([`RecordUndecodable ${checkoutOwed}`]);
-    expect(reports(run, 3)).toEqual([`RecordUndecodable ${checkoutOwed}`]);
+    const kept = [
+      "RecordUndecodable actor/Checkout/Pay/checkout-1",
+      `RecordUndecodable ${checkoutOwed}`,
+    ];
+
+    expect(reports(run, 2)).toEqual(kept);
+    expect(reports(run, 3)).toEqual(kept);
     expect(run.checkpoints["second boot"].records.stored.get(checkoutOwed)).toContain('"format":7');
   });
 });

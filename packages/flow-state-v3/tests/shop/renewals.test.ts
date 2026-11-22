@@ -62,12 +62,12 @@ describe("the weekly subscription renews through its Pay (Actors R16; Runtime O4
     expect(renewals(run)).toEqual(["CardChosen", "PayRequested", "PayRequested"]);
   });
 
-  it("Actors R16 restored and delivered last, I14: the restored Pay hears its held charge's unknown Restored before the sends", async () => {
+  it("Actors R16 restored and delivered last, I14; Records R16: the restored Pay hears the sends after its held charge's one unknown, which the reload does not tell again", async () => {
     const run = await played(renewalUnsurePay);
     const unsure = turnsOf(run, Pay.E.PayUnsure, { actor: renewalPay });
     const chosen = turnsOf(run, Pay.E.CardChosen, { actor: renewalPay });
 
-    expect(unsure).toHaveLength(2);
+    expect(unsure).toHaveLength(1);
     expect(chosen.length).toBeGreaterThan(0);
 
     const at = (e: (typeof unsure)[number]) => run.evidence.indexOf(e);

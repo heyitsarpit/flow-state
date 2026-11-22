@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { type Cue, cell, LaneState, Move, type NotSentWhy } from "./cells.ts";
+import { Cue, cell, LaneState, Move, type NotSentWhy } from "./cells.ts";
 import { type Operation, operationOf as lookup, type Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import { Act } from "./evidence-of.ts";
@@ -12,6 +12,7 @@ import {
   type AttemptId,
   Command,
   type Displaced,
+  type Head,
   type Lane,
   type LaneId,
   type OwnedBy,
@@ -50,15 +51,16 @@ export type At = {
  */
 export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
   const { persisted } = tx;
-  const { saveActor, saveAwaited, saveLane, setLane, sendLane, dropLane } = persistence;
+  const { saveActor, saveAwaited, saveWork, setLane, sendLane, dropLane } = persistence;
 
   const open = () => Life.$is("Open")(tx.world().life);
 
-  const oweOf = (at: At, attempt: Option.Option<AttemptId>) => ({
+  const oweOf = (at: At, attempt: Option.Option<AttemptId>, input: Values) => ({
     actor: at.actor,
     to: Audience.Identity(),
     operation: at.operation,
     attempt,
+    input: Option.some(input),
   });
 
   // Where an ending of work an activation owns is routed from: that activation while the Runtime
@@ -112,9 +114,9 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   };
 
   // A never-sent Attempt's NotSent keeps its lane: when Kept, it blocks that key.
-  const notSent = (at: At, why: NotSentWhy, attempt: AttemptId) =>
+  const notSent = (at: At, why: NotSentWhy, head: Head) =>
     void ledger.owe({
-      ...oweOf(at, Option.some(attempt)),
+      ...oweOf(at, Option.some(head.id), head.input),
       lane: Option.some(at.id),
       channel: "notSent",
       reason: why,
@@ -160,7 +162,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     saveActor(at.actor);
 
-    Option.match(saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose }), {
+    Option.match(saveAwaited(at.actor, { attempt: lane.head.id, purpose }), {
       onNone: () => invoke(at, lane, sendCount),
       onSome: (ticket) =>
         setLane(at.id, {
@@ -214,6 +216,27 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       Held: () => defect("a Held head is released, never displaced"),
     });
 
+  // The input of the commit a cue brings: a declined commit's row keeps it with its key. Only a
+  // commit is ever declined.
+  const committed = (cue: Cue) => {
+    const notACommit = () => defect(`the lane's table declines only a commit, not ${cue._tag}`);
+
+    return Cue.$match(cue, {
+      CommitReject: ({ input }) => input,
+      CommitLatest: ({ input }) => input,
+      CommitSerialize: ({ input }) => input,
+      CommitCancel: ({ input }) => input,
+      Retry: notACommit,
+      Cancel: notACommit,
+      TurnEnded: notACommit,
+      Stored: notACommit,
+      Refused: notACommit,
+      Answered: notACommit,
+      DisposalStarts: notACommit,
+      BoundPassed: notACommit,
+    });
+  };
+
   const perform = (at: At, move: Move, cue: Cue) =>
     Move.$match(move, {
       Stay: () => undefined,
@@ -243,7 +266,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       // A declined commit has no Attempt and no lane; its ending is a row like any other.
       Decline: ({ why }) =>
         void ledger.owe({
-          ...oweOf(at, Option.none()),
+          ...oweOf(at, Option.none(), committed(cue)),
           lane: Option.none(),
           channel: "notSent",
           reason: why,
@@ -267,7 +290,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       EndUnsent: ({ why }) => {
         const lane = laneAt(at);
         vacate(at, lane);
-        notSent(at, why, lane.head.id);
+        notSent(at, why, lane.head);
       },
       Release: () => vacate(at, laneAt(at)),
       Interrupt: ({ call }) => {
@@ -284,7 +307,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         // Owed with no lane as before: giving it its lane lets a key-less retry in its handler name
         // it, which changes retry behaviour, owed elsewhere.
         ledger.owe({
-          ...oweOf(at, Option.some(lane.head.id)),
+          ...oweOf(at, Option.some(lane.head.id), lane.head.input),
           lane: Option.none(),
           channel: "unknown",
           reason: "StorageRefused",
@@ -302,7 +325,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         else vacate(at, lane);
 
         ledger.owe({
-          ...oweOf(at, Option.some(lane.head.id)),
+          ...oweOf(at, Option.some(lane.head.id), lane.head.input),
           lane: Option.some(at.id),
           channel,
           reason,
@@ -341,7 +364,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
     if (d.owed) {
       ledger.owe({
-        ...oweOf(at, attempt),
+        ...oweOf(at, attempt, d.head.input),
         lane: Option.some(d.lane),
         ...ending,
         route: ending.channel === "notSent" ? Route.Current() : fromOwner(d.head.owner),
@@ -369,7 +392,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     if (Move.$is("Stay")(move)) return true;
 
     tx.drop("displaced", key);
-    saveLane(d.actor, d.lane);
+    saveWork(d.actor);
 
     // A displaced head only stays, ends with its call's answer, or ends unsent.
     const impossible = () => defect(`a displaced head has no move ${move._tag} for ${cue._tag}`);
@@ -411,9 +434,9 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     const lane = laneAt(at);
     setLane(at.id, { ...lane, queue: [] });
 
-    for (const _ of lane.queue)
+    for (const queued of lane.queue)
       ledger.owe({
-        ...oweOf(at, Option.none()),
+        ...oweOf(at, Option.none(), queued.input),
         lane: Option.none(),
         channel: "notSent",
         reason: why,

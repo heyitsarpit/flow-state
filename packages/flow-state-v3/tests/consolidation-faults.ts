@@ -28,9 +28,9 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: "    for (const { kept, ...row } of rows)\n",
+        find: "      setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);\n",
         replace:
-          "    for (const { kept, ...row } of rows)\n      if (!kept) tx.act(Act.RowQueued({ row }));\n    for (const { kept, ...row } of rows)\n",
+          "      setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);\n\n      if (!kept) tx.act(Act.RowQueued({ row }));\n",
       },
     ],
   },
@@ -44,19 +44,6 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
         file: "src/core/ledger.ts",
         find: "      tx.enqueue(Mail.Ending({ actor: row.actor, id: row.id }));",
         replace: "      void Mail;",
-      },
-    ],
-  },
-  {
-    name: "dropped-lane-kept-on-disk",
-    tests: ["tests/actors/runtime-disposal.test.ts"],
-    says: "a lane that ends writes no record removal, so its old record outlives it on disk",
-    rule: "WriteAhead I21",
-    edits: [
-      {
-        file: "src/core/persist.ts",
-        find: "    tx.dropLane(id);\n    saveLane(lane.actor, id);",
-        replace: "    tx.dropLane(id);\n    void lane;",
       },
     ],
   },

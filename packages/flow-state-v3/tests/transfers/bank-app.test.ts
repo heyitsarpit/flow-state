@@ -76,7 +76,7 @@ describe("many accounts (fixtures.md L1, S3 under L4)", () => {
     expect(run.checkpoints.end.read(accountOf(63))?.memory.notice).toBe("check your statement");
   });
 
-  it.fails("WriteLanes R10, WriteAhead R14: a second reload delivers no second unknown Restored for a Held head that already heard one", async () => {
+  it("WriteLanes R10, WriteAhead R14: a second reload delivers no second unknown Restored for a Held head that already heard one", async () => {
     const run = await played(owedAtBoot);
 
     expect(evidenceOf(run, Transfers.E.Unsure).filter((e) => e._tag === "Delivered")).toHaveLength(

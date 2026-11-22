@@ -45,6 +45,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
       actor: read.actor,
       to: Audience.Life({ incarnation: read.incarnation }),
       operation: read.operation,
+      input: Option.none(),
       attempt: Option.none(),
       lane: Option.none(),
       channel: c.channel === "unknown" ? "failure" : c.channel,

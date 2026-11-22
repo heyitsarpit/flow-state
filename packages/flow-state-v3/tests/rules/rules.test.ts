@@ -568,7 +568,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(acknowledgedHeardAgain.breaches(run)).toEqual([]);
   });
 
-  it("Codec I7: a stored key of no record kind is a breach; the Runtime's own records are not", async () => {
+  it("Records I2: a stored key of no record kind is a breach; the Runtime's own records are not", async () => {
     const run = checked(await lostThenReload.run());
 
     const stray = endedWith(run, (end) => ({
@@ -581,7 +581,7 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(recordKinds.breaches(run)).toEqual([]);
   });
 
-  it("Codec I7: an actor record's timer with both dueAt and left is a breach; an idle timer is not", async () => {
+  it("Records I2: a position's timer with both dueAt and left is a breach; an idle timer is not", async () => {
     const run = checked(await lostThenReload.run());
 
     const [key, text] = [...run.end.records.stored].find(([k]) => k.startsWith("actor/")) ?? [
@@ -600,8 +600,8 @@ describe("run rules over crafted runs, each rule seen firing", () => {
             [
               key,
               text.replace(
-                /"schedules":\{[^]*?\},"seen"/u,
-                `"schedules":{"ON":{"t":${timers}}},"seen"`,
+                /"schedules":\{[^]*?\},"slots"/u,
+                `"schedules":{"ON":{"t":${timers}}},"slots"`,
               ),
             ],
           ]),
@@ -616,17 +616,17 @@ describe("run rules over crafted runs, each rule seen firing", () => {
     expect(recordKinds.breaches(withTimers('{"arming":{"_tag":"Idle"}}'))).toEqual([]);
   });
 
-  it("WriteAhead I21: an UnencodableValue naming a lane record is a breach; one naming an actor record is not", async () => {
+  it("WriteAhead I21: an UnencodableValue withholding a work record is a breach; one withholding an actor record is not", async () => {
     const reported = (record: string) =>
       at(1)(
         Evidence.Reported({
           code: "UnencodableValue",
           record: Option.some(record),
-          reason: "nonFinite at memory.total",
+          reason: "withheld: nonFinite at memory.total",
         }),
       );
 
-    const lane = await crafted([reported("lane/Transfers/Account/main|transfer|t1")]);
+    const lane = await crafted([reported("work/Transfers/Account/main")]);
     const actor = await crafted([reported("actor/Transfers/Account/main")]);
 
     expect(onlyActorsWithheld.breaches(lane)).toHaveLength(1);

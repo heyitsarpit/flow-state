@@ -599,7 +599,7 @@ describe("write lanes on the production runtime", () => {
     assert.deepStrictEqual(heard, [undefined]);
   });
 
-  it("a restored unknown admitted after a retry owes its re-send leaves that re-send standing (WriteLanes R8, I26)", () => {
+  it("a restored unknown admitted after a retry owes its re-send leaves that re-send standing (WriteLanes R8, I26; Records R16)", () => {
     const store = new Map<string, string>();
     const first = boot(store, 1, true, more);
 
@@ -609,20 +609,15 @@ describe("write lanes on the production runtime", () => {
 
     const [one, two] = first.bell.rings;
     assert.ok(one !== undefined && two !== undefined, "both rings are on the wire");
-    first.bell.waiting.get(one)?.(Effect.fail("lost"));
-    first.tab.settle();
-    first.bell.waiting.get(two)?.(Effect.fail("lost"));
-    first.tab.settle();
 
-    // The identity is disposed and adopted again: both Held heads hear unknown Restored, and the
-    // first one's handler retries the second before the second's own Restored is admitted.
-    first.built.runtime.disposeActor(actorRef(PairMachine, "pair"));
-    testing.attach(first.built, paired, "host", false);
-    assert.doesNotThrow(() => first.tab.settle());
+    // The tab dies with both rings on the wire: the next boot derives unknown Restored for both,
+    // and the first one's handler retries the second before the second's own Restored is admitted.
+    const second = boot(store, 2, false, more);
+    assert.doesNotThrow(() => second.tab.settle());
 
     assert.deepStrictEqual(
-      first.bell.rings.filter((r) => r === two),
-      [two, two],
+      second.bell.rings.filter((r) => r === two),
+      [two],
       "the owed re-send is invoked once its capture lands",
     );
   });

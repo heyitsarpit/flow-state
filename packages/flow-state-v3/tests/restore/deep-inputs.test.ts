@@ -107,7 +107,7 @@ describe("commit inputs and lane keys of any depth (Codec R1, R4; WriteLanes R12
 
         const stored = [...run.checkpoints.held.records.stored.keys()];
 
-        expect(stored.some((k) => k.startsWith("lane/"))).toBe(true);
+        expect(stored.some((k) => k.startsWith("work/"))).toBe(true);
         expect(stored.some((k) => k.startsWith("actor/Deep/Shelf/"))).toBe(true);
         expect(run.checkpoints.after.read(shelf)).toBeDefined();
         expect(ended(run)).toEqual(["success success", "unknown Restored"]);

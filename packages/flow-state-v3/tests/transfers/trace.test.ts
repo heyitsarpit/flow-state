@@ -8,8 +8,21 @@ import { type Cut, Step } from "../../src/host/testing/index.ts";
 import { render, type TraceEvent, TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
 
-// The field read off a stored lane record; a change to its format fails the decode.
-const LaneRecord = Schema.fromJsonString(Schema.Struct({ inFlight: Schema.Boolean }));
+// The hold read off a work record's one transfer head; a change to its format fails the decode.
+const TransferHead = Schema.fromJsonString(
+  Schema.Struct({
+    body: Schema.Struct({
+      lanes: Schema.Struct({
+        "": Schema.Struct({
+          "Bank/transfer": Schema.Record(
+            Schema.String,
+            Schema.Struct({ head: Schema.Struct({ hold: Schema.String }) }),
+          ),
+        }),
+      }),
+    }),
+  }),
+);
 
 // A record's kind is its key's text before the first slash (Codec R5).
 const kinds = (keys: ReadonlyArray<string>) =>
@@ -71,7 +84,7 @@ describe("A run's trace (Stories R16)", () => {
       [1, "step", "send"],
       // A first send's acknowledgement is one batch with its turn's capture, and lands before the
       // adapter is called (WriteAhead R10, R13).
-      [1, "write", "acknowledge", ["actor", "lane"], "landed"],
+      [1, "write", "acknowledge", ["actor", "work"], "landed"],
       // The handler ran and its answer is held, never released (Stories R9, R10).
       [1, "request", "Bank.transfer", "t1", 500, "held at response"],
       [1, "step", "checkpoint sending"],
@@ -83,20 +96,24 @@ describe("A run's trace (Stories R16)", () => {
       [2, "ending", "transfer", "unknown", "Restored"],
       // The memory changed, the start restored the lane Held, and the owed entry the step touched
       // is projected as its removal, since the row was heard in the same step (WriteAhead R5, R10).
-      [2, "write", "flush", ["actor", "lane", "owed"], "landed"],
+      [2, "write", "flush", ["actor", "work"], "landed"],
       [2, "step", "checkpoint reloaded"],
     ]);
   });
 
-  it("WriteAhead R5: a lane record reads inFlight false once its head is Held, a restored one included", async () => {
+  it("WriteAhead R5, Records Types HeadShape: a work record holds its head Held once it is Held, a restored one included", async () => {
     const { reloaded } = checked(await lostThenReload.run()).checkpoints;
 
-    const lanes = [...reloaded.records.stored].filter(([key]) => key.startsWith("lane/"));
+    const works = [...reloaded.records.stored].filter(([key]) => key.startsWith("work/"));
 
     expect(reloaded.inspection.lanes.map((l) => l.state)).toEqual(["Held"]);
-    expect(lanes.map(([, value]) => Schema.decodeUnknownSync(LaneRecord)(value).inFlight)).toEqual([
-      false,
-    ]);
+    expect(
+      works.flatMap(([, value]) =>
+        Object.values(
+          Schema.decodeUnknownSync(TransferHead)(value).body.lanes[""]["Bank/transfer"],
+        ).map((lane) => lane.head.hold),
+      ),
+    ).toEqual(["Held"]);
   });
 
   it("names the ending's Attempt as the request's idempotency key (WriteLanes R5)", async () => {

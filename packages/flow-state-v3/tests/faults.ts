@@ -10,6 +10,7 @@ import { mixFaults } from "./mix-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
 import { constructionFaults } from "./construction-faults.ts";
+import { admissionFaults } from "./admission-faults.ts";
 import { recordFaults } from "./record-faults.ts";
 import { restoreFaults } from "./restore-faults.ts";
 import { ruleFaults } from "./rule-faults.ts";
@@ -133,19 +134,6 @@ const planted: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "record-forgets-retries",
-    tests: ["tests/write-lanes/payment-retry.test.ts"],
-    says: "a lane record saves no re-sends, so a reload restores retryCount 0",
-    rule: "WriteLanes I7",
-    edits: [
-      {
-        file: "src/core/record.ts",
-        find: '            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
-        replace: "            retryCount: 0,",
-      },
-    ],
-  },
-  {
     name: "resend-uncounted",
     tests: ["tests/write-lanes/lane-anchors.test.ts"],
     says: "an invoked re-send does not count",
@@ -182,19 +170,6 @@ const planted: ReadonlyArray<Fault> = [
         file: "src/core/turn.ts",
         find: "Idle: () => PASSED, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN",
         replace: "Idle: () => IN_FLIGHT, InFlight: () => IN_FLIGHT, Held: () => UNCERTAIN",
-      },
-    ],
-  },
-  {
-    name: "actor-never-saved",
-    tests: ["tests/transfers/standing-order.test.ts"],
-    says: "an actor's record always saves its initial state, so after a reload it runs from a state it never published",
-    rule: "Restore R1",
-    edits: [
-      {
-        file: "src/core/actor-record.ts",
-        find: "      state: record.state,\n      memory,",
-        replace: "      state: compiled.initial,\n      memory,",
       },
     ],
   },
@@ -253,20 +228,6 @@ const planted: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "no-restored-unknown",
-    tests: ["tests/stories/storage.test.ts"],
-    says: "a Held head with no owed row hears nothing at its identity's start",
-    rule: "Restore I6",
-    edits: [
-      {
-        file: "src/core/ledger.ts",
-        find: 'if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))',
-        replace:
-          'if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id) && id === "")',
-      },
-    ],
-  },
-  {
     name: "refused-acknowledgement-sent",
     tests: ["src/core/cells.test.ts"],
     says: "a commit whose acknowledging write was refused is sent anyway",
@@ -276,20 +237,6 @@ const planted: ReadonlyArray<Fault> = [
         file: "src/core/cells.ts",
         find: '    Acknowledging: () => Move.EndUnsent({ why: "StorageRefused" }),',
         replace: "    Acknowledging: () => Move.Send(),",
-      },
-    ],
-  },
-  {
-    name: "sent-before-acknowledged",
-    tests: ["tests/stories/storage.test.ts"],
-    says: "a commit is sent before its acknowledging write lands",
-    rule: "WriteAhead R13",
-    edits: [
-      {
-        file: "src/core/lane-moves.ts",
-        find: "    Option.match(saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose }), {",
-        replace:
-          "    saveAwaited(at.actor, at.id, { attempt: lane.head.id, purpose });\n    Option.match(Option.none(), {",
       },
     ],
   },
@@ -308,6 +255,7 @@ const planted: ReadonlyArray<Fault> = [
   ...turnPartsFaults,
   ...restoreFaults,
   ...recordFaults,
+  ...admissionFaults,
   ...ruleFaults,
   ...structureFaults,
   ...constructionFaults,
@@ -381,19 +329,6 @@ const planted: ReadonlyArray<Fault> = [
         file: "src/core/cells.ts",
         find: "    Held: stay,\n  },\n  BoundPassed",
         replace: "    Held: () => Move.Resend(),\n  },\n  BoundPassed",
-      },
-    ],
-  },
-  {
-    name: "boot-wakes-no-one",
-    tests: ["src/host/lanes.test.ts"],
-    says: "a boot restores no identity live, so an owed ending waits for an ensure",
-    rule: "Restore I1",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: '    for (const actor of owing.values()) ensure(actor, Option.none(), "wake", Option.none());',
-        replace: "    for (const actor of owing.values()) void actor;",
       },
     ],
   },

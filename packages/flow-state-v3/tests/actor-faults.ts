@@ -224,19 +224,6 @@ export const actorFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "send-undecodable-as-no-record",
-    tests: ["tests/shop/renewals.test.ts"],
-    says: "a send to an identity whose record the boot could not read is dropped NoRecord",
-    rule: "Actors R16",
-    edits: [
-      {
-        file: "src/core/incarnations.ts",
-        find: 'reason: tx.world().quarantined.has(actorRecordKey(key)) ? "RecordUndecodable" : "NoRecord",',
-        replace: 'reason: "NoRecord",',
-      },
-    ],
-  },
-  {
     name: "send-event-unchecked",
     tests: ["tests/sync/sends.test.ts"],
     says: "a machine's send delivers an event its target's Schema refuses",

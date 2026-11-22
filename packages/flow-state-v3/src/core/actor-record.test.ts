@@ -3,9 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
-import { encodeActor } from "./actor-record.ts";
-import { decodeRecords } from "./record.ts";
-import { FORMAT } from "./record-format.ts";
+import { admit } from "./admit.ts";
+import { encodePosition } from "./record.ts";
+import { FORMAT } from "./record-shape.ts";
 import { compiledOf } from "../compiled-of.ts";
 
 const Feed = definition({
@@ -99,7 +99,7 @@ const formatOne = (seen: string) =>
 
 describe("the format-1 step (Restore R5, T6)", () => {
   it("Restore R5, T6: every saved form reads back through its slot's Schema: an Option none and an undefined stay selected, not never selected", () => {
-    const restored = decodeRecords(
+    const restored = admit(
       machines,
       new Map([
         [
@@ -113,48 +113,52 @@ describe("the format-1 step (Restore R5, T6)", () => {
 
     const seen = restored.records[0]?.seen;
 
-    expect(restored.quarantined).toEqual([]);
+    expect([...restored.quarantined.keys()]).toEqual([]);
     expect(seen?.get("first")?.value).toEqual(Option.none());
     expect(seen?.has("last")).toBe(true);
     expect(seen?.get("count")?.value).toBe(0);
   });
 
   it("Restore R5, T6: a saved value its slot's Schema refuses steps to a slot never selected, and the record still restores", () => {
-    const restored = decodeRecords(
+    const restored = admit(
       machines,
       new Map([[key, formatOne('{"count":{"value":"many","~":"json"}}')]]),
     );
 
-    expect(restored.quarantined).toEqual([]);
+    expect([...restored.quarantined.keys()]).toEqual([]);
     expect(restored.records[0]?.seen.has("count")).toBe(false);
   });
 
   it("Restore R5: a form no release wrote, `__proto__` among them, quarantines the record and never throws", () => {
     for (const form of ['{"~":"__proto__"}', '{"~":"constructor"}', '{"~":"some"}', "[]"]) {
-      const restored = decodeRecords(machines, new Map([[key, formatOne(`{"first":${form}}`)]]));
+      const restored = admit(machines, new Map([[key, formatOne(`{"first":${form}}`)]]));
 
-      expect(restored.quarantined.map((q) => q.key)).toEqual([key]);
+      expect([...restored.quarantined.keys()]).toEqual([key]);
     }
   });
 });
 
 describe("format 2 records at the boot (Restore R5)", () => {
-  it("Restore R5: a slot Schema whose decode throws quarantines the record, and the boot goes on", () => {
-    const restored = decodeRecords(
+  it("Records R7, throw family: a slot Schema whose decode throws drops that slot alone, reported, and the record restores", () => {
+    const restored = admit(
       machines,
       new Map([["actor/Test/Shout/s", shout('{"word":"boom"}', "[null]")]]),
     );
 
-    expect(restored.quarantined.map((q) => q.key)).toEqual(["actor/Test/Shout/s"]);
+    expect([...restored.quarantined.keys()]).toEqual([]);
+    expect(restored.records.map((r) => [...r.seen.keys()])).toEqual([[]]);
+    expect(restored.reports.map((r) => `${r.code} ${r.reason}`)).toEqual([
+      "FieldDropped dropped slots.word",
+    ]);
   });
 
   it("Restore R5: saved baselines that do not match the machine's reactions in number are their slots' last values", () => {
-    const restored = decodeRecords(
+    const restored = admit(
       machines,
       new Map([["actor/Test/Shout/s", shout('{"word":"hi"}', "[null,null]")]]),
     );
 
-    expect(restored.quarantined).toEqual([]);
+    expect([...restored.quarantined.keys()]).toEqual([]);
     expect(valuesOf(restored.records)).toEqual(["hi"]);
   });
 
@@ -165,9 +169,9 @@ describe("format 2 records at the boot (Restore R5)", () => {
       '"reactions":[{"memory":{"heard":7},"slots":{"word":{"value":"ho"}}}],"schedules":[],' +
       '"seen":{"word":"hi"},"state":"SHOWN"}';
 
-    const restored = decodeRecords(machines, new Map([["actor/Test/Shout/s", two]]));
+    const restored = admit(machines, new Map([["actor/Test/Shout/s", two]]));
 
-    expect(restored.quarantined).toEqual([]);
+    expect([...restored.quarantined.keys()]).toEqual([]);
     expect(valuesOf(restored.records)).toEqual(["ho"]);
   });
 });
@@ -205,7 +209,7 @@ const formatThree = (frame: string) =>
   `"reactions":[${frame}],"schedules":[],"seen":{"count":2},"state":"SHOWN"}`;
 
 const restoredWatch = (frame: string) =>
-  decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", formatThree(frame)]]));
+  admit(watchMachines, new Map([["actor/Test/Watch/w", formatThree(frame)]]));
 
 describe("a reaction's baseline is its slot's value (Actors R18, Turn R22, Restore R5)", () => {
   it("Restore R5, Actors R18, Turn R17: the record format is 6, which saves each reaction's baseline as its slot's value only and each schedule's timers", () => {
@@ -215,7 +219,7 @@ describe("a reaction's baseline is its slot's value (Actors R18, Turn R22, Resto
   it("Restore R5, Actors R18: the format-3 step reads a reaction's baseline from its frame's value of the reaction's slot, so a kept baseline is neither lost nor made up", () => {
     const restored = restoredWatch('{"memory":0,"slots":{"count":{"value":1}}}');
 
-    expect(restored.quarantined).toEqual([]);
+    expect([...restored.quarantined.keys()]).toEqual([]);
     expect(valuesOf(restored.records)).toEqual([1]);
   });
 
@@ -245,15 +249,17 @@ describe("format 4 saves a reaction's baseline only where it differs from its sl
       ['{"count":{"Heard":{}}}', undefined],
     ] as const) {
       const text = formatFour(baselines);
-      const restored = decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", text]]));
+      const restored = admit(watchMachines, new Map([["actor/Test/Watch/w", text]]));
       const record = restored.records[0];
 
       expect(valuesOf(restored.records)).toEqual([value]);
       expect(
-        record === undefined ? Result.fail("none") : encodeActor(compiledOf(WatchMachine), record),
+        record === undefined
+          ? Result.fail("none")
+          : encodePosition(watchMachines, compiledOf(WatchMachine), record),
       ).toEqual(
         Result.succeed(
-          text.replace('"format":4', '"format":6').replace('"schedules":[]', '"schedules":{}'),
+          `{"body":{"graph":{},"instances":{},"memory":{"heard":0},"schedules":{},"slots":{"count":{"baselines":${baselines.replace(/^\{"count":(.*)\}$/u, "$1")},"provider":{"machine":"Test/Feed","name":"f"},"seen":{"value":2}}},"state":"SHOWN"},"format":6}`,
         ),
       );
     }

@@ -2,9 +2,10 @@ import { savedSchedulesOf } from "./schedule-restore.ts";
 import { Duration, Option, Result } from "effect";
 import { Alarm } from "./alarms.ts";
 import { Act } from "./evidence-of.ts";
-import { Audience, Delivery, IN_MAILBOX, type Owed, rowsOf } from "./ledger.ts";
-import { encodeActor } from "./actor-record.ts";
-import { actorRecordKey, encodeLane, encodeOwed, laneRecordKey, owedRecordKey } from "./record.ts";
+import { Audience, IN_MAILBOX, type Owed, rowsOf } from "./ledger.ts";
+import { encodePosition } from "./record.ts";
+import { encodeWork } from "./record-work.ts";
+import { keyText, RecordKey } from "./record-key.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import type { Tx } from "./tx.ts";
 import {
@@ -18,6 +19,7 @@ import {
   type Lane,
   type LaneId,
   Mark,
+  Quarantine,
   type Marks,
   type Ticket,
   type TicketId,
@@ -25,11 +27,21 @@ import {
   type Write,
 } from "./world.ts";
 
-// An identity's owed record holds every row owed to the identity, whatever its delivery.
+// An identity's work record holds every row owed to the identity, whatever its delivery.
 const toIdentity = (row: Owed) => Audience.$is("Identity")(row.to);
 
+/**
+ * The key an identity's position is stored under.
+ */
+export const positionKey = (actor: ActorId) => keyText(RecordKey.Actor({ owner: actor }));
+
+/**
+ * The key an identity's work is stored under.
+ */
+export const workKey = (actor: ActorId) => keyText(RecordKey.Work({ owner: actor }));
+
 // A row whose try is still in the mailbox: a step that ends with one (a drain stopped at its cap)
-// marks the owed record, which no move into or out of a saved delivery did.
+// marks the work record, which no move into or out of a saved delivery did.
 const inMailbox = (row: Owed) => toIdentity(row) && IN_MAILBOX[row.delivery._tag];
 
 // Each live incarnation's last record text with the graph it was encoded with: an incarnation is
@@ -42,8 +54,8 @@ const texts = new WeakMap<
 const sameGraph = (a: Wiring, b: Wiring) =>
   a.size === b.size && [...a].every(([key, bound]) => b.get(key) === bound);
 
-// An identity's records in the order a batch writes them: its actor record, its lanes, its owed record.
-const rank = Mark.$match({ Actor: () => 0, Lane: () => 1, Owed: () => 2 });
+// An identity's records in the order a batch writes them: its position, then its work.
+const rank = Mark.$match({ Actor: () => 0, Work: () => 1 });
 
 /**
  * Persistence of a step: setters mark the record keys a step changes, and a capture encodes every
@@ -112,15 +124,17 @@ export const makePersistence = (tx: Tx) => {
   // A record's write, or the key and reason it cannot encode.
   const encoded = (key: string, text: Result.Result<string, string>) =>
     Result.mapBoth(text, {
-      // RETURN_TYPE: a Write, so a removal and a record are one list.
-      onSuccess: (record): Write => ({ key, record: Option.some(record) }),
+      // RETURN_TYPE: a Write list, so a removal and a record are one list.
+      onSuccess: (record): ReadonlyArray<Write> => [{ key, record: Option.some(record) }],
       onFailure: (reason) => ({ key, reason }),
     });
 
   const textOf = (record: ActorRecord) => {
     const compiled = tx.machines.get(record.actor.machine);
 
-    return compiled === undefined ? Result.fail("machine") : encodeActor(compiled, record);
+    return compiled === undefined
+      ? Result.fail("machine")
+      : encodePosition(tx.machines, compiled, record);
   };
 
   // A live incarnation's record text, kept by the incarnation and its graph's bindings, so a ticket's
@@ -137,93 +151,78 @@ export const makePersistence = (tx: Tx) => {
     return text;
   };
 
+  // A record the boot kept unread is never written over: its bytes stay until forget.
+  const keptUnread = (key: string) =>
+    Option.exists(Option.fromUndefinedOr(tx.world().quarantined.get(key)), Quarantine.$is("Kept"));
+
   // An identity's actor record from the World: its live incarnation's, else the one the World
   // keeps for it, else a removal.
   const actorWrite = (actor: ActorId) => {
-    const key = actorRecordKey(actorKey(actor));
+    const key = positionKey(actor);
     const live = incarnationOf(actor);
+
+    if (keptUnread(key)) return Result.succeed<ReadonlyArray<Write>>([]);
 
     if (live !== undefined) return encoded(key, liveText(live));
 
     const kept = tx.world().records.get(actorKey(actor));
 
     return kept === undefined
-      ? Result.succeed<Write>({ key, record: Option.none() })
+      ? Result.succeed<ReadonlyArray<Write>>([{ key, record: Option.none() }])
       : encoded(key, textOf(kept));
   };
 
-  // A lane's record from its entry; a lane gone Idle that still owes a displaced Attempt's ending
-  // keeps a record with no head, and one that owes nothing is removed.
-  const laneWrite = (id: LaneId) => {
-    const key = laneRecordKey(id);
-    const lane = Option.fromUndefinedOr(tx.world().lanes.get(id));
-    const owing = [...tx.world().displaced.values()].filter((d) => d.lane === id && d.owed);
+  // An identity's work record from the World: its lanes, the displaced Attempts it owes, its rows
+  // and its carried parts; removed once it holds nothing. The write removes the legacy keys the
+  // record was stepped from, in its batch. A work record the boot kept unread is never written.
+  const workWrite = (actor: ActorId) => {
+    const key = workKey(actor);
 
-    const named = Option.orElse(
-      Option.map(lane, (l) => ({ actor: l.actor, operation: l.operation })),
-      () =>
-        Option.map(Option.fromUndefinedOr(owing[0]), (d) => ({
-          actor: d.actor,
-          operation: d.operation,
-        })),
-    );
+    if (keptUnread(key)) return Result.succeed<ReadonlyArray<Write>>([]);
 
-    return Option.match(named, {
-      onNone: () => Result.succeed<Write>({ key, record: Option.none() }),
-      onSome: ({ actor, operation }) => {
-        const compiled = tx.machines.get(actor.machine);
+    const world = tx.world();
 
-        return encoded(
-          key,
-          compiled === undefined
-            ? Result.fail("machine")
-            : encodeLane(
-                compiled,
-                operation,
-                actor,
-                lane,
-                owing.map((d) => d.head.id),
-              ),
-        );
-      },
+    const work = encodeWork(tx.machines, {
+      actor,
+      lanes: [...(world.lanesOfActor.get(actorKey(actor)) ?? [])].flatMap((id) => {
+        const lane = world.lanes.get(id);
+
+        return lane === undefined ? [] : [[id, lane] as const];
+      }),
+      displaced: [...world.displaced.values()].filter(
+        (d) => d.owed && actorKey(d.actor) === actorKey(actor),
+      ),
+      rows: rowsOf(world.owed, actor),
+      carried: world.carried.get(actorKey(actor)) ?? [],
     });
-  };
 
-  // An identity's owed record, written, or removed once it owes nothing.
-  const owedWrite = (actor: ActorId) => {
-    const key = owedRecordKey(actorKey(actor));
-
-    const rows = rowsOf(tx.world().owed, actor)
-      .filter(toIdentity)
-      .map((r) => ({ ...r, kept: Delivery.$is("Kept")(r.delivery) }));
-
-    const owed =
-      rows.length === 0
-        ? Result.succeed({ text: Option.none<string>(), unsaved: 0 })
-        : Result.map(encodeOwed(actor, rows), (o) => ({ ...o, text: Option.some(o.text) }));
-
-    // A value that cannot be saved even alone is reported; its row is saved as unknown Restored.
-    if (Result.isSuccess(owed) && owed.success.unsaved > 0)
+    // A value that cannot be saved even alone is reported; its row is saved as unknown Restored,
+    // and a row whose input has no key is left out.
+    if (Result.isSuccess(work) && work.success.unsaved + work.success.lost > 0)
       tx.act(
         Act.Reported({
           code: "UnencodableValue",
           record: Option.some(key),
-          reason: `${owed.success.unsaved} values with no encoded form saved as unknown Restored`,
+          reason: `${work.success.unsaved} values with no encoded form saved as unknown Restored, ${work.success.lost} rows with no encoded input left out`,
         }),
       );
 
-    return Result.mapBoth(owed, {
+    const legacy = (world.legacy.get(actorKey(actor)) ?? []).map((gone) => ({
+      key: gone,
+      record: Option.none(),
+    }));
+
+    return Result.mapBoth(work, {
       onFailure: (reason) => ({ key, reason }),
-      // RETURN_TYPE: a Write, so a removal and a record are one list.
-      onSuccess: ({ text }): Write => ({ key, record: text }),
+      // RETURN_TYPE: a Write list, so a removal and a record are one list.
+      onSuccess: ({ text }): ReadonlyArray<Write> => [{ key, record: text }, ...legacy],
     });
   };
 
   const writeOf = (m: Mark) =>
     Mark.$match(m, {
       Actor: ({ actor }) => actorWrite(actor),
-      Lane: ({ lane }) => laneWrite(lane),
-      Owed: ({ actor }) => owedWrite(actor),
+      Work: ({ actor }) => workWrite(actor),
     });
 
   // An identity starts to wait: reported once, as it starts.
@@ -266,7 +265,7 @@ export const makePersistence = (tx: Tx) => {
    */
   const saveActor = (actor: ActorId) => {
     if (incarnationOf(actor) !== undefined && persisted(actor))
-      mark(actorRecordKey(actorKey(actor)), Mark.Actor({ actor }));
+      mark(positionKey(actor), Mark.Actor({ actor }));
   };
 
   /**
@@ -285,14 +284,15 @@ export const makePersistence = (tx: Tx) => {
   const removeActor = (actor: ActorId) => {
     if (!persisted(actor)) return;
     now = true;
-    mark(actorRecordKey(actorKey(actor)), Mark.Actor({ actor }));
+    mark(positionKey(actor), Mark.Actor({ actor }));
   };
 
   /**
-   * Marks a lane's record as changed: captured from the lane's state, or removed if it is gone.
+   * Marks an identity's work record as changed: a lane, a displaced Attempt, a row or a carried
+   * part changed.
    */
-  const saveLane = (actor: ActorId, id: LaneId) => {
-    if (persisted(actor)) mark(laneRecordKey(id), Mark.Lane({ actor, lane: id }));
+  const saveWork = (actor: ActorId) => {
+    if (persisted(actor)) mark(workKey(actor), Mark.Work({ actor }));
   };
 
   /**
@@ -301,29 +301,21 @@ export const makePersistence = (tx: Tx) => {
    */
   const saveAwaited = (
     actor: ActorId,
-    id: LaneId,
     wanted: { readonly attempt: AttemptId; readonly purpose: "acknowledge" | "capture" },
   ) => {
     if (!persisted(actor)) return Option.none<TicketId>();
 
     const ticket: Ticket = { id: tx.mint("ticket"), ...wanted };
-    saveLane(actor, id);
+    saveWork(actor);
     awaited.push({ ticket, actor });
 
     return Option.some(ticket.id);
   };
 
-  /**
-   * Marks an identity's owed record as changed.
-   */
-  const saveOwed = (actor: ActorId) => {
-    if (persisted(actor)) mark(owedRecordKey(actorKey(actor)), Mark.Owed({ actor }));
-  };
-
-  // ── lanes: every change of a lane's entry marks its record.
+  // ── lanes: every change of a lane's entry marks its identity's work record.
   const setLane = (id: LaneId, lane: Lane) => {
     tx.putLane(id, lane);
-    saveLane(lane.actor, id);
+    saveWork(lane.actor);
   };
 
   /**
@@ -334,7 +326,7 @@ export const makePersistence = (tx: Tx) => {
 
   const dropLane = (id: LaneId, lane: Lane) => {
     tx.dropLane(id);
-    saveLane(lane.actor, id);
+    saveWork(lane.actor);
   };
 
   // Only a step that left mail can end with a row in the mailbox.
@@ -342,7 +334,7 @@ export const makePersistence = (tx: Tx) => {
     for (const rows of tx.world().mail.size > 0 ? tx.world().owed.values() : []) {
       const waiting = rows.find(inMailbox);
 
-      if (waiting !== undefined) saveOwed(waiting.actor);
+      if (waiting !== undefined) saveWork(waiting.actor);
     }
   };
 
@@ -444,7 +436,7 @@ export const makePersistence = (tx: Tx) => {
     }));
 
     const went = projected.flatMap(({ keys, written }) =>
-      Result.isSuccess(written) ? [{ keys, writes: written.success }] : [],
+      Result.isSuccess(written) ? [{ keys, writes: written.success.flat() }] : [],
     );
 
     const withheld = withhold(
@@ -476,15 +468,15 @@ export const makePersistence = (tx: Tx) => {
     saveActor,
     keepEnded,
     removeActor,
-    saveLane,
+    saveWork,
     saveAwaited,
-    saveOwed,
     setLane,
     sendLane,
     dropLane,
     encodes,
     close,
     capture,
+    mark,
     marked: () => marked,
   };
 };

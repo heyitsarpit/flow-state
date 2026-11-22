@@ -80,7 +80,7 @@ const formBreaches = (store: ReadonlyMap<string, Schema.Json>) =>
   });
 
 describe("what the Runtime writes is the format's normal form (Records R4, R11, I8; Types)", () => {
-  it.fails("Records R4, R11, I8: every key the Runtime writes is an actor or work record whose envelope holds only body and format and whose body holds only its Shape's members, never the identity its key names", async () => {
+  it("Records R4, R11, I8: every key the Runtime writes is an actor or work record whose envelope holds only body and format and whose body holds only its Shape's members, never the identity its key names", async () => {
     const stores = await Promise.all(
       [heldTransfer, named(lanes.stories, "answeredWhileDisposing"), homeUsual, sessionUsual].map(
         storeOf,
@@ -90,7 +90,7 @@ describe("what the Runtime writes is the format's normal form (Records R4, R11, 
     expect(stores.flatMap(formBreaches)).toEqual([]);
   });
 
-  it.fails("Records Identity: a lane's head saves its input without the fields its key text names (rest), held, with no claim", async () => {
+  it("Records Identity: a lane's head saves its input without the fields its key text names (rest), held, with no claim", async () => {
     const store = await storeOf(heldTransfer);
 
     const lane = at(
@@ -108,7 +108,7 @@ describe("what the Runtime writes is the format's normal form (Records R4, R11, 
     expect(at(lane, "queue")).toEqual([]);
   });
 
-  it.fails("Records Identity: a memory field declared Flow.input is not saved, since the name holds it", async () => {
+  it("Records Identity: a memory field declared Flow.input is not saved, since the name holds it", async () => {
     const homeStore = await storeOf(homeUsual);
     const shopStore = await storeOf(named(shop.stories, "quantityLost"));
 
@@ -127,7 +127,7 @@ describe("what the Runtime writes is the format's normal form (Records R4, R11, 
     expect([...roomMemory, ...cartMemory].filter((f) => f === "room" || f === "owner")).toEqual([]);
   });
 
-  it.fails("Records Types SlotShape: a slot saves its provider and last selection in one entry, its reactions' baselines beside them", async () => {
+  it("Records Types SlotShape: a slot saves its provider and last selection in one entry, its reactions' baselines beside them", async () => {
     const store = await storeOf(homeUsual);
     const room = read(store, 'actor/Home/Room/{"room":"lounge"}');
 
@@ -138,7 +138,7 @@ describe("what the Runtime writes is the format's normal form (Records R4, R11, 
     });
   });
 
-  it.fails("Records I8 (graph): a consumer saves no graph entry for a provider that has its own record, since that record holds its wiring", async () => {
+  it("Records I8 (graph): a consumer saves no graph entry for a provider that has its own record, since that record holds its wiring", async () => {
     const homeStore = await storeOf(homeUsual);
     const sessionStore = await storeOf(sessionUsual);
 

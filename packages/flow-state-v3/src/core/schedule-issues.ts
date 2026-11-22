@@ -11,7 +11,7 @@ import {
   timersIn,
   type Tracked,
 } from "./timers.ts";
-import type { SavedTimer } from "./vocabulary.ts";
+import type { SavedTimer } from "./record-shape.ts";
 import { type ActorRecord, type Issue, IssueSource } from "./world.ts";
 
 // A schedule's issues, read from its timers' check outcomes, live or saved, and stored nowhere.

@@ -4,12 +4,13 @@ import { operationsOf } from "../core/schedule-plan.ts";
 import { publicMemory } from "../core/compiled.ts";
 import type { Compiled, Values } from "../core/compiled.ts";
 import { inputOfName } from "../core/identity.ts";
-import { actorRecordKey } from "../core/record.ts";
+import { positionKey } from "../core/persist.ts";
 import { create } from "../core/tree.ts";
 import { actorLifecycleOf, type Lifecycle, restingLifecycleOf } from "../core/life.ts";
 import type { Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
-import type { IssueCode, SavedSchedules, SavedTimer } from "../core/vocabulary.ts";
+import type { IssueCode } from "../core/vocabulary.ts";
+import type { SavedSchedules, SavedTimer } from "../core/record-shape.ts";
 import {
   type ActorId,
   actorKey,
@@ -270,7 +271,7 @@ export const snapshotIn = (
     );
 
   const compiled = machines.get(actor.machine);
-  const quarantined = world.quarantined.get(actorRecordKey(key));
+  const quarantined = world.quarantined.get(positionKey(actor));
 
   // A record the boot could not read shows the fresh start an ensure would make, with its issue.
   if (quarantined !== undefined && compiled !== undefined)

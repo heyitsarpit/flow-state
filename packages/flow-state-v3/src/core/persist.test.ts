@@ -30,6 +30,13 @@ const jsonOf = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)),
 );
 
+const WorkRows = Schema.Struct({
+  body: Schema.Struct({ rows: Schema.Array(Schema.Record(Schema.String, Schema.Json)) }),
+});
+
+// A work record's rows.
+const rowsOf = (record: unknown) => Schema.decodeUnknownSync(WorkRows)(record).body.rows;
+
 const ring = transaction({
   id: "Persist/ring",
   input: {},
@@ -114,13 +121,14 @@ const stepOver = (
   return { tx, persistence, ledger: makeLedger(tx, persistence) };
 };
 
-it("WriteAhead I20: a row owed to the identity and still Queued at a step's end is in its owed record", () => {
+it("WriteAhead I20: a row owed to the identity and still Queued at a step's end is in its work record", () => {
   const { tx, persistence, ledger } = stepOver();
 
   ledger.owe({
     actor,
     to: Audience.Identity(),
     operation: "ring",
+    input: Option.some({}),
     attempt: Option.some(attemptOf("att-1")),
     lane: Option.some(laneOf("lane-1")),
     channel: "success",
@@ -130,11 +138,17 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
   });
   persistence.close();
 
-  const writes = captured(tx.out().world).writes.filter((w) => w.key === `owed/${actorKey(actor)}`);
+  const writes = captured(tx.out().world).writes.filter((w) => w.key === `work/${actorKey(actor)}`);
 
   expect([...tx.world().mail.values()].flat()).toHaveLength(1);
-  expect(writes.map((w) => Option.map(w.record, (r) => jsonOf(r)["rows"]))).toEqual([
-    Option.some([expect.objectContaining({ attempt: "att-1", channel: "success", kept: false })]),
+  expect(writes.map((w) => Option.map(w.record, (r) => rowsOf(jsonOf(r))))).toEqual([
+    Option.some([
+      expect.objectContaining({
+        attempt: "att-1",
+        ending: expect.objectContaining({ channel: "success" }),
+        kept: false,
+      }),
+    ]),
   ]);
 });
 
@@ -145,6 +159,7 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
       actor,
       to: Audience.Identity(),
       operation: "ring",
+      input: Option.some({}),
       attempt: Option.some(attemptOf(`att-${n}`)),
       lane: Option.none(),
       channel: "success",
@@ -155,7 +170,7 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
   from.persistence.close();
 
   const capture = captured(from.tx.out().world);
-  const owed = capture.writes.filter((w) => w.key.startsWith(`owed/${actorKey(actor)}`));
+  const owed = capture.writes.filter((w) => w.key.startsWith(`work/${actorKey(actor)}`));
 
   return {
     ...from,
@@ -169,7 +184,10 @@ const receiptsIn = (owed: ReadonlyArray<{ readonly record: Option.Option<string>
   owed.flatMap((w) =>
     Option.match(w.record, {
       onNone: () => [],
-      onSome: (r) => Schema.decodeUnknownSync(OwedReceipts)(jsonOf(r)).rows.map((row) => row.value),
+      onSome: (r) =>
+        Schema.decodeUnknownSync(OwedReceipts)(jsonOf(r)).body.rows.map(
+          (row) => row.ending.value ?? null,
+        ),
     }),
   );
 
@@ -178,20 +196,30 @@ const endingsIn = (owed: ReadonlyArray<{ readonly record: Option.Option<string> 
     Option.match(w.record, {
       onNone: () => [],
       onSome: (r) =>
-        Schema.decodeUnknownSync(OwedEndings)(jsonOf(r)).rows.map(
-          (row) => `${row.channel} ${row.reason}`,
+        Schema.decodeUnknownSync(OwedEndings)(jsonOf(r)).body.rows.map(
+          (row) => `${row.ending.channel} ${row.ending.reason}`,
         ),
     }),
   );
 
 const OwedEndings = Schema.Struct({
-  rows: Schema.Array(Schema.Struct({ channel: Schema.String, reason: Schema.String })),
+  body: Schema.Struct({
+    rows: Schema.Array(
+      Schema.Struct({ ending: Schema.Struct({ channel: Schema.String, reason: Schema.String }) }),
+    ),
+  }),
 });
 
 const OwedReceipts = Schema.Struct({
-  rows: Schema.Array(
-    Schema.Struct({ value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })) }),
-  ),
+  body: Schema.Struct({
+    rows: Schema.Array(
+      Schema.Struct({
+        ending: Schema.Struct({
+          value: Schema.optionalKey(Schema.Struct({ receipt: Schema.String })),
+        }),
+      }),
+    ),
+  }),
 });
 
 it("WriteAhead I20, I21; Codec R1: 1,300 rows and twelve values of 200,000 characters are saved whole in one record, in owed order", () => {
@@ -203,12 +231,12 @@ it("WriteAhead I20, I21; Codec R1: 1,300 rows and twelve values of 200,000 chara
   const { world, owed, reports } = owing(receipts);
 
   expect(world.withheld.size).toBe(0);
-  expect(owed.map((w) => w.key)).toEqual([`owed/${actorKey(actor)}`]);
+  expect(owed.map((w) => w.key)).toEqual([`work/${actorKey(actor)}`]);
   expect(receiptsIn(owed)).toEqual(receipts.map((receipt) => ({ receipt })));
   expect(reports).toEqual([]);
 });
 
-it("Codec R4: only a value with no canonical form is saved as its Attempt's unknown Restored with null, reported; a valid one beside it is kept", () => {
+it("Codec R4: only a value with no canonical form is saved as its Attempt's unknown Restored with no value, reported; a valid one beside it is kept", () => {
   const { world, owed, reports } = owing(["\uD800", "ninebytes"]);
 
   expect(world.withheld.size).toBe(0);
@@ -217,13 +245,14 @@ it("Codec R4: only a value with no canonical form is saved as its Attempt's unkn
   expect(reports).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
 });
 
-it("Codec R4: a Flow-made row with no value saves null and is never reported", () => {
+it("Codec R4: a Flow-made row with no value saves none and is never reported", () => {
   const from = stepOver();
 
   from.ledger.owe({
     actor,
     to: Audience.Identity(),
     operation: "ring",
+    input: Option.some({}),
     attempt: Option.some(attemptOf("att-0")),
     lane: Option.none(),
     channel: "unknown",
@@ -238,24 +267,46 @@ it("Codec R4: a Flow-made row with no value saves null and is never reported", (
   expect(capture.world.withheld.size).toBe(0);
 });
 
-const OwedRows = Schema.Struct({
-  rows: Schema.Array(Schema.Struct({ attempt: Schema.NullOr(Schema.String) })),
+const WorkAttempts = Schema.Struct({
+  body: Schema.Struct({
+    lanes: Schema.Record(
+      Schema.String,
+      Schema.Record(
+        Schema.String,
+        Schema.Record(
+          Schema.String,
+          Schema.Struct({ head: Schema.optionalKey(Schema.Struct({ attempt: Schema.String })) }),
+        ),
+      ),
+    ),
+    rows: Schema.Array(Schema.Struct({ attempt: Schema.optionalKey(Schema.String) })),
+  }),
 });
 
-const ActorMemory = Schema.Struct({ memory: Schema.Struct({ count: Schema.Number }) });
+const ActorMemory = Schema.Struct({
+  body: Schema.Struct({ memory: Schema.Struct({ count: Schema.Number }) }),
+});
 
-const LaneAttempt = Schema.Struct({ attempt: Schema.String });
-
-// What a record says that these tests read: an owed record's Attempts, an actor record's count, or
-// a lane record's Attempt.
+// What a record says that these tests read: a work record's heads' and rows' Attempts, or a
+// position's count.
 const whatOf = (record: unknown) =>
   Option.getOrElse(
     Option.firstSomeOf([
-      Option.map(Schema.decodeUnknownOption(OwedRows)(record), (r) =>
-        r.rows.map((row) => row.attempt).join(","),
+      Option.map(Schema.decodeUnknownOption(WorkAttempts)(record), (r) =>
+        [
+          ...Object.values(r.body.lanes).flatMap((byContract) =>
+            Object.values(byContract).flatMap((byKey) =>
+              Object.values(byKey).flatMap((lane) =>
+                lane.head === undefined ? [] : [lane.head.attempt],
+              ),
+            ),
+          ),
+          ...r.body.rows.flatMap((row) => (row.attempt === undefined ? [] : [row.attempt])),
+        ].join(","),
       ),
-      Option.map(Schema.decodeUnknownOption(ActorMemory)(record), (r) => String(r.memory.count)),
-      Option.map(Schema.decodeUnknownOption(LaneAttempt)(record), (r) => r.attempt),
+      Option.map(Schema.decodeUnknownOption(ActorMemory)(record), (r) =>
+        String(r.body.memory.count),
+      ),
     ]),
     () => "?",
   );
@@ -275,6 +326,7 @@ const success = {
   actor,
   to: Audience.Identity(),
   operation: "ring",
+  input: Option.some({}),
   attempt: Option.some(attemptOf("att-1")),
   lane: Option.none(),
   channel: "success" as const,
@@ -311,8 +363,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
   expect(writesOf(held)).toEqual([]);
   expect([...held.world.marked.keys()].toSorted()).toEqual([
     `actor/${actorKey(actor)}`,
-    "lane/lane-1",
-    `owed/${actorKey(actor)}`,
+    `work/${actorKey(actor)}`,
   ]);
 
   const second = stepOver({ count: 1 }, held.world);
@@ -320,8 +371,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
 
   expect(writesOf(captured(second.tx.out().world))).toEqual([
     `actor/${actorKey(actor)}=1`,
-    "lane/lane-1=att-1",
-    `owed/${actorKey(actor)}=att-1`,
+    `work/${actorKey(actor)}=att-1`,
   ]);
 });
 
@@ -331,7 +381,7 @@ it("WriteAhead I20, I22: a row saved while still in the mailbox leaves the owed 
   first.persistence.close();
   const saved = captured(first.tx.out().world);
 
-  expect(writesOf(saved)).toEqual([`owed/${actorKey(actor)}=att-1`]);
+  expect(writesOf(saved)).toEqual([`work/${actorKey(actor)}=att-1`]);
 
   const second = stepOver({ count: 1 }, saved.world);
   second.ledger.tryOne(actor, id, () => {
@@ -343,7 +393,7 @@ it("WriteAhead I20, I22: a row saved while still in the mailbox leaves the owed 
 
   expect(writesOf(captured(second.tx.out().world))).toEqual([
     `actor/${actorKey(actor)}=1`,
-    `owed/${actorKey(actor)}=delete`,
+    `work/${actorKey(actor)}=delete`,
   ]);
 });
 
@@ -458,7 +508,7 @@ it("WriteAhead R13: a ticket whose identity's actor record cannot encode at its 
   const first = stepOver({ count: "many" });
   first.persistence.saveActor(actor);
 
-  const ticket = first.persistence.saveAwaited(actor, laneOf("lane-1"), {
+  const ticket = first.persistence.saveAwaited(actor, {
     attempt: attemptOf("att-1"),
     purpose: "acknowledge",
   });
@@ -494,7 +544,7 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
 
   first.persistence.saveActor(actor);
 
-  const ticket = first.persistence.saveAwaited(actor, laneOf("lane-1"), {
+  const ticket = first.persistence.saveAwaited(actor, {
     attempt: attemptOf("att-1"),
     purpose: "acknowledge",
   });

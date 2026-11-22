@@ -547,7 +547,7 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
       quarantined: new Map([
         [
           `actor/${garbled.machine}/${garbled.name}`,
-          Quarantine.Unreadable({ code: "text", detail: Option.some("not JSON") }),
+          Quarantine.Reset({ why: "Structure", detail: "text" }),
         ],
       ]),
       ended: new Map([

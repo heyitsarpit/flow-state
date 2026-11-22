@@ -16,7 +16,7 @@ import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
 import { switchedOn } from "../switches.ts";
 
-const OWED = "owed/Bank/Transfers/acct-1";
+const OWED = "work/Bank/Transfers/acct-1";
 
 // The evidence of one open of the tab, in order.
 const inOpen = (run: StoryRun, open: number) =>
@@ -31,22 +31,26 @@ const reports = (run: StoryRun, open: number) =>
 
 const OwedRows = Schema.fromJsonString(
   Schema.Struct({
-    rows: Schema.Array(
-      Schema.Struct({
-        channel: Schema.String,
-        value: Schema.NullOr(Schema.Struct({ receipt: Schema.String })),
-      }),
-    ),
+    body: Schema.Struct({
+      rows: Schema.Array(
+        Schema.Struct({
+          ending: Schema.Struct({
+            channel: Schema.String,
+            value: Schema.optionalKey(Schema.Struct({ receipt: Schema.String })),
+          }),
+        }),
+      ),
+    }),
   }),
 );
 
-// The owed record's parts, in key order, and every row's receipt across them.
+// The work record, and every row's receipt in it.
 const owedParts = (cut: Cut) => [...cut.records.stored.keys()].filter((k) => k.startsWith(OWED));
 
 const receipts = (cut: Cut) =>
   owedParts(cut).flatMap((key) =>
-    Schema.decodeUnknownSync(OwedRows)(cut.records.stored.get(key)).rows.map((r) =>
-      r.value === null ? r.channel : r.value.receipt.length,
+    Schema.decodeUnknownSync(OwedRows)(cut.records.stored.get(key)).body.rows.map((r) =>
+      r.ending.value === undefined ? r.ending.channel : r.ending.value.receipt.length,
     ),
   );
 
@@ -101,19 +105,19 @@ describe("an owed ending with no saved form (Codec R4, R5; WriteAhead R4)", () =
   });
 });
 
-describe("records the boot cannot read (Restore R5, I10, I11)", () => {
-  it("Restore R5: the unread lane holds its key until abandoned; the unread account reads quarantined, starts fresh and saves over its bytes", async () => {
+describe("records the boot cannot read (Records Stage 1 row 4, Fates)", () => {
+  it("Records Stage 1 row 4, Fates Kept(Newer): a record of a newer format keeps its identity's records unread at each boot; the account starts fresh, runs unsaved, and a send on it is refused", async () => {
     const run = checked(await quarantined.run());
     const { quarantined: read, fresh, declined, cleared } = run.checkpoints;
+    const kept = [acct1Record, t1Lane, OWED].map((key) => `RecordUndecodable ${key}`).toSorted();
 
     expect(read.read(account)?.lifecycle).toBe("quarantined");
-    expect(reports(run, 2).toSorted()).toEqual(
-      [`RecordUndecodable ${acct1Record}`, `RecordUndecodable ${t1Lane}`].toSorted(),
-    );
+    expect(reports(run, 2).toSorted()).toEqual(kept);
     expect(fresh.read(account)?.lifecycle).toBe("active");
-    expect(declined.read(account)?.memory).toEqual({ notice: "not sent Rejected" });
-    expect(cleared.records.stored.has(t1Lane)).toBe(false);
-    expect(reports(run, 3)).toEqual([]);
+    expect(declined.read(account)?.memory).toEqual({ notice: "not sent StorageRefused" });
+    expect(cleared.records.stored.get(t1Lane)).toBe(read.records.stored.get(t1Lane));
+    expect(cleared.records.stored.get(acct1Record)).toBe(read.records.stored.get(acct1Record));
+    expect(reports(run, 3).toSorted()).toEqual(kept);
   });
 });
 

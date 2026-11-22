@@ -91,8 +91,9 @@ const stepOfEvidence = (run: StoryRun) => {
 };
 
 /**
- * The Ended records made at their actor's start (a boot, a return or an adoption): after that
- * actor's Incarnated record within the same step.
+ * The Ended records made at a boot, which derives what the store owes (Records R16), or at their
+ * actor's start (a return or an adoption): after that actor's Incarnated record within the same
+ * step.
  */
 export const atStart = (run: StoryRun) => {
   const steps = stepOfEvidence(run);
@@ -104,7 +105,11 @@ export const atStart = (run: StoryRun) => {
 
     if (e._tag === "Incarnated") started.set(nameOf(e.actor), step);
 
-    if (e._tag === "Ended" && started.get(nameOf(e.actor)) === step) found.add(at);
+    if (
+      e._tag === "Ended" &&
+      (started.get(nameOf(e.actor)) === step || run.steps[step]?._tag === "reload")
+    )
+      found.add(at);
   }
 
   return found;

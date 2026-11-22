@@ -339,14 +339,16 @@ describe("the step up from record format 4 (Turn R17)", () => {
       Schema.fromJsonString(
         Schema.Struct({
           format: Schema.Number,
-          schedules: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
+          body: Schema.Struct({
+            schedules: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
+          }),
         }),
       ),
     )(run.checkpoints.saved.records.stored.get(RECORD) ?? "{}");
 
     // Records R12: format 6 files each timer under the state path that declares it, then its name.
     const byName = Object.fromEntries(
-      Object.values(saved.schedules).flatMap((names) => Object.entries(names)),
+      Object.values(saved.body.schedules).flatMap((names) => Object.entries(names)),
     );
 
     expect(saved.format).toBe(6);

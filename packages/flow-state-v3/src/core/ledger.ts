@@ -5,6 +5,7 @@ import type { Persistence } from "./persist.ts";
 import type { Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import { Life } from "./life.ts";
+import type { Values } from "./compiled.ts";
 import {
   type ActorId,
   actorKey,
@@ -14,7 +15,6 @@ import {
   type LaneId,
   Mail,
   OwnedBy,
-  Phase,
 } from "./world.ts";
 
 /**
@@ -61,11 +61,10 @@ export type Route = Data.TaggedEnum<{ Current: {}; From: { owner: OwnedBy } }>;
 export const Route = Data.taggedEnum<Route>();
 
 /**
- * Who made an owed row: an ending a call or a lane decided, the unknown { Restored } a start owes
- * for a Held head, or a row a boot read back from its record. Apart from the row's reason, so no
- * contract's own reason passes for Flow's.
+ * Who made an owed row: an ending a call or a lane decided, or a row a boot read back or derived
+ * from its record. Apart from the row's reason, so no contract's own reason passes for Flow's.
  */
-export type Origin = Data.TaggedEnum<{ Decided: {}; HeldAtStart: {}; ReadBack: {} }>;
+export type Origin = Data.TaggedEnum<{ Decided: {}; ReadBack: {} }>;
 
 /**
  * Constructors and matchers for {@link Origin}.
@@ -89,6 +88,8 @@ export type Owed = {
   readonly value: unknown;
   readonly route: Route;
   readonly delivery: Delivery;
+  // The input of the commit it ends, which its saved row keeps with its key; none for a lookup's.
+  readonly input: Option.Option<Values>;
 };
 
 /**
@@ -135,14 +136,7 @@ export const IN_MAILBOX = {
   Kept: false,
 } as const satisfies Record<Delivery["_tag"], boolean>;
 
-const SAVED_ORIGIN = {
-  Decided: false,
-  HeldAtStart: true,
-  ReadBack: false,
-} as const satisfies Record<Origin["_tag"], boolean>;
-
-const isSaved = (row: Pick<Owed, "delivery" | "origin">) =>
-  SAVED_DELIVERY[row.delivery._tag] || SAVED_ORIGIN[row.origin._tag];
+const isSaved = (row: Pick<Owed, "delivery">) => SAVED_DELIVERY[row.delivery._tag];
 
 /**
  * Whether a Kept row names a lane: the only read that blocks a key.
@@ -221,10 +215,10 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
       (r) => r.id === row.id,
     );
 
-  // A move into or out of the owed record writes it.
+  // A move into or out of the work record writes it.
   const saved = (row: Owed, delivery: Delivery) => {
     if (isSaved(row) || isSaved({ ...row, delivery }) || onRecord(row))
-      persistence.saveOwed(row.actor);
+      persistence.saveWork(row.actor);
   };
 
   /**
@@ -332,15 +326,10 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   /**
    * The one delivery point of a start, whatever began it: the identity's lanes are adopted, so
    * their later endings are current; Waiting rows queue and Kept rows take their one try, in the
-   * order owed; then each Held head with no row for its Attempt is owed unknown Restored, lane by
-   * lane in lane-id order.
+   * order owed. A Held head owes nothing of its own: the boot derived what a restored one owes.
    */
   const start = (actor: ActorId) => {
     const lanes = tx.lanesOf(actor).toSorted(([a], [b]) => byCodeUnits(a, b));
-
-    const owedAttempts = new Set(
-      rowsOf(tx.world().owed, actor).flatMap((r) => Option.toArray(r.attempt)),
-    );
 
     for (const [id, lane] of lanes)
       persistence.setLane(id, { ...lane, head: { ...lane.head, owner: OwnedBy.Root() } });
@@ -360,23 +349,6 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
         Queued: () => undefined,
         Retrying: () => undefined,
       });
-
-    for (const [id, lane] of lanes)
-      if (Phase.$is("Held")(lane.head.phase) && !owedAttempts.has(lane.head.id))
-        owe(
-          {
-            actor,
-            to: Audience.Identity(),
-            operation: lane.operation,
-            attempt: Option.some(lane.head.id),
-            lane: Option.some(id),
-            channel: "unknown",
-            reason: "Restored",
-            value: undefined,
-            route: Route.Current(),
-          },
-          Origin.HeldAtStart(),
-        );
   };
 
   /**
@@ -389,25 +361,34 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   };
 
   /**
-   * Rows a boot decoded, owed to their identity: Waiting, or Kept, with no report; their start
-   * delivers them.
+   * Rows a boot decoded or derived, owed to their identity: Waiting, or Kept, with no report; their
+   * start delivers them. A derived row is an ending owed now, so it is recorded Ended, and waiting.
    */
   const restore = (
-    rows: ReadonlyArray<
-      Omit<Owed, "id" | "delivery" | "to" | "origin"> & { readonly kept: boolean }
-    >,
+    rows: ReadonlyArray<{
+      readonly row: Omit<Owed, "id" | "delivery" | "to" | "origin"> & { readonly kept: boolean };
+      readonly derived: boolean;
+    }>,
   ) => {
-    for (const { kept, ...row } of rows)
-      setRows(row.actor, [
-        ...rowsOf(tx.world().owed, row.actor),
-        {
-          ...row,
-          to: Audience.Identity(),
-          id: tx.mint("owed"),
-          origin: Origin.ReadBack(),
-          delivery: kept ? Delivery.Kept() : Delivery.Waiting(),
-        },
-      ]);
+    for (const {
+      row: { kept, ...ending },
+      derived,
+    } of rows) {
+      const row: Owed = {
+        ...ending,
+        to: Audience.Identity(),
+        id: tx.mint("owed"),
+        origin: Origin.ReadBack(),
+        delivery: kept ? Delivery.Kept() : Delivery.Waiting(),
+      };
+
+      setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
+
+      if (derived) {
+        tx.act(Act.Ended({ actor: row.actor, ending: row }));
+        tx.act(Act.RowWaits({ row }));
+      }
+    }
   };
 
   return { owe, tryOne, suspend, start, letGoKept, restore };

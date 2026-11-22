@@ -18,13 +18,16 @@ export type LaneFact =
   | "StorageSilent";
 
 /**
- * A diagnostic about the Runtime's records: one that cannot encode, one the boot could not read and
- * kept aside, a store that failed to load or has not answered its load yet, or a lane record no
- * actor holds, reported at each boot.
+ * A diagnostic about the Runtime's records: one that cannot encode, one the boot did not read and
+ * kept or reset, a part of one the boot dropped because the definition no longer reads it, a work
+ * part it carries unread, a store that failed to load or has not answered its load yet, or a work
+ * record no actor holds, reported at each boot.
  */
 export type ReportCode =
   | "UnencodableValue"
   | "RecordUndecodable"
+  | "FieldDropped"
+  | "ObligationCarried"
   | "StorageFailure"
   | "StorageSilent"
   | "UnboundLane";

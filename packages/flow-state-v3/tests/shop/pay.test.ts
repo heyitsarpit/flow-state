@@ -22,7 +22,7 @@ const payEndings = (run: StoryRun) =>
   );
 
 describe("Pay across a reload", () => {
-  it("a confirm held at response past its deadline reads unknown after a reload, and the shop handled one confirm (Restore R3, Restore I6; WriteLanes R2)", async () => {
+  it("a confirm held at response past its deadline reads unknown after a reload, told once, and the shop handled one confirm (Records R16, Restore I6; WriteLanes R2)", async () => {
     const run = checked(await lostConfirm.run());
     const { late, reloaded, after } = run.checkpoints;
 
@@ -40,7 +40,8 @@ describe("Pay across a reload", () => {
       }),
     );
     expect(reloaded.inspection.lanes.map((l) => [l.operation, l.state])).toEqual([["pay", "Held"]]);
-    expect(payEndings(run)).toEqual(["unknown TimedOut", "unknown Restored"]);
+    // The unknown told before the reload is not told again (Records R16).
+    expect(payEndings(run)).toEqual(["unknown TimedOut"]);
     expect(reloaded.read(Shop.confirm).map((c) => c.status)).toEqual(["held at response"]);
     expect(after.read(Shop.confirm).map((c) => c.status)).toEqual(["held at response"]);
     expect(after.read(Shop).intents).toEqual({ pi1: "requires_capture" });

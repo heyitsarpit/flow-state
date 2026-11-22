@@ -155,7 +155,7 @@ describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
     expect(row(run.checkpoints.reloaded, cellsCheckout)?.uncertain).toBe(true);
   });
 
-  it("PAY-15/dispose-held-moved: the boot delivers the Held head's unknown Restored after the shopper moved on", async () => {
+  it("PAY-15/dispose-held-moved, Records R16: a Held head whose unknown was told owes nothing after the shopper moved on, so the reload tells it nothing", async () => {
     const run = await played(
       unsure("PAY-15/dispose-held-moved")
         .send(cellsCheckout, VISA)
@@ -167,7 +167,7 @@ describe("PAY-15 disposal on Cells (Actors R22, I29; Restore I6)", () => {
 
     expect(state(run.checkpoints.paying, cellsCheckout)).toBe("PAYING");
     expect(row(run.checkpoints.reloaded, cellsCheckout)?.uncertain).toBe(true);
-    expect(state(run.checkpoints.reloaded, cellsCheckout)).toBe("UNSURE");
+    expect(state(run.checkpoints.reloaded, cellsCheckout)).toBe("PAYING");
   });
 
   it("Actors I43: a refused final write reports StorageFailure before the disposal ends", async () => {

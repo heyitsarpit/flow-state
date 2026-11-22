@@ -62,22 +62,6 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "resend-capture-uncounted",
-    tests: [
-      "tests/write-lanes/write-ahead-records.test.ts",
-      "tests/write-lanes/lane-anchors.test.ts",
-    ],
-    says: "the capture a re-send waits for carries the count before that re-send",
-    rule: "WriteAhead R13",
-    edits: [
-      {
-        file: "src/core/record.ts",
-        find: '            retryCount: l.head.retryCount + (Phase.$is("Recapturing")(l.head.phase) ? 1 : 0),',
-        replace: "            retryCount: l.head.retryCount,",
-      },
-    ],
-  },
-  {
     name: "refused-batch-waits",
     tests: ["tests/write-lanes/write-ahead-records.test.ts"],
     says: "a refused batch's records wait for the next accepted write, however long",
@@ -114,33 +98,6 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
         find: "          decided(current, schedules.firingSettled(current, firing, refusal)),",
         replace:
           "          ((n: Incarnation) => (tx.putIncarnation(n), n))(schedules.firingSettled(current, firing, refusal)),",
-      },
-    ],
-  },
-  {
-    name: "queued-rows-unsaved",
-    tests: ["src/core/persist.test.ts"],
-    says: "a step that ends with rows still in the mailbox writes no owed record for them",
-    rule: "WriteAhead I20",
-    edits: [
-      {
-        file: "src/core/persist.ts",
-        find: "      if (waiting !== undefined) saveOwed(waiting.actor);",
-        replace: "      void waiting;",
-      },
-    ],
-  },
-  {
-    name: "unencodable-identity-half-written",
-    tests: ["src/core/persist.test.ts"],
-    says: "an identity whose actor record cannot encode still writes its lanes and owed record",
-    rule: "WriteAhead I11",
-    edits: [
-      {
-        file: "src/core/persist.ts",
-        find: "      Result.isSuccess(written) ? [{ keys, writes: written.success }] : [],",
-        replace:
-          "      Result.isSuccess(written)\n        ? [{ keys, writes: written.success }]\n        : [{ keys: [], writes: keys.flatMap(([, m]) => Option.toArray(Result.getSuccess(writeOf(m)))) }],",
       },
     ],
   },

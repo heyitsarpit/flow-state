@@ -1,8 +1,10 @@
-import { Brand, Data, Option } from "effect";
+import { Brand, Data, Option, type Schema } from "effect";
+import { laneText, ownerText } from "./record-key.ts";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
-import type { IssueCode, ReadFailure, SavedSchedules } from "./vocabulary.ts";
+import type { IssueCode } from "./vocabulary.ts";
+import type { SavedSchedules } from "./record-shape.ts";
 import type { Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
 import type { Alarmed } from "./alarms.ts";
@@ -19,28 +21,18 @@ export type ActorId = { readonly machine: string; readonly name: string };
 export type ActorKey = string & Brand.Brand<"flow-state/ActorKey">;
 
 /**
- * The id a write lane is kept under, made by {@link laneId}, or read back from a saved lane record.
+ * The id a write lane is kept under, made by {@link laneId}.
  */
 export type LaneId = string & Brand.Brand<"flow-state/LaneId">;
 
 /**
- * An Attempt's id, made by the world's mint, or read back from a saved lane record.
+ * An Attempt's id, made by the world's mint, or decoded from a saved record by its Schema.
  */
 export type AttemptId = string & Brand.Brand<"flow-state/AttemptId">;
 
 const actorKeyOf = Brand.nominal<ActorKey>();
 
 const laneIdOf = Brand.nominal<LaneId>();
-
-/**
- * A lane id read back from a saved lane record, once the boot has checked it against the record.
- */
-export const restoredLaneId = laneIdOf;
-
-/**
- * An Attempt id read back from a saved lane record: the one the mint made before the reload.
- */
-export const restoredAttemptId = Brand.nominal<AttemptId>();
 
 // Each identity's key, minted once: an identity is immutable, so its key never changes.
 const keys = new WeakMap<ActorId, ActorKey>();
@@ -53,9 +45,7 @@ export const actorKey = (actor: ActorId) => {
 
   if (known !== undefined) return known;
 
-  const key = actorKeyOf(
-    `${actor.machine}/${actor.name.replaceAll("%", "%25").replaceAll("/", "%2F").replaceAll("|", "%7C")}`,
-  );
+  const key = actorKeyOf(ownerText(actor));
 
   keys.set(actor, key);
 
@@ -71,7 +61,7 @@ export const sameActor = (a: ActorId, b: ActorId) => a.machine === b.machine && 
  * The id a write lane is kept under: its identity, operation and key text.
  */
 export const laneId = (actor: ActorId, operation: string, keyText: string) =>
-  laneIdOf(`${actorKey(actor)}|${operation}|${keyText}`);
+  laneIdOf(laneText(actor, operation, keyText));
 
 /**
  * A storage ticket's id: the batch an acknowledgement or capture waits on.
@@ -401,13 +391,11 @@ export type ActorRecord = {
 };
 
 /**
- * A record key a step changed, with the identity whose record it is: its actor record, one of its
- * lane records, or its owed record.
+ * A record key a step changed, with the identity whose record it is: its position or its work.
  */
 export type Mark = Data.TaggedEnum<{
   Actor: { actor: ActorId };
-  Lane: { actor: ActorId; lane: LaneId };
-  Owed: { actor: ActorId };
+  Work: { actor: ActorId };
 }>;
 
 /**
@@ -422,12 +410,14 @@ export const Mark = Data.taggedEnum<Mark>();
 export type Marks = ReadonlyMap<string, Mark>;
 
 /**
- * Why a boot kept a record aside: it could not read it, or it is a lane record of an operation its
- * machine no longer declares, a hold an earlier release left, which forget drops.
+ * Why a boot read a record no further: a position it resets (it failed its structure, or names a
+ * state or holds a memory field the machine no longer reads), or a record it keeps byte for byte
+ * (another format's key, a newer format, a work side that failed its structure, a machine no longer
+ * declared, a name that does not read), with what failed.
  */
 export type Quarantine = Data.TaggedEnum<{
-  Unreadable: { code: ReadFailure; detail: Option.Option<string> };
-  Retired: { actor: ActorId; operation: string; lane: LaneId };
+  Reset: { why: "Structure" | "State" | "Memory"; detail: string };
+  Kept: { why: "Foreign" | "Newer" | "Orphan" | "Name" | "Structure"; detail: string };
 }>;
 
 /**
@@ -436,13 +426,42 @@ export type Quarantine = Data.TaggedEnum<{
 export const Quarantine = Data.taggedEnum<Quarantine>();
 
 /**
- * A quarantine's reason as reports and snapshots show it: the read's detail, else its code.
+ * A quarantine's reason as snapshots show it: what failed.
  */
-export const quarantineText = (q: Quarantine) =>
-  Quarantine.$match(q, {
-    Unreadable: ({ code, detail }) => Option.getOrElse(detail, () => code),
-    Retired: () => "operation",
-  });
+export const quarantineText = (q: Quarantine) => q.detail;
+
+/**
+ * Where a carried part sits in an identity's work record: a whole subject, a contract's lanes, one
+ * lane, a displaced Attempt of a lane, or a row after the given count of rows read before it.
+ */
+export type Place = Data.TaggedEnum<{
+  Subject: { subject: string };
+  Contract: { subject: string; contract: string };
+  Lane: { subject: string; contract: string; keyText: string };
+  Displaced: { subject: string; contract: string; keyText: string };
+  Row: { after: number };
+}>;
+
+/**
+ * Constructors and matchers for {@link Place}.
+ */
+export const Place = Data.taggedEnum<Place>();
+
+/**
+ * A part of a work record the boot could not read, carried byte for byte at its place: never
+ * delivered, its lane key still held by the operation that names it, written back unchanged.
+ */
+export type CarriedPart = {
+  readonly place: Place;
+  readonly json: Schema.Json;
+  readonly why: "Retired" | "Unread";
+  readonly held: Option.Option<{ readonly operation: string; readonly keyText: string }>;
+};
+
+/**
+ * An identity's carried parts, in the order they were read.
+ */
+export type Carried = ReadonlyArray<CarriedPart>;
 
 /**
  * Everything the Runtime decides from: plain data, replaced whole by each step.
@@ -454,8 +473,9 @@ export const quarantineText = (q: Quarantine) =>
  * capture last took it; `withheld` each identity whose actor record could not encode at the last
  * capture, whose keys stay marked until it can.
  *
- * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
- * until the identity saves over it or, for a lane, a cancel on its key clears it.
+ * `quarantined` holds each record the boot did not read, by its key, with why: its bytes stay until
+ * the identity saves a position over a reset one, or forget removes them. `carried` holds each
+ * identity's carried work parts, and `legacy` the format 5 keys its next work write removes.
  *
  * `alarms` holds the one host alarm of each owner fact that has a deadline, by the fact's key;
  * `wake` the deadline of the one wake the host holds, none while no alarm is due.
@@ -481,6 +501,8 @@ export type World = {
   readonly marked: Marks;
   readonly withheld: ReadonlyMap<string, ActorId>;
   readonly quarantined: ReadonlyMap<string, Quarantine>;
+  readonly carried: ReadonlyMap<string, Carried>;
+  readonly legacy: ReadonlyMap<string, ReadonlyArray<string>>;
   readonly ended: ReadonlyMap<string, Ended>;
   readonly life: Life;
   readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<LaneId>>;
@@ -528,6 +550,8 @@ export const emptyWorld = (persistence: boolean): World => ({
   marked: new Map(),
   withheld: new Map(),
   quarantined: new Map(),
+  carried: new Map(),
+  legacy: new Map(),
   ended: new Map(),
   life: Life.Inert(),
   lanesOfActor: new Map(),

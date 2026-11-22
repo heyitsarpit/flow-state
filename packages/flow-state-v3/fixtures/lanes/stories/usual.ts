@@ -79,9 +79,9 @@ const cancelLong = Cancel.E.Commit(longRepo);
 // The serialize client's work record as a damaged disk could leave it: a lane with nothing in it,
 // a queue with no head before it, and one Attempt both the head and displaced.
 const forgedLanes = [
-  String.raw`{"body":{"lanes":{"":{"Git/sync":{"{\"repo\":\"flow\"}":{"displaced":[],"queue":[]}}}},"rows":[]},"format":6}`,
-  String.raw`{"body":{"lanes":{"":{"Git/sync":{"{\"repo\":\"flow\"}":{"displaced":[],"queue":[{}]}}}},"rows":[]},"format":6}`,
-  String.raw`{"body":{"lanes":{"":{"Git/sync":{"{\"repo\":\"flow\"}":{"displaced":[{"attempt":"att-000000000000000000006d61696e3a31-1","rest":{}}],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Lanes/sync-serialize":{"{\"repo\":\"flow\"}":{"displaced":[],"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Lanes/sync-serialize":{"{\"repo\":\"flow\"}":{"displaced":[],"queue":[{}]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Lanes/sync-serialize":{"{\"repo\":\"flow\"}":{"displaced":[{"attempt":"att-000000000000000000006d61696e3a31-1","rest":{}}],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
 ].map((text) => Fake.storage.put("work/Lanes/serialize/serialize-1", text));
 
 const lanesSamples = (id: string, long: ReadonlyArray<Repo>, records: ReadonlyArray<WorldWord>) =>

@@ -346,6 +346,8 @@ const judge = (control: Boot, mutant: Mutant, original: string, boot: Boot) => {
 
   const started = boot.actors.filter((a) => !control.actors.includes(a) && !owners.has(a));
 
+  const outside = !writtenForm(mutant.key, mutant.text);
+
   const unreadChanged =
     ["RecordUndecodable", "RecordKept"].some((code) =>
       boot.reports.includes(`${code} ${mutant.key}`),
@@ -353,11 +355,14 @@ const judge = (control: Boot, mutant: Mutant, original: string, boot: Boot) => {
 
   const local = boot.actors.filter((a) => a.includes("/~") && !control.actors.includes(a));
 
-  const outside = !writtenForm(mutant.key, mutant.text);
   const reportedHere = boot.reports.some((r) => r.slice(r.indexOf(" ") + 1) === mutant.key);
 
+  // A mutant in the writer's form is the user's data, with no promise about its meaning (R20): a
+  // forged rest re-sends its Attempt with the forged input. Its run is judged only for booting.
+  const judged = outside ? boot.breaches : boot.breaches.filter((b) => b === "the run failed");
+
   const breaches = [
-    ...boot.breaches.map((b) => `R5: ${tag}: ${b}`),
+    ...judged.map((b) => `R5: ${tag}: ${b}`),
     ...reportedOther.map((r) => `R5: ${tag}: another record reported ${r}`),
     ...started.map((a) => `R4, I9: ${tag}: ${a} started from the store`),
     ...local.map((a) => `R4, I9: ${tag}: the local actor ${a} started from the store`),
@@ -426,11 +431,9 @@ const breachesOfFixture = async (m: Manifest) => {
   return breaches;
 };
 
-// Open today in every fixture: no record is in format 6's writer form yet, and a corrupt one is read
-// with nothing reported for its key; where a lane holds an Attempt, its id is read as any string.
 describe("one corrupt field of any saved record (Records R4, R5, R6, R11; I3, I4, I9)", () => {
   for (const m of manifests.filter((x) => x.pairs.some((p) => p.reach.persisted)))
-    it.fails(`Records R5, R4, R11: every one-field corruption of ${m.name}'s saved records boots, reports no other record, starts no identity the store does not name, keeps an unread record's bytes, and invents no ending`, async () => {
+    it(`Records R5, R4, R11: every one-field corruption of ${m.name}'s saved records boots, reports no other record, starts no identity the store does not name, keeps an unread record's bytes, and invents no ending`, async () => {
       expect(await breachesOfFixture(m)).toEqual([]);
     }, 600_000);
 });

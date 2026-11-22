@@ -322,7 +322,9 @@ describe("the owed ledger on the production runtime", () => {
   // refused twice: two Kept rows (WriteLanes R10 "every kept ending is its own row"). Each gets
   // exactly one try at every start until heard (WriteLanes I31): two mapper calls at the next
   // boot with the jam on, then both heard, in the order owed, once the jam clears.
-  it("two endings refused twice on one lane are two Kept rows, each tried once per start, both heard (WriteLanes I31, R10; WriteLanes T24)", () => {
+  // Live, both Kept rows of the Attempt are tried; the saved record keeps the final answer in
+  // place of the unknown it answers (Records R16, Lanes and rows), so a reload tries that one.
+  it("two endings refused twice on one lane are two Kept rows; after a reload the Attempt's final answer replaces its unknown, tried once per start and heard once (WriteLanes I31, R10; Records R16)", () => {
     const store = new Map<string, string>();
     const jam: Jam = { on: true, tries: [] };
     const { served } = tollOver(jam, []);
@@ -340,11 +342,11 @@ describe("the owed ledger on the production runtime", () => {
 
     const before = jam.tries.length;
     bootWith(served, store, 2);
-    assert.strictEqual(jam.tries.length - before, 2, "one try for each Kept row at the start");
+    assert.strictEqual(jam.tries.length - before, 1, "one try for the Kept row at the start");
 
     jam.on = false;
     const third = bootWith(served, store, 3);
-    assert.deepStrictEqual(turnsOf(third.seen, ["Unsure", "Rang"]), ["Unsure", "Rang"]);
+    assert.deepStrictEqual(turnsOf(third.seen, ["Unsure", "Rang"]), ["Rang"]);
 
     const fourth = bootWith(served, store, 4);
     assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
@@ -498,11 +500,11 @@ describe("the owed ledger on the production runtime", () => {
     testing.disposeRuntime(first.built);
     first.tab.settle();
 
-    // Codec I7: three record kinds, `actor/`, `lane/` and `owed/`; no other key.
+    // Records R4: two record kinds, `actor/` and `work/`; no other key.
     const kinds = new Set([...store.keys()].map((k) => k.split("/")[0]));
-    assert.ok(kinds.has("owed"), "the waiting row is saved in the identity's owed record");
+    assert.ok(kinds.has("work"), "the waiting row is saved in the identity's work record");
     assert.deepEqual(
-      [...kinds].filter((k) => !["actor", "lane", "owed"].includes(k ?? "")),
+      [...kinds].filter((k) => !["actor", "work"].includes(k ?? "")),
       [],
       "no record of another kind",
     );
@@ -558,9 +560,9 @@ describe("the owed ledger on the production runtime", () => {
 
   // A re-send waiting for its capture when the Runtime is disposed goes Held
   // (WriteLanes `algorithm`, disposal starts) and is saved Held, so the next boot wakes nothing
-  // (Restore R1, I1; Actors T23). An ensure then hears unknown { Restored } (Actors R10), and a
-  // retry invokes the Attempt once more, sent before (WriteLanes I26).
-  it("a head held from Recapturing at Runtime disposal is saved Held: the boot wakes nothing (Actors T23, R22; Restore I1, R1)", () => {
+  // (Restore R1, I1; Actors T23). Its unknown was told before the retry, so an ensure hears nothing
+  // of it (Records R16), and a retry invokes the Attempt once more, sent before (WriteLanes I26).
+  it("a head held from Recapturing at Runtime disposal is saved Held: the boot wakes nothing and the ensure hears nothing new (Actors T23, R22; Records R16)", () => {
     const store = new Map<string, string>();
     const counts: Array<number> = [];
     const { served } = tollOver({ on: false, tries: [] }, counts);
@@ -585,7 +587,7 @@ describe("the owed ledger on the production runtime", () => {
 
     testing.attach(second.built, tolls, "host", true);
     second.tab.settle();
-    assert.deepStrictEqual(endingsOf(second.seen, attempt), ["unknown Restored"]);
+    assert.deepStrictEqual(endingsOf(second.seen, attempt), []);
 
     testing.send(second.built, tolls, "Again", { tone: "a" });
     second.tab.settle();
@@ -712,9 +714,9 @@ describe("the owed ledger on the production runtime", () => {
     );
   });
 
-  // The same rows across a reload: a Kept row owed before Waiting rows comes back first, since the
-  // identity's rows are saved in one record in owed order (Restore R3; Codec I7).
-  it("after a reload, a Kept row owed before Waiting rows is still heard first (Restore R3; Codec I7)", () => {
+  // The same rows across a reload: the identity's rows are saved in one work record in owed order,
+  // and the final answer of b's Attempt replaces its Kept unknown (Records R16, Lanes and rows).
+  it("after a reload, the rows are heard in the order owed, an Attempt's final answer in place of its unknown (Records R16; Codec I7)", () => {
     const store = new Map<string, string>();
     const jam: Jam = { on: true, tries: [] };
     const { served, TollMachine } = tollOver(jam, []);
@@ -741,16 +743,15 @@ describe("the owed ledger on the production runtime", () => {
 
     assert.deepStrictEqual(
       deliveredOf(second.seen),
-      [`${onB} Unsure`, `${onA} Rang`, `${onB} Rang`],
+      [`${onA} Rang`, `${onB} Rang`],
       "rows are heard in the order owed after a reload",
     );
   });
 
-  // Two Held heads with no row, created in reverse lane-id order ("c" then
-  // "b"): every start (return, adoption, reload) owes each its unknown { Restored } lane by lane
-  // in lane-id order (WriteLanes `algorithm` start; Restore R3), so "b" is heard before "c", and
-  // the three starts deliver the same sequence (Actors I40, T21). A boot parks nothing.
-  it("one start delivers on return, adoption and reload, Held heads in lane-id order, and a boot parks nothing (Actors I40, R10; Restore R1, R3; Actors T21)", () => {
+  // Two Held heads whose unknowns were heard, created in reverse lane-id order ("c" then "b"):
+  // each owes nothing more (Records R16), so no start (return, adoption, reload) tells either
+  // again, and the three starts deliver the same, nothing (Actors I40, T21). A boot parks nothing.
+  it("one start delivers the same on return, adoption and reload, nothing for Held heads already told, and a boot parks nothing (Actors I40, R10; Records R16; Actors T21)", () => {
     const setup = (store: Map<string, string>) => {
       const { served, TollMachine } = tollOver({ on: false, tries: [] }, []);
       const b = bootWith(served, store, 1);
@@ -762,7 +763,7 @@ describe("the owed ledger on the production runtime", () => {
       const bb = lastRing(b);
       lost(b, bb);
 
-      return { b, served, TollMachine, order: [`${bb} Unsure`, `${c} Unsure`] };
+      return { b, served, TollMachine, order: [] };
     };
 
     const heardAfter = (seen: ReadonlyArray<Evidence>, from: number) =>
@@ -795,7 +796,7 @@ describe("the owed ledger on the production runtime", () => {
     testing.attach(second.built, tolls, "host", true);
     second.tab.settle();
 
-    const inLaneIdOrder = "every start hears the Held heads in lane-id order";
+    const inLaneIdOrder = "no start tells a Held head again";
     assert.deepStrictEqual(heardAfter(returned.b.seen, returnAt), returned.order, inLaneIdOrder);
     assert.deepStrictEqual(heardAfter(adopted.b.seen, adoptAt), adopted.order, inLaneIdOrder);
     assert.deepStrictEqual(heardAfter(second.seen, 0), reloaded.order, inLaneIdOrder);
@@ -846,9 +847,10 @@ describe("the owed ledger on the production runtime", () => {
     );
   });
 
-  // A head restored Held after a reload was sent before (WriteLanes I36),
-  // so when its retry's re-send is answered with a definite failure, that ending is delivered as
-  // unknown { StillUnknown } and the lane stays Held (WriteLanes R2, R5).
+  // A head restored Held after a reload was sent before (WriteLanes I36), and its unknown was told
+  // before the reload (Records R16), so when its retry's re-send is answered with a definite
+  // failure, that ending is delivered as unknown { StillUnknown } and the lane stays Held
+  // (WriteLanes R2, R5).
   it("a restored Held head retried and declined is delivered unknown StillUnknown (WriteLanes I36, R2, R5)", () => {
     const store = new Map<string, string>();
     const { served } = tollOver({ on: false, tries: [] }, []);
@@ -869,21 +871,21 @@ describe("the owed ledger on the production runtime", () => {
 
     assert.deepStrictEqual(
       endingsOf(second.seen, attempt),
-      ["unknown Restored", "unknown StillUnknown"],
+      ["unknown StillUnknown"],
       "a definite failure after an earlier send is delivered unknown StillUnknown",
     );
 
-    // WriteAhead I24: the Held head's lane record is written not in flight.
+    // WriteAhead I24: the Held head is written Held, not out.
     second.tab.advance(6000);
     second.tab.settle();
 
     const saved = [...store.entries()].flatMap(([key, value]) =>
-      key.startsWith("lane/") && value.includes(attempt) ? [value] : [],
+      key.startsWith("work/") && value.includes(attempt) ? [value] : [],
     );
 
     assert.ok(
-      saved.length === 1 && saved[0]?.includes('"inFlight":false'),
-      "the Held head's lane record reads not in flight",
+      saved.length === 1 && saved[0]?.includes('"hold":"Held"'),
+      "the Held head's work record holds it Held",
     );
   });
 

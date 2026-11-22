@@ -47,19 +47,6 @@ export const codecFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "step-two-drops-baseline",
-    tests: ["src/core/actor-record.test.ts"],
-    says: "the format-2 step drops the slot values each baseline saved, so a kept baseline reads back as its slot's last value",
-    rule: "Restore R5",
-    edits: [
-      {
-        file: "src/core/actor-record.ts",
-        find: "      frame === null ? null : { slots: frame.slots, memory: null },",
-        replace: "      frame === null ? null : { slots: {}, memory: null },",
-      },
-    ],
-  },
-  {
     name: "walker-on-call-stack",
     tests: [
       "src/core/boundary.test.ts",

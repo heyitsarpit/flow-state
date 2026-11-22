@@ -88,7 +88,13 @@ describe("every value a selector returns, across reloads (Actors R9, R19)", () =
       JSON.parse(
         run.checkpoints.cleared.records.stored.get("actor/Workspace/Digest/digest") ?? "{}",
       ),
-    ).toEqual(expect.objectContaining({ seen: expect.objectContaining({ owed: 0 }) }));
+    ).toEqual(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          slots: expect.objectContaining({ owed: expect.objectContaining({ seen: { value: 0 } }) }),
+        }),
+      }),
+    );
     expect(Number.isNaN(run.checkpoints.cleared.read(mainDigest)?.context["unread"])).toBe(true);
   });
 
