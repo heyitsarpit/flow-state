@@ -3,20 +3,20 @@ import { describe, expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
 import type { Manifest } from "../../fixtures/manifest.ts";
 import { Fake, Step, type Story, type StoryRun } from "../../src/host/testing/index.ts";
-import { canonicalText } from "../rules/records.ts";
+import { canonicalText, putBy, writtenForm } from "../rules/records.ts";
 import { breachesOf } from "../rules/rules.ts";
 import { reports } from "./opens.ts";
 
 // One field of a real saved record corrupted at a time, by a mutation chosen from the JSON alone
-// (Records `tests`, Alphabet), never from a list of the format's fields. What every mutant must
-// keep is safety, as the fault model gives a text no encoder wrote (Records `model`, FaultModel):
-// the app boots (R5, I3); no other record is newly reported and no other identity hears other
-// endings (R5: no text stops another record from loading); no local actor or identity
-// the store does not name is started from it (R4, I9); a record reported unreadable or kept keeps
-// its bytes (R6, I4); and no ending is heard that the uncorrupted store does not owe (R11: a text
-// that decodes is one a writer emits, and one field changed in a written record is never another
-// written record that owes more). A copy under another valid owner is forged but valid (R20) and
-// is not generated.
+// (Records `tests`, Alphabet), never from a list of the format's fields. Each mutant is classed by
+// the form format 6's writer emits (`writtenForm`: Records R11, I2, Stage 1). Every mutant keeps
+// safety, as the fault model gives a text no encoder wrote (Records `model`, FaultModel): the app
+// boots (R5, I3); no other record is newly reported and no other identity hears other endings
+// (R5); no local actor or identity the store does not name starts from it (R4, I9); a record
+// reported unreadable or kept keeps its bytes (R6, I4). A mutant outside the writer's form is
+// reported for its key, so none of its owed endings goes unreported (R1, R13), and hears no ending
+// the uncorrupted store does not owe (R2, R11). A mutant inside the form is forged but valid and
+// owes nothing (R20).
 
 type Json = Schema.Json;
 
@@ -353,15 +353,25 @@ const judge = (control: Boot, mutant: Mutant, original: string, boot: Boot) => {
 
   const local = boot.actors.filter((a) => a.includes("/~") && !control.actors.includes(a));
 
+  const outside = !writtenForm(mutant.key, mutant.text);
+  const reportedHere = boot.reports.some((r) => r.slice(r.indexOf(" ") + 1) === mutant.key);
+
   const breaches = [
     ...boot.breaches.map((b) => `R5: ${tag}: ${b}`),
     ...reportedOther.map((r) => `R5: ${tag}: another record reported ${r}`),
     ...started.map((a) => `R4, I9: ${tag}: ${a} started from the store`),
     ...local.map((a) => `R4, I9: ${tag}: the local actor ${a} started from the store`),
-    ...invented(control, boot, owners).map(
-      (e) => `R2, R11: ${tag}: heard ${e}, which the store does not owe`,
-    ),
   ];
+
+  if (outside && !reportedHere)
+    breaches.push(`R11, R13: ${tag}: outside the writer's form, and nothing reports ${mutant.key}`);
+
+  if (outside)
+    breaches.push(
+      ...invented(control, boot, owners).map(
+        (e) => `R2, R11: ${tag}: heard ${e}, which the store does not owe`,
+      ),
+    );
 
   if (othersHeard(boot, owners) !== othersHeard(control, owners))
     breaches.push(`R5: ${tag}: another identity heard other endings`);
@@ -371,8 +381,8 @@ const judge = (control: Boot, mutant: Mutant, original: string, boot: Boot) => {
   return breaches;
 };
 
-// A fixture's real saved records: each Story's end store, one record per kind and machine, from
-// the shortest Story that wrote one.
+// A fixture's real saved records: each Story's end store, one record per kind and machine its
+// Runtime wrote (never one the Story put), from the shortest Story that wrote one.
 const sourcesOf = async (m: Manifest) => {
   const seen = new Set<string>();
 
@@ -387,9 +397,11 @@ const sourcesOf = async (m: Manifest) => {
   )) {
     const run = await story.run();
 
+    const put = putBy(run);
+
     if (breachesOf(run).length === 0)
       for (const [key, text] of run.end.records.stored)
-        if (!seen.has(classOf(key))) {
+        if (!seen.has(classOf(key)) && !put.has(`${key}\n${text}`)) {
           seen.add(classOf(key));
           sources.push({ story, key, text });
         }
@@ -414,17 +426,11 @@ const breachesOfFixture = async (m: Manifest) => {
   return breaches;
 };
 
-// Open today where a lane holds an Attempt: its id is read as any string, so a corrupt id is heard
-// as an Attempt the mint never made (Records realization, AttemptId).
-const ATTEMPT_UNCHECKED = new Set(["cells", "lanes", "shop", "sign-in", "transfers"]);
-
+// Open today in every fixture: no record is in format 6's writer form yet, and a corrupt one is read
+// with nothing reported for its key; where a lane holds an Attempt, its id is read as any string.
 describe("one corrupt field of any saved record (Records R4, R5, R6, R11; I3, I4, I9)", () => {
   for (const m of manifests.filter((x) => x.pairs.some((p) => p.reach.persisted)))
-    (ATTEMPT_UNCHECKED.has(m.name) ? it.fails : it)(
-      `Records R5, R4, R11: every one-field corruption of ${m.name}'s saved records boots, reports no other record, starts no identity the store does not name, keeps an unread record's bytes, and invents no ending`,
-      async () => {
-        expect(await breachesOfFixture(m)).toEqual([]);
-      },
-      600_000,
-    );
+    it.fails(`Records R5, R4, R11: every one-field corruption of ${m.name}'s saved records boots, reports no other record, starts no identity the store does not name, keeps an unread record's bytes, and invents no ending`, async () => {
+      expect(await breachesOfFixture(m)).toEqual([]);
+    }, 600_000);
 });

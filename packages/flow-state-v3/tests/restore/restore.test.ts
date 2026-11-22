@@ -4,8 +4,10 @@ import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { Serialize } from "../../fixtures/lanes/machines/clients.ts";
 import { displacedOnWire, lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { Git } from "../../fixtures/services/git/server/git.ts";
-import { mainCart } from "../../fixtures/shop/app.ts";
+import { mainCart, mainShopper } from "../../fixtures/shop/app.ts";
 import { Cart } from "../../fixtures/shop/machines/cart.ts";
+import { Shopper } from "../../fixtures/shop/machines/shopper.ts";
+import { Carts } from "../../fixtures/shop/server/carts.ts";
 import { storeStory } from "../../fixtures/shop/stories/usual.ts";
 import {
   borrowedRecords,
@@ -22,6 +24,7 @@ import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
+import { reportsWithReasons } from "./opens.ts";
 
 const send = (transferId: string) => Transfers.E.Send({ transferId, cents: 500 });
 
@@ -310,28 +313,42 @@ describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () =>
   // Open: a record's context bindings are read without the identity check its own name gets, so a
   // binding to a local actor starts one from the store. A slot whose provider does not read is
   // dropped alone and reported; the rest of the record restores (Records R7, reference table).
-  it.fails("Records R4, I9, reference table (slots): a slot bound to a local actor is dropped and reported, no local actor starts from it, and the rest of the record restores", async () => {
+  it.fails("Records R4, I9, reference table (slots): a slot bound to a local actor is dropped and reported by its name, the boot wakes the cart it owes without starting a local actor, and the next ensure binds the slot to the ref's shopper", async () => {
+    const key = 'actor/Shop/Cart/{"owner":"main"}';
+
     const bound =
       '{"context":{"shopper":{"machine":"Shop/Shopper","name":"~9"}},"format":3,"graph":{"Shop/Shopper/~9":{}},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"l9":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}';
 
+    // The cart's add is out at the reload, so the boot wakes the cart with its saved binding.
     const run = checked(
       await storeStory("restore/bound-to-local")
         .ensure(mainCart)
+        .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
+        .world(Carts.addLine.hold())
         .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
-        .world(Fake.storage.put('actor/Shop/Cart/{"owner":"main"}', bound))
+        .world(Fake.storage.put(key, bound))
         .reload({ reattach: false })
+        .checkpoint("woken")
         .ensure(mainCart)
         .checkpoint("restored")
         .run(),
     );
 
-    const { restored } = run.checkpoints;
+    const { woken, restored } = run.checkpoints;
 
-    expect(restored.inspection.actors.map((a) => a.actor).filter((a) => a.includes("/~"))).toEqual(
-      [],
-    );
+    const locals = [...woken.inspection.actors, ...restored.inspection.actors]
+      .map((a) => String(a.actor))
+      .filter((a) => a.includes("/~"));
+
+    expect(locals).toEqual([]);
+    expect(
+      reportsWithReasons(run, 2).some(
+        (r) =>
+          String(r.code) === "FieldDropped" && r.record === key && r.reason.includes("shopper"),
+      ),
+    ).toBe(true);
+    expect(restored.read(mainCart)?.context.shopper).toBe("ada");
     expect(restored.read(mainCart)?.memory.lines).toEqual({ l9: { quantity: 1, variantId: "v1" } });
-    expect(reports(run, 2).filter((r) => r.startsWith("FieldDropped")).length).toBeGreaterThan(0);
   });
 });
 

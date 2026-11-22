@@ -10,6 +10,7 @@ import { mixFaults } from "./mix-faults.ts";
 import { toolingFaults } from "./tooling-faults.ts";
 import { structureFaults } from "./structure-faults.ts";
 import { constructionFaults } from "./construction-faults.ts";
+import { recordFaults } from "./record-faults.ts";
 import { restoreFaults } from "./restore-faults.ts";
 import { ruleFaults } from "./rule-faults.ts";
 import { stepFaults } from "./step-faults.ts";
@@ -306,6 +307,7 @@ const planted: ReadonlyArray<Fault> = [
   ...typedMachineFaults,
   ...turnPartsFaults,
   ...restoreFaults,
+  ...recordFaults,
   ...ruleFaults,
   ...structureFaults,
   ...constructionFaults,

@@ -1843,6 +1843,40 @@ tasks
                Rejected: 'it.fails is green today' (the committed red form); the definition-edits removed-operation
                expectation (item 12 describes today's red). Routed: claims against entity records to T125 and T126;
                ordering and bit rot are out of scope (R20).
+        comment     2026-11-22T21:33:50Z
+            Requirements fix round (requirements lead, 2026-11-23): the review's three blockers are fixed in the tests.
+            (1) corrupt.test.ts classes each mutant by format 6's writer form
+            (code:packages/flow-state-v3/tests/rules/records.ts#writtenForm, the strict Shape recordKinds takes at the
+            build): one outside it must be reported for its key and hear nothing the store does not owe; one inside owes
+            nothing (R20). Red in all nine persisting fixtures: no record is in the writer's form yet, and a corrupt one
+            is read with nothing reported for its key. (2) saved-records.test.ts "Records R17, I14" (green now, caught
+            by the planted install-fires-event in code:packages/flow-state-v3/tests/record-faults.ts) and "Records I17,
+            R12" (red now: a format 5 lane of an operation the machine lacks is not carried beside its restored sibling;
+            the builder's step-reads-definition plant targets it). (3) restore.test.ts's binding test wakes a cart owed
+            an add with its saved binding and names `shopper` in the FieldDropped report; flipped, it fails because the
+            boot incarnates Shop/Shopper/~9. Added: definition-edits.test.ts slot removed and renamed (transfers
+            AccountSwitcher), red because nothing reports the dropped slot; the dated tag left the title at line 187.
+
+            For the builder, in one place:
+
+            - Reds that fail first on a control step: saved-records.test.ts R14, LaneShape, carried-lane and read-lane
+              tests on the R16 control, and record-shapes.test.ts on missing work paths; confirm each stated assertion
+              bites once R16 and the layout land.
+            - record.ts holds seven `no-id-text` lines, not six; all go with the one key parser.
+            - Store writers the inventory missed: code:packages/flow-state-v3/src/core/incarnations.ts#forgetRetired
+              (saveLane) and code:packages/flow-state-v3/src/host/close.ts#makeForget. Key builders to supersede:
+              record.ts#owedRecordKey, #actorRecordKey, #laneRecordKey, and their importers snapshot.ts,
+              lanes.ts, ids.test-d.ts.
+            - The `incarnations.ts:446-456` citation in Supersedes is stale (the file has 379 lines): the boot's writes
+              are saveOwed and saveLane inside incarnations.ts#boot.
+            - writtenForm's Attempt pattern accepts any session seed (`att-<hex>-<n>`); keep the codec's AttemptId to
+              the mint's form.
+        comment     2026-11-22T21:33:51Z
+            [decided: agent builder 2026-11-23] Each record report names its key (`record`), one per key per boot, with
+            the leaf in its reason; a key the boot does not read for its name, kind or machine (Kept Name, Foreign,
+            Orphan) reports RecordUndecodable until @task.V3.T56 brings RecordKept. Why: a report points at the bytes it
+            keeps (I4), and corrupt.test.ts asks each mutant outside the writer's form to be reported for its key.
+            Reverse: one report per machine with a count, its keys in the reason.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

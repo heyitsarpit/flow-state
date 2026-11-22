@@ -259,6 +259,161 @@ const breachOf = (key: string, text: string, at: string) => {
   return flaws.map((flaw) => `Codec I7: at ${at}, ${key} ${FLAW_TEXT[flaw]}`);
 };
 
+// Format 6 as its writer emits it (Records `Types`): strict structs in normal form, each count a
+// non-negative integer, each Attempt id in the mint's form. A record outside this form is one no
+// encoder wrote.
+const Count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+
+const AttemptText = Schema.String.check(Schema.isPattern(/^att-[0-9a-f]+-\d+$/u));
+
+const WrittenTimer = Schema.Struct({
+  key: Schema.optionalKey(Schema.Json),
+  selection: Schema.optionalKey(Schema.String),
+  selectionFailed: Schema.optionalKey(Failed),
+  reasons: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)),
+  arming: Schema.Union([
+    Schema.Struct({ _tag: Schema.Literal("Idle") }),
+    Schema.Struct({ _tag: Schema.Literal("Refused"), code: Schema.String, slot: Schema.String }),
+    Schema.Struct({ _tag: Schema.Literal("Due"), armedAt: Count, attempt: Count, dueAt: Count }),
+    Schema.Struct({ _tag: Schema.Literal("Held"), armedAt: Count, attempt: Count, left: Count }),
+  ]),
+  firing: Schema.optionalKey(Failed),
+});
+
+const ScheduleMap = Schema.Record(
+  Schema.String,
+  Schema.Union([WrittenTimer, Schema.Array(WrittenTimer)]),
+);
+
+const Provider = Schema.Struct({ machine: Schema.String, name: Schema.String });
+
+const Position = Schema.Struct({
+  state: Schema.String,
+  memory: Schema.Record(Schema.String, Schema.Json),
+  schedules: Schema.Record(Schema.String, ScheduleMap),
+  slots: Schema.Record(
+    Schema.String,
+    Schema.Struct({
+      provider: Schema.optionalKey(Provider),
+      seen: Schema.optionalKey(Schema.Struct({ value: Schema.Json })),
+      baselines: Schema.Record(
+        Schema.String,
+        Schema.Struct({ value: Schema.optionalKey(Schema.Json) }),
+      ),
+    }),
+  ),
+  graph: Schema.Record(Schema.String, Schema.Record(Schema.String, Provider)),
+  instances: Schema.Record(
+    Schema.String,
+    Schema.Struct({
+      status: Schema.Literals(["Live", "Frozen"]),
+      reset: Schema.optionalKey(Schema.String),
+      memory: Schema.Record(Schema.String, Schema.Json),
+      schedules: ScheduleMap,
+    }),
+  ),
+  bookmarks: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Json)),
+  ),
+});
+
+const Head = Schema.Struct({
+  attempt: AttemptText,
+  rest: Schema.Json,
+  retryCount: Count,
+  hold: Schema.Literals(["Out", "Held"]),
+  unknown: Schema.optionalKey(Schema.Struct({ ending: Schema.Json, kept: Schema.Boolean })),
+  claims: Schema.Array(
+    Schema.Struct({
+      entity: Schema.String,
+      keyText: Schema.String,
+      fields: Schema.Array(Schema.String),
+      basedOn: Schema.optionalKey(Schema.Json),
+    }),
+  ),
+});
+
+// A lane holds a head, with a queue behind it, or only displaced Attempts.
+const Lane = Schema.Union([
+  Schema.Struct({
+    head: Head,
+    queue: Schema.Array(Schema.Json),
+    displaced: Schema.Array(Schema.Struct({ attempt: AttemptText, rest: Schema.Json })),
+  }),
+  Schema.Struct({
+    queue: Schema.Tuple([]),
+    displaced: Schema.NonEmptyArray(Schema.Struct({ attempt: AttemptText, rest: Schema.Json })),
+  }),
+]);
+
+const Row = Schema.Struct({
+  subject: Schema.String,
+  contract: Schema.String,
+  keyText: Schema.String,
+  attempt: Schema.optionalKey(AttemptText),
+  rest: Schema.Json,
+  ending: Schema.Json,
+  kept: Schema.Boolean,
+});
+
+const NonEmptyMap = <S extends Schema.Top>(value: S) =>
+  Schema.Record(Schema.String, value).check(
+    Schema.makeFilter((map) => Object.keys(map).length > 0, { expected: "a map with an entry" }),
+  );
+
+const Work = Schema.Struct({
+  lanes: Schema.Record(Schema.String, NonEmptyMap(NonEmptyMap(Lane))),
+  rows: Schema.Array(Row),
+});
+
+const envelopeOf = <S extends Schema.Top>(body: S) =>
+  Schema.Struct({ body, format: Schema.Literal(6), shape: Schema.optionalKey(Schema.String) });
+
+const WRITTEN = { "actor/": envelopeOf(Position), "work/": envelopeOf(Work) } as const;
+
+// Every Attempt id a work body holds, in heads, displaced lists and rows.
+const attemptsOf = (work: typeof Work.Type) => [
+  ...Object.values(work.lanes).flatMap((byContract) =>
+    Object.values(byContract).flatMap((byKey) =>
+      Object.values(byKey).flatMap((lane) =>
+        "head" in lane
+          ? [lane.head.attempt, ...lane.displaced.map((d) => d.attempt)]
+          : lane.displaced.map((d) => d.attempt),
+      ),
+    ),
+  ),
+  ...work.rows.flatMap((r) => (r.attempt === undefined ? [] : [r.attempt])),
+];
+
+/**
+ * Whether a stored record is in the form format 6's writer emits (Records R11, I2, Stage 1 rows 1
+ * to 8): an actor or work key whose text is canonical JSON, decodes by its kind's strict Shape with
+ * no member left over, and, for a work record, holds a lane or a row and no Attempt id twice.
+ */
+export const writtenForm = (key: string, text: string) => {
+  const kind = (["actor/", "work/"] as const).find((k) => key.startsWith(k));
+  const json = Schema.decodeUnknownOption(JsonText)(text);
+
+  if (kind === undefined || Option.isNone(json) || canonicalText(json.value) !== text) return false;
+
+  const decoded = Schema.decodeUnknownOption(WRITTEN[kind])(json.value, {
+    onExcessProperty: "error",
+  });
+
+  if (Option.isNone(decoded)) return false;
+
+  const body = decoded.value.body;
+
+  if (!Schema.is(Work)(body)) return true;
+
+  const attempts = attemptsOf(body);
+
+  return (
+    (Object.keys(body.lanes).length > 0 || body.rows.length > 0) &&
+    new Set(attempts).size === attempts.length
+  );
+};
+
 // Records a Story wrote into the store itself, by key and text: the Runtime did not write them.
 export const putBy = (run: StoryRun) =>
   new Set(

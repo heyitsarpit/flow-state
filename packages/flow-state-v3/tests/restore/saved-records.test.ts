@@ -1,6 +1,9 @@
 import { Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
+import { home } from "../../fixtures/home/index.ts";
 import { manifests } from "../../fixtures/index.ts";
+import { session } from "../../fixtures/session/index.ts";
+import { wizard } from "../../fixtures/wizard/index.ts";
 import { serializeClient } from "../../fixtures/lanes/app.ts";
 import { lanesStory } from "../../fixtures/lanes/stories/usual.ts";
 import { answeredWhileDisposing } from "../../fixtures/lanes/stories/structure.ts";
@@ -13,10 +16,10 @@ import { sessionStory } from "../../fixtures/sign-in/stories/usual.ts";
 import { account } from "../../fixtures/transfers/app.ts";
 import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
-import { Fake, type StoryRun } from "../../src/host/testing/index.ts";
+import { Fake, type Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { canonicalText } from "../rules/records.ts";
 import { checked } from "../rules/rules.ts";
-import { heard, reports } from "./opens.ts";
+import { heard, inOpen, reports } from "./opens.ts";
 
 const JsonText = Schema.fromJsonString(Schema.Json);
 
@@ -31,6 +34,15 @@ const at = (json: Schema.Json, ...path: ReadonlyArray<string>) =>
 // A JSON object with one member set, from no members for any other value.
 const withMember = (json: Schema.Json, name: string, value: Schema.Json) =>
   Object.fromEntries([...Object.entries(isObject(json) ? json : {}), [name, value]]);
+
+// A fixture's registered Story by its export name.
+const named = (stories: Readonly<Record<string, Story<string>>>, name: string) => {
+  const story = stories[name];
+
+  if (story === undefined) throw new Error(`no Story ${name}`);
+
+  return story;
+};
 
 // An Attempt id in the mint's form, as a record saved before the reload holds it.
 const ATTEMPT = "att-000000000000000000006d61696e3a31-1";
@@ -406,5 +418,68 @@ describe("the forged records the fixtures' samples put in the store (fixtures.md
 
     for (const text of texts)
       expect(canonicalText(Schema.decodeUnknownSync(JsonText)(text))).toBe(text);
+  });
+});
+
+describe("an install fires nothing (Records R17, I14)", () => {
+  it("Records R17, I14: a boot over a store that owes nothing records no evidence and writes no batch: it starts no actor, runs no turn and compares no saved fact", async () => {
+    for (const story of [
+      named(home.stories, "usual"),
+      named(session.stories, "usual"),
+      named(wizard.stories, "usual"),
+    ]) {
+      const open = story.steps.filter((step) => step._tag === "reload").length + 2;
+      const run = checked(await story.reload({ reattach: false }).run());
+
+      expect(run.end.records.stored.size).toBeGreaterThan(0);
+      expect(inOpen(run, open).map((e) => e._tag)).toEqual([]);
+      expect(run.end.records.batches.filter((b) => b.tab.open === open)).toEqual([]);
+    }
+  });
+});
+
+describe("a format step reads no definition (Records I17, R12)", () => {
+  it.fails("Records I17, R12: a format 5 lane of an operation the machine lacks steps with its siblings and is carried, while the sibling lane of a known operation restores", async () => {
+    const known = canonicalText({
+      attempt: ATTEMPT,
+      displaced: [],
+      format: 5,
+      inFlight: false,
+      input: { cents: 500, transferId: "t1" },
+      machine: "Bank/Transfers",
+      name: "acct-1",
+      operation: "transfer",
+      queue: [],
+      retryCount: 0,
+    });
+
+    const unknown = canonicalText({
+      attempt: "att-000000000000000000006d61696e3a31-2",
+      displaced: [],
+      format: 5,
+      inFlight: false,
+      input: { cents: 900, transferId: "t2" },
+      machine: "Bank/Transfers",
+      name: "acct-1",
+      operation: "wire",
+      queue: [],
+      retryCount: 0,
+    });
+
+    const run = checked(
+      await bankStory("records/step-reads-no-definition")
+        .world(
+          Fake.storage.put(`lane/Bank/Transfers/acct-1|transfer|${T1}`, known),
+          Fake.storage.put('lane/Bank/Transfers/acct-1|wire|{"transferId":"t2"}', unknown),
+        )
+        .reload()
+        .ensure(account)
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(heard(run, 2, "transfer")).toEqual(["Unsure"]);
+    expect(reports(run, 2)).toContain(`ObligationCarried ${ACCOUNT_WORK}`);
+    expect(run.checkpoints.after.records.stored.get(ACCOUNT_WORK)).toContain('"wire"');
   });
 });

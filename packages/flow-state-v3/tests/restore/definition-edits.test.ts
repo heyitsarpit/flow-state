@@ -4,9 +4,13 @@ import { BankLive } from "../../fixtures/transfers/adapters/bank.ts";
 import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
 import { transfer } from "../../fixtures/transfers/operations/writes.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
-import { BankFake } from "../../fixtures/transfers/server/layer.ts";
+import { AccountsFake, BankFake } from "../../fixtures/transfers/server/layer.ts";
 import { BankApi } from "../../fixtures/transfers/services.ts";
-import { account } from "../../fixtures/transfers/app.ts";
+import { account, bankPlanned, mainCustomer, switcher } from "../../fixtures/transfers/app.ts";
+import { AccountsLive } from "../../fixtures/transfers/adapters/accounts.ts";
+import type { AccountSwitcher } from "../../fixtures/transfers/machines/account-switcher.ts";
+import { Customer } from "../../fixtures/transfers/machines/customer.ts";
+import { switcherRecent } from "../../fixtures/transfers/stories/context.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { booking } from "../../fixtures/wizard/app.ts";
 import type { Booking } from "../../fixtures/wizard/machines/booking.ts";
@@ -184,7 +188,7 @@ describe("restore after the booking's definition is edited (Records R7, referenc
       ).toHaveLength(1);
   });
 
-  it("Records R7 [decided: user 2026-11-22]: a memory field that no longer reads resets the position to the initial state and memory, reported", async () => {
+  it("Records R7: a memory field that no longer reads resets the position to the initial state and memory, reported", async () => {
     const restored = await bookingUnder({
       states: STATES,
       memory: { ...MEMORY, heldUntil: Flow.initial(Schema.String, "") },
@@ -329,5 +333,82 @@ describe("restore after the account's operations are edited (Records reference t
   it.fails("Records reference table, Carried (Retired): a removed operation or a renamed contract leaves its lane carried byte for byte, not heard, and reported", async () => {
     for (const edit of ["removed", "contractRenamed"] as const)
       expect(await accountUnder(edit)).toEqual({ heard: [], carried: 1, kept: true });
+  });
+});
+
+// A later build of the account switcher: its one slot removed, or renamed.
+const switcherBuild = (edit: "removed" | "renamed") => {
+  const declared: typeof AccountSwitcher = loose(
+    definition(
+      loose({
+        id: "Bank/AccountSwitcher",
+        persist: true,
+        states: ["SHOWN"],
+        events: {},
+        internalEvents: { Remembered: { account: Schema.String } },
+        memory: { recent: Flow.initial(Schema.Array(Schema.String), []) },
+        context: edit === "removed" ? {} : { acct: Flow.context(Customer.M.account) },
+      }),
+    ),
+  );
+
+  return machine(declared, ({ S }) => ({ default: S.SHOWN }));
+};
+
+const SWITCHER = "actor/Bank/AccountSwitcher/switcher";
+
+// The switcher's saved record, after the customer chose accounts, booted under a later build.
+const switcherUnder = async (edit: "removed" | "renamed") => {
+  const saved = checked(await switcherRecent.run()).checkpoints.chosen.records.stored;
+  const built = switcherBuild(edit);
+  const ref = actorRef(built, "switcher");
+
+  const setup = runtimeSetup({
+    app: app({
+      id: "bank",
+      machines: {
+        ...bankPlanned.machines,
+        switcher: {
+          machine: built,
+          context: loose(edit === "removed" ? {} : { acct: mainCustomer }),
+        },
+      },
+    }),
+    services: Layer.mergeAll(
+      BankLive("https://bank.example"),
+      AccountsLive("https://accounts.example"),
+      layerIndexedDb(),
+    ),
+    scope: "bank",
+    persistence: { captureMs: 0 },
+  });
+
+  const run = checked(
+    await Story.app(setup, { id: `records/switcher-${edit}`, fixtures: [BankFake, AccountsFake] })
+      .world(...[...saved].map(([key, text]) => Fake.storage.put(key, text)))
+      .reload()
+      .ensure(ref)
+      .checkpoint("restored")
+      .run(),
+  );
+
+  return {
+    saved: checked(await switcherRecent.run()).checkpoints.chosen.read(switcher)?.memory.recent,
+    recent: run.checkpoints.restored.read(ref)?.memory.recent,
+    dropped: reportsWithReasons(run, 2).some(
+      (r) =>
+        String(r.code) === "FieldDropped" && r.record === SWITCHER && r.reason.includes("account"),
+    ),
+  };
+};
+
+describe("restore after a slot is edited (Records reference table, slots)", () => {
+  it.fails("Records reference table, slots: a slot removed or renamed is dropped and reported FieldDropped naming it, and the rest of the record restores", async () => {
+    for (const edit of ["removed", "renamed"] as const) {
+      const { saved, recent, dropped } = await switcherUnder(edit);
+
+      expect(saved).toEqual(["joint-1", "acct-2", "acct-1"]);
+      expect({ recent, dropped }).toEqual({ recent: saved, dropped: true });
+    }
   });
 });
