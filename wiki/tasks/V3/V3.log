@@ -692,3 +692,15 @@ note 2026-11-22T10:06:50Z
 note 2026-11-22T10:17:40Z
     [decided: user 2026-11-22] Pages read: @page.T57-schedules, @page.T89-foundations, @page.T118-schedule-issues,
     @page.T141-bench-loads. Slices T118 and T141 closed.
+
+note 2026-11-22T10:23:26Z
+    T113 requirements in (4e4401b2, adccdb43); requirements review started (five fixed sidecars).
+
+note 2026-11-22T10:33:30Z
+    [decided: user 2026-11-22] "yes we need to fold this in": Q1 A joins T113: the config echo leaves the definition's
+    face (read privately, as T131 did for machines), state is renamed (name open), and a part's type is its token's
+    .Type, with M.field.schema off the face. Scope: T113.
+
+note 2026-11-22T10:35:33Z
+    [decided: user 2026-11-22] T113 Q2 C: Room.state keeps its name (no rename). Q3 B: no O.x.Input or O.x.Key; code
+    outside a body uses the contract's own input Schema. Scope: T113.
