@@ -1,4 +1,4 @@
-import { Predicate, Schema } from "effect";
+import { Predicate, Schedule, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Story, type StoryRun } from "../../src/host/testing/index.ts";
@@ -7,11 +7,11 @@ import { loose } from "../../src/test/loose.ts";
 import { played } from "../rules/played.ts";
 import { timersOf } from "../timers.ts";
 
-// A persisted lamp with one keyed one-minute schedule `t`: its keys, each reason's held keys
-// (`R:key`), its `restartOn` selection and whether a firing's send is refused are memory. Key
-// `far` asks for a delay past the timer limit, so its start is refused. Later builds edit the
-// schedule's fields: a reason renamed, added or reordered, the key's field renamed, or the
-// selection's Schema changed (Schedules R14, its decode table).
+// A persisted lamp with one keyed one-minute schedule `t` and an unkeyed series `s`, a step a
+// minute from entry: `t`'s keys, each reason's held keys (`R:key`), its `restartOn` selection and
+// whether a firing's send is refused are memory. Key `far` asks for a delay past the timer limit,
+// so its start is refused. Later builds edit `t`'s fields: a reason renamed, added or reordered,
+// the key's field renamed, or the selection's Schema changed (Schedules R14, its decode table).
 
 const Written = {
   keys: Schema.Array(Schema.String),
@@ -28,6 +28,7 @@ const memoryOf = (keys: ReadonlyArray<string>) => ({
   refuse: Flow.initial(Schema.Boolean, false),
   n: Flow.initial(Schema.Number, 0),
   ticks: Flow.initial(Schema.Array(Schema.String), []),
+  steps: Flow.initial(Schema.Number, 0),
 });
 
 const Lamp = definition({
@@ -35,9 +36,12 @@ const Lamp = definition({
   persist: true,
   states: ["ON"],
   events: { Set: Written },
-  internalEvents: { Tick: { id: Schema.String } },
+  internalEvents: { Tick: { id: Schema.String }, Step: {} },
   memory: memoryOf([]),
-  schedules: { t: { key: { id: Schema.String }, pausedBy: ["A"], restartOn: Schema.Number } },
+  schedules: {
+    t: { key: { id: Schema.String }, pausedBy: ["A"], restartOn: Schema.Number },
+    s: {},
+  },
 });
 
 const delayOf = (id: string) => (id === "far" ? 2 ** 31 : 60_000);
@@ -54,10 +58,12 @@ const LampMachine = machine(Lamp, ({ S, E }) => ({
       updateMemory: ({ event, memory }) =>
         memory.refuse ? unreadable("the firing") : { ticks: [...memory.ticks, event.id] },
     },
+    Step: { updateMemory: ({ memory }) => ({ steps: memory.steps + 1 }) },
   },
   states: {
     ON: {
       schedules: {
+        s: { schedule: Schedule.spaced("1 minute"), send: E.Step },
         t: {
           keys: ({ memory }) => memory.keys.map((id) => ({ id })),
           schedule: ({ key }) => delayOf(key.id),
@@ -87,9 +93,9 @@ const editedOf = (edit: Edit) => {
     persist: true,
     states: ["ON"],
     events: { Set: Written },
-    internalEvents: { Tick: { id: Schema.String } },
+    internalEvents: { Tick: { id: Schema.String }, Step: {} },
     memory: memoryOf([]),
-    schedules: { t: { key, pausedBy: edit.reasons, restartOn: selection } },
+    schedules: { t: { key, pausedBy: edit.reasons, restartOn: selection }, s: {} },
   });
 
   const idOf = (k: Readonly<Record<string, string>>) => k[edit.field] ?? "";
@@ -100,10 +106,12 @@ const editedOf = (edit: Edit) => {
       on: {
         Set: { updateMemory: ({ event }) => event },
         Tick: { updateMemory: ({ event, memory }) => ({ ticks: [...memory.ticks, event.id] }) },
+        Step: { updateMemory: ({ memory }) => ({ steps: memory.steps + 1 }) },
       },
       states: {
         ON: {
           schedules: {
+            s: { schedule: Schedule.spaced("1 minute"), send: E.Step },
             t: loose({
               keys: ({ memory }: { memory: { keys: ReadonlyArray<string> } }) =>
                 memory.keys.map((id) => ({ [edit.field]: id })),
@@ -202,15 +210,17 @@ const savedAt = (run: StoryRun<string>, name: string) => {
   return {
     format: Predicate.hasProperty(json, "format") ? json.format : undefined,
     t: Predicate.hasProperty(on, "t") ? on.t : undefined,
+    s: Predicate.hasProperty(on, "s") ? on.s : undefined,
   };
 };
 
 // A record a format-5 build saved: `k` due at one minute, `j` held by A with half a minute left,
-// and `m` idle.
+// `m` idle, and the series `s` at its third step, due at three minutes.
 const FORMAT_FIVE =
   '{"baselines":{},"context":{},"format":5,"graph":{},"machine":"Records/Lamp",' +
-  '"memory":{"holds":["A:j"],"keys":["j","k","m"],"n":0,"refuse":false,"sel":0,"ticks":[]},' +
-  '"name":"lamp","schedules":[' +
+  '"memory":{"holds":["A:j"],"keys":["j","k","m"],"n":0,"refuse":false,"sel":0,"steps":2,' +
+  '"ticks":[]},"name":"lamp","schedules":[' +
+  '{"armedAt":0,"attempt":2,"dueAt":180000,"name":"s"},' +
   '{"armedAt":0,"attempt":0,"key":{"id":"j"},"left":30000,"name":"t","pausedBy":["A"]},' +
   '{"armedAt":0,"attempt":0,"dueAt":60000,"key":{"id":"k"},"name":"t"},' +
   '{"key":{"id":"m"},"name":"t"}],"seen":{},"state":"ON"}';
@@ -246,7 +256,7 @@ describe("the saved timer of format 6 (Schedules R3, R14; Records R12)", () => {
     });
   });
 
-  it.fails("Schedules R14 decode table: a format-5 record restores due, held and idle timers as they were, reads its first baseline silently, and saves as format 6", async () => {
+  it.fails("Schedules R14 decode table: a format-5 record restores due, held and idle keyed timers and an unkeyed series at its third step as they were, reads its first baseline silently, and saves as format 6", async () => {
     const lamp = lampRef(LampMachine);
 
     const run = await played(
@@ -261,11 +271,14 @@ describe("the saved timer of format 6 (Schedules R3, R14; Records R12)", () => {
 
     expect({
       restored: shown(run, "restored", LampMachine),
+      series: timersOf(run.checkpoints.restored.read(lamp)),
       saved: savedAt(run, "saved"),
     }).toMatchObject({
       restored: ["id=j held 30000 A", "id=k due 60000"],
+      series: { s: { dueAt: 180_000 } },
       saved: {
         format: 6,
+        s: { arming: { _tag: "Due", armedAt: 0, attempt: 2, dueAt: 180_000 } },
         t: [
           {
             key: { id: "j" },
@@ -496,5 +509,85 @@ describe("a key saved by its declared Schema (Schedules R14, selectionCodec)", (
       key: text.includes('"key":{"id":"1"}'),
       ticks: run.checkpoints.fired.read(coded)?.memory.ticks,
     }).toEqual({ key: true, ticks: 1 });
+  });
+});
+
+// A lamp whose unkeyed series `u` arms on entry, its delay computed from memory: once `broken`
+// is set, the delay throws when it is read again.
+const Series = definition({
+  id: "Records/Series",
+  persist: true,
+  states: ["ON"],
+  events: { Break: {} },
+  internalEvents: { Tick: {} },
+  memory: { broken: Flow.initial(Schema.Boolean, false), ticks: Flow.initial(Schema.Number, 0) },
+  schedules: { u: {} },
+});
+
+const SeriesMachine = machine(Series, ({ S, E }) => ({
+  default: S.ON,
+  on: {
+    Break: { updateMemory: () => ({ broken: true }) },
+    Tick: { updateMemory: ({ memory }) => ({ ticks: memory.ticks + 1 }) },
+  },
+  states: {
+    ON: {
+      schedules: {
+        u: {
+          schedule: ({ memory }) =>
+            memory.broken ? unreadable("the series") : Schedule.spaced("1 minute"),
+          send: E.Tick,
+        },
+      },
+    },
+  },
+}));
+
+describe("a series whose delay throws at a wake (Schedules R4, R14, its decode table)", () => {
+  it.fails("Schedules R4: a series whose delay throws at the wake keeps its deadline with its issue, fires once, then is idle with the firing's issue", async () => {
+    const lamp = actorRef(SeriesMachine, "series");
+
+    const run = await played(
+      Story.app(
+        runtimeSetup({
+          app: app({ id: "records-series", machines: { series: SeriesMachine } }),
+          services: layerIndexedDb(),
+          scope: "records-series",
+          persistence: { captureMs: 0 },
+        }),
+        { id: "records/series-broken", fixtures: [] },
+      )
+        .ensure(lamp)
+        .advance("30 seconds")
+        .send(lamp, Series.E.Break())
+        .advance("10 seconds")
+        .reload()
+        .ensure(lamp)
+        .checkpoint("woke")
+        .advance("21 seconds")
+        .checkpoint("fired")
+        .advance("10 minutes")
+        .checkpoint("ended"),
+    );
+
+    const at = (name: "woke" | "fired" | "ended") => {
+      const snapshot = run.checkpoints[name].read(lamp);
+
+      return {
+        timers: timersOf(snapshot),
+        issues: (snapshot?.issues ?? []).map(
+          (i) => `${String(i.path.at(-1))} ${String(i.details["slot"])}`,
+        ),
+        ticks: snapshot?.memory.ticks,
+      };
+    };
+
+    const slot = "states.ON.schedules.u.schedule";
+
+    expect((["woke", "fired", "ended"] as const).map(at)).toEqual([
+      { timers: { u: { dueAt: 60_000 } }, issues: [`schedule u ${slot}`], ticks: 0 },
+      { timers: {}, issues: [`schedule u ${slot}`], ticks: 1 },
+      { timers: {}, issues: [`schedule u ${slot}`], ticks: 1 },
+    ]);
   });
 });

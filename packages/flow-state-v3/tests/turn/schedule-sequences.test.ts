@@ -1,4 +1,4 @@
-import { Predicate, Schema } from "effect";
+import { Option, Predicate, Schedule, Schema, Struct } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Step, Story, type StoryRun } from "../../src/host/testing/index.ts";
@@ -6,12 +6,22 @@ import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../sr
 import { loose } from "../../src/test/loose.ts";
 import { breachesOf } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
-import { ATOMS, type Atom, FIRST, type View, viewsOf, type World } from "./schedule-ledger.ts";
+import {
+  ATOMS,
+  type Atom,
+  type Build,
+  FIRST,
+  NAMED_ATOMS,
+  type View,
+  viewsOf,
+  type World,
+} from "./schedule-ledger.ts";
 import { WRONG_NAMED, WRONG_TODAY } from "./schedule-sequences-wrong.ts";
 
-// Every sequence of three steps on one two-key schedule, each step's timers, issues and firings
-// checked against the ledger of owed firings and owed issues (schedule-ledger.ts), which is taken
-// from Schedules R1 to R14 and its tables, never from a run.
+// Every sequence of three steps on one machine with a two-key schedule `t` and an unkeyed series
+// `u`, each step's timers, issues and firings checked against the ledger of owed firings and owed
+// issues (schedule-ledger.ts), which is taken from Schedules R1 to R14 and its tables, never from
+// a run; and the named deeper rows of Schedules T4.
 
 const Flag = Schema.Literals(["t", "f", "x"]);
 
@@ -23,15 +33,37 @@ const Written = {
   sel: Schema.Number,
   selThrow: Schema.Boolean,
   refuse: Schema.Boolean,
+  b: Schema.Boolean,
+  bump: Schema.Boolean,
 };
 
-// The fixture's definition, with pause reason A declared or, as a later build edits it, none.
-const pairOf = <const P extends ReadonlyArray<string>>(pausedBy: P) =>
+// The dial whose state the selection reads as context.
+const Dial = definition({
+  id: "Sequences/Dial",
+  persist: true,
+  states: ["LOW", "HIGH"],
+  events: { Flip: {} },
+});
+
+const DialMachine = machine(Dial, ({ S }) => ({
+  default: S.LOW,
+  states: { LOW: { on: { Flip: S.HIGH } }, HIGH: { on: { Flip: S.LOW } } },
+}));
+
+const dial = actorRef(DialMachine, "dial");
+
+const DIAL_RECORD = "actor/Sequences/Dial/dial";
+
+// The fixture's definition, with the pause reasons each build declares.
+const pairOf = <const P extends ReadonlyArray<string>, const Q extends ReadonlyArray<string>>(
+  forT: P,
+  forU: Q,
+) =>
   definition({
     id: "Sequences/Pair",
     persist: true,
     states: ["ON"],
-    events: { Set: Written, Stop: {}, Reenter: {} },
+    events: { Set: Written, Stop: Written, Reenter: {}, Go: {} },
     internalEvents: { Tick: { id: Schema.String } },
     memory: {
       keys: Flow.initial(Written.keys, FIRST.keys),
@@ -41,10 +73,18 @@ const pairOf = <const P extends ReadonlyArray<string>>(pausedBy: P) =>
       sel: Flow.initial(Schema.Number, FIRST.sel),
       selThrow: Flow.initial(Schema.Boolean, FIRST.selThrow),
       refuse: Flow.initial(Schema.Boolean, FIRST.refuse),
+      b: Flow.initial(Schema.Boolean, FIRST.b),
+      bump: Flow.initial(Schema.Boolean, FIRST.bump),
       ticks: Flow.initial(Schema.Array(Schema.String), []),
     },
+    context: { dial: Flow.context(Dial.state) },
     schedules: {
-      t: { key: { id: Schema.Literals(["bad", "good"]) }, pausedBy, restartOn: Schema.Number },
+      t: {
+        key: { id: Schema.Literals(["bad", "good"]) },
+        pausedBy: forT,
+        restartOn: Schema.Number,
+      },
+      u: { pausedBy: forU },
     },
   });
 
@@ -56,27 +96,46 @@ const unreadable = (what: string) => {
 
 const flag = (value: "t" | "f" | "x") => (value === "x" ? unreadable("the reason") : value === "t");
 
-const Pair = pairOf(["A"]);
+const Pair = pairOf(["A"], ["B"]);
 
-// The fixture's schedule, with pause reason A or, as a later build edits it, none.
+type Memory = {
+  readonly keys: ReadonlyArray<"bad" | "good">;
+  readonly keysThrow: boolean;
+  readonly a: { readonly bad: "t" | "f" | "x"; readonly good: "t" | "f" | "x" };
+  readonly far: boolean;
+  readonly sel: number;
+  readonly selThrow: boolean;
+  readonly refuse: boolean;
+  readonly bump: boolean;
+  readonly b: boolean;
+  readonly ticks: ReadonlyArray<string>;
+};
+
+// A firing's send: refused while sends are, and writing the selection while sends do.
+const ticked = ({ event, memory }: { readonly event: { id: string }; readonly memory: Memory }) => {
+  if (memory.refuse) return unreadable("the firing");
+
+  return { ticks: [...memory.ticks, event.id], sel: memory.bump ? memory.sel + 1 : memory.sel };
+};
+
+const offsetOf = (high: boolean) => (high ? 1000 : 0);
+
+const selectionOf = (memory: Memory, high: boolean) =>
+  memory.selThrow ? unreadable("the selection") : memory.sel + offsetOf(high);
+
+// The event a write or a `Stop` sends: the world without the dial, which is not memory.
+const fieldsOf = (world: World) => Struct.omit(world, ["dial"]);
+
+// `u`'s series: two steps of a minute each.
+const TWO_STEPS = Schedule.max([Schedule.spaced("1 minute"), Schedule.recurs(2)]);
+
+// The first build: reasons A on `t` and B on `u`.
 const Paused = machine(Pair, ({ S, E }) => ({
   default: S.ON,
   on: {
-    Set: {
-      updateMemory: ({ event }) => ({
-        keys: event.keys,
-        keysThrow: event.keysThrow,
-        a: event.a,
-        far: event.far,
-        sel: event.sel,
-        selThrow: event.selThrow,
-        refuse: event.refuse,
-      }),
-    },
-    Tick: {
-      updateMemory: ({ event, memory }) =>
-        memory.refuse ? unreadable("the firing") : { ticks: [...memory.ticks, event.id] },
-    },
+    Set: { updateMemory: ({ event }) => event },
+    Stop: { updateMemory: ({ event }) => event },
+    Tick: { updateMemory: ticked },
   },
   states: {
     ON: {
@@ -87,60 +146,83 @@ const Paused = machine(Pair, ({ S, E }) => ({
             memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
           schedule: ({ key, memory }) => (key.id === "bad" && memory.far ? 2 ** 31 : DELAY),
           send: E.Tick.from(({ key }) => ({ id: String(key.id) })),
-          restartOn: ({ memory }) => (memory.selThrow ? unreadable("the selection") : memory.sel),
+          restartOn: ({ memory, context }) => selectionOf(memory, context.dial === "HIGH"),
           disarmOn: [E.Stop],
           paused: {
             A: ({ key, memory }) => flag(key.id === "bad" ? memory.a.bad : memory.a.good),
           },
+        },
+        u: {
+          schedule: TWO_STEPS,
+          send: E.Tick.from(() => ({ id: "u" })),
+          armOn: [E.Go],
+          disarmOn: [E.Stop],
+          paused: { B: ({ memory }) => memory.b },
         },
       },
     },
   },
 }));
 
-// The later build, typed as the build it edits, as the same app's next release is: its
-// declaration drops the pause reason.
-const Plain: typeof Paused = loose(
-  machine(pairOf([]), ({ S, E }) => ({
-    default: S.ON,
-    on: {
-      Set: {
-        updateMemory: ({ event }) => ({
-          keys: event.keys,
-          keysThrow: event.keysThrow,
-          a: event.a,
-          far: event.far,
-          sel: event.sel,
-          selThrow: event.selThrow,
-          refuse: event.refuse,
-        }),
+// A later build, typed as the build it edits, as the same app's next release is: `t`'s reason
+// named `forT` or none, and `u`'s B kept or dropped.
+const editedOf = (forT: ReadonlyArray<string>, forU: ReadonlyArray<string>) =>
+  loose(
+    machine(pairOf(forT, forU), ({ S, E }) => ({
+      default: S.ON,
+      on: {
+        Set: { updateMemory: ({ event }) => event },
+        Stop: { updateMemory: ({ event }) => event },
+        Tick: { updateMemory: loose(ticked) },
       },
-      Tick: {
-        updateMemory: ({ event, memory }) =>
-          memory.refuse ? unreadable("the firing") : { ticks: [...memory.ticks, event.id] },
-      },
-    },
-    states: {
-      ON: {
-        on: { Reenter: { target: S.ON } },
-        schedules: {
-          t: {
-            keys: ({ memory }) =>
-              memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
-            schedule: ({ key, memory }) => (key.id === "bad" && memory.far ? 2 ** 31 : DELAY),
-            send: E.Tick.from(({ key }) => ({ id: String(key.id) })),
-            restartOn: ({ memory }) => (memory.selThrow ? unreadable("the selection") : memory.sel),
-            disarmOn: [E.Stop],
+      states: {
+        ON: {
+          on: { Reenter: { target: S.ON } },
+          schedules: {
+            t: loose({
+              keys: ({ memory }: { memory: Memory }) =>
+                memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
+              schedule: ({ key, memory }: { key: { id: string }; memory: Memory }) =>
+                key.id === "bad" && memory.far ? 2 ** 31 : DELAY,
+              send: E.Tick.from(loose(({ key }: { key: { id: string } }) => ({ id: key.id }))),
+              restartOn: ({ memory, context }: { memory: Memory; context: { dial: string } }) =>
+                selectionOf(memory, context.dial === "HIGH"),
+              disarmOn: [E.Stop],
+              paused: Object.fromEntries(
+                forT.map((r) => [
+                  r,
+                  ({ key, memory }: { key: { id: string }; memory: Memory }) =>
+                    flag(key.id === "bad" ? memory.a.bad : memory.a.good),
+                ]),
+              ),
+            }),
+            u: loose({
+              schedule: TWO_STEPS,
+              send: E.Tick.from(() => ({ id: "u" })),
+              armOn: [E.Go],
+              disarmOn: [E.Stop],
+              paused: Object.fromEntries(
+                forU.map((r) => [r, ({ memory }: { memory: Memory }) => memory.b]),
+              ),
+            }),
           },
         },
       },
-    },
-  })),
-);
+    })),
+  );
 
-const setupOf = (withPause: boolean) =>
+const BUILDS: Readonly<Record<Build, typeof Paused>> = {
+  paused: Paused,
+  plain: editedOf([], []),
+  renamed: editedOf(["Z"], ["B"]),
+};
+
+const setupOf = (build: Build) =>
   runtimeSetup({
-    app: app({ id: "sequences", machines: { pair: withPause ? Paused : Plain } }),
+    app: app({
+      id: "sequences",
+      machines: { dial: DialMachine, pair: { machine: BUILDS[build], context: { dial } } },
+    }),
     services: layerIndexedDb(),
     scope: "sequences",
     persistence: { captureMs: 0 },
@@ -148,23 +230,25 @@ const setupOf = (withPause: boolean) =>
 
 // ── the sequences.
 
-const LETTERS = "abcdefghijklmnopqrst";
+const LETTERS = "abcdefghijklmnopqrstuvwxyzA";
 
 type Sequence = { readonly letters: string; readonly atoms: ReadonlyArray<Atom> };
 
 const sequenceOf = (letters: string) => ({
   letters,
   atoms: letters.split("").flatMap((letter) => {
-    const atom = ATOMS[LETTERS.indexOf(letter)];
+    const atom = ATOMS[LETTERS.indexOf(letter)] ?? NAMED_ATOMS.get(letter);
 
     return atom === undefined ? [] : [atom];
   }),
 });
 
-// The named rows deeper than three steps (Schedules T4): a baseline kept across a reload (`plsk`),
-// a first clean read after a throw taken silently (`lapk`), and a committed firing that leaves
-// another key's send issue in place (`nroa`).
-const NAMED = ["plsk", "lapk", "nroa"];
+// The named rows of Schedules T4 and its review, by letter: a baseline kept across a reload
+// (`plsk`); a first clean read after a throw taken silently (`lapk`); a committed firing that
+// leaves another key's send issue in place (`nroa`); the send's issue shown ahead of a refused
+// start (`anrbk`); and a firing whose send writes the selection, restarting the other key, due
+// with it, through its own turn (`ak#r%`).
+const NAMED = ["plsk", "lapk", "nroa", "anrbk", "ak#r%"];
 
 const SEQUENCES: ReadonlyArray<Sequence> = [
   ...LETTERS.split("").flatMap((x) =>
@@ -176,7 +260,7 @@ const SEQUENCES: ReadonlyArray<Sequence> = [
 const titleOf = (s: Sequence) => s.atoms.map((a) => a.title).join(" / ");
 
 const wrongToday = (s: Sequence) =>
-  s.letters.length === 3
+  s.letters.length === 3 && LETTERS.includes(s.letters[1] ?? "#")
     ? (WRONG_TODAY.get(s.letters.slice(0, 2)) ?? "").includes(s.letters.slice(2))
     : WRONG_NAMED.has(s.letters);
 
@@ -186,123 +270,197 @@ const worldsOf = (atoms: ReadonlyArray<Atom>) => {
   let world = FIRST;
 
   for (const atom of atoms) {
-    world = atom.kind === "write" ? atom.write(world) : world;
+    world = atom.kind === "write" || atom.kind === "stop" ? atom.write(world) : world;
     worlds.push(world);
   }
 
   return worlds;
 };
 
-// How a step moves the shared clock: a write, Stop and a re-entry wait ten seconds first, so no
-// timer is due before the next minute; a reload moves none.
-type Move = "turn" | "minute" | "reload" | "edited";
+// How a step moves the shared clock and the shared dial: a turn and the dial's flip wait ten
+// seconds first, so no timer is due before the next minute; a reload moves none. A reload under an
+// edited build, or after the dial turned while the page was closed, starts the next run.
+type Move = "turn" | "context" | "minute" | "reload" | "plain" | "renamed" | "away";
 
-// RETURN_TYPE: the Move union a group's pattern is keyed by.
-const moveOf = (atom: Atom): Move => {
-  if (atom.kind === "minute" || atom.kind === "reload" || atom.kind === "edited") return atom.kind;
-
-  return "turn";
+// The move of each kind of step, a reload by the build it leaves in force.
+const MOVES: Readonly<Record<Exclude<Atom["kind"], "edited">, Move>> = {
+  write: "turn",
+  stop: "turn",
+  reenter: "turn",
+  go: "turn",
+  context: "context",
+  minute: "minute",
+  reload: "reload",
+  away: "away",
 };
 
-const MS = { turn: 10_000, minute: DELAY, reload: 0, edited: 0 } as const;
+const EDITS: Readonly<Record<Build, Move>> = {
+  paused: "reload",
+  plain: "plain",
+  renamed: "renamed",
+};
 
-// Sequences share a Story, one actor each, when their steps move the clock alike.
+const moveOf = (atom: Atom) => (atom.kind === "edited" ? EDITS[atom.build] : MOVES[atom.kind]);
+
+const MS = {
+  turn: 10_000,
+  context: 10_000,
+  minute: DELAY,
+  reload: 0,
+  plain: 0,
+  renamed: 0,
+  away: 0,
+} as const;
+
+const splits = (move: Move) => move === "plain" || move === "renamed" || move === "away";
+
+// Sequences share a Story, one actor each, when their steps move the clock and the dial alike.
 const patternOf = (s: Sequence) => s.atoms.map(moveOf).join(",");
 
 const GROUPS = Map.groupBy(SEQUENCES, patternOf);
 
-const refOf = (withPause: boolean, n: number) =>
-  actorRef(withPause ? Paused : Plain, `s${String(n)}`);
+const refOf = (build: Build, n: number) => actorRef(BUILDS[build], `s${String(n)}`);
 
-const eventOf = (atom: Atom, world: World) => {
-  switch (atom.kind) {
-    case "write":
-      return Pair.E.Set(world);
-    case "stop":
-      return Pair.E.Stop();
-    case "reenter":
-      return Pair.E.Reenter();
-    case "minute":
-    case "reload":
-    case "edited":
-      return undefined;
-  }
+type PairEvent =
+  | ReturnType<typeof Pair.E.Set>
+  | ReturnType<typeof Pair.E.Stop>
+  | ReturnType<typeof Pair.E.Reenter>
+  | ReturnType<typeof Pair.E.Go>;
+
+// The event each kind of step that is a turn sends, from the world it writes.
+const EVENTS = new Map<Atom["kind"], (world: World) => PairEvent>([
+  ["write", (world) => Pair.E.Set(fieldsOf(world))],
+  ["stop", (world) => Pair.E.Stop(fieldsOf(world))],
+  ["reenter", () => Pair.E.Reenter()],
+  ["go", () => Pair.E.Go()],
+]);
+
+const eventOf = (atom: Atom, world: World) =>
+  Option.map(Option.fromUndefinedOr(EVENTS.get(atom.kind)), (event) => event(world));
+
+// The sends of one step: each actor's own event on a turn, the dial's flip on a context change.
+const actedOf = (
+  base: ReturnType<typeof Story.app>,
+  build: Build,
+  group: ReadonlyArray<Sequence>,
+  move: Move,
+  at: number,
+) => {
+  if (move === "context") return base.send(dial, Dial.E.Flip()).steps;
+
+  if (move !== "turn") return [];
+
+  return group.reduce((story, s, n) => {
+    const atom = s.atoms[at];
+
+    const event = Option.flatMap(Option.fromUndefinedOr(atom), (a) =>
+      eventOf(a, worldsOf(s.atoms)[at] ?? FIRST),
+    );
+
+    return Option.match(event, {
+      onNone: () => story,
+      onSome: (e) => story.send(refOf(build, n), e),
+    });
+  }, base).steps;
 };
 
-// The steps of positions `from` to `to` of a group, each closed by its checkpoint `s<position>`.
+// The steps of positions `from` up to `to` of a group, each closed by its checkpoint `s<position>`.
 const stepsOf = (
-  withPause: boolean,
+  build: Build,
   group: ReadonlyArray<Sequence>,
   moves: ReadonlyArray<Move>,
   from: number,
+  to: number,
 ) => {
-  const base = Story.app(setupOf(withPause), { id: "sequences", fixtures: [] });
+  const base = Story.app(setupOf(build), { id: "sequences", fixtures: [] });
 
-  return moves.slice(from).flatMap((move, offset) => {
+  return moves.slice(from, to).flatMap((move, offset) => {
     const at = from + offset;
 
-    const acted =
-      move === "turn"
-        ? group.reduce((story, s, n) => {
-            const atom = s.atoms[at];
+    const acted = actedOf(base, build, group, move, at);
 
-            const event =
-              atom === undefined ? undefined : eventOf(atom, worldsOf(s.atoms)[at] ?? FIRST);
+    const moved = move === "reload" ? [Step.reload({ reattach: true, heldWrites: "abort" })] : [];
 
-            return event === undefined ? story : story.send(refOf(withPause, n), event);
-          }, base).steps
-        : [];
+    const waited = MS[move] === 0 ? [] : [Step.advance({ duration: MS[move] })];
 
-    const moved =
-      move === "reload" || move === "edited"
-        ? [Step.reload({ reattach: true, heldWrites: "abort" })]
-        : [Step.advance({ duration: MS[move] })];
-
-    return [...moved, ...acted, Step.checkpoint({ name: `s${String(at)}` })];
+    return [...waited, ...moved, ...acted, Step.checkpoint({ name: `s${String(at)}` })];
   });
 };
 
-const ensured = (withPause: boolean, size: number) =>
+const ensured = (build: Build, size: number) =>
   Array.from({ length: size }, (_, n) => n).reduce(
-    (story, n) => story.ensure(refOf(withPause, n)),
-    Story.app(setupOf(withPause), { id: "sequences", fixtures: [] }),
+    (story, n) => story.ensure(refOf(build, n)),
+    Story.app(setupOf(build), { id: "sequences", fixtures: [] }).ensure(dial),
   ).steps;
 
 const END = [Step.advance({ duration: "10 minutes" }), Step.checkpoint({ name: "end" })];
 
-// One group's runs: under the build with `paused` up to its first reload without it, then, from
-// that reload on, under the edited build over the records the first run saved.
+const LOW = '"state":"LOW"';
+const HIGH = '"state":"HIGH"';
+
+// The dial's record with its state turned.
+const turned = (text: string) =>
+  text.includes(LOW) ? text.replace(LOW, HIGH) : text.replace(HIGH, LOW);
+
+// The records a run saved, the dial's state turned when the page was closed while it changed.
+const carried = (stored: ReadonlyMap<string, string>, away: boolean) =>
+  [...stored].map(([key, text]) =>
+    Fake.storage.put(key, away && key === DIAL_RECORD ? turned(text) : text),
+  );
+
+// How a run after the first opens: the records the run before saved, the clock where it stood, a
+// reload, and its checkpoint.
+const reopened = (
+  build: Build,
+  size: number,
+  stored: ReadonlyMap<string, string>,
+  moves: ReadonlyArray<Move>,
+  from: number,
+) => [
+  Step.world({ words: carried(stored, moves[from] === "away") }),
+  Step.advance({ duration: moves.slice(0, from).reduce((sum, m) => sum + MS[m], 0) }),
+  Step.reload({ reattach: true, heldWrites: "abort" }),
+  ...ensured(build, size),
+  Step.checkpoint({ name: `s${String(from)}` }),
+];
+
+type Segment = { readonly run: StoryRun<string>; readonly build: Build };
+
+// One group's runs: under the first build up to its first reload that edits the build or turns
+// the dial, then from each such reload on, under the build it leaves in force, over the records the
+// run before saved.
 const runsOf = async (group: ReadonlyArray<Sequence>, moves: ReadonlyArray<Move>) => {
-  const edit = moves.indexOf("edited");
-  const story = Story.app(setupOf(true), { id: "sequences", fixtures: [] });
-  const until = edit === -1 ? moves : moves.slice(0, edit);
+  const cuts = moves.flatMap((move, at) => (splits(move) ? [at] : []));
+  const segments: Array<Segment> = [];
+  let build: Build = "paused";
+  let stored: ReadonlyMap<string, string> = new Map();
 
-  const first = await story.run({
-    steps: [
-      ...ensured(true, group.length),
-      ...stepsOf(true, group, until, 0),
-      ...(edit === -1 ? END : [Step.checkpoint({ name: "saved" })]),
-    ],
-  });
+  for (const [n, from] of [-1, ...cuts].entries()) {
+    const to = cuts[n] ?? moves.length;
+    const move = moves[from];
 
-  if (edit === -1) return { runs: [first], breaches: breachesOf(first) };
+    build = move === "plain" || move === "renamed" ? move : build;
 
-  const saved = first.checkpoints["saved"]?.records.stored ?? new Map<string, string>();
-  const elapsed = until.reduce((sum, move) => sum + MS[move], 0);
+    const opening =
+      from === -1
+        ? ensured(build, group.length)
+        : reopened(build, group.length, stored, moves, from);
 
-  const second = await Story.app(setupOf(false), { id: "sequences-edited", fixtures: [] }).run({
-    steps: [
-      Step.world({ words: [...saved].map(([key, text]) => Fake.storage.put(key, text)) }),
-      Step.advance({ duration: elapsed }),
-      Step.reload({ reattach: true, heldWrites: "abort" }),
-      ...ensured(false, group.length),
-      Step.checkpoint({ name: `s${String(edit)}` }),
-      ...stepsOf(false, group, moves, edit + 1),
-      ...END,
-    ],
-  });
+    const run = await Story.app(setupOf(build), { id: `sequences-${String(n)}`, fixtures: [] }).run(
+      {
+        steps: [
+          ...opening,
+          ...stepsOf(build, group, moves, from + 1, to),
+          ...(to === moves.length ? END : [Step.checkpoint({ name: "saved" })]),
+        ],
+      },
+    );
 
-  return { runs: [first, second], breaches: [...breachesOf(first), ...breachesOf(second)] };
+    segments.push({ run, build });
+    stored = run.checkpoints["saved"]?.records.stored ?? new Map<string, string>();
+  }
+
+  return { segments, breaches: segments.flatMap((s) => breachesOf(s.run)) };
 };
 
 type Played = Awaited<ReturnType<typeof runsOf>>;
@@ -319,44 +477,51 @@ const breachesFor = (played: Played, n: number) =>
 const idOf = (key: unknown) =>
   Predicate.hasProperty(key, "id") && Predicate.isString(key.id) ? key.id : "";
 
-// FLOW_STATE_ALLOW_UNKNOWN: one timer as a snapshot shows it.
-const shownOf = (one: unknown) => {
-  if (!Predicate.hasProperty(one, "key")) return [];
+// FLOW_STATE_ALLOW_UNKNOWN: one timer as a snapshot shows it, under its key or name.
+const shownOf = (name: string, one: unknown) => {
+  if (Predicate.hasProperty(one, "dueAt")) return [`${name} due`];
 
-  if (Predicate.hasProperty(one, "dueAt")) return [`${idOf(one.key)} due`];
-
-  if (Predicate.hasProperty(one, "left")) return [`${idOf(one.key)} held`];
+  if (Predicate.hasProperty(one, "left")) return [`${name} held`];
 
   return [];
 };
 
-// The key an issue's source names, read from its path's last part; `-` for none.
+// FLOW_STATE_ALLOW_UNKNOWN: one keyed timer as a snapshot shows it.
+const keyedOf = (one: unknown) =>
+  Predicate.hasProperty(one, "key") ? shownOf(idOf(one.key), one) : [];
+
+// The timer an issue's source names, read from its path's last part: a key of `t`, `u`, or `-`.
 const issueKey = (path: ReadonlyArray<unknown>) => {
   const last = path.at(-1);
   const source = Predicate.isString(last) ? last : "";
 
+  if (source === "schedule u") return "u";
+
   return ["bad", "good"].find((key) => source.includes(`"${key}"`)) ?? "-";
 };
 
-// The run that holds a checkpoint: the first run's under the build with `paused`, the second's
-// under the edited one.
-const cutOf = (runs: ReadonlyArray<StoryRun<string>>, name: string) =>
-  runs.flatMap((run, r) => {
-    const cut = run.checkpoints[name];
+// The segment that holds a checkpoint.
+const cutOf = (segments: ReadonlyArray<Segment>, name: string) =>
+  segments.flatMap((s) => {
+    const cut = s.run.checkpoints[name];
 
-    return cut === undefined ? [] : [{ cut, withPause: r === 0 }];
+    return cut === undefined ? [] : [{ cut, build: s.build }];
   })[0];
 
-const shown = (runs: ReadonlyArray<StoryRun<string>>, n: number, name: string, ticked: number) => {
-  const at = cutOf(runs, name);
-  const snapshot = at?.cut.read(refOf(at.withPause, n));
+const shown = (segments: ReadonlyArray<Segment>, n: number, name: string, ticked: number) => {
+  const at = cutOf(segments, name);
+  const snapshot = at === undefined ? undefined : at.cut.read(refOf(at.build, n));
   const timers: unknown = timersOf(snapshot);
   const list: unknown = Predicate.hasProperty(timers, "t") ? timers.t : [];
+  const single: unknown = Predicate.hasProperty(timers, "u") ? timers.u : undefined;
   const ticks = snapshot?.memory.ticks ?? [];
 
   return {
     view: {
-      timers: (Array.isArray(list) ? Array.from<unknown>(list) : []).flatMap(shownOf).toSorted(),
+      timers: [
+        ...(Array.isArray(list) ? Array.from<unknown>(list) : []).flatMap(keyedOf),
+        ...shownOf("u", single),
+      ].toSorted(),
       issues: (snapshot?.issues ?? [])
         .flatMap((i) =>
           Predicate.hasProperty(i.details, "slot") && Predicate.isString(i.details.slot)
@@ -371,20 +536,20 @@ const shown = (runs: ReadonlyArray<StoryRun<string>>, n: number, name: string, t
 };
 
 // Each step's view, then the end's, in order.
-const viewsShown = (runs: ReadonlyArray<StoryRun<string>>, n: number, steps: number) =>
+const viewsShown = (segments: ReadonlyArray<Segment>, n: number, steps: number) =>
   [...Array.from({ length: steps }, (_, at) => `s${String(at)}`), "end"].reduce<{
     views: ReadonlyArray<View>;
     ticked: number;
   }>(
     (acc, name) => {
-      const next = shown(runs, n, name, acc.ticked);
+      const next = shown(segments, n, name, acc.ticked);
 
       return { views: [...acc.views, next.view], ticked: next.ticked };
     },
     { views: [], ticked: 0 },
   ).views;
 
-describe("every three-step sequence on one two-key schedule, and the named deeper rows (Schedules R1 to R14, T2, T4)", () => {
+describe("every three-step sequence on two schedules, and the named deeper rows (Schedules R1 to R14, T2, T3, T4)", () => {
   for (const [pattern, group] of GROUPS) {
     const moves = (group[0]?.atoms ?? []).map(moveOf);
     let played: Promise<Played> | undefined;
@@ -398,14 +563,14 @@ describe("every three-step sequence on one two-key schedule, and the named deepe
             const once = await runOnce();
 
             expect({
-              views: viewsShown(once.runs, n, s.atoms.length),
+              views: viewsShown(once.segments, n, s.atoms.length),
               breaches: breachesFor(once, n),
             }).toEqual({
               views: viewsOf(s.atoms),
               breaches: [],
             });
           },
-          60_000,
+          120_000,
         );
     });
   }

@@ -20,6 +20,7 @@ import {
   isContextIssue,
   isTurnStart,
   nameOf,
+  noteSteps,
   textOf,
   turnRecords,
 } from "./deliveries.ts";
@@ -566,7 +567,11 @@ export const rules: ReadonlyArray<Rule> = [
 /**
  * Every rule's breaches in a run.
  */
-export const breachesOf = (run: StoryRun) => rules.flatMap((r) => r.breaches(run));
+export const breachesOf = (run: StoryRun) => {
+  noteSteps(run);
+
+  return rules.flatMap((r) => r.breaches(run));
+};
 
 /**
  * Applies every run rule to a finished run and fails the test on any breach; returns the run.

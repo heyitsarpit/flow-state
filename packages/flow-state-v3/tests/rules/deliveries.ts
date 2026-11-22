@@ -1,5 +1,7 @@
 import { Option } from "effect";
 import { Evidence, type EvidenceOf } from "../../src/host/inspect.ts";
+import type { StoryRun } from "../../src/host/testing/index.ts";
+import { TraceRecord } from "../../src/host/trace.ts";
 
 type Who = { readonly machine: string; readonly name: string };
 
@@ -82,21 +84,68 @@ const isScheduleSlotIssue = (e: Evidence) =>
 
 const turnIssues = new WeakMap<ReadonlyArray<Evidence>, ReadonlySet<Evidence>>();
 
+// The Story step each record of a run's evidence came in, noted from its trace by `noteSteps`.
+const stepsOfRuns = new WeakMap<ReadonlyArray<Evidence>, ReadonlyMap<Evidence, number>>();
+
+/**
+ * Notes the Story step of each record of a run's evidence, so the rules can tell a schedule's
+ * start refused on an occasion after a committed turn of the same step (a context wave, a settled
+ * firing) from a turn's own arm refused.
+ */
+export const noteSteps = (run: StoryRun) => {
+  if (stepsOfRuns.has(run.evidence)) return;
+
+  const steps = new Map<Evidence, number>();
+  let step = -1;
+
+  for (const { record } of run.trace.events) {
+    if (TraceRecord.$is("Step")(record)) step = record.index;
+
+    if (TraceRecord.$is("Runtime")(record)) steps.set(record.evidence, step);
+  }
+
+  stepsOfRuns.set(run.evidence, steps);
+};
+
+// Whether a turn is still open after a record: a Turn opens one, its Published closes it.
+const stillOpen = (open: boolean, e: Evidence) =>
+  e._tag === "Turn" || (open && e._tag !== "Published");
+
+// An issue no delivered ending's turn raised: a schedule's decision never names an ending.
+const unowned = (e: Evidence) => e._tag === "Issue" && Option.isNone(e.ending);
+
+const sameStep = (step: Option.Option<number>, turnedIn: Option.Option<number>) =>
+  Option.isSome(step) && Option.contains(turnedIn, step.value);
+
+// A schedule's start refused after a committed turn: inside the turn before it publishes, or later
+// in the same Story step, on an occasion that turn caused (Schedules R1, R11: only a turn's own
+// arm refuses the turn).
 const issuesOfTurns = (evidence: ReadonlyArray<Evidence>) => {
   const known = turnIssues.get(evidence);
 
   if (known !== undefined) return known;
 
-  const found = new Set<Evidence>();
-  let open = false;
-
-  for (const e of evidence) {
-    if (open && isScheduleSlotIssue(e)) found.add(e);
-
-    open = e._tag === "Turn" || (open && e._tag !== "Published");
-  }
+  const found = scheduleIssuesAfterTurns(evidence);
 
   turnIssues.set(evidence, found);
+
+  return found;
+};
+
+const scheduleIssuesAfterTurns = (evidence: ReadonlyArray<Evidence>) => {
+  const found = new Set<Evidence>();
+  const steps = stepsOfRuns.get(evidence) ?? new Map<Evidence, number>();
+  let open = false;
+  let turnedIn = Option.none<number>();
+
+  for (const e of evidence) {
+    const step = Option.fromUndefinedOr(steps.get(e));
+
+    if ((open || (sameStep(step, turnedIn) && unowned(e))) && isScheduleSlotIssue(e)) found.add(e);
+
+    open = stillOpen(open, e);
+    turnedIn = e._tag === "Turn" ? step : turnedIn;
+  }
 
   return found;
 };
