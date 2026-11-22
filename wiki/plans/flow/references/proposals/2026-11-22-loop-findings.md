@@ -37,3 +37,5 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
   next slices that it cuts fold-in rounds.
 - Builder decisions tagged and reversible, Specs not kept in step; logs only via `wk log add`; mid-build design
   validated (Epic, commit `afac37e9`).
+- Lint-driven refactors: temporary lint rules with their own tests as the mechanical pass for migrations and
+  deletions, then deleted or promoted (Epic "Building a Task", the user, 2026-11-22).
