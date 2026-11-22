@@ -708,3 +708,7 @@ note 2026-11-22T10:35:33Z
 note 2026-11-22T10:43:34Z
     [decided: user 2026-11-22] Q4 A: Reads stays deferred to when the Changes Tasks settle View (the UI slice, T72);
     T113 builds the per-part types it will be composed from. Scope: T113, T72.
+
+note 2026-11-22T10:56:53Z
+    Slice T142 re-review: ISSUES, two blockers ruled (a111641f). Build starts with T113 (the face); the lead first folds
+    the rulings into T143, T144 and T111.

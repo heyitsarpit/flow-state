@@ -2810,7 +2810,7 @@ tasks
             gives this Task's applier.
     T113
         title       The typed machine (a): the face, derived types and no config echo
-        status      review
+        status      in_progress
         priority    high
         parent      [@T142]
 
@@ -5799,13 +5799,21 @@ tasks
             **Size.** In order, with a checkpoint commit after each child, the slice is three builder runs: (a) about 14
             `src` files and 7 caller files; (b) about 13 `src` files, the spike, T5, two faults and the bench rows; (c)
             about 53 files, mostly mechanical, plus the lint rule. It is not one run.
+        comment     2026-11-22T10:56:38Z
+            Rulings (orchestrator) on the re-review (ISSUES, a111641f): both blockers accepted as proposed. Ratchet:
+            MOST pinned at T143's close to the measured count, an exact count, each crossing counted as 1, every disable
+            form counted. Ownership: host/snapshot.ts#project, asOutside and the project-second-cast fault move to T111
+            (builds the publication that calls project), off T113 and T114. T143 blocked_by T113, with machine() named
+            as a second seam. Non-blocking findings fold into T143 and T144 before their builds. T113 builds first; the
+            body-key typo spike (proposal body-key-typos) may add scope to T144.
 
     T143
         title       The typed machine (b): named crossings and Compiled's derived fields
-        status      review
+        status      open
         priority    high
         parent      [@T142]
 
+        blocked_by  [@T113]
         description
             Types cross into the erased core at named functions (`door`, `slot`). `Compiled` carries the derived fields
             its hot paths read (`Node.chain`, `depth` and `leaf`, and `handledTags`), each written once by `indexOf` in
@@ -5910,7 +5918,7 @@ tasks
             in order.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
-        status      review
+        status      open
         priority    high
         parent      [@T142]
         blocked_by  [@T113]
