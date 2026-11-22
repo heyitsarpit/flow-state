@@ -3879,6 +3879,10 @@ tasks
             Duration.millis(0)); a raw NaN number or { millis: NaN } is refused. Why: Flow follows Effect's Duration,
             and the value cannot be told apart. Reverse: decode durations from raw input only. The Turn I9 breach is
             owned by T97 (routed at e83eecea).
+        comment     2026-11-22T08:00:31Z
+            [decided: user 2026-11-22] Go with Effect's Duration behaviour and remove Flow's NaN mitigations (the
+            raw-NaN and { millis: NaN } refusals and their plants); R11's NaN text changes to match, with a specs.log
+            note. Supersedes the orchestrator's NaN ruling above. Reverse: restore the guards.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

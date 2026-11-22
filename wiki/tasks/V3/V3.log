@@ -644,3 +644,12 @@ note 2026-11-22T07:40:28Z
 
 note 2026-11-22T07:59:47Z
     T118 fix round in review (2532e3e9); follow-up close review started. NaN guards accepted (Effect normalises NaN).
+
+note 2026-11-22T08:00:31Z
+    [decided: user 2026-11-22] "let's go with the effect behaviour and remove our mitigations": Flow adds no NaN guard
+    on schedule delays; whatever Effect's Duration does stands. Scope: T118 and the whole run.
+
+note 2026-11-22T08:08:50Z
+    [decided: user 2026-11-22] Root cause first: reviewers and fixers trace each finding to where the behaviour
+    originates (Flow, fixture, tooling, or a dependency like Effect) before proposing a fix or ruling. Scope: the whole
+    run.
