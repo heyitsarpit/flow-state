@@ -1811,6 +1811,11 @@ tasks
         comment     2026-11-22T03:54:09Z
             Fix 8: the `test:coverage` items dropped; @task.V3.T117 owns them (both are in slice @task.V3.T136). R48
             breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T07:11:10Z
+            Routed (orchestrator) from T118's close: generated home-rooms (rest-2 seed 5; usual seed 15) breaks Turn I9,
+            the lounge's Disconnected turn OFFLINE to OFFLINE publishing twice, red before T118 too; landed inverted.
+            Same class as this Task's Turn I9 context-wave item; T118's lead named the runtime side, this item names the
+            run rule: replay with two traces and name the wrong side.
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
         status      done
@@ -4761,3 +4766,7 @@ tasks
             the failure is only under bench/run.ts (reproduced twice at 74675069 plus the T118 working tree). The cause
             is in how run.ts loads benches, not the import alone: name the wrong side before choosing A or B. The T118
             lead reported dev-tier rows today, so check whether --dev loads.
+        comment     2026-11-22T07:11:11Z
+            Added (orchestrator), test tooling in the same spirit: the stress reload-sweep shards abort-0, land-0 and
+            unattached-0 time out at 164 s even alone (abort-0 before T118 too; T118 made it about a third slower).
+            Split the shards or set their limit from a measured run, never by raising it blind.

@@ -632,3 +632,7 @@ note 2026-11-22T06:45:15Z
     [decided: user 2026-11-22] "benches take 3 hours to run, i can't allow full runs, only narrow cases where needed":
     no full or tier-wide bench, tooling included; only narrow --only cases. Scope: the whole run. Wake no longer
     benches.
+
+note 2026-11-22T07:11:34Z
+    T118 built and in review (a9791f65); close review started. Routed: Turn I9 home-rooms breach to T97, stress shard
+    timeouts to T141; the sign-in LOADING case and the sweep slowdown go to the review.
