@@ -7,11 +7,11 @@ import { loose } from "../../src/test/loose.ts";
 import { breachesOf } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
 import { ATOMS, type Atom, FIRST, type View, viewsOf, type World } from "./schedule-ledger.ts";
-import { WRONG_TODAY } from "./schedule-sequences-wrong.ts";
+import { WRONG_NAMED, WRONG_TODAY } from "./schedule-sequences-wrong.ts";
 
 // Every sequence of three steps on one two-key schedule, each step's timers, issues and firings
 // checked against the ledger of owed firings and owed issues (schedule-ledger.ts), which is taken
-// from Turn R14 to R17, R19, R25 and R27 and WriteAhead R4, never from a run.
+// from Schedules R1 to R14 and its tables, never from a run.
 
 const Flag = Schema.Literals(["t", "f", "x"]);
 
@@ -152,19 +152,33 @@ const LETTERS = "abcdefghijklmnopqrst";
 
 type Sequence = { readonly letters: string; readonly atoms: ReadonlyArray<Atom> };
 
-const SEQUENCES: ReadonlyArray<Sequence> = ATOMS.flatMap((x, i) =>
-  ATOMS.flatMap((y, j) =>
-    ATOMS.map((z, k) => ({
-      letters: [i, j, k].map((n) => LETTERS.charAt(n)).join(""),
-      atoms: [x, y, z],
-    })),
+const sequenceOf = (letters: string) => ({
+  letters,
+  atoms: letters.split("").flatMap((letter) => {
+    const atom = ATOMS[LETTERS.indexOf(letter)];
+
+    return atom === undefined ? [] : [atom];
+  }),
+});
+
+// The named rows deeper than three steps (Schedules T4): a baseline kept across a reload (`plsk`),
+// a first clean read after a throw taken silently (`lapk`), and a committed firing that leaves
+// another key's send issue in place (`nroa`).
+const NAMED = ["plsk", "lapk", "nroa"];
+
+const SEQUENCES: ReadonlyArray<Sequence> = [
+  ...LETTERS.split("").flatMap((x) =>
+    LETTERS.split("").flatMap((y) => LETTERS.split("").map((z) => sequenceOf(`${x}${y}${z}`))),
   ),
-);
+  ...NAMED.map(sequenceOf),
+];
 
 const titleOf = (s: Sequence) => s.atoms.map((a) => a.title).join(" / ");
 
 const wrongToday = (s: Sequence) =>
-  (WRONG_TODAY.get(s.letters.slice(0, 2)) ?? "").includes(s.letters.slice(2));
+  s.letters.length === 3
+    ? (WRONG_TODAY.get(s.letters.slice(0, 2)) ?? "").includes(s.letters.slice(2))
+    : WRONG_NAMED.has(s.letters);
 
 // The worlds a sequence writes, one per step: a write's after the previous one.
 const worldsOf = (atoms: ReadonlyArray<Atom>) => {
@@ -357,8 +371,11 @@ const shown = (runs: ReadonlyArray<StoryRun<string>>, n: number, name: string, t
 };
 
 // Each step's view, then the end's, in order.
-const viewsShown = (runs: ReadonlyArray<StoryRun<string>>, n: number) =>
-  ["s0", "s1", "s2", "end"].reduce<{ views: ReadonlyArray<View>; ticked: number }>(
+const viewsShown = (runs: ReadonlyArray<StoryRun<string>>, n: number, steps: number) =>
+  [...Array.from({ length: steps }, (_, at) => `s${String(at)}`), "end"].reduce<{
+    views: ReadonlyArray<View>;
+    ticked: number;
+  }>(
     (acc, name) => {
       const next = shown(runs, n, name, acc.ticked);
 
@@ -367,7 +384,7 @@ const viewsShown = (runs: ReadonlyArray<StoryRun<string>>, n: number) =>
     { views: [], ticked: 0 },
   ).views;
 
-describe("every three-step sequence on one two-key schedule (Turn R14 to R17, R19, R25, R27; WriteAhead R4)", () => {
+describe("every three-step sequence on one two-key schedule, and the named deeper rows (Schedules R1 to R14, T2, T4)", () => {
   for (const [pattern, group] of GROUPS) {
     const moves = (group[0]?.atoms ?? []).map(moveOf);
     let played: Promise<Played> | undefined;
@@ -380,7 +397,10 @@ describe("every three-step sequence on one two-key schedule (Turn R14 to R17, R1
           async () => {
             const once = await runOnce();
 
-            expect({ views: viewsShown(once.runs, n), breaches: breachesFor(once, n) }).toEqual({
+            expect({
+              views: viewsShown(once.runs, n, s.atoms.length),
+              breaches: breachesFor(once, n),
+            }).toEqual({
               views: viewsOf(s.atoms),
               breaches: [],
             });

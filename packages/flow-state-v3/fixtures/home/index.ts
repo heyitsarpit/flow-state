@@ -1,7 +1,8 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
 import { homeApp, homeSetup, roomOf } from "./app.ts";
-import { noSensors, reconnectBackoff, vacationEdges } from "./stories/edges.ts";
+import { hubSamples, hubStories } from "./stories/hub.ts";
+import { loungeFormatFive, noSensors, reconnectBackoff, vacationEdges } from "./stories/edges.ts";
 import { manyRooms, seededStress } from "./stories/load.ts";
 import { samples } from "./stories/samples.ts";
 import {
@@ -32,11 +33,13 @@ export const home = manifest({
     vacationEdges,
     reconnectBackoff,
     noSensors,
+    loungeFormatFive,
+    ...hubStories,
     manyRooms,
     seededStress,
   },
-  samples: [samples],
-  stressSamples: [samples],
+  samples: [samples, hubSamples],
+  stressSamples: [samples, hubSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -44,6 +47,10 @@ export const home = manifest({
     {
       samples,
       reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+    },
+    {
+      samples: hubSamples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
     },
   ],
   bench: {

@@ -478,8 +478,8 @@ describe("two keys of one keyed schedule in one turn (Turn R14, R16, R19, R25, R
   }
 });
 
-describe("an arming refused for one key across occasions (Turn R14, R25)", () => {
-  it.fails("Turn R14, R25: an arming refused for one key keeps its issue while that key stays unarmed, through another check's throw on it and that check's recovery", async () => {
+describe("an arming refused for one key across occasions (Schedules R5, R4)", () => {
+  it.fails("Schedules R5, R4: an arming refused for one key keeps its issue while that key stays unarmed, through another check's throw on it and that check's recovery", async () => {
     const ref = refOf(0);
     const keys = ["k", "j"];
 

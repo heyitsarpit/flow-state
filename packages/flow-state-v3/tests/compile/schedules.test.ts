@@ -1,3 +1,4 @@
+import { Duration } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Room } from "../../fixtures/home/machines/room.ts";
 import {
@@ -100,6 +101,40 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
         ),
       ),
     ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.boost.paused"]]);
+  });
+
+  it("Compile T11: a placement given as null is refused once, at its placement", () => {
+    expect(
+      refusal(() =>
+        machine(Room, ({ S }) =>
+          loose({
+            default: S.OFFLINE,
+            states: {
+              ONLINE: { default: S.ONLINE.IDLE },
+              OFFLINE: { schedules: { boost: null } },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.boost"]]);
+  });
+
+  it.fails("Schedules R11: a fixed delay of Duration.millis(NaN) is refused at construction, as a fixed delay past the limit is", () => {
+    const placed = (schedule: unknown) =>
+      refusal(() =>
+        machine(Room, ({ S, E }) =>
+          loose({
+            default: S.OFFLINE,
+            states: {
+              ONLINE: { default: S.ONLINE.IDLE },
+              OFFLINE: { schedules: { boost: { schedule, send: E.BoostEnded } } },
+            },
+          }),
+        ),
+      );
+
+    expect(placed(Duration.millis(Number.NaN))).toEqual(placed(2 ** 31));
+    expect(placed(2 ** 31)).not.toEqual([]);
   });
 
   it("Compile T11: a schedule's send mapped from this definition's own event (E.X.from) constructs", () => {

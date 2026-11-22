@@ -271,8 +271,8 @@ const holdSetup = (withPause: boolean) =>
     persistence: { captureMs: 0 },
   });
 
-describe("a hold restored under a build without pause reasons (Turn R17, R27)", () => {
-  it.fails("Turn R17, R27: a hold restored under a build with every pause reason removed resumes from its left and fires once", async () => {
+describe("a hold restored under a build without pause reasons (Schedules R6, R14)", () => {
+  it.fails("Schedules R14, I3: a hold restored under a build with every pause reason removed resumes from its left and fires once", async () => {
     const held = actorRef(HoldPaused, "hold");
     const plain = actorRef(HoldPlain, "hold");
 

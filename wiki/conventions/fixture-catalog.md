@@ -1118,12 +1118,16 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - `Zone` (step 2), shared, named by zone, ⇠ `mode` ⇢ `zoneMode`.
   - `Room` (step 2), shared, named by room, ⇠ `zoneMode`, with `Panel` as a trait and `Sensor` ◂ `Room` via `.each`;
     sensors are `.resumable()` while offscreen.
+  - `Hub` (@task.V3.T118), shared, named by hub, ⇠ `mode`: pings each paired device on the interval the device
+    reports (`ping`, keyed by device, `pausedBy` Away, `restartOn` the firmware's major version, `disarmOn` Quiet).
 - **Operations:** T `setTarget` (step 2, `latest` per room); R `readings` (step 4); S `liveReadings` (step 11).
 - **Journeys:**
   1. Set target: T `setTarget` → S `liveReadings` confirms the temperature.
   2. Vacation: `Room` raises `Pause` into its sensors; `pausedBy` vacation.
   3. Scroll: offscreen sensors freeze and resume.
   4. Reconnect: the connection drops → stale readings refetch.
+  5. Pings: devices pair, report a new interval or firmware, and unpair; an interval past the longest timer or
+     firmware the hub cannot read is that device's issue until it reports again.
 - **Features by step:**
   - **used today:** compound `states` (`Room`'s heater cycle); `schedules` with `armOn`; `keys`, `paused`,
     `pausedBy`, `restartOn`, `disarmOn` (per-sensor polls, vacation and saving reasons, the boost); an Effect
@@ -1150,6 +1154,22 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - [ ] **Edges:** E1: no rooms; E5: −1, 0, 2^31 − 1, and 2^31 refused; pause reasons stacked and removed in turn; a key
     leaving and returning.
   - [ ] **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 11).
+  - **Hub (@task.V3.T118),** no source (Schedules R1, R3, R5, R11, R14 are the rules):
+    - [ ] Usual: pings on each interval, held while away, restarted by a new major version, ended by unpairing.
+      red today: none (a guard). Story: `home/hub-usual`.
+    - [ ] Wrong ending: the ping that never comes back (Quiet, unreadable firmware, reload, update). red today.
+      Story: `home/hub-firmware-reload`.
+    - [ ] A refused interval kept across a reload and armed once valid; its issue gone with its device and by
+      Quiet. red today. Stories: `home/hub-interval-refused`, `home/hub-refused-gone`.
+    - [ ] E5: intervals 2^31 − 1 (armed) and 2^31 (refused); −1 and 0 are left out, since a spaced zero delay is an
+      endless series whose bound is an open item of the turn walk, and `home/vacation-edges` has them on a computed
+      delay. Story: `home/hub-interval-edges`.
+    - [ ] S2 × 64 devices under L1 and L4 (two reloads in a hold). Story: `home/hub-many-devices`.
+    - [ ] The step from format 5: the lounge's format-5 record restores, frees a hold and saves as the current
+      format. red today. Story: `home/lounge-format-five`.
+    - [ ] Variety: `restartOn` and a keyed `pausedBy` are used only in `home`. A device-reported delay refused and
+      retried in a second and third app (a sign-in lockout from the server's retry-after; a transfer's schedule)
+      is not built yet.
   - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
     - [x] Pause reasons hold separately (`home/pause-reasons`). Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one

@@ -2996,7 +2996,7 @@ tasks
             (2026-11-22, P4 comment).
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      open
+        status      review
         priority    high
         blocked_by  [@T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
@@ -3276,6 +3276,153 @@ tasks
             Seam (orchestrator, R48 follow-up): T118 and T121 both list host/owners/schedule-steps.ts. T118 owns its
             timer and check-outcome writes and lands first; T121 supersedes only what the ending path leaves of it
             after T118.
+        comment     2026-11-22T04:33:05Z
+            State inventory (requirements lead, post-T120 code): one state, a timer's check outcomes, still split
+            between `Tracked` and stored issues; changed since 2026-11-20 on the target side and in key text.
+
+            - Target, one owner `decide` (@spec.Schedules model `StateInventory`): `keys` outcome, `selection` value and
+              failure, `reasons`, `arming` `Idle | Refused | Armed`, `firing`. New since 2026-11-20: the baseline, a
+              refused start and the firing failure are saved (R3, SavedForm); a refused start is tried on every occasion
+              (R1); a re-entered timer inherits nothing (R11).
+            - Writers today, unchanged: `reported` through `withIssuesOf` fed by `issuesAfter`; `withIssues` at creation
+              (code:packages/flow-state-v3/src/core/incarnations.ts, a Creation issue, which becomes `Arming.Refused`);
+              `fired`, `trackedOf` and restore's `runOf` write runs outside `decide`.
+            - Readers today, unchanged: `pass` feeds stored issues back into `decide`; the snapshot; context's
+              open-issue check and its issue-identity compares (`context.ts`).
+            - New since 2026-11-20: key text has three writers (`schedules.ts#keyOf`, `contract.ts#keyTextBy`,
+              `lane-moves.ts`) and two builders of one sorted codec (`contract.ts#codecsOf`,
+              `compile-schedules.ts#keyCodecOf`); `Compiled.schedules` is written and read by nothing in `src/`. After:
+              the declared codecs are the one writer of key and selection text and the decoder of `keys` output and
+              saved keys.
+            - Real resources: the store (IndexedDB by `layerIndexedDb`; `Fake.storage` in Stories) and the clock. The
+              fake store never refuses, closes or loses a write; these checks need none of that (store failures are
+              @task.V3.T58's). No page or network.
+        comment     2026-11-22T04:33:08Z
+            Reds recounted on the ledger amended to the v3 Spec: 415 of 8003 rows red (414 three-step rows and `plsk`);
+            all 365 rows listed on 2026-11-20 are still red, 50 are new. By the rule the first wrong view breaks: a
+            refused start's issue kept after its key leaves, Stop or exit, 110; a refused start lost on reload, 97; a
+            reason's issue shown over the arming's, 84; a hold kept under the build without `paused`, 55; a refused
+            start not tried again once its delay reads valid, 52 (46 new); a later check's issue shown over the send's,
+            8; a refused start's issue lost through another check's throw and recovery, 3; a send issue kept after a
+            start or an exit, 2; a send issue lost on reload, 2 (new); a re-entered timer inheriting its key's reasons,
+            1 (`egq`, new); a baseline lost on reload, 1 (`plsk`, new).
+
+            - Which side is wrong, each replayed: the runtime, in every new class. `baa` shows `bad` refused after `far`
+              cleared; R1 and table Arming make a refused start a start cause on every occasion. `nrs` and `nrt` lose
+              the send issue at the reload; R3 and SavedForm save the firing failure. `egq` stays held after re-entry;
+              R11, I17. `plsk`: the reload's re-read throws, the next value is taken silently and nothing restarts; R3.
+              `etk`'s Codec I7 breach: the restarted run keeps `pausedBy: ["A"]` beside `dueAt`; the decoder drops an
+              undeclared reason (R14), I3.
+            - Named rows: `plsk` red. `lapk` and `nroa` are green today (the runtime meets S-3 and F5), so they land as
+              guards; the build shows each red on its Schedules T6 plant (`first-read-restarts`,
+              `firing-clears-other-key`). B1, B2 and the nested-placement row still fail for their stated reasons (held
+              with `left`; the issue lost at `recovered`; inner 0); B1 and B2 are retitled to Schedules R14, I3 and
+              R5, R4.
+            - Oracle reviews (Haiku, high). Rule by rule: every change to the ledger agrees with the Spec. Accepted 1 (a
+              comment said "key order"); routed 4 to the build's first commit (T3's nine atoms, T5's cell data, T5's
+              reporter, firings named by arming id); rejected 4 as unobservable on 3- and 4-step rows (minute-only time,
+              issue order in a set view, overdue firings after a wake, due order). Blind, 14 rows from the Spec alone:
+              14 identical, no contradiction; its 2 undecided cells are the fixture's own (the view lists armed timers;
+              a write is a turn).
+        comment     2026-11-22T04:33:11Z
+            Requirements (requirements lead), updated, one per acceptance bullet; each red today for its stated reason
+            unless marked a guard. Supersedes the list of 2026-11-20.
+
+            1. Sequence test `tests/turn/schedule-sequences.test.ts`: 8003 rows (20 atoms cubed, `plsk`, `lapk`,
+               `nroa`), 415 inverted in `schedule-sequences-wrong.ts`; T3's nine atoms and T5's oracle land in the
+               build's first commit. Done when the wrong list is deleted and no `it.fails` stays in the schedule tests
+               (amended 2026-11-20).
+            2. B1 (`tests/restore/schedule-edits.test.ts`) and B2 (`tests/turn/schedule-keys-table.test.ts`) inverted;
+               and `Arming.Refused` at creation (`tests/restore/schedule-records.test.ts`: red as a Creation issue, lost
+               on reload, never retried).
+            3. No stored issue: the `Decided` brand and a `Tracked` literal outside `schedule-decision.ts` refused (I8,
+               T7); `IssueSource.Schedule` absent from stored sources (I14); the 2026-11-20 lint plants. Plants land
+               with the code: acceptance 3's four, `refused-start-goes-idle`, `restore-keeps-undeclared-reason`, T6's
+               new ones; each plant on superseded code re-pointed by table: Keys (`gone-key-keeps-timer`,
+               `issues-without-key`); Selection (`restart-on-ignored`, `check-issue-never-cleared`,
+               `check-issue-cleared-unrun`, `check-defect-stops-timer`); Arming (`disarm-on-ignored`,
+               `keyed-disarm-unkeyed-only`, `new-key-arms-while-disarmed`, `entry-arms-while-disarmed`,
+               `negative-delay-refused`); Firing (`firing-clears-every-key`, `firing-keeps-own-issue`,
+               `fired-refusal-dropped`, `step-past-limit-silent`, `dying-step-silent`); Reasons
+               (`throwing-reason-runs-new-run`, `idle-forgets-reasons`); Timing (`paused-ignored`, `pause-unrecorded`,
+               `restore-keeps-stale-hold`); `scheduleIssues` (`last-issue-wins`); the decoder
+               (`restore-forgets-reasons`, `restore-restarts-series`, `restore-arms-every-added`,
+               `format-four-drops-deadlines`, `format-four-restarts-ended`); occasions (`lane-change-skips-recheck`,
+               `context-change-skips-recheck`); views (`waiting-in-declaration-order`, `keys-due-together-reversed`,
+               `firing-not-yet-due`, `series-stops-after-one`); the record rule (`timer-shapes-loose`, to `TimerShape`).
+            4. Spec: R5's check order and "a start that arms clears the send's issue" are now in @spec.Schedules
+               (`scheduleIssues`, table Firing F1); R1, R2, R3 and R11 hold the 2026-11-20 rulings. A deviation found in
+               the build is a decided tag; no Spec edit is owed now.
+            5. Format 6, `tests/restore/schedule-records.test.ts` and `tests/home/hub.test.ts`: a refused start, a
+               baseline and a refused firing saved; a format-5 record with due, held and idle keyed timers restored and
+               saved as 6; a key saved as its declared Schema encodes it; `home/lounge-format-five`. Restore after
+               edits, each read at the wake before any turn: a reason renamed, added, reordered; the key's field
+               renamed; the selection's Schema changed (guards); a reason removed is B1; schedules reordered, added,
+               removed, renamed are existing guards (`schedule-edits`, `schedule-declarations`).
+            6. Gates as listed, with T120's routed rows in `tests/compile/schedules.test.ts`: a fixed
+               `Duration.millis(NaN)` refused at construction (red: accepted, arms at 0) and a null placement refused
+               once (guard). Not yet a check: wake reading `Compiled.schedules`' codecs and one writer of key text
+               (requirement 5's key row is its red).
+            7. Correctness: fixture `home`, machine `Hub` (the fixtures proof); the Story of the wrong ending
+               `home/hub-firmware-reload`; type pins of T7 land with the code. Tests cover @spec.Schedules R1 to R17; I1
+               to I18 after every step; T1 to T8.
+        comment     2026-11-22T04:33:13Z
+            Fixtures proof. Schedule issues read from timer state, a refused start tried again and saved, a baseline
+            saved (@spec.Schedules R1, R3, R5, R11, R14): fixture home (changed), machine `Hub` (new, reads House's
+            mode), journey Pings; usual `home/hub-usual`; load L1 and L4 `home/hub-many-devices` (64 devices, two
+            reloads in a hold); structure S2 × 64 under L1 and L4 (the same Story), S6 and S8 on Room's Stories over the
+            same provider, S7 twin rows are @task.V3.T120's; samples `home-hub` (E5 2^31 − 1 and 2^31, unreadable and
+            empty firmware, vacation), also in the pair sweep; combos: persistence (reloads; the format step
+            `home/lounge-format-five`) and context (House's mode holds pings); sources: none (catalog row). Red today:
+            `home/hub-firmware-reload` (the Spec's Story of the wrong ending, as a hub), `home/hub-interval-refused`,
+            `home/hub-refused-gone`, `home/lounge-format-five`.
+
+            - Not built: variety in two more apps (a server's retry-after past the limit in sign-in; a transfer's
+              schedule). The catalog row leaves it open; the orchestrator decides whether it is built before the build.
+            - Review (three Haiku sidecars, high: the page's parts, each expected value, the oracle). Expected values:
+              41 checkpoints worked by hand, 41 match. Accepted: the catalog row; a second reload (L4); the S2 label;
+              2^31 − 1, empty firmware and a vacation in samples; the hub's samples in the pair sweep; a checkpoint at
+              the wake before any turn (a turn masked the decoder rows); firings after the format-5 restore; the
+              record's source and label. Rejected: Hub S6, S7, S8 (Room covers the provider; T120 owns the twin rows);
+              E5 −1 and 0 (a spaced zero delay is the turn walk's open bound; `home/vacation-edges` has both); E7 (a
+              malformed payload is admission); an E8 sample (the generator draws reloads, `generate.ts`); the mix (one
+              set per app); a Room and Hub combo (timers are independent, R8); Spec ids in test titles (tests cite rules
+              by id); `it.fails` granularity (each red re-run uninverted shows its stated diff); due order
+              (`keys-due-together-reversed` covers it). Routed: the hub's bench row, with Schedules T8.
+        comment     2026-11-22T04:33:22Z
+            [decided: agent builder 2026-11-22] The ledger follows the v3 Spec: a reload keeps the selection, firing and
+            refused outcomes; a refused start is tried on every occasion; a re-entered timer's reasons start at `[]`;
+            `Settled` and `Wake` compare only a selection with no baseline. Why: the user's 2026-11-21 answers (R1, R2,
+            R3, R11) replaced the rules the 2026-11-20 ledger encoded. Reverse: the ledger at commit `717a3ca2`.
+        comment     2026-11-22T04:33:24Z
+            [decided: agent builder 2026-11-22] Schedules T3's nine atoms, T5's oracle as table data with a reporter of
+            the first broken property, and T2's Level 2 land in the build's first commit, red first, before runtime
+            code. Why: they need a context provider, lanes, a second schedule and a third build, and T5 replaces the
+            model the atoms would extend; adding them now builds the oracle twice. Reverse: add them before the
+            requirements review.
+        comment     2026-11-22T04:33:27Z
+            Re-entry's inherited key set, two traces of `keys throw / re-entry`: A inherits the old key set (`good`
+            armed, the keys issue); B inherits nothing (no timer, the keys issue; R4's neutral value). B is the user's
+            R11 answer (2026-11-21) and table Keys ("none when before is none"); the ledger and the red rows `dgq`,
+            `dlq` use B.
+        comment     2026-11-22T04:33:28Z
+            Ruling needed: one schedule placed in a compound and in its child (T120's close seam). Trace X: two timers,
+            one per activation (R13; Types: "A declared name may be placed in several states"); outer fires at 1 s,
+            inner at 2 s. Trace Y: construction refuses the machine. Blind Haiku (high): the Specs read X, but none says
+            which timer an unkeyed `schedules.tick` shows, and `IssueSource.Schedule` cannot tell the two placements'
+            issues apart. Recommended: Y for a state and its descendant only (one unkeyed name, one timer per
+            configuration), siblings kept. The inverted Schedules R8 test stays until ruled.
+        comment     2026-11-22T04:33:30Z
+            [decided: agent builder 2026-11-22] Format 6's schedule row keeps today's record layout and Records'
+            `TimerShape`, timers by state path then name; the checks find `schedules` at the top or under `body`, so
+            @task.V3.T92's rows of the same step change no check. Why: one step, two writers. Reverse: pin one layout.
+        comment     2026-11-22T04:33:32Z
+            [decided: agent builder 2026-11-22] Arming.Refused at creation is checked on an unkeyed entry schedule (the
+            Creation issue's only path); a keyed key refused at creation is already a schedule issue and is the sequence
+            rows' refused-on-reload class. Why: the red must fail for the Creation issue. Reverse: a keyed row as well.
+        comment     2026-11-22T04:33:41Z
+            Extra file beyond May change: wiki/conventions/fixture-catalog.md, home's Hub rows (the fixtures proof's
+            catalog items).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

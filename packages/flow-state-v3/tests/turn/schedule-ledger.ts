@@ -1,16 +1,18 @@
 import { Equal, Option } from "effect";
 
 // The ledger of one keyed schedule's owed firings and owed issues over a sequence of occasions,
-// each step taken from Turn R14 to R17, R19, R25 and R27 and WriteAhead R4, never from a run. The
-// schedule `t` is keyed by `good` and `bad`, one minute each, with one pause reason A per key, a
-// `restartOn` selection read for every key, `disarmOn: [Stop]`, and `bad`'s delay out of range
-// while `far` is set. Every check keeps its last outcome on its own timer, so an issue is a failed
-// last outcome: it changes only when that check runs again, and goes with its timer (Turn R25).
+// each step taken from Schedules R1 to R14 and its tables, never from a run. The schedule `t` is
+// keyed by `good` and `bad`, one minute each, with one pause reason A per key, a `restartOn`
+// selection read for every key, `disarmOn: [Stop]`, and `bad`'s delay out of range while `far` is
+// set. Every check keeps its last outcome on its own timer, so an issue is a failed last outcome:
+// it changes only when that check runs again, or an arming start settles the firing's, and goes
+// with its timer (Schedules R5). The record holds each timer whole, so a reload re-reads only the
+// level checks and a selection with no baseline (Schedules R3, R14).
 
 export type Flag = "t" | "f" | "x";
 
 /**
- * The two keys, in code-unit order, the order equal deadlines fire in (Turn R15).
+ * The two keys, in code-unit order, the order equal deadlines fire in (Schedules R12).
  */
 export const KEYS = ["bad", "good"] as const;
 
@@ -117,47 +119,40 @@ export type Ledger = {
 };
 
 // One occasion: the world it reads; whether its state exited (and entered again); whether its
-// event is the schedule's `disarmOn`; whether it is a committed turn, which runs `restartOn`;
-// the firing it carries, refused or not; and whether it is a restore.
+// event is the schedule's `disarmOn`; whether it is a committed turn (`Turn`), which compares
+// `restartOn`; and the firing it carries, refused or not. Anything else is `Settled` (a refused
+// firing) or `Wake` (a reload), which compare only a timer with no baseline.
 type Occasion = {
   readonly world: World;
   readonly exited: boolean;
   readonly disarmed: boolean;
   readonly committed: boolean;
   readonly firing: Option.Option<{ readonly key: KeyName; readonly refused: boolean }>;
-  readonly restore: boolean;
 };
 
-type Working = { readonly timer: Timer; readonly fresh: boolean; readonly start: boolean };
+type Working = { readonly timer: Timer; readonly start: boolean };
 
 const held = (t: Timer) => t.arming === "armed" && t.reasons.length > 0;
 
-// Turn R14, R16, R27: exit removes every timer; a firing ends its Duration and its send's outcome
-// is the timer's last firing; `keys` that throw keep the timers; a listed key new to the schedule
-// is a new timer, armed from step one, which keeps the reasons its key last read before a
-// re-entry. A restore keeps no check's outcome (none is saved), only a refused arming, which it
-// starts again (WriteAhead R4).
+// Schedules R11, R13 and tables Keys and Firing: exit removes every timer, and a re-entered
+// state's new timers inherit nothing; a firing ends its Duration and its send's outcome is the
+// timer's last firing; `keys` that throw keep the timers; a listed key new to the schedule is a
+// new timer, armed from step one, with reasons `[]`. A refused start is tried again on every
+// occasion (Schedules R1). A reload keeps every saved outcome (Schedules R3).
 // RETURN_TYPE: each branch's literal arming stays the Arming union.
 const keyed = (l: Ledger, o: Occasion): ReadonlyArray<Working> => {
-  const before = new Map(l.timers.map((t) => [t.key, t] as const));
-
   const carried = (o.exited ? [] : l.timers).map((t) => {
     const fired = Option.exists(o.firing, (f) => f.key === t.key);
-
-    const restored = o.restore
-      ? { ...t, selFailed: false, reasonFailed: false, firingFailed: false }
-      : t;
 
     return {
       timer: fired
         ? {
-            ...restored,
+            ...t,
             arming: "idle" as const,
             firingFailed: Option.exists(o.firing, (f) => f.refused),
           }
-        : restored,
-      fresh: false,
-      start: o.restore && t.arming === "refused",
+        : t,
+      start: t.arming === "refused",
     };
   });
 
@@ -172,43 +167,38 @@ const keyed = (l: Ledger, o: Occasion): ReadonlyArray<Working> => {
       timer: {
         key,
         arming: "idle",
-        reasons: before.get(key)?.reasons ?? [],
+        reasons: [],
         baseline: Option.none(),
         selFailed: false,
         reasonFailed: false,
         firingFailed: false,
       },
-      fresh: true,
       start: true,
     };
   });
 };
 
-// Turn R16, R14, R17: a committed turn runs `restartOn` for every timer; a new timer or one with
-// no baseline takes it silently, a changed one restarts unless the turn disarms; a throw keeps the
-// baseline and fails the check. A restore reads every baseline again silently, since none is
-// saved (WriteAhead R4), and never restarts (I34); a refused firing does not run it (I38).
+// Schedules R2, R7 and table Selection: a committed turn compares `restartOn` for every timer, and
+// any other occasion only for a timer with no baseline; a first clean read is a silent baseline,
+// a changed one restarts unless the turn disarms; a throw keeps the baseline and fails the check.
 // RETURN_TYPE: each branch's literal arming stays the Arming union.
 const selected = (w: Working, o: Occasion): Working => {
-  if (!o.committed && !o.restore) return w;
+  if (!o.committed && Option.isSome(w.timer.baseline)) return w;
 
-  const timer = o.restore ? { ...w.timer, baseline: Option.none<number>() } : w.timer;
+  if (o.world.selThrow) return { ...w, timer: { ...w.timer, selFailed: true } };
 
-  if (o.world.selThrow) return { ...w, timer: { ...timer, selFailed: true } };
-
-  const silent = w.fresh || Option.isNone(timer.baseline);
-  const changed = !Option.exists(timer.baseline, (b) => Equal.equals(b, o.world.sel));
+  const changed = Option.exists(w.timer.baseline, (b) => !Equal.equals(b, o.world.sel));
 
   return {
     ...w,
-    timer: { ...timer, baseline: Option.some(o.world.sel), selFailed: false },
-    start: w.start || (!silent && changed && !o.disarmed),
+    timer: { ...w.timer, baseline: Option.some(o.world.sel), selFailed: false },
+    start: w.start || (o.committed && changed && !o.disarmed),
   };
 };
 
-// Turn R14, R25: a disarming turn leaves every timer idle and starts none; a start arms from step
-// one, or is refused while `bad`'s delay is out of range; an arming that succeeds clears the last
-// firing's failure.
+// Schedules R11 and tables Arming and Firing: a disarming turn leaves every timer idle and starts
+// none; a start arms from step one, or is refused while `bad`'s delay is out of range; an arming
+// that succeeds clears the last firing's failure.
 // RETURN_TYPE: each branch's literal arming stays the Arming union.
 const armed = (w: Working, o: Occasion): Timer => {
   if (o.disarmed) return { ...w.timer, arming: "idle" };
@@ -220,7 +210,7 @@ const armed = (w: Working, o: Occasion): Timer => {
     : { ...w.timer, arming: "armed", firingFailed: false };
 };
 
-// Turn R27, R19, R17: every occasion reads each timer's reasons, armed or idle; A true holds, false
+// Schedules R4, R6, R14 and table Reasons: every occasion reads each timer's reasons, armed or idle; A true holds, false
 // frees, a throw keeps the last reasons and fails the check. A build without `paused` reads none.
 // RETURN_TYPE: each branch's literal reasons stay a list of names.
 const reasoned = (t: Timer, l: Ledger, o: Occasion): Timer => {
@@ -248,19 +238,19 @@ const turn = (world: World) =>
     disarmed: false,
     committed: true,
     firing: Option.none(),
-    restore: false,
   }) satisfies Occasion;
 
 /**
- * The ledger at creation: the entry arms `good` (Turn R14, R16).
+ * The ledger at creation: the entry arms `good` (Schedules R13, table Arming).
  */
 export const CREATED: Ledger = decided(
   { world: FIRST, paused: true, keysFailed: false, timers: [] },
   { ...turn(FIRST), exited: true },
 );
 
-// Turn R15: every armed, unheld timer is due within a minute and fires once, in key order, each a
-// separate turn: a committed one runs every check, a refused one keys and reasons only.
+// Schedules R12: every armed, unheld timer is due within a minute and fires once, each a
+// separate turn: a committed one is a `Turn`, a refused one `Settled`, which compares only a
+// selection with no baseline.
 const minute = (l: Ledger) => {
   const due = l.timers.filter((t) => t.arming === "armed" && !held(t)).map((t) => t.key);
   const refused = l.world.refuse;
@@ -280,7 +270,7 @@ const minute = (l: Ledger) => {
 };
 
 const restored = (l: Ledger, paused: boolean) =>
-  decided({ ...l, paused }, { ...turn(l.world), committed: false, restore: true });
+  decided({ ...l, paused }, { ...turn(l.world), committed: false });
 
 /**
  * One step: the ledger after it, and the keys whose firings committed in it.
@@ -324,7 +314,7 @@ export type View = {
   readonly fired: ReadonlyArray<string>;
 };
 
-// Turn R25: one issue per source, the first failed outcome in check order: the last firing, then
+// Schedules R5 and `scheduleIssues`: one issue per source, the first failed outcome in check order: the last firing, then
 // `restartOn`, then the arming, then the reasons.
 const issueOf = (t: Timer) => {
   const failed = [
@@ -354,7 +344,7 @@ export const viewOf = (l: Ledger, fired: ReadonlyArray<string>) => {
 
 /**
  * The views a sequence owes: one after each step, then one after the clock runs out, when every
- * armed, unheld timer fires once (Turn R15).
+ * armed, unheld timer fires once (Schedules R12).
  */
 export const viewsOf = (atoms: ReadonlyArray<Atom>) => {
   const views: Array<View> = [];

@@ -1,3 +1,4 @@
+import { Fake } from "../../../src/host/testing/index.ts";
 import { house } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
@@ -50,3 +51,35 @@ export const noSensors = homeStory("home/no-sensors")
   .send(house, House.E.StartVacation({ until: 3_600_000 }))
   .advance("10 minutes")
   .checkpoint("empty");
+
+/**
+ * The lounge's record as the format-5 build saved it five seconds into the usual journey, after
+ * the house left for a vacation: its temperature poll held by Vacation with 55 seconds left, its
+ * motion poll due at 10 seconds.
+ */
+export const LOUNGE_FORMAT_FIVE =
+  '{"baselines":{},"context":{"mode":{"machine":"Home/House","name":"home"}},"format":5,"gr' +
+  'aph":{"Home/House/home":{}},"machine":"Home/Room","memory":{"boosts":0,"checks":[],"noti' +
+  'ce":"","polls":{},"room":"lounge","sensors":[{"id":"t1","kind":"temperature"},{"id":"m1"' +
+  ',"kind":"motion"}],"target":20},"name":"{\\"room\\":\\"lounge\\"}","schedules":[{"armedAt":0' +
+  ',"attempt":0,"key":{"id":"t1"},"left":55000,"name":"poll","pausedBy":["Vacation"]},{"arm' +
+  'edAt":0,"attempt":0,"dueAt":10000,"key":{"id":"m1"},"name":"poll"}],"seen":{"mode":"VACA' +
+  'TION"},"state":"ONLINE.IDLE"}';
+
+/**
+ * The lounge restored from its format-5 record at clock 0 with the house at home: the hold is
+ * freed with its time left, the motion poll keeps its deadline, a sensor added next saves the
+ * record in the current format, and each poll fires when its time is up (the step from format 5).
+ */
+export const loungeFormatFive = homeStory("home/lounge-format-five")
+  .world(Fake.storage.put('actor/Home/Room/{"room":"lounge"}', LOUNGE_FORMAT_FIVE))
+  .reload()
+  .ensure(house)
+  .ensure(lounge)
+  .checkpoint("restored")
+  .send(lounge, Room.E.AddSensor({ id: "m2", kind: "motion" }))
+  .checkpoint("saved")
+  .advance("10 seconds")
+  .checkpoint("motion polled")
+  .advance("45 seconds")
+  .checkpoint("temperature polled");
