@@ -5244,3 +5244,34 @@ tasks
 
             Routed, outside this Task: the root `tsconfig.base.json` `paths` shim makes any runtime `vite-plus/test`
             import empty under nub. Dropping it, or keeping its types without the redirect, needs its owner's call.
+        comment     2026-11-22T09:26:02Z
+            Close review (reviewing lead) at 138c80e4: ISSUES. One blocking finding; the rest pass, `nub run
+            test:browser` pending (the orchestrator re-runs it with Safari closed).
+
+            1. Blocking, accepted: the store contract lost its line-separator text. Origin: d8c06dbf rewrote
+               code:packages/flow-state-v3/src/host/testing/store-contract.ts `texts` and its U+2028 (bytes e2 80 a8)
+               became a plain space; the comment above still says "a line separator". Red at HEAD: a Map store that
+               writes U+2028 as a space passes all 7 cases (`storeContract(..., { describe, it })` from `node:test`).
+               Why the tests missed it: no test hands the contract a broken store, so `loadsExactly`/`loadsKey` never
+               fail in the suite. Fix: write it as `"a b"`, and add a test that a store mangling each listed text, or
+               dropping a record, fails the contract.
+            2. Root cause confirmed: nub 0.7.5 `transform-core.mjs` resolveSpec step 4 (`resolveTs`, tsconfig `paths`)
+               runs before Node, and `tsconfig.base.json` maps `vite-plus/test` to the
+               declare-module-only `types/vite-plus-test.d.ts`.
+            3. Guard, accepted with one note: the faults copy is no hole. The probe hook registers after nub preload,
+               runs first and sees the raw specifier, so check (b) catches a runner import with or without `types/`;
+               `nub run faults --only testing-entry-imports-runner` caught it by (b). Note, no red: `bench/worker.ts`
+               and `bench/backfill.ts` are loaded by neither check.
+            4. Choice A passes: shape readable, all three callers updated, type pin in place; no docs page names it, so
+               no docs build needed. Routed (Plan edit, user yes needed): `wiki/plans/flow/Package.plan` and the T58
+               page still show `storeContract(name, layer)`.
+            5. Sharding passes: `at % 4` splits every stress Story position once per mode across the 12 files; the skip
+               count and its bound use the same positions; limit `limitFrom(73_900)`; land-0 alone took 73.3 s. Nit,
+               accepted: `differences` labels by index in the filtered list
+               (code:packages/flow-state-v3/tests/rules/sweep.ts#differences), so in replay form shards 1 to 3 print the
+               wrong position.
+            6. Rejected: the quadratic Map equivalence (the 5,000 case takes 88 ms), the doc naming Jest and Bun
+               (`node:test` checked by running it), the truncation mismatch and the example importing `vitest`. No
+               outside imports, no temporary names, nothing that re-creates Effect.
+            7. Runs: `nub run check` 0. Coverage suite: 199 of 202 files pass; 3 outside the diff timed out while my
+               `check` ran beside them, and they pass alone (44 of 44). The narrow `--dev` bench exits 0.
