@@ -4863,6 +4863,61 @@ tasks
             in the turn that ended it) moves to @task.V3.T109. Why: at the root no scope ends inside its own turn, so
             only the .each trace (B, above) can be red, and it needs T109's instances; delegated as a small acceptance
             amendment (Epic Authority). Reverse: restore the item here once instances exist.
+        comment     2026-11-22T17:10:22Z
+            Requirements review: ISSUES at a868fa37. One blocking gap: @spec.Changes R22 (one builder of every callback
+            input, `readsOf`) is in range and named by the Correctness item, but has no rule, check or route. The
+            inventory, the four tables, the 12 reds and the seven plants are otherwise sound, and X3's move to
+            @task.V3.T109 stands.
+
+            Blocking:
+
+            1. R22 unmapped. Root cause: Flow code builds callback inputs in several places today (`schedules.ts`
+               `readsOf` for schedule functions, `TurnInput` in `turn.ts` for handlers, the context selections), so a
+               check can be red now. Missed because the list was drawn from the invariants, and none carries R22. Fix: a
+               rule with a red check (a source check like R11's, later a two-sided pin), or a route by the orchestrator.
+
+            Re-run: the six target files (65 pass, 12 expected fails). With every `it.fails` flipped in a scratch copy,
+            each fails on its cited rule: I7's stranded reaction, I12's Schedule alarms on an unused room, two `Arm` and
+            no `Wake`, writers outside `apply.ts`. The union and Q5 source checks are red by absence; the build replaces
+            them with type pins (A2). `nub run faults --only` on the seven plants: 7 of 7 caught by their targets.
+            `consumers-unindexed` is caught by the harness's drift check, which is I13's intended check. The committed
+            code has no outside imports and no Task or dated names.
+
+            Routed or noted:
+
+            - Orchestrator: the builder tags route I9's life- and subject-held halves, R15 and R17 to @task.V3.T109, and
+              the Release-and-Schedule Story to @task.V3.T123, but neither Task records them, and T109's range lacks
+              R15, R17 and I9. Add routed comments, as for X3.
+            - Orchestrator, Task text: Supersedes cites `turn.ts#armingsOf` and `#disarmedBy`, which live in
+              `turn-arms.ts`. It omits `world.ts` `withIssue`, `withIssues` and `withoutIssue`, which the surface check
+              deletes ("go with their callers", Changes.md). The description and the Correctness item omit I16, which
+              acceptance item 1 names.
+            - Build (T119), each needs a case: an early `Tick` (a superseded `Wake`) takes nothing and loses no alarm;
+              I17 is judged only where binding order matches machine kind, so ordering by kind passes; the wake check
+              names only `Arm`, `Disarm` and `Fired`, so a renamed per-timer command passes.
+            - Build (T119), cohesion: the new names collide with `timers.ts` `Alarm` and the public `Change` token
+              (`src/tokens.ts`). `src/host/inspect.ts` reads `Incarnation.alarms` and the `Timer` kinds but is in
+              neither file list. Type `alarmsMatch`'s `kind` and `tagOf` by the new unions.
+            - Spec question (Changes, T119): mail queued for an actor disposed in the same step is dropped with no
+              evidence (`incarnations.ts` `dispose`). R3 covers endings only.
+
+            Sidecars (5 Haiku, high):
+
+            - Accepted: R22 (blind A); the routing gaps; the early Tick (blind B); the kind-ordered I17 and the
+              name-only wake check (flip B); the Supersedes entries, the name collisions and the inspect
+              seam (cohesion).
+            - Changed: blind A's I16 mismatch became a text fix.
+            - Rejected:
+              - Q5 aimed at the wrong file, and `REPLACED` over-specified: Changes.md changes `evidence.ts` and drops
+                the issue helpers.
+              - An I12 red that masks a run error: the flipped run shows the breaches.
+              - A double publish unguarded: `publishedOnce` runs in every `checked` Story.
+              - A raised drain yield: the boundary moves with the constant.
+              - Q9's second choice not discriminating: `both` fails if the start waits.
+              - X3 belonging here: at the root an actor ends only by a step input or disposal (`step.ts:112,160`).
+              - A zero-delay series: an interval the user wrote.
+              - A joined wave near the guard: context updates never count toward it.
+              - `TxPriorityQueue` as a heap: it is effectful, and the core is plain.
 
     T120
         title       Declared schedules: the runtime half
