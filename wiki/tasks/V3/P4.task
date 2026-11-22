@@ -964,6 +964,9 @@ tasks
             [decided: agent specs lead 2026-11-22] `Story.machine`'s first slice also takes the required `runRules`
             option, as all three Story constructors do (@proposal.external-rules; the machine's own rules ride its
             value). Why: one word per meaning. Reverse: the earlier option name `rules`.
+        comment      2026-11-22T19:15:14Z
+            Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
+            without props: the Props mail case in the mailbox. Land it on T119's mailbox owner when props arrive.
 
     T77
         title        Declared emits, heard by actor.onEmit and in Stories
@@ -2614,6 +2617,10 @@ tasks
             Routed from @task.V3.T119 (orchestrator, 2026-11-22): own @spec.Changes R15, R17 and I9's life-held and
             subject-held halves (they need instances); T119 checks only I9's root form. Add them to this Task's Spec
             range when its full text is written.
+        comment     2026-11-22T19:15:12Z
+            Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
+            without instances: per-subject ledger.ts Audience and locate (with @task.V3.T121), and Mail.Event.at. Delete
+            them on the new walk here.
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -2840,6 +2847,10 @@ tasks
         comment     2026-11-21T19:27:26Z
             Readiness: Read first names the mutation alphabet it applies (@spec.Records.T2), which the Records Spec
             gives this Task's applier.
+        comment     2026-11-22T19:15:15Z
+            Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
+            without the host track: the driver's Owner per scope and owners.ts's fork-key map. Replace them against
+            T119's one host wake.
     T113
         title       The typed machine (a): the face, derived types and no config echo
         status      done
@@ -5273,6 +5284,10 @@ tasks
             Owns the open `pipe` gap: `machine.ts#Opaque` matches a `pipe` key of any type, so an event or memory field
             named `pipe` turns the typo check off for its record. Pinned inverted in `tests/types/excess-keys.test-d.ts`
             (flip it when fixed). Fix: `{ readonly pipe: Callable }`.
+        comment     2026-11-22T19:15:13Z
+            Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
+            without instances: per-subject ledger.ts Audience and locate, shared with @task.V3.T109; owed rows decide
+            their final shape.
     T122
         title       Read entries and read slots
         status      draft
