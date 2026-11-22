@@ -342,11 +342,11 @@ export const ruleFaults: ReadonlyArray<Fault> = [
   fault(
     "sent-without-persistence",
     "WriteLanes R12",
-    ["tests/restore/deep-inputs.test.ts"],
+    ["tests/actors/edges.test.ts"],
     "a persisted identity's commit in a Runtime without persistence is sent, not declined NoPersistence",
     "src/core/lanes.ts",
     "      !tx.world().persistence &&\n",
-    "",
+    "      false &&\n",
   ),
   fault(
     "cancel-keeps-unsent-head",

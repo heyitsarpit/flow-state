@@ -2,8 +2,9 @@ import type { Fault } from "./faults.ts";
 
 /**
  * Wrong runtimes around one owner of each fact: a start that does not adopt, a boot that unparks
- * its own rows, an owed row never queued, a lane's record kept on disk, a batch per identity, or a
- * second batch out; each planted alone like the runtime's other faults.
+ * its own rows, an owed row never queued, a lane's record kept on disk, a forget that keeps its
+ * owed rows, a batch per identity, or a second batch out; each planted alone like the runtime's
+ * other faults.
  */
 export const consolidationFaults: ReadonlyArray<Fault> = [
   {
@@ -56,6 +57,20 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
         file: "src/core/persist.ts",
         find: "    tx.dropLane(id);\n    saveLane(lane.actor, id);",
         replace: "    tx.dropLane(id);\n    void lane;",
+      },
+    ],
+  },
+  {
+    name: "rows-dropped-outside-ledger",
+    tests: ["tests/actors/runtime-life.test.ts"],
+    says: "a forget keeps the identity's owed rows itself instead of closing them in the ledger",
+    rule: "Actors R21",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "    ledger.suspend(actor, forgetting);",
+        replace:
+          "    if (forgetting) tx.set({ ...tx.world(), owed: tx.world().owed });\n    else ledger.suspend(actor, false);",
       },
     ],
   },

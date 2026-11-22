@@ -116,7 +116,13 @@ assert.deepEqual(asked.splice(0), [
   { files: ["tests/a.test.ts"], flags: [] },
 ]);
 // A target holding a test red in the unchanged run runs to the end, and that test is never the catch.
-await judge({ ...targets, knownRed: new Set(["pkg/tests/a.test.ts > a > red"]) }, runs({ kind: "ran", passed: true, out: out("3 passed (3)", "1 passed (1)") }));
+assert.deepEqual(
+  await judge(
+    { ...targets, knownRed: new Set(["pkg/tests/a.test.ts > a > red"]) },
+    runs({ kind: "ran", passed: false, out: ` FAIL  pkg/tests/a.test.ts > a > red\n${out("1 failed | 2 passed (3)", "1 failed (1)")}` }),
+  ),
+  { verdict: "MISSED (only tests red in the unchanged run failed)", tests: [] },
+);
 assert.deepEqual(asked.splice(0), [{ files: ["tests/a.test.ts"], flags: [] }]);
 
 console.log("arguments and judging: as expected");

@@ -6603,3 +6603,19 @@ tasks
             and the wording nits. Rejected: "not-sent-mapped-unknown likely missed" (the run caught it); a `""` target
             running the whole package (no such data); known reds incomplete (a file that would not load is NOT JUDGED).
             Changed: the Schedule-closure note went to "not in range".
+        comment     2026-11-22T15:07:55Z
+            Fix round (builder), one per review item, each with its origin. 1. `sent-without-persistence` plants `false
+            &&` (sent with no persistence) and targets tests/actors/edges.test.ts. Origin: I re-aimed a miss to
+            whichever test failed, without checking the edit matched `says`; its old edit was the opposite fault. 2.
+            `rows-dropped-outside-ledger` restored as Actors R21, aimed at tests/actors/runtime-life.test.ts. Origin: I
+            classified by target file (one-builder) and did not plant it against runtime tests. 3. BareFunction stays a
+            guard; tests/compile/compiled.test.ts now shows it through the public path (untyped code changes a machine's
+            own Compiled, then construct), and src/core/well-formed.test.ts is gone. Origin: I traced typed callers
+            only. 4. `receipt-renamed` is covered by the package compile of fixtures/transfers/machines/transfers.ts
+            (the Done mapper reads `v.receipt`) and tests/transfers/bank.contract.ts, not endings.test-d.ts. Origin: I
+            named a test of the same rule without planting the rename. Also: faults.ts says one of its target tests must
+            fail; verdict.test.ts asserts the known-red verdict.
+        comment     2026-11-22T15:07:56Z
+            Fix-round gates (builder): `--only` on the touched faults and every fault aimed at compiled.test.ts, 6 of 6
+            caught by targets; `nub run check` 0; suite 25149 passed, 0 failed. Counts now 487 runtime, 4 type, 4 lint
+            deleted. Set to review.

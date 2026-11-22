@@ -63,17 +63,10 @@ const functionsIn = (view: unknown) => partsOf(view).filter(Predicate.isFunction
 // FLOW_STATE_ALLOW_UNKNOWN: a data view is plain data of any shape.
 const stringsIn = (view: unknown) => partsOf(view).filter(Predicate.isString);
 
-// The refusal a hand-made Compiled meets on its way to a Runtime, as [code, reason].
-const refusalOf = (compiled: unknown) => {
-  const lamp = build();
-
+// The refusal a construction meets, as [code, reason].
+const refusalOfConstruct = (construct: () => unknown) => {
   try {
-    runtimeSetup({
-      app: app({
-        id: "lamps",
-        machines: { lamp: loose({ ...lamp, compiled }) },
-      }),
-    }).construct();
+    construct();
   } catch (error) {
     if (error instanceof FlowError)
       return [error.code, error.diagnostics[0].details["reason"] ?? null] as const;
@@ -81,6 +74,14 @@ const refusalOf = (compiled: unknown) => {
 
   return [] as const;
 };
+
+// The refusal a hand-made Compiled meets on its way to a Runtime, as [code, reason].
+const refusalOf = (compiled: unknown) =>
+  refusalOfConstruct(() =>
+    runtimeSetup({
+      app: app({ id: "lamps", machines: { lamp: loose({ ...build(), compiled }) } }),
+    }).construct(),
+  );
 
 describe("Compiled and its data view (Compile R16, R17, T8, T9)", () => {
   it("two compiles of one source give equal data views, with Slots as names and Schemas as JSON Schema documents", () => {
@@ -113,6 +114,22 @@ describe("Compiled and its data view (Compile R16, R17, T8, T9)", () => {
       "InvalidConfiguration",
       "WrongKind",
     ]);
+  });
+
+  it("Compile R17: untyped code that puts a function that is not a Slot into a machine's own Compiled is refused BareFunction at construct", () => {
+    const lamp = build();
+    const compiled = compiledOf(lamp);
+    const [first] = [...(compiled.root.get("Dim") ?? [])];
+
+    const construct = () =>
+      runtimeSetup({ app: app({ id: "lamps", machines: { lamp } }) }).construct();
+
+    // Untyped code holds the Compiled's tables as plain Maps.
+    const root: Map<string, unknown> = loose(compiled.root);
+
+    root.set("Dim", [{ ...first, update: Option.some(() => ({})) }]);
+
+    expect(refusalOfConstruct(construct)).toEqual(["InvalidConfiguration", "BareFunction"]);
   });
 
   it("a machine's own Compiled, carrying its memory's derived equality and codecs, is accepted", () => {

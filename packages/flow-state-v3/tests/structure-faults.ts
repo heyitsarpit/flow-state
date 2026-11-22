@@ -218,7 +218,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "bare-function-accepted",
-    tests: ["src/core/well-formed.test.ts"],
+    tests: [COMPILED],
     says: "a Runtime boots a Compiled holding a function that is not a Slot",
     rule: "Compile R17, T8",
     edits: [

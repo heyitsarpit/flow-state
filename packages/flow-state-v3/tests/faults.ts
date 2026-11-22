@@ -43,8 +43,8 @@ export type Fault = {
  * **When to use**
  *
  * Run them when the test tooling changes, to show the tests still tell a right runtime from a wrong
- * one: each fault is planted alone in a scratch copy of the package, and at least one test must
- * fail.
+ * one: each fault is planted alone in a scratch copy of the package, and at least one of its target
+ * tests must fail.
  *
  * **Details**
  *
