@@ -29,11 +29,10 @@ describe("generated Stories", () => {
   seededRuns("usual");
 });
 
-// A known breach, owner not yet named: a home room's turn while offline publishes twice beside a
-// held thermostat write and the house's vacation, from fresh usual seed 15 and stress seed 5. It
-// fails the same way on the code before the schedule-issue rework.
+// Once a known breach: the room's context update after its turn published in the turn's window,
+// and the rule counted it as the turn's; a publication's why tells them apart (Changes C6, I5).
 describe("a home room's turn publishes once (Turn I9)", () => {
-  it.fails("Turn I9: the lounge's turn while offline, beside a held write and a vacation, publishes once (usual seed 15)", () => {
+  it("Turn I9: the lounge's turn while offline, beside a held write and a vacation, publishes once (usual seed 15)", () => {
     const sampled = samples.find((s) => s.id === "home-rooms");
 
     expect(

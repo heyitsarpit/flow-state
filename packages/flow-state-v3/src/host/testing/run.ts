@@ -6,6 +6,7 @@ import { dependentsOf, Input } from "../../core/step.ts";
 import type { Life } from "../../core/life.ts";
 import { retain } from "../../core/tx.ts";
 import { type ActorId, actorKey, indexDrift, type Wiring } from "../../core/world.ts";
+import { alarmDrift } from "../../core/alarm-drift.ts";
 import type { AnyDefinition } from "../../definition.ts";
 import { FlowError, foreignActorRef } from "../../error.ts";
 import { Host } from "../host.ts";
@@ -472,6 +473,15 @@ export const startRun = <Names extends string>(
       // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an index out of step with its facts is a defect in Flow, never the app's
       throw new Error(
         `Defect: the world's ${drift.join(", ")} index is out of step with its facts`,
+      );
+
+    // The alarms its owner facts owe: one per fact and no other (Changes I12).
+    const alarms = alarmDrift(world);
+
+    if (alarms.length > 0)
+      // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an alarm out of step with its facts is a defect in Flow, never the app's
+      throw new Error(
+        `Defect: the world's alarms are out of step with its facts: ${alarms.join("; ")}`,
       );
     const machines = tab.built.driver.machines;
     const truths = fakes.truths();

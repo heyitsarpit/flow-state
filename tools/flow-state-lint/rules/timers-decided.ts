@@ -9,14 +9,14 @@ import type { ESTree } from "@oxlint/plugins";
 // schedule's state (the `Decided` brand: no `Brand.nominal` of it and no cast to `Tracked`,
 // `Scheduled` or `Decided` elsewhere), src/core/schedules.ts, the one timer writer, installs it,
 // and a schedule issue's source is built only where its issues are read from state. Every other
-// source's issue is written only by src/core/world.ts's helpers. A timer or issue written anywhere
+// source's issue is written only by the one applier, src/core/apply.ts (its row C2). A timer or issue written anywhere
 // else is a schedule input combined outside that decision, the freedom behind timers that disarm,
 // restart or pause in the wrong order and issues one key clears for another. Decides by path
 // itself: src outside test files. A new incarnation's empty `new Map()` and `[]` are not writes,
 // and a literal with a `format` is a record's saved timers, not an incarnation's.
 const TIMER_WRITER = "src/core/schedules.ts";
 
-const ISSUE_WRITER = "src/core/world.ts";
+const ISSUE_WRITER = "src/core/apply.ts";
 
 const DECISION = "src/core/schedule-decision.ts";
 
@@ -83,7 +83,7 @@ export const timersDecidedRule = defineRule({
       write:
         "{{what}} writes an incarnation's timers outside the schedule decision. Decide the change in `decide` (src/core/schedule-decision.ts) and apply it through src/core/schedules.ts.",
       issue:
-        "{{what}} writes an incarnation's issues outside the issue helpers. Raise or clear an issue through src/core/world.ts, and a schedule's only from `decide` (src/core/schedule-decision.ts).",
+        "{{what}} writes an incarnation's issues outside the issue helpers. Raise or clear an issue as a change the applier writes (src/core/apply.ts), and a schedule's only from `decide` (src/core/schedule-decision.ts).",
     },
     schema: [],
   },

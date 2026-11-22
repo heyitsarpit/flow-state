@@ -1,97 +1,31 @@
-import { Data, Option, Result } from "effect";
+import { Option, Result } from "effect";
 import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
-import { defect } from "./defect.ts";
-import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
-import type { Firing } from "./schedule-decision.ts";
-import { Resolved, runTurn, TurnResult } from "./turn.ts";
+import { runTurn, TurnResult } from "./walk.ts";
 import { RuntimeDefaults } from "./defaults.ts";
-import { chainOf, historyAfter } from "./tree.ts";
+import { Change, refusalOf } from "./change.ts";
+import { scopeOf } from "./reads.ts";
+import { routeOf, Trigger } from "./trigger.ts";
 import { isInFlight, type Tx } from "./tx.ts";
 import { type Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
 import {
   type ActivationId,
-  type LaneId,
+  type ActorId,
   actorKey,
   type Incarnation,
-  IssueSource,
   type Lane,
   Mail,
   OwnedBy,
-  type StoredIssue,
-  type StoredSource,
-  withIssue,
-  withoutIssue,
 } from "./world.ts";
-import type { Failure } from "./timers.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 import { makeFirings } from "./firings.ts";
-
-/**
- * What a turn answers: a public or internal event, a schedule's firing, or an owed ending's mapped
- * event, with the activation it is late for when that activation has been left. Only an ending's
- * turn acts on its own lane.
- */
-export type Trigger = Data.TaggedEnum<{
-  Event: { tag: string; resendable: boolean };
-  Firing: { firing: Firing };
-  Ending: { row: Owed; late: Option.Option<ActivationId> };
-}>;
-
-/**
- * Constructors and matchers for {@link Trigger}.
- */
-export const Trigger = Data.taggedEnum<Trigger>();
-
-// The source an ending's turn raises or clears its issue on: its operation.
-// RETURN_TYPE: a stored source, never a schedule's.
-const endingSource = (row: Owed): StoredSource => IssueSource.Operation({ name: row.operation });
-
-// What a turn's trigger decides: the activation it is late for, the lane it acts on as owner, the
-// row it hears, and the source whose issue it raises or clears; a firing's issues are its
-// schedule's decision, so it names its firing instead.
-const routeOf = (trigger: Trigger) =>
-  Trigger.$match(trigger, {
-    Event: ({ tag, resendable }) => ({
-      unrepeatable: !resendable,
-      late: Option.none<ActivationId>(),
-      own: Option.none<LaneId>(),
-      ending: Option.none<Owed>(),
-      source: Option.some<StoredSource>(IssueSource.Event({ tag })),
-      firing: Option.none<Firing>(),
-    }),
-    Firing: ({ firing }) => ({
-      unrepeatable: false,
-      late: Option.none<ActivationId>(),
-      own: Option.none<LaneId>(),
-      ending: Option.none<Owed>(),
-      source: Option.none<StoredSource>(),
-      firing: Option.some(firing),
-    }),
-    Ending: ({ row, late }) => ({
-      unrepeatable: true,
-      late,
-      own: row.lane,
-      ending: Option.some(row),
-      source: Option.some(endingSource(row)),
-      firing: Option.none<Firing>(),
-    }),
-  });
 
 const HEARD: Heard = "Heard";
 
 const REFUSED: Heard = "Refused";
 
 const UNMAPPED: Heard = "Unmapped";
-
-// What a turn answers its server: how its mail was heard, whether it committed, and a firing's
-// refusal, which its schedule's decision raises.
-const TURNED = { heard: HEARD, committed: true, refused: Option.none<Failure>() } as const;
-
-const UNTURNED = { heard: HEARD, committed: false, refused: Option.none<Failure>() } as const;
-
-const REFUSED_TURN = { heard: REFUSED, committed: false, refused: Option.none<Failure>() } as const;
 
 /**
  * The activations that own an actor's pending work: each InFlight head and every queued commit,
@@ -126,8 +60,8 @@ export const makeServe = (
   ledger: LedgerSteps,
 ) => {
   const { incarnationOf } = tx;
-  const { commit, retry, cancel, lookup, flushLanes, viewOf } = lanes;
-  const { schedules, setIncarnation, publish } = incarnations;
+  const { viewOf } = lanes;
+  const { schedules, apply, context } = incarnations;
 
   // ── serving mail.
   // RETURN_TYPE: an Option of the operation's mapping, whichever channel selects it.
@@ -154,62 +88,29 @@ export const makeServe = (
     return byChannel[ending.channel]();
   };
 
-  // A refusal raises its source's issue, replacing that source's earlier one. Issues are not part
-  // of the record, so raising one writes nothing.
-  const raised = (incarnation: Incarnation, issue: StoredIssue) => {
-    const next = withIssue(incarnation, issue);
-
-    tx.putIncarnation(next);
-
-    return next;
-  };
-
   // The depth a late ending is routed from: its owner's nearest surviving ancestor, which is the
   // deepest active state entered before the owner was (0 for the root).
   const depthBelow = (incarnation: Incarnation, owner: ActivationId) =>
     incarnation.activations.filter((a) => a < owner).length;
 
-  // Counts a turn's sends toward the loop guard of the admitted event it follows; fails with the
-  // refusal's slot, naming that event, when they would pass the guard.
-  const counted = (count: number) => {
-    const id = Option.getOrElse(tx.chainNow(), () => defect("a turn sent outside a served item"));
-    const chain = tx.world().chains.get(id) ?? defect("a chain followed after it was cleared");
-
-    if (chain.sent + count > RuntimeDefaults.loopGuard)
-      return Result.fail(
-        `loop guard: ${String(RuntimeDefaults.loopGuard)} events sent from ${chain.root}`,
-      );
-
-    tx.put("chains", id, { ...chain, sent: chain.sent + count });
-
-    return Result.succeed(id);
-  };
-
-  // A refused turn raises its source's issue and publishes once; a firing's refusal is handed back
-  // to its schedule's decision instead.
-  const refusal = (incarnation: Incarnation, route: ReturnType<typeof routeOf>, failure: Failure) =>
-    Option.match(route.source, {
-      onNone: () => ({ heard: REFUSED, committed: false, refused: Option.some(failure) }),
-      onSome: (source) => {
-        publish(
-          raised(
-            incarnation,
-            tx.refuse(
-              incarnation.actor,
-              { source, code: failure.code, slot: Option.some(failure.slot) },
-              route.ending,
-            ),
-          ),
-        );
-
-        return REFUSED_TURN;
-      },
+  // What a turn that ran nothing applies: an ending's row was heard and moved nothing but its
+  // lane; a firing's send did not commit; an event applies nothing.
+  const ranNothing = (incarnation: Incarnation, trigger: Trigger) =>
+    Trigger.$match(trigger, {
+      Event: () => undefined,
+      Firing: ({ firing }) =>
+        void apply(Option.some(incarnation), Change.Settled({ firing, refusal: Option.none() })),
+      Ending: ({ row }) => void apply(Option.some(incarnation), Change.Unturned({ row })),
     });
 
+  /**
+   * One turn of an incarnation: its trigger's walk, then the change it decided, applied. Returns
+   * how an ending's row was heard.
+   */
   const turn = (incarnation: Incarnation, tag: string, payload: Values, trigger: Trigger) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
-    if (compiled === undefined) return UNTURNED;
+    if (compiled === undefined) return HEARD;
 
     const route = routeOf(trigger);
 
@@ -217,11 +118,9 @@ export const makeServe = (
 
     const result = runTurn({
       compiled,
-      state: incarnation.state,
+      ...scopeOf(incarnation),
       activations: incarnation.activations,
       history: incarnation.history,
-      memory: incarnation.memory,
-      context: Object.fromEntries([...incarnation.context].map(([slot, s]) => [slot, s.value])),
       tag,
       payload: tx.env.admit(payload),
       late: Option.isSome(route.late),
@@ -237,139 +136,24 @@ export const makeServe = (
         schedules.stepper(incarnation.actor, name, tx.env.now)(series, attempt),
     });
 
-    const settled = () => {
-      if (Option.isSome(route.ending)) publish(incarnation);
-
-      return UNTURNED;
-    };
+    const applied = (change: Change) =>
+      Change.$is("Refused")(apply(Option.some(incarnation), change)) ? REFUSED : HEARD;
 
     return TurnResult.$match(result, {
       Unhandled: () => {
         tx.act(Act.Unhandled({ actor: incarnation.actor, event: tag }));
+        ranNothing(incarnation, trigger);
 
-        return settled();
+        return HEARD;
       },
       Denied: ({ reasons }) => {
         tx.act(Act.Denied({ actor: incarnation.actor, event: tag, reasons }));
+        ranNothing(incarnation, trigger);
 
-        return settled();
+        return HEARD;
       },
-      Refused: ({ code, slot }) => refusal(incarnation, route, { code, slot }),
-      Accepted: (accepted) => {
-        const sends = accepted.actions.filter(Resolved.$is("Send"));
-
-        const chain = sends.length === 0 ? Option.none() : Option.some(counted(sends.length));
-
-        // The turn that would send past the loop guard is refused whole, naming its chain.
-        if (Option.isSome(chain) && Result.isFailure(chain.value))
-          return refusal(incarnation, route, { code: "InvalidTurn", slot: chain.value.failure });
-
-        const base: Incarnation = Option.match(accepted.move, {
-          onNone: () => ({ ...incarnation, memory: tx.env.admit(accepted.memory) }),
-          onSome: (move) => {
-            const kept = incarnation.activations.slice(
-              0,
-              incarnation.activations.length - move.exits.length,
-            );
-
-            return {
-              ...incarnation,
-              state: move.leaf,
-              activations: [...kept, ...move.enters.map(() => tx.mintActivation())],
-              history: historyAfter(incarnation.history, incarnation.state, move),
-              memory: tx.env.admit(accepted.memory),
-            };
-          },
-        });
-
-        const after = Option.match(route.source, {
-          onNone: () => base,
-          onSome: (source) => withoutIssue(base, source),
-        });
-
-        setIncarnation(after);
-
-        // The work a transition starts is owned by the activation of the state it names: its
-        // target's when it moves, its handler's otherwise, the root's at the root.
-        const ownerOf = (path: string) =>
-          Option.match(Option.fromUndefinedOr(after.activations[chainOf(path).length - 1]), {
-            onNone: () => OwnedBy.Root(),
-            onSome: (activation) => OwnedBy.State({ activation }),
-          });
-
-        const owner = Option.match(accepted.move, {
-          onNone: () => (accepted.handler === "" ? OwnedBy.Root() : ownerOf(accepted.handler)),
-          onSome: (move) => ownerOf(move.target),
-        });
-
-        const members: Array<Member> = [];
-        const reports = tx.evidenceCount();
-
-        for (const action of accepted.actions) {
-          if (Resolved.$is("Send")(action)) continue;
-
-          const operation = compiled.operations.get(action.operation);
-
-          if (operation === undefined) continue;
-
-          const member = Resolved.$match(action, {
-            Commit: ({ input }) => Option.some(commit(after, operation, input, owner)),
-            Retry: ({ key }) =>
-              Option.some(retry(after, operation, tx.env.admit(key), route.own, owner)),
-            Cancel: ({ key }) =>
-              Option.some(cancel(after, operation, tx.env.admit(key), route.own)),
-            Lookup: ({ input }) => {
-              lookup(after, operation, tx.env.admit(input), owner);
-
-              return Option.none<Member>();
-            },
-            Send: () => Option.none<Member>(),
-          });
-
-          Option.match(member, { onNone: () => undefined, onSome: (m) => void members.push(m) });
-        }
-
-        tx.insertAct(
-          reports,
-          Act.Turned({
-            actor: after.actor,
-            event: tag,
-            from: incarnation.state,
-            to: after.state,
-            parts: [accepted.part],
-            members,
-          }),
-        );
-
-        flushLanes(after.actor);
-
-        // The turn's schedule work is decided once per schedule, after its lanes flushed: exits,
-        // entries, armings and disarms, then keys, restarts and pauses read what the turn left.
-        const settled = schedules.turned(
-          incarnationOf(after.actor) ?? after,
-          incarnation.schedules,
-          {
-            exits: Option.match(accepted.move, { onNone: () => [], onSome: (m) => m.exits }),
-            arms: accepted.arm,
-            disarms: accepted.disarm,
-            fired: route.firing,
-          },
-        );
-
-        setIncarnation(settled);
-        publish(settled);
-        incarnations.context.wave(after.actor);
-
-        // Each send is delivered after the turn has committed, in written order.
-        for (const sent of sends)
-          incarnations.deliver(
-            sent.actor,
-            { tag: sent.tag, payload: sent.payload },
-            Option.some(after.actor),
-          );
-
-        return TURNED;
-      },
+      Refused: ({ code, slot }) => applied(refusalOf(trigger, { code, slot })),
+      Accepted: ({ turn: decided }) => applied(Change.Turn({ turn: decided, trigger })),
     });
   };
 
@@ -409,32 +193,32 @@ export const makeServe = (
     const trigger = Trigger.Ending({ row: ending, late });
 
     if (Result.isFailure(payload)) {
-      publish(
-        raised(
-          incarnation,
-          tx.refuse(
-            incarnation.actor,
-            {
-              source: endingSource(ending),
-              code: "InvalidTurn",
-              slot: Option.some(payload.failure),
-            },
-            Option.some(ending),
-          ),
-        ),
+      apply(
+        Option.some(incarnation),
+        refusalOf(trigger, { code: "InvalidTurn", slot: payload.failure }),
       );
 
       return REFUSED;
     }
 
-    return turn(incarnation, mapping.value.event, payload.success, trigger).heard;
+    return turn(incarnation, mapping.value.event, payload.success, trigger);
   };
 
   const firings = makeFirings(tx, incarnations, (incarnation, schedule, payload, firing) =>
     turn(incarnation, schedule.send, payload, Trigger.Firing({ firing })),
   );
 
-  const serve = (mail: Mail) =>
+  // A context update: the consumer's providers read again, applied as its `Inputs` change.
+  const update = (actor: ActorId) => {
+    const incarnation = incarnationOf(actor);
+
+    if (incarnation === undefined) return;
+
+    for (const read of Option.toArray(context.inputsOf(incarnation)))
+      apply(Option.some(incarnation), Change.Inputs({ read }));
+  };
+
+  const serveOne = (mail: Mail) =>
     Mail.$match(mail, {
       Event: ({ actor, tag, payload, resendable }) => {
         const incarnation = incarnationOf(actor);
@@ -443,7 +227,7 @@ export const makeServe = (
           turn(incarnation, tag, payload, Trigger.Event({ tag, resendable }));
       },
       Firing: firings.firing,
-      Context: ({ actor }) => incarnations.context.update(actor),
+      Context: ({ actor }) => update(actor),
       Ending: ({ actor, id }) => {
         const incarnation = incarnationOf(actor);
 
@@ -453,17 +237,22 @@ export const makeServe = (
       },
     });
 
-  // A context update whose providers have not settled waits at the front of its mailbox: it is
-  // read once they have, so one wave gives one consistent update, and mail behind it stays behind
-  // it.
-  const deferred = (mail: Mail) => {
-    if (!Mail.$is("Context")(mail) || !incarnations.context.settling(mail.actor)) return false;
+  // One item, then its actor's front mail, in the same call: no other mail, yield or notify falls
+  // between a change and the turns that repair it.
+  const serve = (mail: Mail) => {
+    serveOne(mail);
 
-    tx.enqueueFirst([mail]);
-    tx.takeFresh();
-
-    return true;
+    for (let front = tx.takeFront(); front.length > 0; front = tx.takeFront())
+      for (const event of front) serveOne(event);
   };
+
+  // A context update whose providers have not settled is not taken: its actor is passed over this
+  // rotation, and mail behind it stays behind it, so one wave gives one consistent update.
+  const passedOver = (key: string) =>
+    Option.exists(
+      tx.peek(key),
+      (mail) => Mail.$is("Context")(mail) && context.settling(mail.actor),
+    );
 
   // Serves one item; returns the mail its turns enqueued, which follows it and the loop guard's
   // chain it follows or starts. Mail enqueued between items follows none.
@@ -481,13 +270,16 @@ export const makeServe = (
       const [key] = tx.world().mail.keys();
 
       if (key === undefined) return;
+      count += 1;
 
       // One event from the next actor in rotation; then its follow-ups, first, oldest first
       // within each actor.
-      const first = tx.takeOldest(key, "rotate");
-      count += 1;
+      if (passedOver(key)) tx.rotate(key);
+      else {
+        const first = tx.takeOldest(key, "rotate");
 
-      if (first !== undefined && !deferred(first)) count = followUps(served(first), count);
+        if (first !== undefined) count = followUps(served(first), count);
+      }
     }
   };
 
@@ -500,12 +292,15 @@ export const makeServe = (
     while (chain.length > 0 && count < RuntimeDefaults.drainYield) {
       const [next, ...later] = chain;
       chain = later;
-      const followUp = next === undefined ? undefined : tx.takeOldest(next, "keep");
 
-      if (followUp === undefined) continue;
+      if (next === undefined || !tx.world().mail.has(next)) continue;
       count += 1;
 
-      if (!deferred(followUp))
+      if (passedOver(next)) continue;
+
+      const followUp = tx.takeOldest(next, "keep");
+
+      if (followUp !== undefined)
         chain = [...chain, ...served(followUp).map((m) => actorKey(m.actor))];
     }
 

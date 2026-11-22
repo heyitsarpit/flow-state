@@ -1,8 +1,10 @@
 import { Option } from "effect";
-import type { Compiled, Schedule, Values } from "./compiled.ts";
+import type { Compiled, Schedule } from "./compiled.ts";
+import { readsOf, type Scope } from "./reads.ts";
 import { firstStep } from "./schedule-plan.ts";
 import { chainOf } from "./tree.ts";
-import type { Arming, TurnInput } from "./turn.ts";
+import type { Arming } from "./turn.ts";
+import type { TurnInput } from "./walk.ts";
 
 // The schedules a turn arms and disarms on the states active after it.
 
@@ -14,7 +16,7 @@ const NO_OPERATIONS: ReadonlyMap<string, ReadonlyMap<string, unknown>> = new Map
 /**
  * The schedules a turn arms on the states active after it, outermost first: on each entered
  * state those armed on entry, and on every active state each one that lists the event, with its
- * first step from the after memory, the context and the turn's now; a delay out of range or a
+ * first step read from the scope after the turn at the turn's now; a delay out of range or a
  * throwing callback is its slot's failure. Keyed schedules arm by their keys, after the turn.
  */
 export const armingsOf = (
@@ -22,7 +24,8 @@ export const armingsOf = (
   leaf: string,
   entered: ReadonlySet<string>,
   tag: string,
-  read: { readonly memory: Values; readonly context: Values; readonly now: number },
+  scope: Scope,
+  now: number,
   step: TurnInput["step"],
 ) => {
   const armed: Array<Arming> = [];
@@ -34,7 +37,7 @@ export const armingsOf = (
     !schedule.disarmOn.includes(tag) &&
     ((entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag));
 
-  const input = { key: undefined, operations: NO_OPERATIONS, ...read };
+  const input = readsOf(scope, "Schedule", { key: Option.none(), operations: NO_OPERATIONS, now });
 
   for (const path of chainOf(leaf))
     for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)

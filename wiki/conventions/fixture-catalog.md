@@ -1211,7 +1211,13 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
       is refused whole. built: `home/trip-past-longest`. −1, 0, 2^31 − 1 and 2^31 are in the `home-trips` samples.
       E7 and E8 do not apply: `returns` is decoded at the door, and a booking starts no call.
     - [x] A room left unused while it saves: its timers sleep and its overdue timers fire once on its return. built:
-      `home/unused-while-saving` (red for I12 until the build).
+      `home/unused-while-saving` (red for I12 until the build, green on it).
+    - [x] Front mail (R21, I7): 65 avatars' context updates each served with its reaction's turn across the drain's
+      yield. built: `session/avatar-wall`; the yield boundary by hand in `src/core/turn-parts.test.ts`.
+    - [x] The wave skip's cost (Changes Q9): 50 accepted turns that change nothing on a provider 65 consumers read.
+      built: `session/wave-noop` (the bench's `turn.session.wave-noop`).
+    - [x] Alarms judged after every step of every Story (I12): the harness derives each owed alarm from the world.
+      built: `src/host/testing/run.ts`, every Story.
     - [x] Every two-step sequence of 17 atoms (sends, a refused vacation, sensors, a failed save, detach, ensure,
       time, dispose, reload, the Runtime's disposal), judged after every step for I5, I9, I12, I13 and I15 to I17.
       built: `tests/turn/sequence.test.ts` (three-step under the stress flag).

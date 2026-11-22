@@ -248,7 +248,7 @@ model
             per start; no later change is tracked.
         the send mapper: the firing's metadata. Read at a firing. A change in it does not apply.
         Today `readOf` hands one record with `now` and the context to all of them
-        (code:packages/flow-state-v3/src/core/schedules.ts#readOf), though only the delay's public type has `now`; that
+        (`packages/flow-state-v3/src/core/schedules.ts#readOf`), though only the delay's public type has `now`; that
         leak goes. `props` is the planned input of the boundary design.
 
     Representation = target: TypeScript with Effect data types (`Data.TaggedEnum`, `Schema`, `Result`, `Brand`;

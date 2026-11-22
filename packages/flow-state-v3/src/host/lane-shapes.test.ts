@@ -65,7 +65,7 @@ const exactRecords = [
     | "displaced"
     | "mail"
     | "uses"
-    | "timers"
+    | "alarms"
     | "counter"
     | "attempts"
     | "persistence"
@@ -77,7 +77,6 @@ const exactRecords = [
     | "lanesOfActor"
     | "laneOfWait"
     | "consumersOf"
-    | "silenceOf"
     | "chains"
     | "chainCount"
   >,

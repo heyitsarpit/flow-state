@@ -3,7 +3,7 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { admit, Life, Verdict } from "./life.ts";
 import { CallResult, Input } from "./step.ts";
-import { emptyWorld, Timer } from "./world.ts";
+import { emptyWorld } from "./world.ts";
 import { makeTx } from "./tx.ts";
 
 const actor = { machine: "m", name: "a" };
@@ -17,7 +17,6 @@ const tx = makeTx(new Map(), emptyWorld(false), {
 });
 
 const call = tx.mint("call");
-const timer = tx.armTimer(Timer.Bound(), 0);
 const ticket = tx.mint("ticket");
 
 // One input of each kind, as the host and its timers give them.
@@ -34,7 +33,7 @@ const inputs = {
   Release: Input.Release({ actor, use: "host" }),
   DisposeRuntime: Input.DisposeRuntime(),
   Settled: Input.Settled({ call, result: CallResult.Interrupted() }),
-  Fired: Input.Fired({ timer }),
+  Tick: Input.Tick(),
   Stored: Input.Stored({ ticket }),
   Refused: Input.Refused({ ticket }),
   Capture: Input.Capture({ tickets: [], again: new Map() }),
@@ -70,7 +69,7 @@ const spec: Record<keyof typeof inputs, ReadonlyArray<Cell>> = {
   Serve: ["drop", "drop", "run", "drop", "drop", "drop", "drop"],
   DisposeRuntime: ["run", "run", "run", "run", "drop", "drop", "drop"],
   Settled: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
-  Fired: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
+  Tick: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
   Stored: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
   Refused: ["drop", "drop", "run", "drop", "run", "drop", "drop"],
   Capture: ["drop", "drop", "run", "drop", "run", "drop", "drop"],

@@ -47,7 +47,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/core/turn.ts",
+        file: "src/core/walk.ts",
         find: "return written ? levels : Option.toArray(implicit(input));",
         replace:
           "return Option.isSome(implicit(input)) ? Option.toArray(implicit(input)) : levels;",
@@ -74,10 +74,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn I9",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "        setIncarnation(settled);\n        publish(settled);",
-        replace:
-          "        setIncarnation(settled);\n        if (settled.memory !== incarnation.memory || settled.state !== incarnation.state) publish(settled);",
+        file: "src/core/change.ts",
+        find: "    Turn: () => true,",
+        replace: "    Turn: () => false,",
       },
     ],
   },
@@ -88,14 +87,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn I14",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "      onSome: (source) => {\n        publish(\n          raised(",
-        replace: "      onSome: (source) => {\n        void [\n          raised(",
-      },
-      {
-        file: "src/core/serve.ts",
-        find: "          ),\n        );\n\n        return REFUSED_TURN;",
-        replace: "          ),\n        ];\n\n        return REFUSED_TURN;",
+        file: "src/core/change.ts",
+        find: '    Refused: () => Option.some<Why>("Other"),',
+        replace: "    Refused: () => Option.none<Why>(),",
       },
     ],
   },
@@ -263,10 +257,10 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14, T6",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "          disarms: [],",
+        file: "src/core/apply.ts",
+        find: "                  disarms: [],",
         replace:
-          '          disarms: arm.some((a) => a.first._tag === "Failure") ? arm.map((a) => a.name) : [],',
+          '                  disarms: arms.some((a) => a.first._tag === "Failure") ? arms.map((a) => a.name) : [],',
       },
     ],
   },
@@ -290,9 +284,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14, R20",
     edits: [
       {
-        file: "src/core/turn.ts",
-        find: "for (const path of chainOf(input.state).slice(0, input.from)) if",
-        replace: "for (const path of chainOf(input.state)) if",
+        file: "src/core/walk.ts",
+        find: "  for (const path of (input.compiled.states.get(input.state)?.chain ?? []).slice(0, input.from))",
+        replace: "  for (const path of input.compiled.states.get(input.state)?.chain ?? [])",
       },
     ],
   },

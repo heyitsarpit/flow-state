@@ -132,7 +132,7 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
     expectTypeOf(cut.owed[0]?.channel).toEqualTypeOf<Channel | undefined>();
     expectTypeOf(cut.lanes[0]?.phase).toEqualTypeOf<PhaseTag | undefined>();
     expectTypeOf(cut.timers[0]?.kind).toEqualTypeOf<
-      "Schedule" | "Grace" | "Silent" | "Bound" | undefined
+      "Schedule" | "Grace" | "Silent" | "Bound" | "Release" | "Collect" | undefined
     >();
     expectTypeOf<Channel>().toEqualTypeOf<"success" | "failure" | "unknown" | "notSent">();
 
@@ -172,7 +172,7 @@ describe("Diagnostics R7, WriteLanes R10: the runtime cut's rows use Flow's clos
       | "Release"
       | "Send"
       | "Settled"
-      | "Fired"
+      | "Tick"
       | "Stored"
       | "Refused"
       | "Capture"

@@ -1,8 +1,10 @@
+import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { checkout } from "../../fixtures/shop/app.ts";
 import { PayMachine } from "../../fixtures/services/shop/machines/pay.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
 import { busyRefused, long, lostConfirm, usual } from "../../fixtures/shop/stories/usual.ts";
+import type { Evidence } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 
@@ -104,8 +106,20 @@ describe("a refused ending turn", () => {
       .slice(delivered + 1, refusal + 2)
       .filter((e) => e._tag === "Published");
 
+    // The refusal's own publication says why: it is no turn's (Changes C6).
+    const shown = (e: Evidence) =>
+      e._tag === "Published"
+        ? Option.some({ state: e.state, memory: e.memory, why: e.why })
+        : Option.none();
+
+    const refused = Option.flatMap(Option.fromUndefinedOr(published[0]), shown);
+    const was = Option.flatMap(Option.fromUndefinedOr(before), shown);
+
     expect(refusal).toBeGreaterThan(delivered);
     expect(published).toHaveLength(1);
-    expect(published[0]).toEqual(before);
+    expect(Option.map(refused, (r) => r.why)).toEqual(Option.some("Other"));
+    expect(Option.map(refused, ({ state, memory }) => ({ state, memory }))).toEqual(
+      Option.map(was, ({ state, memory }) => ({ state, memory })),
+    );
   });
 });

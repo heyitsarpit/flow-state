@@ -18,10 +18,10 @@ import {
   actorKey,
   byCodeUnits,
   type Incarnation,
-  Timer,
-  type TimerId,
+  trackOf,
   type World,
 } from "./world.ts";
+import { Alarm } from "./alarms.ts";
 import { Arming, type Run, timersIn, Timing, type Tracked } from "./timers.ts";
 
 /**
@@ -177,26 +177,26 @@ export const dueRunsOf = (incarnation: Incarnation) =>
   );
 
 /**
- * The due runs of an incarnation whose deadline has passed with no live host alarm: those that
- * came due while it was unused, in firing order.
+ * The due runs of an incarnation whose deadline has passed, in firing order: those that came due
+ * while it was asleep, each fired once when it wakes.
  */
-export const waitingIn = (
-  world: World,
-  machines: Machines,
-  incarnation: Incarnation,
-  now: number,
-) =>
+export const overdueIn = (machines: Machines, incarnation: Incarnation, now: number) =>
   dueRunsOf(incarnation)
-    .filter(
-      (d) =>
-        d.dueAt <= now &&
-        !Option.exists(Option.fromUndefinedOr(incarnation.alarms.get(d.run.arming)), (alarm) =>
-          world.timers.has(alarm.timer),
-        ),
-    )
+    .filter((d) => d.dueAt <= now)
     .toSorted(byDue(machines));
 
-// The due run a live host alarm stands for, while it is still that run's.
+/**
+ * The alarm a due run of an awake incarnation has.
+ */
+export const alarmOf = (due: Due) =>
+  Alarm.Schedule({
+    actor: due.incarnation.actor,
+    incarnation: due.incarnation.id,
+    schedule: due.tracked.name,
+    track: trackOf(due.tracked.name, due.tracked.key),
+    arming: due.run.arming,
+  });
+
 /**
  * The timer a host alarm or a firing names, by its schedule and its timer's track (the schedule's
  * name, then a keyed timer's key text): one lookup, never a scan of the schedule's timers.
@@ -208,32 +208,34 @@ export const trackedAt = (incarnation: Incarnation, name: string, track: string)
       : Option.fromUndefinedOr(scheduled.timers.get(track.slice(name.length + 1))),
   );
 
-const dueOf = (world: World, id: TimerId, timer: Timer) => {
-  if (!Timer.$is("Schedule")(timer)) return Option.none();
-
-  return Option.flatMap(
-    Option.fromUndefinedOr(world.incarnations.get(actorKey(timer.actor))),
-    (incarnation) =>
-      Option.map(
-        Option.filter(
-          Option.flatMap(trackedAt(incarnation, timer.schedule, timer.track), (tracked) =>
+// The due run a schedule alarm stands for.
+const dueOf = (world: World, alarm: Alarm) =>
+  Alarm.$match(alarm, {
+    Bound: () => Option.none<Due>(),
+    Silent: () => Option.none<Due>(),
+    Release: () => Option.none<Due>(),
+    Collect: () => Option.none<Due>(),
+    Grace: () => Option.none<Due>(),
+    Schedule: ({ actor, schedule, track }) =>
+      Option.flatMap(
+        Option.fromUndefinedOr(world.incarnations.get(actorKey(actor))),
+        (incarnation) =>
+          Option.flatMap(trackedAt(incarnation, schedule, track), (tracked) =>
             dueRunOf(incarnation, tracked),
           ),
-          (d) =>
-            d.run.arming === timer.arming && incarnation.alarms.get(timer.arming)?.timer === id,
-        ),
-        (d) => ({ ...d, id, fired: timer }),
       ),
-  );
-};
+  });
 
 /**
- * Every live schedule timer due by now, across actors, in firing order: a host timer firing
- * takes the timers due with it, so equal deadlines fire in one order whatever order the host
- * fired them in.
+ * Orders two schedule alarms due together by their runs' firing order, so equal deadlines fire in
+ * one order whatever order they were set in; any other two compare equal.
  */
-export const dueIn = (world: World, machines: Machines, now: number) =>
-  [...world.timers]
-    .flatMap(([id, timer]) => Option.toArray(dueOf(world, id, timer)))
-    .filter((d) => d.dueAt <= now)
-    .toSorted(byDue(machines));
+export const scheduleOrder = (world: World, machines: Machines) => {
+  const order = byDue(machines);
+
+  return (a: Alarm, b: Alarm) =>
+    Option.match(Option.all([dueOf(world, a), dueOf(world, b)]), {
+      onNone: () => 0,
+      onSome: ([x, y]) => order(x, y),
+    });
+};

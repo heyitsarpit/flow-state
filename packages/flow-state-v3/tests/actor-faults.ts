@@ -80,9 +80,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Turn R25",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "          onSome: (source) => withoutIssue(base, source),",
-        replace: "          onSome: () => ({ ...base, issues: [] }),",
+        file: "src/core/apply.ts",
+        find: "              issues: outcomesAfter(\n                incarnation,\n                Option.toArray(\n                  Option.map(routeOf(trigger).source, (source) => OutcomeEdit.Clear({ source })),\n                ),\n              ),",
+        replace: "              issues: [],",
       },
     ],
   },
@@ -93,10 +93,10 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Turn R23",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "        publish(\n          raised(\n            incarnation,\n            tx.refuse(\n              incarnation.actor,\n              { source, code: failure.code, slot: Option.some(failure.slot) },\n              route.ending,\n            ),\n          ),\n        );",
+        file: "src/core/apply.ts",
+        find: "              issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, source)), issue],",
         replace:
-          "        tx.refuse(incarnation.actor, { source, code: failure.code, slot: Option.some(failure.slot) }, route.ending);\n        publish(incarnation);",
+          "              issues: incarnation.issues.length < 0 ? [issue] : incarnation.issues,",
       },
     ],
   },
@@ -107,9 +107,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Runtime O3",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: '    tx.put("ended", actorKey(incarnation.actor), terminal(incarnation));',
-        replace: "    void terminal;",
+        file: "src/core/apply.ts",
+        find: '          tx.put("ended", actorKey(incarnation.actor), {',
+        replace: "          void actorKey(incarnation.actor), void ({",
       },
     ],
   },
@@ -146,10 +146,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors I21",
     edits: [
       {
-        file: "src/core/tx.ts",
-        find: '    else if (place === "rotate") {\n      draft("mail").delete(key);',
-        replace:
-          '    else if (place === "rotate" && mailbox.length < 0) {\n      draft("mail").delete(key);',
+        file: "src/core/mailbox.ts",
+        find: '    else if (place === "rotate") rotate(key);',
+        replace: '    else if (place === "rotate" && mailbox.length < 0) rotate(key);',
       },
     ],
   },
@@ -160,7 +159,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors I19",
     edits: [
       {
-        file: "src/core/tx.ts",
+        file: "src/core/mailbox.ts",
         find: "    box(key).push(mail);",
         replace: "    box(key).unshift(mail);",
       },
@@ -271,7 +270,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13, I20",
     edits: [
       {
-        file: "src/core/serve.ts",
+        file: "src/core/tx.ts",
         find: "    if (chain.sent + count > RuntimeDefaults.loopGuard)",
         replace: "    if (chain.sent + count > Number.POSITIVE_INFINITY)",
       },
@@ -284,9 +283,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13, I20",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: '    tx.put("chains", id, { ...chain, sent: chain.sent + count });',
-        replace: '    tx.put("chains", id, { ...chain, sent: chain.sent + 1 });',
+        file: "src/core/tx.ts",
+        find: '    put("chains", id, { ...chain, sent: chain.sent + count });',
+        replace: '    put("chains", id, { ...chain, sent: chain.sent + 1 });',
       },
     ],
   },
@@ -297,10 +296,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13, I20",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
-        replace:
-          "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: Option.none() }));",
+        file: "src/core/mailbox.ts",
+        find: "    const next = chainNow();",
+        replace: "    const next = Option.none<ChainId>();",
       },
     ],
   },
@@ -311,10 +309,10 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13, I20",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
+        file: "src/core/mailbox.ts",
+        find: "    const next = chainNow();",
         replace:
-          "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: Option.filter(tx.chainNow(), (id) => (tx.world().chains.get(id)?.sent ?? 0) > 0) }));",
+          "    const next = Option.filter(chainNow(), (id) => (access.world().chains.get(id)?.sent ?? 0) > 0);",
       },
     ],
   },
@@ -325,9 +323,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13, I20",
     edits: [
       {
-        file: "src/core/tx.ts",
-        find: '(m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),',
-        replace: '(m) => Mail.$is("Context")(m) && sent(next) < 0,',
+        file: "src/core/mailbox.ts",
+        find: '    if (waiting !== undefined && Mail.$is("Context")(waiting) && sent(next) > sent(waiting.chain))',
+        replace: '    if (waiting !== undefined && Mail.$is("Context")(waiting) && sent(next) < 0)',
       },
     ],
   },
@@ -338,9 +336,10 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13, I20",
     edits: [
       {
-        file: "src/core/tx.ts",
-        find: '(m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),',
-        replace: '(m) => Mail.$is("Context")(m) && m.chain !== next,',
+        file: "src/core/mailbox.ts",
+        find: '    if (waiting !== undefined && Mail.$is("Context")(waiting) && sent(next) > sent(waiting.chain))',
+        replace:
+          '    if (waiting !== undefined && Mail.$is("Context")(waiting) && waiting.chain !== next)',
       },
     ],
   },
@@ -351,10 +350,10 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Actors R13",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: '{ code: "InvalidTurn", slot: chain.value.failure }',
+        file: "src/core/apply.ts",
+        find: '          onFailure: (slot) => refusalOf(change.trigger, { code: "InvalidTurn", slot }),',
         replace:
-          '{ code: "InvalidTurn", slot: `${chain.value.failure.split(" from ")[0] ?? ""} from ${tag} to ${incarnation.actor.name}` }',
+          '          onFailure: (slot) => refusalOf(change.trigger, { code: "InvalidTurn", slot: `${slot.split(" from ")[0] ?? ""} from ${change.turn.parts[0]?.event.tag ?? ""}` }),',
       },
     ],
   },
@@ -392,9 +391,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Turn I30",
     edits: [
       {
-        file: "src/core/turn.ts",
-        find: "    onNone: () => Result.succeed(input.memory),",
-        replace: "    onNone: () => Result.succeed({ ...input.memory }),",
+        file: "src/core/walk.ts",
+        find: "        onNone: () => memory,",
+        replace: "        onNone: () => ({ ...memory }),",
       },
     ],
   },
@@ -487,8 +486,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    if (reselected || raised) keep(read);",
-        replace: "    if (reselected && raised) keep(read);",
+        find: "      return reselected || read.outcomes.length > 0",
+        replace: "      return reselected && read.outcomes.length > 0",
       },
     ],
   },

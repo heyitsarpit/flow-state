@@ -10,6 +10,7 @@ import { BURST, LARGE, largePulse, pulseBurst } from "../../fixtures/shop/storie
 import { mixedProviderPulse, unhandledPulse } from "../../fixtures/shop/stories/structure.ts";
 import { dataView } from "../../src/host/inspect.ts";
 import { turnsOf } from "../../src/host/testing/index.ts";
+import { LIMITS } from "../limits.ts";
 import { checked } from "../rules/rules.ts";
 import { played } from "../rules/played.ts";
 import { refusal } from "../refusals.ts";
@@ -104,13 +105,17 @@ describe("the mini-cart reads its cart through context slots (Actors R18, Turn R
     ).toHaveLength(pulse?.memory.shown ?? -1);
   });
 
-  it("Actors R18, E3: a cart of a thousand lines is read whole and counted", async () => {
-    const run = checked(await largePulse().run());
-    const pulse = run.checkpoints.full.read(mainPulse);
+  it(
+    "Actors R18, E3: a cart of a thousand lines is read whole and counted",
+    async () => {
+      const run = checked(await largePulse().run());
+      const pulse = run.checkpoints.full.read(mainPulse);
 
-    expect(Object.keys(pulse?.context["lines"] ?? {})).toHaveLength(LARGE);
-    expect(pulse?.memory).toEqual({ pulses: LARGE, shown: LARGE });
-  });
+      expect(Object.keys(pulse?.context["lines"] ?? {})).toHaveLength(LARGE);
+      expect(pulse?.memory).toEqual({ pulses: LARGE, shown: LARGE });
+    },
+    LIMITS.largeCart,
+  );
 });
 
 describe("construction refuses a slot of two providers and a reaction nothing handles (Compile R19, I18)", () => {

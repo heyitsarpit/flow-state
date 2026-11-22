@@ -1,31 +1,28 @@
 import { Duration, Option } from "effect";
+import { Alarm } from "./alarms.ts";
+import type { Apply } from "./apply.ts";
+import { Change } from "./change.ts";
 import { Cue } from "./cells.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { Life } from "./life.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import type { Tx } from "./tx.ts";
-import {
-  type ActorId,
-  actorKey,
-  Command,
-  byStart,
-  type TicketId,
-  Timer,
-  type World,
-} from "./world.ts";
+import { type ActorId, actorKey, Command, byStart, type TicketId, type World } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
 
-// The timers a disposal disarms: schedules and graces start no more work; a storage silence still
-// fires, and the bound is the disposal's own.
-const DISARMED_AT_DISPOSAL = {
+// The alarms a disposal clears: schedules and graces start no more work; a storage silence still
+// fires, the bound is the disposal's own, and an entry's alarms are its own owner's.
+const CLEARED_AT_DISPOSAL = {
   Schedule: true,
   Grace: true,
+  Collect: false,
+  Release: false,
   Silent: false,
   Bound: false,
-} as const satisfies Record<Timer["_tag"], boolean>;
+} as const satisfies Record<Alarm["_tag"], boolean>;
 
 /**
  * Runtime disposal: admission closes, queued endings wait, nothing new is invoked, no lane
@@ -36,8 +33,9 @@ export const makeDisposal = (
   persistence: Persistence,
   lanes: LaneSteps,
   ledger: LedgerSteps,
+  apply: Apply,
 ) => {
-  const { armTimer, disarmWhere } = tx;
+  const { setAlarm, clearAlarm, clearAlarmsWhere } = tx;
   const { saveActor } = persistence;
 
   const awaiting = () =>
@@ -52,9 +50,13 @@ export const makeDisposal = (
     });
 
   const end = () => {
-    disarmWhere((t) => Timer.$is("Bound")(t));
+    clearAlarm(Alarm.Bound());
 
-    for (const actor of consumersFirst(tx.world())) tx.act(Act.Finished({ actor }));
+    for (const actor of endOrder(tx.world()))
+      apply(
+        Option.fromUndefinedOr(tx.incarnationOf(actor)),
+        Change.End({ how: "RuntimeDisposed" }),
+      );
     tx.setLife(Life.Disposed());
     tx.act(Act.RuntimeEnded());
   };
@@ -71,7 +73,7 @@ export const makeDisposal = (
 
     tx.command(
       Command.EndWork({
-        owners: consumersFirst(tx.world()).flatMap((actor) =>
+        owners: endOrder(tx.world()).flatMap((actor) =>
           Option.toArray(
             Option.map(
               Option.fromUndefinedOr(tx.world().incarnations.get(actorKey(actor))),
@@ -83,10 +85,10 @@ export const makeDisposal = (
       }),
     );
     tx.replace("reads", new Map());
-    disarmWhere((t) => DISARMED_AT_DISPOSAL[t._tag]);
+    clearAlarmsWhere((a) => CLEARED_AT_DISPOSAL[a._tag]);
 
     for (const incarnation of tx.world().incarnations.values()) saveActor(incarnation.actor);
-    armTimer(Timer.Bound(), tx.env.now + Duration.toMillis(RuntimeDefaults.disposalBound));
+    setAlarm(Alarm.Bound(), tx.env.now + Duration.toMillis(RuntimeDefaults.disposalBound));
   };
 
   /**
@@ -146,10 +148,12 @@ export const makeDisposal = (
   return { disposeRuntime, boundPassed, answered, write, disposalEnds };
 };
 
-// The live identities, each after every live consumer bound to it, the oldest ready one first
-// otherwise: the order the Runtime's terminal evidence takes. `ready` is kept newest first, so the
-// next identity is its last.
-const consumersFirst = (world: World) => {
+/**
+ * The order actors end in: each live identity after every live consumer bound to it, the oldest
+ * ready one first otherwise; the order the Runtime's terminal evidence and its work's end take.
+ */
+export const endOrder = (world: World) => {
+  // `ready` is kept newest first, so the next identity is its last.
   const live = [...world.incarnations.values()].toSorted(byStart);
 
   const consumersLeft = new Map(

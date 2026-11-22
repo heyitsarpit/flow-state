@@ -82,8 +82,8 @@ const delivered = Evidence.Delivered({
   actor: who,
 });
 
-const published = (memory: Readonly<Record<string, unknown>>) =>
-  Evidence.Published({ actor: who, state: "IDLE", memory });
+const published = (memory: Readonly<Record<string, unknown>>, why: "Begin" | "Turn" = "Turn") =>
+  Evidence.Published({ actor: who, incarnation: "inc-1", why, state: "IDLE", memory });
 
 describe("run rules over crafted runs", () => {
   it("Actors I19: one actor's endings heard out of the order they were owed is a breach; in order it is not", async () => {
@@ -209,8 +209,8 @@ describe("run rules over crafted runs", () => {
   it("Turn I9: two snapshots after one incarnation are a breach", async () => {
     const run = await crafted([
       at(1)(Evidence.Incarnated({ actor: who })),
-      at(1)(published({ n: 1 })),
-      at(1)(published({ n: 2 })),
+      at(1)(published({ n: 1 }, "Begin")),
+      at(1)(published({ n: 2 }, "Begin")),
     ]);
 
     expect(publishedOnce.breaches(run)).toHaveLength(1);
@@ -219,7 +219,15 @@ describe("run rules over crafted runs", () => {
   it("Turn I14: an event's refused turn that mints is a breach", async () => {
     const run = await crafted([
       at(1)(Evidence.Issue({ code: "InvalidTurn", ending: Option.none(), slot: Option.none() })),
-      at(1)(Evidence.Published({ actor: who, state: "PAYING", memory: {} })),
+      at(1)(
+        Evidence.Published({
+          actor: who,
+          incarnation: "inc-1",
+          why: "Other",
+          state: "PAYING",
+          memory: {},
+        }),
+      ),
       at(1)(Evidence.Minted({ operation: "pay", attempt, actor: who, key: {} })),
     ]);
 
@@ -234,7 +242,15 @@ describe("run rules over crafted runs", () => {
 
     const run = await crafted([
       at(1)(Evidence.Issue({ code: "InvalidTurn", ending: Option.none(), slot: Option.none() })),
-      at(1)(Evidence.Published({ actor: who, state: "IDLE", memory: {} })),
+      at(1)(
+        Evidence.Published({
+          actor: who,
+          incarnation: "inc-1",
+          why: "Other",
+          state: "IDLE",
+          memory: {},
+        }),
+      ),
       at(1)(Evidence.Minted({ operation: "sync", attempt: queued, actor: other, key: {} })),
       at(1)(Evidence.Sent({ operation: "sync", attempt: queued })),
     ]);

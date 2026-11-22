@@ -78,6 +78,11 @@ export type Member = {
 export type Part = { readonly at: string; readonly node: string; readonly target: string };
 
 /**
+ * Why a publication was made: an incarnation's start, an accepted turn, or any other change.
+ */
+export type Why = "Begin" | "Turn" | "Other";
+
+/**
  * An actor as evidence names it.
  */
 export type Who = ActorId;
@@ -154,7 +159,7 @@ export type Evidence = Data.TaggedEnum<{
   Incarnated: { actor: Who };
   Finished: { actor: Who };
   RuntimeDisposed: {};
-  Published: { actor: Who; state: string; memory: Values };
+  Published: { actor: Who; incarnation: string; why: Why; state: string; memory: Values };
   Reported: Reported;
   HoldForgotten: { actor: Who; operation: string; record: string };
   SlowWork: { work: "turn" | "capture"; input: Input["_tag"]; ms: number; budgetMs: number };

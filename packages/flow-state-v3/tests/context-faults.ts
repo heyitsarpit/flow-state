@@ -104,9 +104,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "        onFailure: (slot) => {\n          next = raise(next, {",
+        find: "        onFailure: (slot) => {\n          outcomes.push(",
         replace:
-          "        onFailure: (slot) => {\n          baselines[at] = Option.some(current);\n          next = raise(next, {",
+          "        onFailure: (slot) => {\n          baselines[at] = Option.some(current);\n          outcomes.push(",
       },
     ],
   },
@@ -117,9 +117,10 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Actors I27",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
-        replace: "      if (!waiting) update(consumer.actor);",
+        file: "src/core/apply.ts",
+        find: "            context.wave(incarnation.actor);",
+        replace:
+          "            for (const consumer of tx.consumersOf(incarnation.actor)) for (const read of Option.toArray(context.inputsOf(consumer))) apply(Option.some(consumer), Change.Inputs({ read }));",
       },
     ],
   },
@@ -131,12 +132,12 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    if (!changed && !owes(read)) {",
+        find: "    if (!changed && !owes(view)) {",
         replace: "    if (changed && !changed) {",
       },
       {
         file: "src/core/context.ts",
-        find: "      if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {\n        baselines[at] = Option.some(current);\n        next = clear(next, IssueSource.OnContext({ at }));\n        continue;\n      }\n",
+        find: "      if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {\n        baselines[at] = Option.some(current);\n        outcomes.push(...clear(read.issues, source));\n        continue;\n      }\n",
         replace: "",
       },
     ],
@@ -162,9 +163,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    if (Result.isSuccess(value)) {\n      values.set(slot, value.success);",
+        find: "      if (Result.isSuccess(value)) {\n        values.set(slot, value.success);",
         replace:
-          "    if (Result.isFailure(value)) values.delete(slot);\n    if (Result.isSuccess(value)) {\n      values.set(slot, value.success);",
+          "      if (Result.isFailure(value)) values.delete(slot);\n      if (Result.isSuccess(value)) {\n        values.set(slot, value.success);",
       },
     ],
   },
@@ -214,9 +215,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Turn I9",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "    if (changed || after.issues !== incarnation.issues) needs.publish(after);",
-        replace: "    needs.publish(after);",
+        file: "src/core/change.ts",
+        find: "    Inputs: () => false,",
+        replace: "    Inputs: () => true,",
       },
     ],
   },
@@ -227,9 +228,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Actors R9",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "    return { ...incarnation, baselines };",
-        replace: "    return { ...incarnation, baselines: incarnation.baselines };",
+        file: "src/core/apply.ts",
+        find: "        onSome: (r) => context.restoredBaselines(actor, r),",
+        replace: "        onSome: () => bound.baselines,",
       },
     ],
   },
@@ -240,10 +241,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Actors R18",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "    return { ...incarnation, baselines };",
-        replace:
-          "    return { ...incarnation, context: new Map([...incarnation.context, ...record.seen]), baselines };",
+        file: "src/core/apply.ts",
+        find: "      context: bound.context,",
+        replace: "      context: new Map([...bound.context, ...saved]),",
       },
     ],
   },
@@ -255,8 +255,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "    tx.enqueueFirst([mail]);",
-        replace: "    tx.enqueue(mail);",
+        find: "      if (passedOver(key)) tx.rotate(key);",
+        replace:
+          '      if (passedOver(key)) { const later = tx.takeOldest(key, "rotate"); if (later !== undefined) tx.enqueue(later); }',
       },
     ],
   },
@@ -302,13 +303,13 @@ export const contextFaults: ReadonlyArray<Fault> = [
   {
     name: "context-follow-ups-capped",
     tests: ["tests/actors/follow-ups.test.ts"],
-    says: "context updates and onContext events count toward 64 follow-ups, and those past it are dropped",
+    says: "context updates count toward a cap of 32 follow-ups, and those past it are dropped",
     rule: "Actors R13",
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      if (!deferred(followUp))",
-        replace: "      if (!deferred(followUp) && count <= 64)",
+        find: "      if (followUp !== undefined)\n",
+        replace: "      if (followUp !== undefined && count <= 32)\n",
       },
     ],
   },
@@ -321,8 +322,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: '    if (!Mail.$is("Context")(mail) || !incarnations.context.settling(mail.actor)) return false;',
-        replace: "    if (mail.actor.name.length >= 0) return false;",
+        find: '      (mail) => Mail.$is("Context")(mail) && context.settling(mail.actor),',
+        replace: '      (mail) => Mail.$is("Context")(mail) && mail.actor.name.length < 0,',
       },
     ],
   },
@@ -333,10 +334,10 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Actors R9",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "    if (context.owes(bound)) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));",
+        file: "src/core/apply.ts",
+        find: "          if (context.owes(incarnation)) tx.owe(incarnation.actor);",
         replace:
-          '    if (context.owes(bound) && actor.name === "") enqueue(Mail.Context({ actor, chain: tx.chainNow() }));',
+          '          if (context.owes(incarnation) && incarnation.actor.name === "") tx.owe(incarnation.actor);',
       },
     ],
   },
@@ -360,10 +361,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Actors R9",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "    tx.enqueueFirst(\n      events.map((event) =>\n        Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }),\n      ),\n    );",
-        replace:
-          "    for (const event of events)\n      tx.enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }));",
+        file: "src/core/apply.ts",
+        find: "          tx.front(",
+        replace: "          ((mails: ReadonlyArray<Mail>) => mails.forEach((m) => tx.enqueue(m)))(",
       },
     ],
   },
@@ -401,10 +401,10 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Turn R25",
     edits: [
       {
-        file: "src/core/world.ts",
-        find: "  incarnation.issues.some((i) => Equal.equals(i.source, source))\n",
+        file: "src/core/context.ts",
+        find: "    openOf(issues, source) ? [OutcomeEdit.Clear({ source })] : [];",
         replace:
-          "  incarnation.issues.some((i) => Equal.equals(i.source, source) && i.code !== i.code)\n",
+          "    openOf(issues, source) && issues.length < 0 ? [OutcomeEdit.Clear({ source })] : [];",
       },
     ],
   },
@@ -416,8 +416,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    if (open) return incarnation;",
-        replace: "    if (open && !open) return incarnation;",
+        find: "  const raise = (issues: ReadonlyArray<StoredIssue>, issue: StoredIssue) =>\n    issues.some(",
+        replace:
+          "  const raise = (issues: ReadonlyArray<StoredIssue>, issue: StoredIssue) =>\n    issues.length < 0 && issues.some(",
       },
     ],
   },
@@ -442,10 +443,10 @@ export const contextFaults: ReadonlyArray<Fault> = [
     rule: "Turn I9",
     edits: [
       {
-        file: "src/core/context.ts",
-        find: "    if (changed || after.issues !== incarnation.issues) needs.publish(after);",
+        file: "src/core/apply.ts",
+        find: "          tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));",
         replace:
-          "    if (changed || after.issues !== incarnation.issues) needs.publish(after);\n    if (after.issues !== incarnation.issues) needs.publish(after);",
+          '          {\n            tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));\n            if (Change.$is("Inputs")(change) && Option.exists(before, (b) => b.issues !== incarnation.issues)) tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));\n          }',
       },
     ],
   },
@@ -457,7 +458,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "      if (last !== undefined && sameReads(last, reads) && !failing(incarnation, slot)) continue;",
+        find: "      if (last !== undefined && sameReads(last, reads) && !openOf(consumer.issues, source))\n        continue;",
         replace: "",
       },
     ],
@@ -470,8 +471,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: '  consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);',
-        replace: "  consumer.issues.length < 0;",
+        find: "      if (last !== undefined && sameReads(last, reads) && !openOf(consumer.issues, source))\n        continue;",
+        replace: "      if (last !== undefined && sameReads(last, reads)) continue;",
       },
     ],
   },

@@ -204,7 +204,7 @@ const planted: ReadonlyArray<Fault> = [
     rule: "Turn I2",
     edits: [
       {
-        file: "src/core/turn.ts",
+        file: "src/core/walk.ts",
         find: "return written ? levels : Option.toArray(implicit(input));",
         replace: "return written ? levels.toReversed() : Option.toArray(implicit(input));",
       },
@@ -218,9 +218,9 @@ const planted: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/serve.ts",
-        find: "      Refused: ({ code, slot }) => refusal(incarnation, route, { code, slot }),\n",
+        find: "      Refused: ({ code, slot }) => applied(refusalOf(trigger, { code, slot })),",
         replace:
-          "      Refused: ({ code, slot }) => {\n        tx.act(Act.Turned({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n\n        return refusal(incarnation, route, { code, slot });\n      },\n",
+          "      Refused: ({ code, slot }) => {\n        tx.act(Act.Turned({ actor: incarnation.actor, event: tag, from: incarnation.state, to: incarnation.state, parts: [], members: [] }));\n\n        return applied(refusalOf(trigger, { code, slot }));\n      },",
       },
     ],
   },
@@ -231,9 +231,9 @@ const planted: ReadonlyArray<Fault> = [
     rule: "Turn I23",
     edits: [
       {
-        file: "src/core/step.ts",
-        find: "if (used(t.actor))",
-        replace: 'if (used(t.actor) || t.actor.name !== "")',
+        file: "src/core/schedules.ts",
+        find: 'Life.$is("Open")(tx.world().life) && tx.used(actor);',
+        replace: 'Life.$is("Open")(tx.world().life) && (tx.used(actor) || actor.name !== "");',
       },
     ],
   },
@@ -362,10 +362,10 @@ const planted: ReadonlyArray<Fault> = [
     rule: "Turn I9",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "        setIncarnation(settled);\n        publish(settled);",
+        file: "src/core/apply.ts",
+        find: "          tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));",
         replace:
-          "        setIncarnation(settled);\n        publish(settled);\n        if (settled.state !== incarnation.state) publish(settled);",
+          '          {\n            tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));\n            if (Change.$is("Turn")(change) && Option.exists(before, (b) => b.state !== incarnation.state)) tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));\n          }',
       },
     ],
   },
@@ -402,9 +402,9 @@ const planted: ReadonlyArray<Fault> = [
     rule: "Turn R24",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "        memory: incarnation.memory,\n      }),\n    );",
-        replace: "        memory: { held: { run: () => incarnation.memory } },\n      }),\n    );",
+        file: "src/core/evidence-of.ts",
+        find: "        memory: incarnation.memory,",
+        replace: "        memory: { held: { run: () => incarnation.memory } },",
       },
     ],
   },
@@ -460,7 +460,7 @@ const planted: ReadonlyArray<Fault> = [
     rule: "Turn R2",
     edits: [
       {
-        file: "src/core/turn.ts",
+        file: "src/core/walk.ts",
         find: "    for (const alternative of level.alternatives) {",
         replace: "    for (const alternative of level.alternatives.toReversed()) {",
       },
@@ -473,7 +473,7 @@ const planted: ReadonlyArray<Fault> = [
     rule: "Turn R13",
     edits: [
       {
-        file: "src/core/turn.ts",
+        file: "src/core/walk.ts",
         find: "      reasons.push(code);",
         replace: "      reasons.splice(0, reasons.length, code);",
       },

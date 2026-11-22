@@ -27,9 +27,9 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/schedules.ts",
-        find: "    return changed ? reconciled({ ...incarnation, schedules: after }) : incarnation;",
+        find: "    return changed ? { ...incarnation, schedules: after } : incarnation;",
         replace:
-          "    const issued = { ...incarnation, issues: [...incarnation.issues, ...stored] as typeof incarnation.issues };\n\n    return changed || stored.length > 0 ? reconciled({ ...issued, schedules: after }) : incarnation;",
+          "    const issued = { ...incarnation, issues: [...incarnation.issues, ...stored] as typeof incarnation.issues };\n\n    return changed || stored.length > 0 ? { ...issued, schedules: after } : incarnation;",
       },
     ],
   },
@@ -163,9 +163,9 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
     says: "no context change is heard after a wake whose context moved, so the owed restart is lost",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: "        return moved ? schedules.rechecked(woken, Occasion.Context()) : woken;",
-        replace: "        return moved ? woken : woken;",
+        file: "src/core/apply.ts",
+        find: "                moved ? schedules.rechecked(woken, Occasion.Context()) : woken,",
+        replace: "                moved ? woken : woken,",
       },
     ],
   },
@@ -203,9 +203,9 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
     says: "an operation's outcome whose own schedule start is refused refuses its whole turn again",
     edits: [
       {
-        file: "src/core/turn.ts",
-        find: "  if (Option.isSome(first) && !input.unrepeatable)",
-        replace: "  if (Option.isSome(first))",
+        file: "src/core/walk.ts",
+        find: "      if (Option.isSome(first) && !input.unrepeatable)",
+        replace: "      if (Option.isSome(first))",
       },
     ],
   },
@@ -229,7 +229,7 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
     says: "a context reaction or an actor's send whose own schedule start is refused refuses its whole turn",
     edits: [
       {
-        file: "src/core/serve.ts",
+        file: "src/core/trigger.ts",
         find: "      unrepeatable: !resendable,",
         replace: "      unrepeatable: resendable && !resendable,",
       },

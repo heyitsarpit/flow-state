@@ -83,8 +83,9 @@ const chainOf = (firstCopies: 1 | 2) => {
   return { entries: Object.fromEntries(pairs), refs };
 };
 
-// Each link of a context chain adds its context update and its onContext events as follow-ups of
-// the head's bump: a chain of 34 links adds 68 or, with two events at the first link, 69.
+// Each link of a context chain adds its context update as a follow-up of the head's bump, and its
+// onContext events as front mail served with that update: 34 follow-ups and 34 events, or 35 with
+// two events at the first link.
 const settledChain = (firstCopies: 1 | 2) => {
   const built = chainOf(firstCopies);
 

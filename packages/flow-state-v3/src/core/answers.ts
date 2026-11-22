@@ -1,3 +1,4 @@
+import { Alarm } from "./alarms.ts";
 import { Option } from "effect";
 import type { Channel } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
@@ -13,7 +14,7 @@ import type { LaneSteps } from "./lanes.ts";
  * answer invokes or refuses the sends waiting on it.
  */
 export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
-  const { incarnationOf, disarmSilence } = tx;
+  const { incarnationOf, clearAlarm } = tx;
 
   // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own, mapped at admission.
   const classified = (channel: Channel, reason: string, value: unknown) => ({
@@ -75,7 +76,7 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
   };
 
   const answered = (ticket: TicketId, landed: boolean) => {
-    disarmSilence(ticket);
+    clearAlarm(Alarm.Silent({ ticket }));
     lanes.answer(ticket, landed);
   };
 

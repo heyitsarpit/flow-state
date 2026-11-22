@@ -110,9 +110,10 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     rule: "WriteAhead I21",
     edits: [
       {
-        file: "src/core/firings.ts",
-        find: "    if (settled !== after) setIncarnation(settled);",
-        replace: "    if (settled !== after) tx.putIncarnation(settled);",
+        file: "src/core/apply.ts",
+        find: "          decided(current, schedules.firingSettled(current, firing, refusal)),",
+        replace:
+          "          ((n: Incarnation) => (tx.putIncarnation(n), n))(schedules.firingSettled(current, firing, refusal)),",
       },
     ],
   },
@@ -164,8 +165,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "    if (incarnation === undefined || !persistence.encodes(actor)) return;",
-        replace: "    if (incarnation === undefined) return;",
+        find: "    if (Option.isNone(live(actor)) || !persistence.encodes(actor)) return;",
+        replace: "    if (Option.isNone(live(actor))) return;",
       },
     ],
   },

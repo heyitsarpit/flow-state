@@ -29,6 +29,8 @@ export const LIMITS = {
   reloadSweep: limitFrom(20_800),
   /** A stress reload sweep shard's test, each sweeping every fourth position: slowest 73.9 s forked (land shard 0; home/stress-many-rooms is most of it). */
   stressReloadSweep: limitFrom(73_900),
+  /** A cart of a thousand lines read whole through its context slots: 2.4 s alone. */
+  largeCart: limitFrom(2400),
   /** Every Story's run rules in one test: stress Stories 1.2 s, the rest 2.3 s. */
   runRules: limitFrom(2300),
   /** Every Story under another seed or world: 3.8 s. */

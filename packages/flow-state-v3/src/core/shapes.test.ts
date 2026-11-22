@@ -1,7 +1,7 @@
 import { Brand, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Audience, Delivery, Origin, type Owed, type OwedId, Route } from "./ledger.ts";
-import { Trigger } from "./serve.ts";
+import { Trigger } from "./trigger.ts";
 import { activation, chain, incarnation } from "./test/ids.ts";
 import {
   type ActivationId,

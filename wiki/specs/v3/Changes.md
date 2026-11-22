@@ -173,22 +173,22 @@ keep, change, rewrite, delete. Use this list to tell which code is redundant or 
 
 Turn area (`src/core/`):
 
-- code:packages/flow-state-v3/src/core/turn.ts#levelsOf, code:packages/flow-state-v3/src/core/turn.ts#disarmedBy
+- code:packages/flow-state-v3/src/core/walk.ts#levelsOf, code:packages/flow-state-v3/src/core/turn-arms.ts#disarmedBy
   change: read `Node.chain` and the per-scope indexes.
-- code:packages/flow-state-v3/src/core/turn.ts#accept
+- code:packages/flow-state-v3/src/core/walk.ts#accept
   rewrite: becomes `visit` and row 7; about 75 lines.
-- code:packages/flow-state-v3/src/core/turn.ts#runTurn
+- code:packages/flow-state-v3/src/core/walk.ts#runTurn
   change: the walk; callers `serve.ts` and `turn.test.ts`; the Plan's `check()` is to call it too.
-- code:packages/flow-state-v3/src/core/turn.ts#armingsOf
+- code:packages/flow-state-v3/src/core/turn-arms.ts#armingsOf
   change: per part scope, for entered states and `armOn` only; the call in `incarnations.ts` goes.
-- code:packages/flow-state-v3/src/core/turn.ts#TurnResult, code:packages/flow-state-v3/src/core/turn.ts#TurnInput
+- code:packages/flow-state-v3/src/core/walk.ts#TurnResult, code:packages/flow-state-v3/src/core/turn.ts#TurnInput
   change: `Accepted { turn }`; `props`, `instances`, `at`.
 - code:packages/flow-state-v3/src/core/turn.ts#sendOf, code:packages/flow-state-v3/src/core/turn.ts#resolve
   keep: they read the record `readsOf` builds.
 - code:packages/flow-state-v3/src/core/serve.ts#turn
   change (head) and delete (accepted branch, about 110 lines: rows C1 to C7 move to `apply.ts`); the head builds the
   trigger and the reads through `readsOf`; each result is a `Change`.
-- code:packages/flow-state-v3/src/core/serve.ts#raised, code:packages/flow-state-v3/src/core/serve.ts#refusal
+- `packages/flow-state-v3/src/core/serve.ts#raised`, code:packages/flow-state-v3/src/core/serve.ts#refusal
   delete: `Change.Refused`, `Change.Unturned`.
 - code:packages/flow-state-v3/src/core/serve.ts#routeOf
   keep: its five `Option`s feed the trigger of a `Change`; no publisher reads them.
@@ -196,10 +196,10 @@ Turn area (`src/core/`):
   change: computed on the first `owns` call of a late turn.
 - code:packages/flow-state-v3/src/core/serve.ts#serveEnding
   change: audience by `locate`; its refusal is `Change.Refused`.
-- code:packages/flow-state-v3/src/core/serve.ts#deferred, code:packages/flow-state-v3/src/core/serve.ts#drain,
+- `packages/flow-state-v3/src/core/serve.ts#deferred`, code:packages/flow-state-v3/src/core/serve.ts#drain,
   code:packages/flow-state-v3/src/core/serve.ts#followUps
   change: peek, not take and put back; a queue with a head index.
-- code:packages/flow-state-v3/src/core/step.ts#fired
+- `packages/flow-state-v3/src/core/step.ts#fired`
   rewrite: `tick`; `Input` gains `Props` and `Tick`, `Create` gains `props`, `Fired` goes.
 
 State and mail:
@@ -212,15 +212,15 @@ State and mail:
 - code:packages/flow-state-v3/src/core/tx.ts#draft: keep; `mintActivation` also mints instance ids.
 - code:packages/flow-state-v3/src/core/incarnations.ts#start
   rewrite: `begin` and `apply(Begin)`; callers `ensure` and `createLocal`.
-- code:packages/flow-state-v3/src/core/incarnations.ts#setIncarnation,
-  code:packages/flow-state-v3/src/core/incarnations.ts#publish
+- `packages/flow-state-v3/src/core/incarnations.ts#setIncarnation`,
+  `packages/flow-state-v3/src/core/incarnations.ts#publish`
   delete: row C2 and row C6.
 - code:packages/flow-state-v3/src/core/incarnations.ts#retire, code:packages/flow-state-v3/src/core/incarnations.ts#end,
   code:packages/flow-state-v3/src/core/incarnations.ts#dispose
   change: `apply(End)`; `schedules.stopAll` is row C5's drop.
 - code:packages/flow-state-v3/src/core/incarnations.ts#graces
   change: a view over the alarms; writes no incarnation.
-- code:packages/flow-state-v3/src/core/incarnations.ts#fireWaiting
+- `packages/flow-state-v3/src/core/incarnations.ts#fireWaiting`
   change: row C7 of `Use`; its `Mail.Firing` loses `track`.
 - code:packages/flow-state-v3/src/core/incarnations.ts#deliver
   change: its `Mail.Event` names the root.
@@ -235,11 +235,11 @@ Context, firings, disposal:
   code:packages/flow-state-v3/src/core/context.ts#baselinesOf, code:packages/flow-state-v3/src/core/context.ts#owes
   change: pure deciders that return slots, baselines, events and failures and read `context.slots`; no `withIssue`,
   no put.
-- code:packages/flow-state-v3/src/core/context.ts#failing, code:packages/flow-state-v3/src/core/context.ts#raise,
+- `packages/flow-state-v3/src/core/context.ts#failing`, code:packages/flow-state-v3/src/core/context.ts#raise,
   code:packages/flow-state-v3/src/core/context.ts#clear, code:packages/flow-state-v3/src/core/context.ts#keep,
   code:packages/flow-state-v3/src/core/context.ts#settle
   delete: outcomes are written by row C2.
-- code:packages/flow-state-v3/src/core/context.ts#update, code:packages/flow-state-v3/src/core/context.ts#quiet
+- code:packages/flow-state-v3/src/core/context.ts#update, `packages/flow-state-v3/src/core/context.ts#quiet`
   change: `inputsOf` builds `Change.Inputs`.
 - code:packages/flow-state-v3/src/core/context.ts#wave
   change: reads `consumers` and calls `tx.owe`.
@@ -249,7 +249,7 @@ Context, firings, disposal:
 - code:packages/flow-state-v3/src/core/firings.ts#recheckLanes
   change: `Change.Lanes` per moved subject.
 - code:packages/flow-state-v3/src/core/disposal.ts#started, code:packages/flow-state-v3/src/core/disposal.ts#end,
-  code:packages/flow-state-v3/src/core/disposal.ts#consumersFirst
+  `packages/flow-state-v3/src/core/disposal.ts#consumersFirst`
   change: `endOrder`; one `apply(End)` per identity.
 
 Tree, ledger, world, evidence, host:

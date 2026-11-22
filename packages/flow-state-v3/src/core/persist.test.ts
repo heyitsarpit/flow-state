@@ -1,3 +1,4 @@
+import { Alarm, alarmKey } from "./alarms.ts";
 import { makeFreezer } from "./frozen.ts";
 import { Effect, Option, Schema } from "effect";
 import { expect, it } from "vite-plus/test";
@@ -20,7 +21,6 @@ import {
   OwnedBy,
   Phase,
   type Ticket,
-  Timer,
   type World,
 } from "./world.ts";
 import { compiledOf } from "../compiled-of.ts";
@@ -95,10 +95,8 @@ const stepOver = (
           bound: new Map(),
           context: new Map(),
           baselines: [],
-          grace: Option.none(),
           memory,
           schedules: new Map(),
-          alarms: new Map(),
         },
       ],
     ]),
@@ -363,14 +361,14 @@ it("Actors R8, WriteAhead I11: a free actor whose actor record cannot encode doe
   });
   heard.persistence.close();
 
-  const grace = heard.tx.mint("timer");
+  const grace = Alarm.Grace({ actor, incarnation: incarnation("inc-1") });
 
   const graced = {
     ...heard.tx.out().world,
-    timers: new Map([[grace, Timer.Grace({ actor, incarnation: incarnation("inc-1") })]]),
+    alarms: new Map([[alarmKey(grace), { alarm: grace, at: 100 }]]),
   };
 
-  const out = step(machines, graced, Input.Fired({ timer: grace }), {
+  const out = step(machines, graced, Input.Tick(), {
     now: 100,
     seed: "0",
     admit: makeFreezer(),
@@ -398,10 +396,8 @@ const twoOver = (memory: Readonly<Record<string, unknown>>) => {
     bound: new Map(),
     context: new Map(),
     baselines: [],
-    grace: Option.none(),
     memory: { count: 5 },
     schedules: new Map(),
-    alarms: new Map(),
   });
 
   return first;
@@ -473,7 +469,9 @@ it("WriteAhead R13: a ticket whose identity's actor record cannot encode at its 
   expect(out.commands.flatMap((c) => (Command.$is("Persist")(c) ? c.refused : []))).toEqual(
     Option.toArray(ticket),
   );
-  expect(out.commands.some(Command.$is("Arm"))).toBe(false);
+  expect([...out.world.alarms.values()].some(({ alarm }) => Alarm.$is("Silent")(alarm))).toBe(
+    false,
+  );
   expect([...out.world.withheld.keys()]).toEqual([actorKey(actor)]);
   expect(out.evidence).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
 });

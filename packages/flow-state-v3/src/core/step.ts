@@ -11,7 +11,10 @@ import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
 import { type Env, type Machines, makeTx } from "./tx.ts";
 import { admit, Life, Verdict } from "./life.ts";
-import { type ActorId, actorKey, Mail, byStart, Timer, type TimerId, type World } from "./world.ts";
+import { type ActorId, actorKey, Mail, byStart, type World } from "./world.ts";
+import { Alarm, byDeadline } from "./alarms.ts";
+import { defect } from "./defect.ts";
+import { scheduleOrder } from "./schedule-plan.ts";
 
 export { CallResult, Input } from "./input.ts";
 
@@ -66,58 +69,42 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   const ledger = makeLedger(tx, persistence);
   const lanes = makeLanes(tx, persistence, ledger);
   const answers = makeAnswers(tx, lanes, ledger);
-  const incarnations = makeIncarnations(tx, persistence, ledger);
+  const incarnations = makeIncarnations(tx, persistence, ledger, lanes);
   const serve = makeServe(tx, lanes, incarnations, ledger);
-  const disposal = makeDisposal(tx, persistence, lanes, ledger);
-  const { incarnationOf, used, enqueue } = tx;
+  const disposal = makeDisposal(tx, persistence, lanes, ledger, incarnations.apply);
+  const { incarnationOf, enqueue } = tx;
   const { end } = incarnations;
   const { boundPassed } = disposal;
 
-  const fired = (id: TimerId) => {
-    // A schedule timer takes every schedule timer due by now with it, in firing order: by
-    // deadline, actor admission, outermost state and declaration, then key.
-    const ordered = Option.exists(
-      Option.fromUndefinedOr(tx.world().timers.get(id)),
-      Timer.$is("Schedule"),
-    )
-      ? incarnations.schedules.dueNow()
-      : [];
+  // The alarms due by now, once each, by deadline, kind and each kind's own order: a schedule's
+  // firing is queued as mail, the other kinds act at once.
+  const tick = () => {
+    const due = tx.takeDue().toSorted(byDeadline(scheduleOrder(tx.world(), machines)));
 
-    const taken = ordered.some(({ id: other }) => other === id);
-
-    for (const { id: other } of ordered) if (taken && other !== id) tx.disarm(other);
-
-    const timer = tx.fire(id);
-
-    if (Option.isNone(timer)) return;
-
-    Timer.$match(timer.value, {
-      // Every schedule timer due with it fired too, and fires in the order taken before it.
-      Schedule: (first) => {
-        const due = taken ? ordered.map(({ fired: t }) => t) : [first];
-
-        for (const t of due)
-          if (used(t.actor))
-            enqueue(
-              Mail.Firing({
-                actor: t.actor,
-                incarnation: t.incarnation,
-                schedule: t.schedule,
-                track: t.track,
-                arming: t.arming,
-              }),
-            );
-      },
-      Grace: ({ actor, incarnation }) => {
-        if (incarnationOf(actor)?.id === incarnation) end(actor);
-      },
-      Bound: () => boundPassed(),
-      Silent: ({ ticket }) => {
-        for (const [, lane] of Option.toArray(tx.laneWaiting(ticket)))
-          if (awaits(lane, ticket))
-            tx.act(Act.Silent({ operation: lane.operation, attempt: lane.head.id }));
-      },
-    });
+    for (const { alarm } of due)
+      Alarm.$match(alarm, {
+        Bound: () => boundPassed(),
+        Silent: ({ ticket }) => {
+          for (const [, lane] of Option.toArray(tx.laneWaiting(ticket)))
+            if (awaits(lane, ticket))
+              tx.act(Act.Silent({ operation: lane.operation, attempt: lane.head.id }));
+        },
+        Release: () => defect("a Release alarm was set, and no owner sets one"),
+        Collect: () => defect("a Collect alarm was set, and no owner sets one"),
+        Grace: ({ actor, incarnation }) => {
+          if (incarnationOf(actor)?.id === incarnation) end(actor);
+        },
+        Schedule: (s) =>
+          enqueue(
+            Mail.Firing({
+              actor: s.actor,
+              incarnation: s.incarnation,
+              schedule: s.schedule,
+              track: s.track,
+              arming: s.arming,
+            }),
+          ),
+      });
   };
 
   const open = Life.$is("Open")(world0.life);
@@ -146,7 +133,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Release: ({ actor, use }) => incarnations.release(actor, use),
     Send: ({ actor, tag, payload }) => incarnations.deliver(actor, { tag, payload }, Option.none()),
     Settled: ({ call, result }) => answers.settled(call, result, open),
-    Fired: ({ timer }) => fired(timer),
+    Tick: () => tick(),
     Stored: ({ ticket }) => {
       answers.stored(ticket);
       disposal.answered(ticket, true);
@@ -183,6 +170,9 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Disposed: () => undefined,
     Stopped: () => undefined,
   });
+
+  // The step's last row: the host's one wake, when the earliest alarm changed.
+  tx.wake();
 
   return tx.out();
 };

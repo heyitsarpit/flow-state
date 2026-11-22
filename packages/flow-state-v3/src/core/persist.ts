@@ -1,5 +1,6 @@
 import { savedSchedulesOf } from "./schedule-restore.ts";
 import { Duration, Option, Result } from "effect";
+import { Alarm } from "./alarms.ts";
 import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, IN_MAILBOX, type Owed, rowsOf } from "./ledger.ts";
 import { encodeActor } from "./actor-record.ts";
@@ -20,7 +21,6 @@ import {
   type Marks,
   type Ticket,
   type TicketId,
-  Timer,
   type Wiring,
   type Write,
 } from "./world.ts";
@@ -57,7 +57,7 @@ const rank = Mark.$match({ Actor: () => 0, Lane: () => 1, Owed: () => 2 });
  * or owed record outruns its actor record.
  */
 export const makePersistence = (tx: Tx) => {
-  const { persisted, armTimer, incarnationOf } = tx;
+  const { persisted, setAlarm, incarnationOf } = tx;
 
   // What this step did to the records: whether it marked any, whether they are due now, and the
   // tickets its sends await, each with its identity. Step-local, written in place.
@@ -367,8 +367,8 @@ export const makePersistence = (tx: Tx) => {
     if (!marked && !now && final.length === 0 && refused.length === 0) return;
 
     for (const { ticket } of sent)
-      armTimer(
-        Timer.Silent({ ticket: ticket.id }),
+      setAlarm(
+        Alarm.Silent({ ticket: ticket.id }),
         tx.env.now + Duration.toMillis(RuntimeDefaults.storageSilent),
       );
 

@@ -142,7 +142,7 @@ const table = {
     Stopped: drop,
   },
   Settled: answer,
-  Fired: answer,
+  Tick: answer,
   Stored: answer,
   Refused: answer,
   Capture: answer,

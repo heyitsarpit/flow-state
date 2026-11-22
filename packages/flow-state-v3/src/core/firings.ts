@@ -1,10 +1,11 @@
 import { Option, Result } from "effect";
+import { Change } from "./change.ts";
 import { callSlot, type Schedule, type Values } from "./compiled.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
-import { type Firing, Next, Occasion } from "./schedule-decision.ts";
+import type { Firing } from "./schedule-decision.ts";
 import type { Tx } from "./tx.ts";
 import type { ActorId, ArmingId, IncarnationId, Incarnation } from "./world.ts";
-import type { Failure, Run, Tracked } from "./timers.ts";
+import type { Run, Tracked } from "./timers.ts";
 
 /**
  * Firings and lane re-checks: what a schedule's timer does when it fires, and the keys and
@@ -13,21 +14,15 @@ import type { Failure, Run, Tracked } from "./timers.ts";
 export const makeFirings = (
   tx: Tx,
   incarnations: IncarnationSteps,
-  // The firing's send as a turn of the incarnation: whether it committed, and its refusal when it
-  // was refused. A committed one's turn decided the firing's schedule work.
-  turn: (
-    incarnation: Incarnation,
-    schedule: Schedule,
-    payload: Values,
-    firing: Firing,
-  ) => { readonly committed: boolean; readonly refused: Option.Option<Failure> },
+  // The firing's send as a turn of the incarnation, which applies the firing's change whether its
+  // send commits or not.
+  turn: (incarnation: Incarnation, schedule: Schedule, payload: Values, firing: Firing) => void,
 ) => {
-  const { schedules, setIncarnation, publish } = incarnations;
+  const { schedules, apply } = incarnations;
 
   // A timer's firing, one synchronous step with no write before its send: its next step is read,
-  // then its send runs as a turn carrying the firing; a mapper that throws refuses that turn. A
-  // send that does not commit is decided here, with its refusal, and a refused or ended one
-  // publishes once.
+  // then its send runs as a turn carrying the firing; a mapper that throws is the firing's
+  // refusal, settled with no turn.
   const fire = (
     incarnation: Incarnation,
     schedule: Schedule,
@@ -42,23 +37,14 @@ export const makeFirings = (
       onSome: (from) => callSlot(from, metadata),
     });
 
-    const sent = Result.match(payload, {
-      onFailure: (slot) => ({
-        committed: false,
-        refused: Option.some<Failure>({ code: "InvalidTurn", slot }),
-      }),
+    Result.match(payload, {
+      onFailure: (slot) =>
+        apply(
+          Option.some(incarnation),
+          Change.Settled({ firing, refusal: Option.some({ code: "InvalidTurn", slot }) }),
+        ),
       onSuccess: (event) => turn(incarnation, schedule, event, firing),
     });
-
-    const after = tx.incarnationOf(incarnation.actor);
-
-    if (sent.committed || after === undefined || after.id !== incarnation.id) return;
-
-    const settled = schedules.firingSettled(after, firing, sent.refused);
-
-    if (settled !== after) setIncarnation(settled);
-
-    if (Option.isSome(sent.refused) || Next.$is("Over")(next)) publish(settled);
   };
 
   /**
@@ -90,11 +76,7 @@ export const makeFirings = (
     for (const key of tx.takeMoved()) {
       const incarnation = tx.world().incarnations.get(key);
 
-      if (incarnation === undefined) continue;
-
-      const settled = schedules.rechecked(incarnation, Occasion.Lanes());
-
-      if (settled !== incarnation) setIncarnation(settled);
+      if (incarnation !== undefined) apply(Option.some(incarnation), Change.Lanes());
     }
   };
 

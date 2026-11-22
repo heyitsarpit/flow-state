@@ -5,14 +5,8 @@ import { laneKeyText } from "../core/lane-moves.ts";
 import { type Life, lifecycleOf } from "../core/life.ts";
 import type { Delivery } from "../core/ledger.ts";
 import type { Channel } from "../core/vocabulary.ts";
-import {
-  type ActorKey,
-  actorKey,
-  type AttemptId,
-  type Phase,
-  Timer,
-  type Use,
-} from "../core/world.ts";
+import { type ActorKey, actorKey, type AttemptId, type Phase, type Use } from "../core/world.ts";
+import { Alarm } from "../core/alarms.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
 import { entry } from "../entry.ts";
@@ -98,7 +92,7 @@ export type RuntimeCut<Ds extends AnyDefinition = AnyDefinition> = {
     readonly delivery: Delivery["_tag"];
   }>;
   readonly timers: ReadonlyArray<{
-    readonly kind: Timer["_tag"];
+    readonly kind: Alarm["_tag"];
     readonly actor: Option.Option<ActorKey>;
     readonly dueAt: Option.Option<number>;
   }>;
@@ -126,25 +120,14 @@ const contractOf = (driver: Driver, machine: string, operation: string) =>
 const cutOf = (driver: Driver): RuntimeCut => {
   const world = driver.world();
 
-  const dueOf = (timer: Timer) =>
-    Timer.$match(timer, {
-      Schedule: ({ actor, incarnation, arming }) =>
-        Option.flatMap(Option.fromUndefinedOr(world.incarnations.get(actorKey(actor))), (live) =>
-          live.id === incarnation
-            ? Option.map(Option.fromUndefinedOr(live.alarms.get(arming)), (alarm) => alarm.dueAt)
-            : Option.none(),
-        ),
-      Grace: () => Option.none<number>(),
-      Silent: () => Option.none<number>(),
-      Bound: () => Option.none<number>(),
-    });
-
-  const actorOf = (timer: Timer) =>
-    Timer.$match(timer, {
+  const actorOf = (alarm: Alarm) =>
+    Alarm.$match(alarm, {
       Schedule: ({ actor }) => Option.some(actorKey(actor)),
       Grace: ({ actor }) => Option.some(actorKey(actor)),
       Silent: () => Option.none<ActorKey>(),
       Bound: () => Option.none<ActorKey>(),
+      Release: () => Option.none<ActorKey>(),
+      Collect: () => Option.none<ActorKey>(),
     });
 
   return {
@@ -174,10 +157,10 @@ const cutOf = (driver: Driver): RuntimeCut => {
       reason: row.reason,
       delivery: row.delivery._tag,
     })),
-    timers: [...world.timers.values()].map((timer) => ({
-      kind: timer._tag,
-      actor: actorOf(timer),
-      dueAt: dueOf(timer),
+    timers: [...world.alarms.values()].map(({ alarm, at }) => ({
+      kind: alarm._tag,
+      actor: actorOf(alarm),
+      dueAt: Alarm.$is("Schedule")(alarm) ? Option.some(at) : Option.none<number>(),
     })),
     uses: [...world.uses].map(([actor, uses]) => ({ actor, uses })),
     lifecycle: lifecycleOf(world.life),

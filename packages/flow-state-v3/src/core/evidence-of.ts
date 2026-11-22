@@ -12,7 +12,8 @@ import {
   type SendDrop,
 } from "./evidence.ts";
 import type { IssueCode } from "./vocabulary.ts";
-import { type ActorId, Command, Phase } from "./world.ts";
+import { type ActorId, Command, type Incarnation, Phase } from "./world.ts";
+import type { Why } from "./evidence.ts";
 
 // An owed row as its reports name it.
 type RowRef = { readonly operation: string; readonly attempt: Option.Option<string> };
@@ -58,7 +59,7 @@ export type Act = Data.TaggedEnum<{
     slot: Option.Option<string>;
   };
   Started: { actor: ActorId };
-  Published: { actor: ActorId; state: string; memory: Values };
+  Published: { actor: ActorId; incarnation: Incarnation; why: Why };
   Finished: { actor: ActorId };
   Defect: {};
   RuntimeEnded: {};
@@ -173,7 +174,15 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
       }),
     ],
     Started: ({ actor }) => [Evidence.Incarnated({ actor })],
-    Published: ({ actor, state, memory }) => [Evidence.Published({ actor, state, memory })],
+    Published: ({ actor, incarnation, why }) => [
+      Evidence.Published({
+        actor,
+        incarnation: incarnation.id,
+        why,
+        state: incarnation.state,
+        memory: incarnation.memory,
+      }),
+    ],
     Finished: ({ actor }) => [Evidence.Finished({ actor })],
     Defect: () => [Evidence.Issue({ code: "Defect", ending: Option.none(), slot: Option.none() })],
     RuntimeEnded: () => [Evidence.RuntimeDisposed()],

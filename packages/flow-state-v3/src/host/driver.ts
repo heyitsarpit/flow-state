@@ -252,16 +252,16 @@ export const makeDriver = (options: {
             () => undefined,
           );
       },
-      // A timer past the host timer's limit would fire at once: the core never arms one.
-      Arm: ({ timer, at }) =>
+      // The one wake replaces the last: a deadline past the host timer's limit would fire at once,
+      // and the core never sets one.
+      Wake: ({ at }) =>
         at - clock.currentTimeMillisUnsafe() > TIMER_LIMIT_MS
-          ? defect(`timer ${timer} armed past the host timer's limit`)
+          ? defect(`a wake at ${String(at)} is past the host timer's limit`)
           : work.fork(
-              `timer/${timer}`,
+              "alarm",
               sleepUntil(clock, at),
-              onDone(() => input(Input.Fired({ timer }))),
+              onDone(() => input(Input.Tick())),
             ),
-      Disarm: ({ timer }) => work.cancel(`timer/${timer}`),
       Persist: ({ due, refused }) => edge.accept(due, refused),
       Write: ({ writes, marks, tickets, refused }) => edge.write(writes, marks, tickets, refused),
     });

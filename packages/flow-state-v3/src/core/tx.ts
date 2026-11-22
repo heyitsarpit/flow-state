@@ -1,7 +1,10 @@
-import { Brand, Option, Struct } from "effect";
+import { Brand, Equal, Option, Result, Struct } from "effect";
+import { RuntimeDefaults } from "./defaults.ts";
+import { Alarm, alarmKey, earliest } from "./alarms.ts";
 import type { Compiled, StepSchedule, Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import { makeFollowing } from "./following.ts";
+import { makeMailbox } from "./mailbox.ts";
 import type { OwedId } from "./ledger.ts";
 import type { Evidence } from "./evidence.ts";
 import { LOCAL_PREFIX } from "./identity.ts";
@@ -21,13 +24,10 @@ import {
   type IncarnationId,
   type Issue,
   type Lane,
-  Mail,
   type Out,
   Phase,
   rootOf,
   type TicketId,
-  Timer,
-  type TimerId,
   type Use,
   waitOf,
   type World,
@@ -76,7 +76,6 @@ const armingOf = Brand.nominal<ArmingId>();
 const chainOf = Brand.nominal<ChainId>();
 
 type Ids = {
-  readonly timer: TimerId;
   readonly call: CallId;
   readonly ticket: TicketId;
   readonly owed: OwedId;
@@ -91,12 +90,11 @@ type Indexed =
   | "incarnations"
   | "lanes"
   | "mail"
-  | "timers"
+  | "alarms"
   | "uses"
   | "lanesOfActor"
   | "laneOfWait"
-  | "consumersOf"
-  | "silenceOf";
+  | "consumersOf";
 
 /**
  * A World map a step writes entry by entry with `put` and `drop`.
@@ -148,7 +146,6 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   const world: Draft = { ...world0 };
   const copied = new Set<MapField>(owned);
-  const ownBoxes = new Set<string>();
   const dirty = new Set<string>();
   // The identities whose lanes changed since their keys and pauses were last re-checked.
   let moved = new Set<string>();
@@ -311,57 +308,76 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     dirty.add(key);
   };
 
-  const armTimer = (timer: Timer, at: number) => {
-    const id = mint("timer");
-    draft("timers").set(id, timer);
+  // ── alarms: one per owner fact, by its key. The earliest deadline before the step's first
+  // alarm write is kept, so the step owes the host a wake only when the earliest changed.
+  let wakeBefore: Option.Option<Option.Option<number>> = Option.none();
 
-    if (Timer.$is("Silent")(timer)) draft("silenceOf").set(timer.ticket, id);
-    commands.push(Command.Arm({ timer: id, at }));
-
-    return id;
+  const touchAlarms = () => {
+    if (Option.isNone(wakeBefore)) wakeBefore = Option.some(earliest(world.alarms));
   };
 
-  const dropTimer = (id: TimerId, timer: Timer) => {
-    draft("timers").delete(id);
+  const setAlarm = (alarm: Alarm, at: number) => {
+    const key = alarmKey(alarm);
 
-    if (Timer.$is("Silent")(timer) && world.silenceOf.get(timer.ticket) === id)
-      draft("silenceOf").delete(timer.ticket);
-
-    if (Timer.$is("Grace")(timer)) dirty.add(actorKey(timer.actor));
+    if (world.alarms.get(key)?.at === at) return;
+    touchAlarms();
+    draft("alarms").set(key, { alarm, at });
   };
 
-  const disarm = (id: TimerId) => {
-    const timer = world.timers.get(id);
+  const clearAlarm = (alarm: Alarm) => {
+    const key = alarmKey(alarm);
 
-    if (timer === undefined) return;
-    dropTimer(id, timer);
-    commands.push(Command.Disarm({ timer: id }));
+    if (!world.alarms.has(key)) return;
+    touchAlarms();
+    draft("alarms").delete(key);
+
+    if (Alarm.$is("Grace")(alarm)) dirty.add(actorKey(alarm.actor));
   };
 
-  // Every timer a match names: for the Runtime's life, never on an actor's step path.
-  const disarmWhere = (match: (timer: Timer) => boolean) => {
-    for (const [id, timer] of world.timers) if (match(timer)) disarm(id);
+  // Every alarm a match names: for the Runtime's life, never on an actor's step path.
+  const clearAlarmsWhere = (match: (alarm: Alarm) => boolean) => {
+    for (const { alarm } of world.alarms.values()) if (match(alarm)) clearAlarm(alarm);
   };
 
-  const disarmSilence = (ticket: string) =>
-    Option.match(Option.fromUndefinedOr(world.silenceOf.get(ticket)), {
+  // The alarms due by now, taken: a later alarm, and one set while they run, waits for the next
+  // tick.
+  const takeDue = () => {
+    const due = [...world.alarms.values()].filter((a) => a.at <= env.now);
+
+    for (const { alarm } of due) clearAlarm(alarm);
+
+    return due;
+  };
+
+  // The host's one wake, at the earliest deadline, when the step changed it.
+  const wake = () =>
+    Option.match(wakeBefore, {
       onNone: () => undefined,
-      onSome: disarm,
+      onSome: (before) => {
+        const after = earliest(world.alarms);
+
+        if (Option.isSome(after) && !Equal.equals(before, after))
+          commands.push(Command.Wake({ at: after.value }));
+      },
     });
 
-  const fire = (id: TimerId) => {
-    const timer = Option.fromUndefinedOr(world.timers.get(id));
+  // Counts a turn's sends toward the loop guard of the admitted event it follows; fails with the
+  // refusal's slot, naming that event, when they would pass the guard.
+  const countSends = (count: number) => {
+    const id = Option.getOrElse(chainNow(), () => defect("a turn sent outside a served item"));
+    const chain = world.chains.get(id) ?? defect("a chain followed after it was cleared");
 
-    for (const t of Option.toArray(timer)) dropTimer(id, t);
+    if (chain.sent + count > RuntimeDefaults.loopGuard)
+      return Result.fail(
+        `loop guard: ${String(RuntimeDefaults.loopGuard)} events sent from ${chain.root}`,
+      );
 
-    return timer;
+    put("chains", id, { ...chain, sent: chain.sent + count });
+
+    return Result.succeed(id);
   };
 
-  // ── mail: each actor has one FIFO mailbox; an actor whose mailbox was empty joins the
-  // rotation last. `fresh` is the mail enqueued since the drain last asked: a served event's
-  // follow-ups.
-  let fresh: Array<Mail> = [];
-
+  // ── mail: the mailboxes (`mailbox.ts`), each written through this step's draft.
   // The item being served and the loop guard's chain it follows: the mail its turns enqueue follows
   // the chain. An item that follows none is admitted, and starts one at the first mail it enqueues.
   const { chainNow, serving } = makeFollowing((item) => {
@@ -371,113 +387,13 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return chain;
   });
 
-  const box = (key: string) => {
-    const mail = draft("mail");
-    const own = mail.get(key);
-
-    if (own !== undefined && ownBoxes.has(key))
-      // SAFETY: a mailbox this step copied is its own array; the World only reads it.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the step owns the copy it made
-      return own as Array<Mail>;
-
-    const copy = [...(own ?? [])];
-    mail.set(key, copy);
-    ownBoxes.add(key);
-    dirty.add(key);
-
-    return copy;
-  };
-
-  const enqueue = (mail: Mail) => {
-    const key = actorKey(mail.actor);
-    fresh.push(mail);
-    box(key).push(mail);
-    dirty.add(key);
-  };
-
-  // Mail that takes the place of the item just served: it goes to the front of its mailbox.
-  const enqueueFirst = (mails: ReadonlyArray<Mail>) => {
-    const [first] = mails;
-
-    if (first === undefined) return;
-
-    const key = actorKey(first.actor);
-    fresh.push(...mails);
-    box(key).unshift(...mails);
-    dirty.add(key);
-  };
-
-  // A second wave reaching a context update that waits: the update follows whichever of the two
-  // chains has counted more, so joining never lowers the count its turns' sends add to.
-  const joinWave = (actor: ActorId) => {
-    const key = actorKey(actor);
-    const next = chainNow();
-
-    const sent = (id: Option.Option<ChainId>) =>
-      Option.match(id, { onNone: () => 0, onSome: (c) => world.chains.get(c)?.sent ?? 0 });
-
-    const at = (world.mail.get(key) ?? []).findIndex(
-      (m) => Mail.$is("Context")(m) && sent(next) > sent(m.chain),
-    );
-
-    if (at === -1) return;
-    box(key)[at] = Mail.Context({ actor, chain: next });
-  };
-
-  const emptied = (key: string) => {
-    draft("mail").delete(key);
-    ownBoxes.delete(key);
-    dirty.add(key);
-  };
-
-  // An actor's oldest mail, taken from its mailbox; a rotated actor goes to the back while it
-  // still has mail, a follow-up's actor keeps its place.
-  const takeOldest = (key: string, place: "rotate" | "keep") => {
-    if (!world.mail.has(key)) return undefined;
-
-    const mailbox = box(key);
-    const first = mailbox.shift();
-
-    if (mailbox.length === 0) emptied(key);
-    else if (place === "rotate") {
-      draft("mail").delete(key);
-      draft("mail").set(key, mailbox);
-    }
-
-    return first;
-  };
-
-  const unreference = (actor: ActorId, id: string) => {
-    const key = actorKey(actor);
-    const held = world.mail.get(key);
-
-    if (held === undefined || !held.some((m) => Mail.$is("Ending")(m) && m.id === id)) return;
-
-    const left = box(key).filter((m) => !(Mail.$is("Ending")(m) && m.id === id));
-
-    if (left.length === 0) emptied(key);
-    else {
-      draft("mail").set(key, left);
-      dirty.add(key);
-    }
-  };
-
-  const clearMail = () => {
-    for (const key of world.mail.keys()) dirty.add(key);
-    own("mail", new Map());
-    ownBoxes.clear();
-  };
-
-  const dropMail = (actor: ActorId) => {
-    if (world.mail.has(actorKey(actor))) emptied(actorKey(actor));
-  };
-
-  const takeFresh = () => {
-    const taken = fresh;
-    fresh = [];
-
-    return taken;
-  };
+  const mailbox = makeMailbox({
+    world: () => world,
+    draft: () => draft("mail"),
+    replace: (mail) => void own("mail", mail),
+    dirty,
+    chainNow,
+  });
 
   // A local actor never persists, whatever its machine declares.
   const persisted = (actor: ActorId) =>
@@ -531,21 +447,16 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     laneWaiting,
     putUses,
     dropUses,
-    armTimer,
-    disarm,
-    disarmWhere,
-    disarmSilence,
-    fire,
-    enqueue,
-    enqueueFirst,
+    setAlarm,
+    clearAlarm,
+    clearAlarmsWhere,
+    takeDue,
+    wake,
+    alarmed: (alarm: Alarm) => Option.fromUndefinedOr(world.alarms.get(alarmKey(alarm))),
+    ...mailbox,
     chainNow,
     serving,
-    joinWave,
-    takeOldest,
-    unreference,
-    clearMail,
-    dropMail,
-    takeFresh,
+    countSends,
     dirtyActors: () => dirty,
     // The identities whose lanes changed since the last ask.
     takeMoved: () => {

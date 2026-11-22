@@ -5,7 +5,8 @@ import { Act } from "./evidence-of.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
 import { Audience, keptOn, type LedgerSteps, Route } from "./ledger.ts";
-import { LaneView } from "./turn.ts";
+import { LaneView, Resolved } from "./turn.ts";
+import type { Turn } from "./walk.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
 import type { Channel, Decline } from "./vocabulary.ts";
 import {
@@ -15,7 +16,7 @@ import {
   type Incarnation,
   laneId,
   type LaneId,
-  type OwnedBy,
+  OwnedBy,
   Phase,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
@@ -367,7 +368,66 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         },
       );
 
+  /**
+   * A turn's lane members in walk order, each owned by its part's scope: the activation of the
+   * state the turn's move targets when it moves, its part's handler's otherwise, the root's at the
+   * root. `own` is the lane an ending's turn acts on. Returns the members it ran, for the turn's
+   * record.
+   */
+  const membersOf = (incarnation: Incarnation, turn: Turn, own: Option.Option<LaneId>) => {
+    const compiled = tx.machines.get(incarnation.actor.machine);
+    const ran: Array<Member> = [];
+
+    const ownerOf = (path: string) =>
+      Option.match(
+        Option.fromUndefinedOr(
+          incarnation.activations[(compiled?.states.get(path)?.depth ?? 0) - 1],
+        ),
+        { onNone: () => OwnedBy.Root(), onSome: (activation) => OwnedBy.State({ activation }) },
+      );
+
+    for (const part of turn.parts) {
+      const owner = Option.match(turn.move, {
+        onNone: () => (part.handler === "" ? OwnedBy.Root() : ownerOf(part.handler)),
+        onSome: (move) => ownerOf(move.target),
+      });
+
+      for (const action of part.actions) {
+        const operation = Resolved.$is("Send")(action)
+          ? undefined
+          : compiled?.operations.get(action.operation);
+
+        if (operation !== undefined)
+          ran.push(...memberOf(incarnation, operation, action, own, owner));
+      }
+    }
+
+    return ran;
+  };
+
+  // One resolved action on its lane: a commit, retry or cancel is a member of the turn's record; a
+  // lookup is a read; a send is no lane's.
+  const memberOf = (
+    incarnation: Incarnation,
+    operation: Operation,
+    action: Resolved,
+    own: Option.Option<LaneId>,
+    owner: OwnedBy,
+  ) =>
+    Resolved.$match(action, {
+      Commit: ({ input }) => [commit(incarnation, operation, input, owner)],
+      Retry: ({ key }) => [retry(incarnation, operation, tx.env.admit(key), own, owner)],
+      Cancel: ({ key }) => [cancel(incarnation, operation, tx.env.admit(key), own)],
+      Lookup: ({ input }) => {
+        lookup(incarnation, operation, tx.env.admit(input), owner);
+
+        return [];
+      },
+      Send: () => [],
+    });
+
   return {
+    membersOf,
     commit,
     retry,
     cancel,

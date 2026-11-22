@@ -1,3 +1,4 @@
+import { readsOf, scopeOf } from "./reads.ts";
 import { Option, Predicate, Result, Schema } from "effect";
 import {
   callSlot,
@@ -155,6 +156,9 @@ const savedSelection = (
 /**
  * Restoring an incarnation's timers from its record, by the decoder table.
  */
+// FLOW_STATE_ALLOW_UNKNOWN: a restored delay reads no rows; the map is typed as the callbacks see it.
+const NO_OPERATIONS: ReadonlyMap<string, ReadonlyMap<string, unknown>> = new Map();
+
 export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
   // The Effect Schedule a saved run steps, planned again from the restored memory: none for a
   // Duration; its slot's failure when a computed delay throws.
@@ -163,7 +167,14 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
       Delay.$match(schedule.delay, {
         Fixed: ({ planned }) => Result.succeed(planned),
         Computed: ({ plan }) =>
-          callSlot(plan, schedules.readOf(incarnation, key, schedules.noOperations)),
+          callSlot(
+            plan,
+            readsOf(scopeOf(incarnation), "Schedule", {
+              key,
+              operations: NO_OPERATIONS,
+              now: tx.env.now,
+            }),
+          ),
       }),
       (planned) =>
         Planned.$match(planned, {

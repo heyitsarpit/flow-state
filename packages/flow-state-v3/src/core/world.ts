@@ -1,11 +1,12 @@
-import { Brand, Data, Equal, Option } from "effect";
+import { Brand, Data, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
 import type { IssueCode, ReadFailure, SavedSchedules } from "./vocabulary.ts";
 import type { Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
-import type { Alarm, Scheduled, TimerKey } from "./timers.ts";
+import type { Alarmed } from "./alarms.ts";
+import type { Scheduled, TimerKey } from "./timers.ts";
 
 /**
  * An actor's identity: its machine and its name.
@@ -78,11 +79,6 @@ export const laneId = (actor: ActorId, operation: string, keyText: string) =>
 export type TicketId = string & Brand.Brand<"flow-state/TicketId">;
 
 /**
- * A host timer's id.
- */
-export type TimerId = string & Brand.Brand<"flow-state/TimerId">;
-
-/**
  * A call's id: one invocation of a commit or lookup.
  */
 export type CallId = string & Brand.Brand<"flow-state/CallId">;
@@ -149,12 +145,10 @@ export const trackOf = (name: string, key: Option.Option<TimerKey>) =>
  * outermost first: a re-entry is a new activation, so work its old activation owns ends late.
  * `history` holds each exited compound's last active child. `bound` names the provider of each
  * context slot, `context` holds each slot's selection and `baselines` each `onContext` reaction's
- * baseline: the value of its slot it last compared. `grace` is the timer of a free incarnation's
- * grace.
+ * baseline: the value of its slot it last compared.
  * `started` is the mint's count when it started: live incarnations are ordered by it. `schedules`
- * holds each active schedule's state by name and `alarms` the host alarm of each due run, by
- * arming id. `issues` holds the open issues of every source but a schedule's, which are read from
- * `schedules`.
+ * holds each active schedule's state by name. `issues` holds the open issues of every source but a
+ * schedule's, which are read from `schedules`.
  */
 export type Incarnation = {
   readonly id: IncarnationId;
@@ -165,13 +159,11 @@ export type Incarnation = {
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
   readonly schedules: ReadonlyMap<string, Scheduled>;
-  readonly alarms: ReadonlyMap<ArmingId, Alarm>;
   readonly issues: ReadonlyArray<StoredIssue>;
   readonly bound: ReadonlyMap<string, ActorId>;
   readonly context: ReadonlyMap<string, Selected>;
   // None for a reaction that has not been live while its slot had a value.
   readonly baselines: ReadonlyArray<Option.Option<Selected>>;
-  readonly grace: Option.Option<TimerId>;
 };
 
 /**
@@ -232,30 +224,6 @@ export type StoredSource = Exclude<IssueSource, { readonly _tag: "Schedule" }>;
  * A stored issue: one of a {@link StoredSource}.
  */
 export type StoredIssue = Issue & { readonly source: StoredSource };
-
-/**
- * An incarnation with one more open issue, in place of any its source raised before.
- */
-export const withIssue = (incarnation: Incarnation, issue: StoredIssue) => ({
-  ...incarnation,
-  issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, issue.source)), issue],
-});
-
-/**
- * An incarnation with more open issues appended, each its own source's.
- */
-export const withIssues = (incarnation: Incarnation, issues: ReadonlyArray<StoredIssue>) =>
-  issues.length === 0
-    ? incarnation
-    : { ...incarnation, issues: [...incarnation.issues, ...issues] };
-
-/**
- * An incarnation with its source's issue cleared; the same incarnation when it had none.
- */
-export const withoutIssue = (incarnation: Incarnation, source: StoredSource) =>
-  incarnation.issues.some((i) => Equal.equals(i.source, source))
-    ? { ...incarnation, issues: incarnation.issues.filter((i) => !Equal.equals(i.source, source)) }
-    : incarnation;
 
 /**
  * What an identity showed when its last incarnation ended: its terminal snapshot's state and
@@ -405,27 +373,6 @@ export type Mail = Data.TaggedEnum<{
 export const Mail = Data.taggedEnum<Mail>();
 
 /**
- * What a host timer stands for.
- */
-export type Timer = Data.TaggedEnum<{
-  Schedule: {
-    actor: ActorId;
-    incarnation: IncarnationId;
-    schedule: string;
-    track: string;
-    arming: ArmingId;
-  };
-  Grace: { actor: ActorId; incarnation: IncarnationId };
-  Silent: { ticket: TicketId };
-  Bound: {};
-}>;
-
-/**
- * Constructors and matchers for {@link Timer}.
- */
-export const Timer = Data.taggedEnum<Timer>();
-
-/**
  * The providers each identity of one ensure's context graph binds its slots to, by identity key:
  * the ensured actor's and every provider's on the way up.
  */
@@ -510,9 +457,11 @@ export const quarantineText = (q: Quarantine) =>
  * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
  * until the identity saves over it or, for a lane, a cancel on its key clears it.
  *
- * The last four maps are indexes, each derived from the facts above by the step operation that
+ * `alarms` holds the one host alarm of each owner fact that has a deadline, by the fact's key.
+ *
+ * The last three maps are indexes, each derived from the facts above by the step operation that
  * changes them ({@link indexesOf} rebuilds them): each identity's lanes, the lane whose head waits
- * on each call or ticket, each provider's live consumers, and each ticket's silence timer.
+ * on each call or ticket, and each provider's live consumers.
  */
 export type World = {
   readonly incarnations: ReadonlyMap<string, Incarnation>;
@@ -523,7 +472,7 @@ export type World = {
   readonly displaced: ReadonlyMap<string, Displaced>;
   readonly mail: ReadonlyMap<string, ReadonlyArray<Mail>>;
   readonly uses: ReadonlyMap<ActorKey, ReadonlyArray<Use>>;
-  readonly timers: ReadonlyMap<TimerId, Timer>;
+  readonly alarms: ReadonlyMap<string, Alarmed>;
   readonly counter: number;
   readonly attempts: number;
   readonly persistence: boolean;
@@ -535,7 +484,6 @@ export type World = {
   readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<LaneId>>;
   readonly laneOfWait: ReadonlyMap<string, LaneId>;
   readonly consumersOf: ReadonlyMap<string, ReadonlySet<string>>;
-  readonly silenceOf: ReadonlyMap<string, TimerId>;
   readonly chains: ReadonlyMap<ChainId, Chain>;
   readonly chainCount: number;
 };
@@ -570,7 +518,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   displaced: new Map(),
   mail: new Map(),
   uses: new Map(),
-  timers: new Map(),
+  alarms: new Map(),
   counter: 0,
   attempts: 0,
   persistence,
@@ -582,7 +530,6 @@ export const emptyWorld = (persistence: boolean): World => ({
   lanesOfActor: new Map(),
   laneOfWait: new Map(),
   consumersOf: new Map(),
-  silenceOf: new Map(),
   chains: new Map(),
   chainCount: 0,
 });
@@ -614,7 +561,6 @@ const indexesOf = (world: World) => {
   const lanesOfActor = new Map<string, Set<LaneId>>();
   const laneOfWait = new Map<string, LaneId>();
   const consumersOf = new Map<string, Set<string>>();
-  const silenceOf = new Map<string, TimerId>();
 
   for (const [id, lane] of world.lanes) {
     const key = actorKey(lane.actor);
@@ -629,10 +575,7 @@ const indexesOf = (world: World) => {
       consumersOf.set(key, (consumersOf.get(key) ?? new Set()).add(actorKey(incarnation.actor)));
     }
 
-  for (const [id, timer] of world.timers)
-    if (Timer.$is("Silent")(timer)) silenceOf.set(timer.ticket, id);
-
-  return { lanesOfActor, laneOfWait, consumersOf, silenceOf };
+  return { lanesOfActor, laneOfWait, consumersOf };
 };
 
 const sameEntries = <V>(
@@ -664,7 +607,6 @@ export const indexDrift = (world: World) => {
     sameEntries(world.lanesOfActor, built.lanesOfActor, sameOrder) ? [] : ["lanesOfActor"],
     sameEntries(world.laneOfWait, built.laneOfWait, (a, b) => a === b) ? [] : ["laneOfWait"],
     sameEntries(world.consumersOf, built.consumersOf, sameMembers) ? [] : ["consumersOf"],
-    sameEntries(world.silenceOf, built.silenceOf, (a, b) => a === b) ? [] : ["silenceOf"],
   ].flat();
 };
 
@@ -690,8 +632,8 @@ export type Command = Data.TaggedEnum<{
   // The end of each named incarnation's work: its reads stop and their cleanups are awaited, in
   // order; a failed cleanup is the ref's at an incarnation's end, the Runtime's at its disposal.
   EndWork: { owners: ReadonlyArray<string>; reportTo: "ref" | "runtime" };
-  Arm: { timer: TimerId; at: number };
-  Disarm: { timer: TimerId };
+  // The host's one wake: at the earliest alarm's deadline, a Tick; it replaces any earlier wake.
+  Wake: { at: number };
   Persist: { refused: ReadonlyArray<TicketId>; due: Due };
   Write: {
     writes: ReadonlyArray<Write>;

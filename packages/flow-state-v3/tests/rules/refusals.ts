@@ -55,10 +55,16 @@ const refusedEventTurn = (run: StoryRun, at: number, issue: Evidence) => {
         })),
   );
 
+  // An event's refusal has one snapshot, the refused actor's, which is no turn's (Changes C6); a
+  // later change of another actor in the window is its own. A context read's issue is shown by
+  // the consumer's start or update that read it.
   const published = records.filter(
     (r) =>
       r._tag === "Published" &&
-      (!isContextIssue(issue) || Option.contains(consumer, nameOf(r.actor))),
+      (isContextIssue(issue)
+        ? Option.contains(consumer, nameOf(r.actor))
+        : r.why !== "Turn" &&
+          (Option.isNone(refused) || Option.contains(refused, nameOf(r.actor)))),
   ).length;
 
   const turn = `the refused event turn (evidence ${at})`;

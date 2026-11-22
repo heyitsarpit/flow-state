@@ -1,23 +1,20 @@
 import { Data, Option, Predicate, Result } from "effect";
 import { admitted } from "./boundary.ts";
 import { refName } from "./identity.ts";
-import type { ActivationId, ActorId } from "./world.ts";
+import type { ActorId } from "./world.ts";
 import {
   InternalsId,
   Action,
   type Alternative,
   type Compiled,
   Guard,
-  type Schedule,
-  type Series,
   type Values,
 } from "./compiled.ts";
 import type { Step } from "./schedule-plan.ts";
-import { armingsOf, disarmedBy } from "./turn-arms.ts";
-import type { Part } from "./evidence.ts";
+import type { readsOf } from "./reads.ts";
 import { sameValue } from "./same.ts";
-import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
-import type { RefusedCode } from "./vocabulary.ts";
+import { atOrBelow, type Move, moveOf } from "./tree.ts";
+import type { TurnInput } from "./walk.ts";
 import { compiledOption } from "../compiled-of.ts";
 
 /**
@@ -61,90 +58,21 @@ export type Arming = {
   readonly first: Result.Result<Option.Option<Step>, string>;
 };
 
-/**
- * What a turn decided.
- *
- * **Details**
- *
- * - `Accepted`: one alternative ran at `handler` (`""` for the root); `move` is its change of
- *   state (a re-entry included), `None` for "self"; `arm` lists the schedules armed.
- * - `Denied`: handlers existed and all declined, with each decline's code.
- * - `Unhandled`: no handler.
- * - `Refused`: the turn is invalid or a callback failed before commit; nothing of it applies.
- */
-export type TurnResult = Data.TaggedEnum<{
-  Accepted: {
-    part: Part;
-    handler: string;
-    move: Option.Option<Move>;
-    memory: Values;
-    actions: ReadonlyArray<Resolved>;
-    arm: ReadonlyArray<Arming>;
-    disarm: ReadonlyArray<string>;
-  };
-  Denied: { reasons: ReadonlyArray<string> };
-  Unhandled: {};
-  Refused: { code: RefusedCode; slot: string };
-}>;
-
-/**
- * Constructors and matchers for {@link TurnResult}.
- */
-export const TurnResult = Data.taggedEnum<TurnResult>();
-
-/**
- * Everything a turn reads: the pre-turn state and memory, the event, the route, the
- * turn's time and the lanes with its own ending admitted.
- *
- * **Details**
- *
- * - `state`: the active leaf's path; `activations` numbers each state on its chain, outermost
- *   first; `history` holds each compound's last active child; `context` its slots' values.
- * - `late`: the event is a late ending, routed from `from`, the depth of the owner's nearest
- *   surviving ancestor (0 for the root); a current event is routed from the leaf.
- * - `lane(operation, key)`: a lane's view; a `None` key names the ending's own lane.
- * - `owns(activation)`: that activation owns an InFlight head, so a late turn may not exit it.
- */
-export type TurnInput = {
-  readonly compiled: Compiled;
-  readonly state: string;
-  readonly activations: ReadonlyArray<ActivationId>;
-  readonly history: ReadonlyMap<string, string>;
-  readonly memory: Values;
-  readonly context: Values;
-  readonly tag: string;
-  readonly payload: Values;
-  readonly late: boolean;
-  // Whether the turn's source cannot send it again (an operation's outcome, an actor's send, a
-  // context reaction): it commits whatever its own arms do.
-  readonly unrepeatable: boolean;
-  readonly from: number;
-  readonly now: number;
-  readonly lane: (operation: string, key: Option.Option<Values>) => LaneView;
-  readonly owns: (activation: ActivationId) => boolean;
-  readonly step: (
-    name: string,
-    series: Series,
-    attempt: number,
-  ) => Option.Option<{
-    readonly ms: number;
-    // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule step's output, whatever its type.
-    readonly output: unknown;
-  }>;
-};
-
 type Failed = { readonly slot: string };
 
 /**
  * One guard's outcome: it passes, it declines with a code, or its callback is defective.
  */
-type Verdict = Data.TaggedEnum<{
+export type Verdict = Data.TaggedEnum<{
   Pass: {};
   Declined: { code: string };
   Defect: { slot: string };
 }>;
 
-const Verdict = Data.taggedEnum<Verdict>();
+/**
+ * Constructors and matchers for {@link Verdict}.
+ */
+export const Verdict = Data.taggedEnum<Verdict>();
 
 const PASSED = Verdict.Pass();
 
@@ -171,7 +99,7 @@ const call = <A>(slot: string, run: () => A): Result.Result<A, Failed> =>
  * A select or key callback's record; anything else is a defect of that callback (the types forbid
  * it, so only untyped code reaches this).
  */
-const recordFrom = <I>(
+export const recordFrom = <I>(
   slot: { readonly slot: string; readonly run: (input: I) => Values },
   read: I,
 ) =>
@@ -229,14 +157,9 @@ const guardCheck = (guard: Guard, input: TurnInput, read: GuardRead) =>
       ),
   });
 
-type GuardRead = {
-  readonly state: string;
-  readonly memory: Values;
-  readonly context: Values;
-  readonly event: Values;
-};
+type GuardRead = ReturnType<typeof readsOf<"Guard">>;
 
-const moveFor = (alternative: Alternative, handler: string, input: TurnInput) =>
+export const moveFor = (alternative: Alternative, handler: string, input: TurnInput) =>
   Option.map(alternative.target, (target) =>
     moveOf(input.compiled, input.state, handler, target, input.history),
   );
@@ -249,7 +172,7 @@ const strands = (move: Move, input: TurnInput) => {
 };
 
 // RETURN_TYPE: the Verdict every guard returns; the first that is not a pass decides.
-const firstDecline = (
+export const firstDecline = (
   alternative: Alternative,
   handler: string,
   input: TurnInput,
@@ -310,7 +233,10 @@ const sendOf = (
   });
 };
 
-const resolve = (action: Action, read: { readonly memory: Values; readonly event: Values }) =>
+export const resolve = (
+  action: Action,
+  read: { readonly memory: Values; readonly event: Values },
+) =>
   Action.$match(action, {
     Send: ({ to, event }) =>
       Result.flatMap(
@@ -350,11 +276,9 @@ const resolve = (action: Action, read: { readonly memory: Values; readonly event
       ),
   });
 
-const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
-
 // Whether a patch changes no field: each field it names is already there with an equal value,
 // the same object at once, else compared without the call stack.
-const unchanged = (patch: Values, memory: Values) =>
+export const unchanged = (patch: Values, memory: Values) =>
   Object.keys(patch).every(
     (k) => Object.hasOwn(memory, k) && (patch[k] === memory[k] || sameValue(patch[k], memory[k])),
   );
@@ -368,195 +292,11 @@ const writableField = (compiled: Compiled, name: string) => {
 };
 
 // Whether a patch names only fields the machine may write.
-const writable = (compiled: Compiled, patch: Values) => {
+export const writable = (compiled: Compiled, patch: Values) => {
   for (const name of Object.keys(patch)) if (!writableField(compiled, name)) return false;
 
   return true;
 };
 
-// RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
-const accept = (alternative: Alternative, handler: string, input: TurnInput): TurnResult => {
-  const read = {
-    memory: input.memory,
-    context: input.context,
-    event: input.payload,
-    now: input.now,
-  };
-
-  // A patch that throws or is no record is a defect; one naming a field the machine may not write
-  // refuses the turn.
-  const patched = Option.match(alternative.update, {
-    onNone: () => Result.succeed(input.memory),
-    onSome: (update) => {
-      const written = recordFrom(update, read);
-
-      if (Result.isFailure(written))
-        return Result.fail(TurnResult.Refused({ code: "Defect", ...written.failure }));
-
-      if (!writable(input.compiled, written.success))
-        return Result.fail(TurnResult.Refused({ code: "InvalidTurn", slot: update.slot }));
-
-      // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the turn's after memory: one patch, merged once
-      const after = { ...input.memory, ...written.success };
-
-      return Result.succeed(unchanged(written.success, input.memory) ? input.memory : after);
-    },
-  });
-
-  if (Result.isFailure(patched)) return patched.failure;
-  const memory = patched.success;
-  const select = { memory, event: input.payload };
-  const actions: Array<Resolved> = [];
-
-  for (const action of alternative.actions) {
-    const resolved = resolve(action, select);
-
-    if (Result.isFailure(resolved))
-      // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- the refusal is the turn's one result; the loop ends here
-      return TurnResult.Refused({ code: "InvalidTurn", slot: resolved.failure.slot });
-    actions.push(resolved.success);
-  }
-
-  const move = moveFor(alternative, handler, input);
-  const leaf = Option.match(move, { onNone: () => input.state, onSome: (m) => m.leaf });
-  const entered = new Set(Option.match(move, { onNone: () => [], onSome: (m) => m.enters }));
-
-  const arm = armingsOf(
-    input.compiled,
-    leaf,
-    entered,
-    input.tag,
-    { memory, context: input.context, now: input.now },
-    input.step,
-  );
-
-  // A turn's own arm with a bad delay refuses the turn, but a turn its source cannot send again (an
-  // operation's outcome, an actor's send, a context reaction) commits with that start refused
-  // (Schedules R11).
-  const first = Option.flatMap(
-    Option.fromUndefinedOr(arm.find((a) => Result.isFailure(a.first))),
-    (a) => Result.getFailure(a.first),
-  );
-
-  if (Option.isSome(first) && !input.unrepeatable)
-    return TurnResult.Refused({ code: "InvalidTurn", slot: first.value });
-
-  return TurnResult.Accepted({
-    part: {
-      at: alternative.at,
-      node: handler === "" ? "root" : handler,
-      target: Option.match(move, { onNone: () => "self", onSome: (m) => m.target }),
-    },
-    handler,
-    move,
-    memory,
-    actions,
-    arm,
-    disarm: disarmedBy(input.compiled, leaf, input.tag),
-  });
-};
-
-const lists = (input: TurnInput, path: string) => {
-  for (const schedule of input.compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
-    if (schedule.armOn.includes(input.tag) || schedule.disarmOn.includes(input.tag)) return true;
-
-  return false;
-};
-
-// The implicit "self" of the deepest state on the route whose schedule lists the event in armOn
-// or disarmOn.
-const implicit = (input: TurnInput) => {
-  let node = "";
-
-  for (const path of chainOf(input.state).slice(0, input.from)) if (lists(input, path)) node = path;
-
-  if (node === "") return Option.none();
-
-  const alternative: Alternative = {
-    at: `trigger:${node}:${input.tag}`,
-    target: Option.none(),
-    guards: [],
-    update: Option.none(),
-    actions: [],
-  };
-
-  return Option.some({ node, alternatives: [alternative] });
-};
-
-const EMPTY: ReadonlyArray<Alternative> = [];
-
-// Each level from the routed state up to the root, with its written alternatives for the event.
-const levelsOf = (input: TurnInput) => {
-  const chain = chainOf(input.state).slice(0, input.from);
-
-  const levels: Array<{
-    readonly node: string;
-    readonly alternatives: ReadonlyArray<Alternative>;
-  }> = [];
-
-  let written = false;
-
-  for (let i = chain.length; i >= 0; i -= 1) {
-    const node = i === 0 ? "" : (chain[i - 1] ?? "");
-    const level = i === 0 ? input.compiled.root : input.compiled.states.get(node)?.on;
-    const alternatives = level?.get(input.tag) ?? EMPTY;
-
-    written ||= alternatives.length > 0;
-    // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one entry per level of the chain: the turn's route
-    levels.push({ node, alternatives });
-  }
-
-  return written ? levels : Option.toArray(implicit(input));
-};
-
-const resultOf = (
-  verdict: Verdict,
-  alternative: Alternative,
-  handler: string,
-  input: TurnInput,
-  reasons: Array<string>,
-) =>
-  Verdict.$match(verdict, {
-    Pass: () => Option.some(accept(alternative, handler, input)),
-    Defect: ({ slot }) => Option.some(TurnResult.Refused({ code: "GuardDefect", slot })),
-    Declined: ({ code }) => {
-      reasons.push(code);
-
-      return Option.none<TurnResult>();
-    },
-  });
-
-/**
- * Runs one admitted event against a machine's handlers.
- *
- * **Details**
- *
- * The active leaf's level is tried first, then each ancestor's, then the root's; a late ending
- * starts at the owner's nearest surviving ancestor. At each level the first alternative whose
- * guards all pass wins. When no level handles the event and an active state's schedule lists it
- * in `armOn` or `disarmOn`, that state handles it with an unguarded "self". A guard, update, select or schedule
- * callback that throws, or an invalid delay, refuses the whole turn.
- */
-// RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
-export const runTurn = (input: TurnInput): TurnResult => {
-  const levels = levelsOf(input);
-
-  const reasons: Array<string> = [];
-
-  const read = {
-    state: input.state,
-    memory: input.memory,
-    context: input.context,
-    event: input.payload,
-  };
-
-  for (const level of levels)
-    for (const alternative of level.alternatives) {
-      const verdict = firstDecline(alternative, level.node, input, read);
-      const ended = resultOf(verdict, alternative, level.node, input, reasons);
-
-      if (Option.isSome(ended)) return ended.value;
-    }
-
-  return reasons.length > 0 ? TurnResult.Denied({ reasons }) : TurnResult.Unhandled();
-};
+// The walk's one accumulator: the parts so far, the changer's site and the memory after every
+// patch, until a part refuses the turn; the first refusal stands.

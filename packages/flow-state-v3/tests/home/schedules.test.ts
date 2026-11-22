@@ -765,7 +765,7 @@ describe("a room left unused while it saves (Changes C5 Use row, I12; Turn R17, 
     });
   });
 
-  it.fails("Changes I12: while the lounge is unused its timers hold no alarm, and no grace runs while its save is on the wire", async () => {
+  it("Changes I12: while the lounge is unused its timers hold no alarm, and no grace runs while its save is on the wire", async () => {
     const run = await played(unusedWhileSaving);
 
     expect([

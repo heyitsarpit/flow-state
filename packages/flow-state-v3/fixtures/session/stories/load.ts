@@ -55,3 +55,16 @@ export const avatarWall = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
   .ensure(mainSession)
   .send(mainSession, Session.E.SignIn({ user: "ada" }))
   .checkpoint("signed in");
+
+/**
+ * The 65 header avatars on the main session, signed in; then 50 give-ups with no notice to clear,
+ * each an accepted turn of the session that leaves its state and memory the same objects, while
+ * all 65 avatars read it.
+ */
+export const waveNoop = Array.from({ length: 50 }).reduce<Story>(
+  (s) => s.send(mainSession, Session.E.GiveUp()),
+  Array.from({ length: 65 }, (_, n) => wallAvatar(n))
+    .reduce<Story>((s, a) => s.ensure(a), grownStory("session/wave-noop").ensure(acme))
+    .ensure(mainSession)
+    .send(mainSession, Session.E.SignIn({ user: "ada" })),
+);

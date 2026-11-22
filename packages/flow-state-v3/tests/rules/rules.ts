@@ -305,6 +305,21 @@ const outcomeActor = (e: Evidence) =>
     ? Option.some(nameOf(e.actor))
     : Option.none<string>();
 
+// The whys counted in a turn start's window (Changes C6): a turn's own; a start's, with the owed
+// wave behind it, which publishes only what it changed; any other change's. An issue is shown by
+// its refusal, or by the start whose schedule it refused.
+type Why = EvidenceOf<"Published">["why"];
+
+const WHYS_OF_START: Partial<Record<Evidence["_tag"], ReadonlyArray<Why>>> = {
+  Turn: ["Turn"],
+  Incarnated: ["Begin", "Other"],
+  Issue: ["Other", "Begin"],
+};
+
+const OTHER: ReadonlyArray<Why> = ["Other"];
+
+const whysOfStart = (e: Evidence) => WHYS_OF_START[e._tag] ?? OTHER;
+
 const turnText = (e: Evidence, at: number) =>
   e._tag === "Turn"
     ? `${nameOf(e.actor)}'s turn on ${e.event} from ${e.from} to ${e.to} (evidence ${at})`
@@ -333,11 +348,22 @@ export const publishedOnce: Rule = {
       if (!isTurnStart(e, run.evidence)) return [];
       const records = turnRecords(run.evidence, at);
 
-      const actor = isContextIssue(e) ? consumerOf(records) : outcomeActor(e);
+      // A refusal names no actor: its one snapshot, published right after it, does (Changes C6).
+      const actor = Option.orElse(isContextIssue(e) ? consumerOf(records) : outcomeActor(e), () =>
+        Option.fromUndefinedOr(
+          records.flatMap((r) => (r._tag === "Published" ? [nameOf(r.actor)] : [])).at(0),
+        ),
+      );
+
+      // Each change publishes once with its own why (Changes I5): a turn's is "Turn", a start's
+      // "Begin", any other's "Other", so a later change of the actor in the window is not counted.
+      // A context read's issue is shown by the start or update that read it, whatever its why.
+      const whys = isContextIssue(e) ? Option.none() : Option.some(whysOfStart(e));
 
       const published = records.filter(
         (r) =>
           r._tag === "Published" &&
+          Option.match(whys, { onNone: () => true, onSome: (w) => w.includes(r.why) }) &&
           Option.getOrElse(actor, () => nameOf(r.actor)) === nameOf(r.actor),
       ).length;
 

@@ -1,6 +1,7 @@
-import { Equal, Option, Result } from "effect";
+import { Data, Equal, Option, Result } from "effect";
 import { InternalsId, callSlot, type Compiled, type ContextRead, type Values } from "./compiled.ts";
 import { sameValue } from "./same.ts";
+import { readsOf, scopeOf } from "./reads.ts";
 import { type Selected, sameSlot, selectedOf } from "./slots.ts";
 import { atOrBelow } from "./tree.ts";
 import type { Tx } from "./tx.ts";
@@ -9,25 +10,51 @@ import {
   type ActorRecord,
   actorKey,
   type Incarnation,
-  type StoredIssue,
   IssueSource,
-  Mail,
-  withIssue,
-  withoutIssue,
+  type StoredIssue,
+  type StoredSource,
   type Use,
   type Wiring,
 } from "./world.ts";
 
 /**
- * What context needs of incarnations: ensuring a provider with a use, releasing that use, and
- * publishing a changed incarnation.
+ * What context needs of incarnations: ensuring a provider with a use, and releasing that use.
  */
 export type ContextNeeds = {
   readonly ensure: (actor: ActorId, use: Option.Option<Use>, wiring: Option.Option<Wiring>) => void;
   readonly release: (actor: ActorId, use: Use) => void;
-  readonly publish: (incarnation: Incarnation) => void;
-  readonly save: (incarnation: Incarnation) => void;
 };
+
+/**
+ * A change to a source's outcome a context read decided: its issue raised, replacing the source's
+ * earlier one, or its issue cleared by a clean read.
+ */
+export type OutcomeEdit = Data.TaggedEnum<{
+  Raise: { issue: StoredIssue };
+  Clear: { source: StoredSource };
+}>;
+
+/**
+ * Constructors and matchers for {@link OutcomeEdit}.
+ */
+export const OutcomeEdit = Data.taggedEnum<OutcomeEdit>();
+
+/**
+ * What a consumer's context update decided, for its `Inputs` change: each slot's selection, the
+ * reactions' baselines when they ran (none when no slot changed and none owed a comparison), the
+ * outcomes it changed, the reactions' events in declaration order, and whether a slot's value
+ * changed.
+ */
+export type Read = {
+  readonly context: ReadonlyMap<string, Selected>;
+  readonly baselines: Option.Option<ReadonlyArray<Option.Option<Selected>>>;
+  readonly outcomes: ReadonlyArray<OutcomeEdit>;
+  readonly events: ReadonlyArray<{ readonly tag: string; readonly payload: Values }>;
+  readonly changed: boolean;
+};
+
+// What a consumer's selection reads of it: its bindings, its last selections and its open issues.
+type Selecting = Pick<Incarnation, "bound" | "context" | "issues">;
 
 // What one read takes from a provider: a public memory field, whether it is at a state or below
 // it, or its state's name.
@@ -48,9 +75,8 @@ const readOf = (read: ContextRead, provider: Incarnation) => {
 const sameReads = (last: Selected, reads: ReadonlyArray<unknown>) =>
   Option.exists(last.reads, (r) => r.length === reads.length && r.every((v, i) => v === reads[i]));
 
-// Whether a slot's select failed last time: only reading it again can clear its issue.
-const failing = (consumer: Incarnation, slot: string) =>
-  consumer.issues.some((i) => IssueSource.$is("Context")(i.source) && i.source.slot === slot);
+const openOf = (issues: ReadonlyArray<StoredIssue>, source: StoredSource) =>
+  issues.some((i) => Equal.equals(i.source, source));
 
 // Whether a reaction owes its slot's value a comparison: its slot has a value it has not compared.
 const differs = (baseline: Option.Option<Selected>, current: Option.Option<Selected>) =>
@@ -61,70 +87,48 @@ const differs = (baseline: Option.Option<Selected>, current: Option.Option<Selec
     }),
   );
 
+const sameSlot_ = Option.makeEquivalence(Equal.equals);
+
 /**
- * Context binding and waves: a consumer binds each slot to one
- * provider for its life and holds a use of it; a provider's change enqueues one context update
- * per consumer; the update reads every provider's latest snapshot and runs the consumer's
- * `onContext` reactions, each enqueuing its event when its selection changed.
+ * Context binding and waves: a consumer binds each slot to one provider for its life and holds a
+ * use of it; a provider's change owes each consumer one context update; the update reads every
+ * provider's latest snapshot and runs the consumer's `onContext` reactions. Every read here is a
+ * decision returned as data: only `apply` writes it.
  */
 export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   const { incarnationOf } = tx;
 
-  // An issue of a context source, replacing that source's earlier one; the same issue still open
-  // is raised once, not at every wave. Context is not part of the record, so this writes nothing.
-  const raise = (incarnation: Incarnation, issue: StoredIssue) => {
-    const open = incarnation.issues.some(
+  // A source's issue raised: the same issue still open is raised once, not at every wave.
+  const raise = (issues: ReadonlyArray<StoredIssue>, issue: StoredIssue) =>
+    issues.some(
       (i) =>
         Equal.equals(i.source, issue.source) &&
         i.code === issue.code &&
-        Option.makeEquivalence(Equal.equals)(i.slot, issue.slot),
-    );
-
-    if (open) return incarnation;
-
-    return withIssue(incarnation, tx.refuse(incarnation.actor, issue));
-  };
+        sameSlot_(i.slot, issue.slot),
+    )
+      ? []
+      : [OutcomeEdit.Raise({ issue })];
 
   // A source that succeeds clears its own issue, never another source's.
-  const clear = withoutIssue;
-
-  const keep = (incarnation: Incarnation) => tx.putIncarnation(incarnation);
-
-  // One slot's outcome: its selection taken, clearing its issue; or its selector's defect raised.
-  const settle = (
-    incarnation: Incarnation,
-    slot: string,
-    value: Result.Result<Selected, string>,
-    values: Map<string, Selected>,
-  ) => {
-    if (Result.isSuccess(value)) {
-      values.set(slot, value.success);
-
-      return clear(incarnation, IssueSource.Context({ slot }));
-    }
-
-    return raise(incarnation, {
-      source: IssueSource.Context({ slot }),
-      code: "Defect",
-      slot: Option.some(value.failure),
-    });
-  };
+  const clear = (issues: ReadonlyArray<StoredIssue>, source: StoredSource) =>
+    openOf(issues, source) ? [OutcomeEdit.Clear({ source })] : [];
 
   // Each slot's selection from its provider's current reads, through its Schema. A slot none of
   // whose reads changed keeps its selection and runs no select, unless its last select failed; a
   // select that throws, or returns what its Schema cannot encode, keeps the slot's last selection
   // and raises one issue.
-  const selected = (compiled: Compiled, incarnation: Incarnation) => {
-    let next: Incarnation = incarnation;
+  const selected = (compiled: Compiled, consumer: Selecting) => {
+    const outcomes: Array<OutcomeEdit> = [];
     // In declaration order, whatever order a record held them in.
     const values = new Map<string, Selected>();
 
     for (const [slot, declared] of compiled.context) {
-      const last = incarnation.context.get(slot);
+      const last = consumer.context.get(slot);
+      const source = IssueSource.Context({ slot });
 
       if (last !== undefined) values.set(slot, last);
 
-      const provider = Option.flatMap(Option.fromUndefinedOr(incarnation.bound.get(slot)), (id) =>
+      const provider = Option.flatMap(Option.fromUndefinedOr(consumer.bound.get(slot)), (id) =>
         Option.fromUndefinedOr(incarnationOf(id)),
       );
 
@@ -132,7 +136,8 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       const reads = declared.reads.map((read) => readOf(read, provider.value));
 
-      if (last !== undefined && sameReads(last, reads) && !failing(incarnation, slot)) continue;
+      if (last !== undefined && sameReads(last, reads) && !openOf(consumer.issues, source))
+        continue;
 
       const named = Object.fromEntries(declared.reads.map((read, i) => [read.name, reads[i]]));
 
@@ -141,31 +146,37 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           ? Result.succeed({ ...last, reads: Option.some(reads) })
           : Result.mapBoth(selectedOf(declared.walk, raw), {
               onFailure: () => declared.select.slot,
-              onSuccess: (selected) => ({
-                ...selected,
-                value: tx.env.admit(selected.value),
-                reads: Option.some(reads),
-              }),
+              onSuccess: (s) => ({ ...s, value: tx.env.admit(s.value), reads: Option.some(reads) }),
             }),
       );
 
-      next = settle(next, slot, value, values);
+      if (Result.isSuccess(value)) {
+        values.set(slot, value.success);
+        outcomes.push(...clear(consumer.issues, source));
+      } else
+        outcomes.push(
+          ...raise(consumer.issues, {
+            source,
+            code: "Defect",
+            slot: Option.some(value.failure),
+          }),
+        );
     }
 
-    return { ...next, context: values };
+    return { context: values, outcomes };
   };
 
   // Each reaction's baseline as it starts: its slot's value, silently; none for a slot whose select
   // failed, whose first value is then a change.
-  const baselinesOf = (compiled: Compiled, incarnation: Incarnation) =>
+  const baselinesOf = (compiled: Compiled, context: ReadonlyMap<string, Selected>) =>
     compiled[InternalsId].reactions.map((reaction) =>
-      Option.fromUndefinedOr(incarnation.context.get(reaction.slot)),
+      Option.fromUndefinedOr(context.get(reaction.slot)),
     );
 
   /**
    * Whether a consumer's reactions owe a comparison: one's slot has a value it has not compared.
    */
-  const owes = (incarnation: Incarnation) => {
+  const owes = (incarnation: Pick<Incarnation, "actor" | "context" | "baselines">) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
     return (
@@ -181,18 +192,20 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   /**
    * Binds a starting consumer's slots to their providers, ensuring each with a use and its wiring
-   * in the graph, and sets the silent baselines of its context and reactions.
+   * in the graph, and reads its context and the silent baselines of its reactions. `last` holds
+   * the selections a restored record saved, kept while a selector throws.
    */
   const bind = (
-    incarnation: Incarnation,
+    actor: ActorId,
+    last: ReadonlyMap<string, Selected>,
     wiring: ReadonlyMap<string, ActorId>,
     graph: Option.Option<Wiring>,
   ) => {
-    const compiled = tx.machines.get(incarnation.actor.machine);
-
-    if (compiled === undefined || compiled.context.size === 0) return incarnation;
-
+    const compiled = tx.machines.get(actor.machine);
     const bound = new Map<string, ActorId>();
+
+    if (compiled === undefined || compiled.context.size === 0)
+      return { bound, context: last, baselines: [], outcomes: [] };
 
     for (const slot of compiled.context.keys()) {
       const provider = wiring.get(slot);
@@ -203,9 +216,9 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       }
     }
 
-    const withValues = selected(compiled, { ...incarnation, bound });
+    const read = selected(compiled, { bound, context: last, issues: [] });
 
-    return { ...withValues, baselines: baselinesOf(compiled, withValues) };
+    return { bound, ...read, baselines: baselinesOf(compiled, read.context) };
   };
 
   /**
@@ -216,18 +229,10 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   };
 
   /**
-   * A provider changed: each live consumer bound to it gets one context update, unless one already
-   * waits in its mailbox, which the wave joins.
+   * A provider changed: each live consumer bound to it is owed one context update.
    */
   const wave = (provider: ActorId) => {
-    for (const consumer of tx.consumersOf(provider)) {
-      const waiting = (tx.world().mail.get(actorKey(consumer.actor)) ?? []).some(
-        Mail.$is("Context"),
-      );
-
-      if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));
-      else tx.joinWave(consumer.actor);
-    }
+    for (const consumer of tx.consumersOf(provider)) tx.owe(consumer.actor);
   };
 
   /**
@@ -247,7 +252,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
         if (known !== undefined) return known;
         judged.set(key, false);
-        const result = tx.world().mail.has(key) || busy(provider);
+        const result = tx.hasMail(provider) || busy(provider);
         judged.set(key, result);
 
         return result;
@@ -256,13 +261,13 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     return busy(actor);
   };
 
-  // Runs each reaction whose slot's value differs from its baseline, in declaration order:
-  // its baseline becomes the value and, when its `when` allows it, its event is kept to enqueue. An
-  // equal value is silent; a first value after none (a select that failed at the start) is a
-  // change, which `when` judges with no previous value. A when or mapper that throws raises one
-  // issue of its reaction and keeps its baseline.
+  // Runs each reaction whose slot's value differs from its baseline, in declaration order: its
+  // baseline becomes the value and, when its `when` allows it, its event is kept. An equal value is
+  // silent; a first value after none (a select that failed at the start) is a change, which `when`
+  // judges with no previous value. A when or mapper that throws raises one issue of its reaction
+  // and keeps its baseline.
   const react = (compiled: Compiled, read: Incarnation) => {
-    let next: Incarnation = read;
+    const outcomes: Array<OutcomeEdit> = [];
 
     const baselines = compiled[InternalsId].reactions.map(
       (_, at) => read.baselines[at] ?? Option.none(),
@@ -273,12 +278,13 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
     for (const [at, reaction] of compiled[InternalsId].reactions.entries()) {
       const current = read.context.get(reaction.slot);
       const previous = baselines[at] ?? Option.none();
+      const source = IssueSource.OnContext({ at });
 
       if (current === undefined) continue;
 
       if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {
         baselines[at] = Option.some(current);
-        next = clear(next, IssueSource.OnContext({ at }));
+        outcomes.push(...clear(read.issues, source));
         continue;
       }
 
@@ -289,9 +295,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
             when,
             current.value,
             Option.getOrUndefined(Option.map(previous, (p) => p.value)),
-            {
-              memory: read.memory,
-            },
+            readsOf(scopeOf(read), "Reaction", {}),
           ),
       });
 
@@ -307,16 +311,12 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
       Result.match(payload, {
         onFailure: (slot) => {
-          next = raise(next, {
-            source: IssueSource.OnContext({ at }),
-            code: "Defect",
-            slot: Option.some(slot),
-          });
+          outcomes.push(...raise(read.issues, { source, code: "Defect", slot: Option.some(slot) }));
         },
         // A changed value becomes the baseline even when `when` declines; a defect keeps it.
         onSuccess: (given) => {
           baselines[at] = Option.some(current);
-          next = clear(next, IssueSource.OnContext({ at }));
+          outcomes.push(...clear(read.issues, source));
 
           if (Option.isSome(given))
             events.push({ tag: reaction.event.event, payload: given.value });
@@ -324,33 +324,19 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       });
     }
 
-    return { next, baselines, events };
-  };
-
-  // A context update that changed no slot's value and owes no comparison: a select that ran for an
-  // equal value still keeps its new reads, so the next turn that changes none of them runs no
-  // select; only a changed issue is published.
-  const quiet = (incarnation: Incarnation, read: Incarnation) => {
-    const reselected = [...read.context].some(([slot, s]) => incarnation.context.get(slot) !== s);
-    const raised = read.issues !== incarnation.issues;
-
-    if (reselected || raised) keep(read);
-
-    if (raised) needs.publish(read);
+    return { baselines, events, outcomes };
   };
 
   /**
-   * Serves a context update: reads every provider again; when a slot changed, or a reaction owes
-   * its slot's value a comparison (a return's one wave),
-   * runs the reactions, each enqueuing its event, in declaration order, when its slot's value
-   * changed and its `when` allows it. An equal value is silent. It publishes only a changed slot or
-   * issue.
+   * A context update's decision: every provider read again; when a slot changed, or a reaction
+   * owes its slot's value a comparison (a return's one wave), the reactions run, each keeping its
+   * event, in declaration order, when its slot's value changed and its `when` allows it. None when
+   * the update changes nothing: no slot, no selection's reads and no outcome.
    */
-  const update = (actor: ActorId) => {
-    const incarnation = incarnationOf(actor);
-    const compiled = tx.machines.get(actor.machine);
+  const inputsOf = (incarnation: Incarnation) => {
+    const compiled = tx.machines.get(incarnation.actor.machine);
 
-    if (incarnation === undefined || compiled === undefined) return;
+    if (compiled === undefined) return Option.none<Read>();
 
     const read = selected(compiled, incarnation);
 
@@ -362,46 +348,52 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
         ),
     );
 
-    if (!changed && !owes(read)) {
-      quiet(incarnation, read);
+    const view = { ...incarnation, context: read.context };
 
-      return;
+    if (!changed && !owes(view)) {
+      // A select that ran for an equal value still keeps its new reads, so the next turn that
+      // changes none of them runs no select.
+      const reselected = [...read.context].some(([slot, s]) => incarnation.context.get(slot) !== s);
+
+      return reselected || read.outcomes.length > 0
+        ? Option.some<Read>({
+            context: read.context,
+            baselines: Option.none(),
+            outcomes: read.outcomes,
+            events: [],
+            changed: false,
+          })
+        : Option.none<Read>();
     }
 
-    const { next, baselines, events } = react(compiled, read);
-    const after = { ...next, baselines };
-    needs.save(after);
+    const reacted = react(compiled, view);
 
-    if (changed || after.issues !== incarnation.issues) needs.publish(after);
-
-    // The reactions' events take the context update's place in the mailbox: they come before
-    // the mail that was behind it.
-    tx.enqueueFirst(
-      events.map((event) =>
-        Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }),
-      ),
-    );
+    return Option.some<Read>({
+      context: read.context,
+      baselines: Option.some(reacted.baselines),
+      outcomes: [...read.outcomes, ...reacted.outcomes],
+      events: reacted.events,
+      changed,
+    });
   };
 
   /**
-   * A consumer starting from a record: its context is its providers' current one, and each
-   * reaction's baseline is the one its record saved, a baseline a defect kept included. A reaction
-   * whose slot's value differs is owed one wave; a reload of a consistent saved world owes nothing.
+   * The baselines a consumer starting from a record takes: the ones its record saved, a baseline a
+   * defect kept included. A reaction whose slot's value differs is owed one wave; a reload of a
+   * consistent saved world owes nothing.
    */
-  const restore = (incarnation: Incarnation, record: ActorRecord) => {
-    const compiled = tx.machines.get(incarnation.actor.machine);
-
-    if (compiled === undefined) return incarnation;
-
-    const baselines = compiled[InternalsId].reactions.map((_, at) =>
+  const restoredBaselines = (actor: ActorId, record: ActorRecord) =>
+    (tx.machines.get(actor.machine)?.[InternalsId].reactions ?? []).map((_, at) =>
       Option.map(record.baselines[at] ?? Option.none(), (b) => ({
         ...b,
         value: tx.env.admit(b.value),
       })),
     );
 
-    return { ...incarnation, baselines };
-  };
-
-  return { bind, unbind, wave, settling, update, owes, restore };
+  return { bind, unbind, wave, settling, inputsOf, owes, restoredBaselines };
 };
+
+/**
+ * Context binding and waves.
+ */
+export type ContextSteps = ReturnType<typeof makeContext>;

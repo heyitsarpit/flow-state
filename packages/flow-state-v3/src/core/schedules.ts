@@ -18,22 +18,24 @@ import {
   Seen,
 } from "./schedule-decision.ts";
 import {
+  alarmOf,
   declaredOn,
-  dueIn,
   dueRunsOf,
   firstStep,
   inRange,
   operationsOf,
+  overdueIn,
   seriesId,
   trackedAt,
-  waitingIn,
 } from "./schedule-plan.ts";
 import { issueOf } from "./schedule-issues.ts";
 import type { Arming as TurnArming } from "./turn.ts";
 import type { Tx } from "./tx.ts";
-import { type ActorId, type ArmingId, type Incarnation, Timer, trackOf } from "./world.ts";
+import { readsOf, scopeOf } from "./reads.ts";
+import { Life } from "./life.ts";
+import { type ActorId, type ArmingId, type Incarnation, trackOf } from "./world.ts";
+import { alarmKey } from "./alarms.ts";
 import {
-  type Alarm,
   Arming,
   Cursor,
   type Failure,
@@ -51,8 +53,6 @@ import {
 // FLOW_STATE_ALLOW_UNKNOWN: the rows a schedule's callbacks read, typed by the definition.
 type Operations = ReadonlyMap<string, ReadonlyMap<string, unknown>>;
 
-const NO_OPERATIONS: Operations = new Map();
-
 const NO_NAMES: ReadonlySet<string> = new Set();
 
 // What a committed turn did to the schedules of its incarnation: the states it exited, the armings
@@ -64,22 +64,9 @@ type TurnWork = {
   readonly fired: Option.Option<Firing>;
 };
 
-const sameAlarms = (a: ReadonlyMap<ArmingId, Alarm>, b: ReadonlyMap<ArmingId, Alarm>) =>
-  a.size === b.size && [...a].every(([arming, alarm]) => b.get(arming) === alarm);
-
 export const makeSchedules = (tx: Tx) => {
-  const contextOf = (incarnation: Incarnation) =>
-    Object.fromEntries([...incarnation.context].map(([slot, s]) => [slot, s.value]));
-
-  // What a schedule's functions read for one timer.
-  const readOf = (incarnation: Incarnation, key: Option.Option<TimerKey>, operations: Operations) =>
-    ({
-      key: Option.getOrUndefined(Option.map(key, (k) => k.value)),
-      memory: incarnation.memory,
-      context: contextOf(incarnation),
-      operations,
-      now: tx.env.now,
-    }) satisfies ScheduleInput;
+  // Whether an actor's schedules are awake: it is used and the Runtime is open.
+  const awake = (actor: ActorId) => Life.$is("Open")(tx.world().life) && tx.used(actor);
 
   const stepper =
     (actor: ActorId, track: string, armedAt: number) => (series: Series, attempt: number) =>
@@ -178,8 +165,11 @@ export const makeSchedules = (tx: Tx) => {
 
   // What one schedule's functions read for the decision, after the occasion; the lanes' rows are
   // gathered once, when a function first reads them.
-  const readsOf = (incarnation: Incarnation, schedule: Schedule, operations: () => Operations) => {
-    const read = (key: Option.Option<TimerKey>) => readOf(incarnation, key, operations());
+  const checksOf = (incarnation: Incarnation, schedule: Schedule, operations: () => Operations) => {
+    const scope = scopeOf(incarnation);
+
+    const read = (key: Option.Option<TimerKey>) =>
+      readsOf(scope, "Schedule", { key, operations: operations(), now: tx.env.now });
 
     return {
       keys: () =>
@@ -226,39 +216,43 @@ export const makeSchedules = (tx: Tx) => {
       tx.refuse(incarnation.actor, issueOf(schedule.name, failure.key, failure));
   };
 
-  // The host alarms after a pass: one per due run, by arming id and deadline; an alarm whose run
-  // left, moved or stopped is disarmed.
-  const reconciled = (incarnation: Incarnation) => {
-    const alarms = new Map<ArmingId, Alarm>();
+  /**
+   * Keeps an actor's schedule alarms in step with its due runs: one alarm per due run while the
+   * actor is awake (used, the Runtime open), none while it sleeps; an alarm whose run left, moved
+   * or stopped is cleared. `before` and `after` are the actor's incarnation around one change;
+   * none when it does not exist on that side.
+   */
+  const syncAlarms = (before: Option.Option<Incarnation>, after: Option.Option<Incarnation>) => {
+    const wanted = Option.match(after, {
+      onNone: () => [],
+      onSome: (incarnation) => (awake(incarnation.actor) ? dueRunsOf(incarnation) : []),
+    }).map((due) => ({ alarm: alarmOf(due), at: due.dueAt }));
 
-    for (const due of dueRunsOf(incarnation)) {
-      const had = incarnation.alarms.get(due.run.arming);
+    const kept = new Set(wanted.map(({ alarm }) => alarmKey(alarm)));
 
-      if (had !== undefined && had.dueAt === due.dueAt) {
-        alarms.set(due.run.arming, had);
-        continue;
+    for (const incarnation of Option.toArray(before))
+      for (const due of dueRunsOf(incarnation)) {
+        const alarm = alarmOf(due);
+
+        if (!kept.has(alarmKey(alarm))) tx.clearAlarm(alarm);
       }
 
-      if (had !== undefined) tx.disarm(had.timer);
+    for (const { alarm, at } of wanted) tx.setAlarm(alarm, at);
+  };
 
-      const timer = tx.armTimer(
-        Timer.Schedule({
-          actor: incarnation.actor,
-          incarnation: incarnation.id,
-          schedule: due.tracked.name,
-          track: trackOf(due.tracked.name, due.tracked.key),
-          arming: due.run.arming,
-        }),
-        due.dueAt,
-      );
+  /**
+   * Wakes an actor's schedules at a first use: each later due run has its alarm, and the runs that
+   * came due while it slept are returned, in firing order, to fire once each.
+   */
+  const wake = (incarnation: Incarnation) => {
+    const overdue = overdueIn(tx.machines, incarnation, tx.env.now);
+    const late = new Set(overdue.map((d) => d.run.arming));
 
-      alarms.set(due.run.arming, { timer, dueAt: due.dueAt });
-    }
+    if (awake(incarnation.actor))
+      for (const due of dueRunsOf(incarnation))
+        if (!late.has(due.run.arming)) tx.setAlarm(alarmOf(due), due.dueAt);
 
-    for (const [arming, alarm] of incarnation.alarms)
-      if (!alarms.has(arming)) tx.disarm(alarm.timer);
-
-    return sameAlarms(alarms, incarnation.alarms) ? incarnation : { ...incarnation, alarms };
+    return overdue;
   };
 
   // Decides every schedule declared on an incarnation's chain for one occasion, from `before`;
@@ -298,7 +292,7 @@ export const makeSchedules = (tx: Tx) => {
         schedule,
         was,
         occasionOf(schedule),
-        readsOf(incarnation, schedule, operations),
+        checksOf(incarnation, schedule, operations),
         { now: tx.env.now, mint: tx.mintArming },
       );
 
@@ -309,7 +303,7 @@ export const makeSchedules = (tx: Tx) => {
 
     changed = changed || [...before.keys()].some((name) => !after.has(name));
 
-    return changed ? reconciled({ ...incarnation, schedules: after }) : incarnation;
+    return changed ? { ...incarnation, schedules: after } : incarnation;
   };
 
   const namesIn = (incarnation: Incarnation, paths: ReadonlyArray<string>) =>
@@ -376,14 +370,7 @@ export const makeSchedules = (tx: Tx) => {
    * An incarnation's schedules woken from their decoded record: each decided on a silent wake.
    */
   const woke = (incarnation: Incarnation, saved: ReadonlyMap<string, Scheduled>) =>
-    reconciled(pass({ ...incarnation, schedules: saved }, saved, () => Occasion.Wake(), NO_NAMES));
-
-  /**
-   * Stops every host alarm: the incarnation ends.
-   */
-  const stopAll = (incarnation: Incarnation) => {
-    for (const alarm of incarnation.alarms.values()) tx.disarm(alarm.timer);
-  };
+    pass({ ...incarnation, schedules: saved }, saved, () => Occasion.Wake(), NO_NAMES);
 
   /**
    * What a timer's firing carries: its metadata for the send's mapper.
@@ -456,18 +443,14 @@ export const makeSchedules = (tx: Tx) => {
     rechecked,
     firingSettled,
     woke,
-    stopAll,
+    syncAlarms,
     metadataOf,
     nextOf,
     firingRun,
     scheduleNamed,
-    readOf,
     stepper,
     keyOf,
-    noOperations: NO_OPERATIONS,
-    waiting: (incarnation: Incarnation) =>
-      waitingIn(tx.world(), tx.machines, incarnation, tx.env.now),
-    dueNow: () => dueIn(tx.world(), tx.machines, tx.env.now),
+    wake,
   };
 };
 

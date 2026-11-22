@@ -1593,7 +1593,7 @@ tasks
             each field's Schema, an ending mapper's payload by its event's check.
 
             **Why now:** found while drafting the boundary map: `updateMemory`'s patch is spread outside its `call`
-            (code:packages/flow-state-v3/src/core/turn.ts#accept), so its keys and values are trusted, and an ending
+            (code:packages/flow-state-v3/src/core/walk.ts#accept), so its keys and values are trusted, and an ending
             mapper's payload enters the turn unchecked against its event
             (code:packages/flow-state-v3/src/core/serve.ts). It is the "user callback results" row of the boundary map,
             the one source with no owner.
@@ -3558,10 +3558,10 @@ tasks
             code:packages/flow-state-v3/src/core/schedule-decision.ts#paused,
             `packages/flow-state-v3/src/core/schedule-decision.ts#heldOrResumed`,
             code:packages/flow-state-v3/src/core/schedule-decision.ts#decide;
-            code:packages/flow-state-v3/src/core/schedules.ts#readOf,
-            code:packages/flow-state-v3/src/core/schedules.ts#contextOf,
+            `packages/flow-state-v3/src/core/schedules.ts#readOf`,
+            `packages/flow-state-v3/src/core/schedules.ts#contextOf`,
             code:packages/flow-state-v3/src/core/schedules.ts#pass,
-            code:packages/flow-state-v3/src/core/schedules.ts#stopAll,
+            `packages/flow-state-v3/src/core/schedules.ts#stopAll`,
             `packages/flow-state-v3/src/core/schedules.ts#unchanged`,
             `packages/flow-state-v3/src/core/schedules.ts#disarmRun`,
             `packages/flow-state-v3/src/core/schedules.ts#runningTimer`,
@@ -4409,7 +4409,7 @@ tasks
             Acceptance and the six checks:
 
             - 1. `rg "it\.fails" packages/flow-state-v3/tests` finds no hit in a schedule test.
-            - 2. Q1 B is consistent. One branch decides it (code:packages/flow-state-v3/src/core/turn.ts#accept). Every
+            - 2. Q1 B is consistent. One branch decides it (code:packages/flow-state-v3/src/core/walk.ts#accept). Every
               ending reaches it with `outcome` set (`serve.ts` `routeOf`, `serveEnding`). Creation, keys, restarts and
               wakes refuse no turn. Events refuse; firings become firing failures. The shop re-route is partly
               faithful (R2).
@@ -4614,42 +4614,41 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
-            **Supersedes:** code:packages/flow-state-v3/src/core/turn.ts#levelsOf,
+            **Supersedes:** code:packages/flow-state-v3/src/core/walk.ts#levelsOf,
             code:packages/flow-state-v3/src/core/turn-arms.ts#disarmedBy,
-            code:packages/flow-state-v3/src/core/turn.ts#accept, code:packages/flow-state-v3/src/core/turn.ts#runTurn,
+            code:packages/flow-state-v3/src/core/walk.ts#accept, code:packages/flow-state-v3/src/core/walk.ts#runTurn,
             code:packages/flow-state-v3/src/core/turn-arms.ts#armingsOf,
-            code:packages/flow-state-v3/src/core/turn.ts#TurnResult,
+            code:packages/flow-state-v3/src/core/walk.ts#TurnResult,
             code:packages/flow-state-v3/src/core/turn.ts#TurnInput; code:packages/flow-state-v3/src/core/serve.ts#turn,
-            code:packages/flow-state-v3/src/core/serve.ts#raised, code:packages/flow-state-v3/src/core/serve.ts#refusal,
+            `packages/flow-state-v3/src/core/serve.ts#raised`, code:packages/flow-state-v3/src/core/serve.ts#refusal,
             code:packages/flow-state-v3/src/core/serve.ts#pendingOwners,
-            code:packages/flow-state-v3/src/core/serve.ts#deferred, code:packages/flow-state-v3/src/core/serve.ts#drain,
-            code:packages/flow-state-v3/src/core/serve.ts#followUps; code:packages/flow-state-v3/src/core/step.ts#fired;
+            `packages/flow-state-v3/src/core/serve.ts#deferred`, code:packages/flow-state-v3/src/core/serve.ts#drain,
+            code:packages/flow-state-v3/src/core/serve.ts#followUps; `packages/flow-state-v3/src/core/step.ts#fired`;
             code:packages/flow-state-v3/src/core/tx.ts#putIncarnation;
             code:packages/flow-state-v3/src/core/incarnations.ts#start,
-            code:packages/flow-state-v3/src/core/incarnations.ts#setIncarnation,
-            code:packages/flow-state-v3/src/core/incarnations.ts#publish,
+            `packages/flow-state-v3/src/core/incarnations.ts#setIncarnation`,
+            `packages/flow-state-v3/src/core/incarnations.ts#publish`,
             code:packages/flow-state-v3/src/core/incarnations.ts#retire,
             code:packages/flow-state-v3/src/core/incarnations.ts#end,
             code:packages/flow-state-v3/src/core/incarnations.ts#dispose,
             code:packages/flow-state-v3/src/core/incarnations.ts#graces,
-            code:packages/flow-state-v3/src/core/incarnations.ts#fireWaiting,
+            `packages/flow-state-v3/src/core/incarnations.ts#fireWaiting`,
             code:packages/flow-state-v3/src/core/incarnations.ts#deliver;
             code:packages/flow-state-v3/src/core/context.ts#selected,
             code:packages/flow-state-v3/src/core/context.ts#react, code:packages/flow-state-v3/src/core/context.ts#bind,
             code:packages/flow-state-v3/src/core/context.ts#restore,
             code:packages/flow-state-v3/src/core/context.ts#baselinesOf,
-            code:packages/flow-state-v3/src/core/context.ts#owes,
-            code:packages/flow-state-v3/src/core/context.ts#failing,
+            code:packages/flow-state-v3/src/core/context.ts#owes, `packages/flow-state-v3/src/core/context.ts#failing`,
             code:packages/flow-state-v3/src/core/context.ts#raise,
             code:packages/flow-state-v3/src/core/context.ts#clear, code:packages/flow-state-v3/src/core/context.ts#keep,
             code:packages/flow-state-v3/src/core/context.ts#settle,
-            code:packages/flow-state-v3/src/core/context.ts#update,
-            code:packages/flow-state-v3/src/core/context.ts#quiet, code:packages/flow-state-v3/src/core/context.ts#wave;
+            code:packages/flow-state-v3/src/core/context.ts#update, `packages/flow-state-v3/src/core/context.ts#quiet`,
+            code:packages/flow-state-v3/src/core/context.ts#wave;
             code:packages/flow-state-v3/src/core/firings.ts#firing,
             code:packages/flow-state-v3/src/core/firings.ts#recheckLanes;
             code:packages/flow-state-v3/src/core/disposal.ts#started,
             code:packages/flow-state-v3/src/core/disposal.ts#end,
-            code:packages/flow-state-v3/src/core/disposal.ts#consumersFirst;
+            `packages/flow-state-v3/src/core/disposal.ts#consumersFirst`;
             code:packages/flow-state-v3/src/core/ledger.ts#Audience,
             code:packages/flow-state-v3/src/core/ledger.ts#live,
             code:packages/flow-state-v3/src/core/ledger.ts#onRecord,
@@ -4660,9 +4659,8 @@ tasks
             code:packages/flow-state-v3/src/core/world.ts#Command,
             code:packages/flow-state-v3/src/core/world.ts#indexesOf,
             code:packages/flow-state-v3/src/core/world.ts#indexDrift,
-            code:packages/flow-state-v3/src/core/world.ts#withIssue,
-            code:packages/flow-state-v3/src/core/world.ts#withIssues,
-            code:packages/flow-state-v3/src/core/world.ts#withoutIssue;
+            `packages/flow-state-v3/src/core/world.ts#withIssue`, `packages/flow-state-v3/src/core/world.ts#withIssues`,
+            `packages/flow-state-v3/src/core/world.ts#withoutIssue`;
             code:packages/flow-state-v3/src/host/driver.ts#perform,
             code:packages/flow-state-v3/src/host/driver.ts#ownerOf;
             code:packages/flow-state-v3/src/host/owners/owners.ts#cancel; the mail functions in `src/core/tx.ts` (about
@@ -5161,7 +5159,7 @@ tasks
             code:packages/flow-state-v3/src/core/ledger.ts#start,
             code:packages/flow-state-v3/src/core/ledger.ts#restore;
             code:packages/flow-state-v3/src/core/serve.ts#serveEnding,
-            code:packages/flow-state-v3/src/core/serve.ts#endingSource;
+            code:packages/flow-state-v3/src/core/trigger.ts#endingSource;
             code:packages/flow-state-v3/src/core/answers.ts#settled;
             code:packages/flow-state-v3/src/core/world.ts#IssueSource;
             `packages/flow-state-v3/src/core/incarnations.ts#CREATION`;

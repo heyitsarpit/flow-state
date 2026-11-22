@@ -79,6 +79,11 @@ const dueTimers = (snapshot: unknown) => {
   );
 };
 
+// An alarm's kind, as a cut shows it (Changes T14), and how many of a kind an actor owes.
+type Kind = Cut["inspection"]["timers"][number]["kind"];
+
+type Owed = { readonly kind: Kind; readonly want: number };
+
 /**
  * Changes I12: the alarms are exactly one per live owner fact: a `Schedule` alarm per due run of
  * an awake scope (its actor used, the Runtime open), a `Grace` per free actor (live, unused, no
@@ -95,7 +100,7 @@ export const alarmsMatch = (cut: Cut, where: string) => {
   // A schedule alarm counts only with its due time: one of an incarnation that ended shows none.
   const counted = (t: (typeof timers)[number]) => t.kind !== "Schedule" || Option.isSome(t.dueAt);
 
-  const count = (kind: string, actor: string) =>
+  const count = (kind: Kind, actor: string) =>
     timers.filter(
       (t) => t.kind === kind && Option.contains(Option.map(t.actor, String), actor) && counted(t),
     ).length;
@@ -103,8 +108,12 @@ export const alarmsMatch = (cut: Cut, where: string) => {
   const perActor = actors.flatMap(({ actor, snapshot }) => {
     const key = String(actor);
     const awake = open && used.has(key);
-    const schedule = { kind: "Schedule", want: awake ? dueTimers(snapshot) : 0 };
-    const grace = { kind: "Grace", want: open && !used.has(key) && !busy.has(key) ? 1 : 0 };
+    const schedule = { kind: "Schedule", want: awake ? dueTimers(snapshot) : 0 } satisfies Owed;
+
+    const grace = {
+      kind: "Grace",
+      want: open && !used.has(key) && !busy.has(key) ? 1 : 0,
+    } satisfies Owed;
 
     return [schedule, grace].flatMap(({ kind, want }) => {
       const have = count(kind, key);
@@ -139,25 +148,45 @@ export const alarmsMatch = (cut: Cut, where: string) => {
 };
 
 /**
- * Changes I5: each accepted turn's record is followed by its actor's publication, with no other
- * turn record of that actor between them. That a turn publishes at most once is Turn I9's run rule
- * (`publishedOnce`); which publication is the turn's own is `why`, once `Published` carries it.
+ * Changes I5: each accepted turn's record is followed by its actor's publication, with why
+ * `"Turn"` and no other turn record of that actor between them; and a publication with why
+ * `"Turn"` is always a turn's: a turn record of its actor comes after that actor's last earlier
+ * publication. That a turn publishes at most once is Turn I9's run rule (`publishedOnce`).
  */
-export const onePublication = (run: StoryRun<string>) =>
-  run.evidence.flatMap((e, at) => {
+export const onePublication = (run: StoryRun<string>) => [
+  ...run.evidence.flatMap((e, at) => {
     if (e._tag !== "Turn") return [];
 
     const key = keyOf(e.actor);
     const rest = run.evidence.slice(at + 1);
     const nextTurn = rest.findIndex((r) => by(r, "Turn", key));
     const published = rest.findIndex((r) => by(r, "Published", key));
+    const own = rest[published];
 
-    return published !== -1 && (nextTurn === -1 || published < nextTurn)
+    return published !== -1 &&
+      (nextTurn === -1 || published < nextTurn) &&
+      own?._tag === "Published" &&
+      own.why === "Turn"
       ? []
       : [
-          `Changes I5: ${key}'s turn on ${e.event} (evidence ${String(at)}) has no publication before its next turn`,
+          `Changes I5: ${key}'s turn on ${e.event} (evidence ${String(at)}) has no publication with why Turn before its next turn`,
         ];
-  });
+  }),
+  ...run.evidence.flatMap((e, at) => {
+    if (e._tag !== "Published" || e.why !== "Turn") return [];
+
+    const key = keyOf(e.actor);
+    const earlier = run.evidence.slice(0, at);
+    const lastPublished = earlier.findLastIndex((r) => by(r, "Published", key));
+    const lastTurn = earlier.findLastIndex((r) => by(r, "Turn", key));
+
+    return lastTurn > lastPublished
+      ? []
+      : [
+          `Changes I5: ${key}'s publication (evidence ${String(at)}) says Turn with no turn of its own`,
+        ];
+  }),
+];
 
 const IN_MAILBOX: ReadonlySet<string> = new Set(["Queued", "Retrying"]);
 

@@ -2,7 +2,8 @@ import { Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { definition, machine } from "../index.ts";
 import { activation } from "./test/ids.ts";
-import { LaneView, runTurn, TurnResult } from "./turn.ts";
+import { LaneView } from "./turn.ts";
+import { runTurn, TurnResult } from "./walk.ts";
 import { compiledOf } from "../compiled-of.ts";
 
 const Player = definition({

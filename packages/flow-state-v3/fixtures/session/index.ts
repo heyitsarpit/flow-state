@@ -6,7 +6,7 @@ import { workspaceGrown, workspaceGrownSetup } from "./app.ts";
 import { long, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { workspaceHide } from "./stories/visibility.ts";
 import { corruptRecord, oversizedRecord } from "./stories/edges.ts";
-import { avatarWall, wall, stressWall, wallOfSize } from "./stories/load.ts";
+import { avatarWall, wall, stressWall, waveNoop, wallOfSize } from "./stories/load.ts";
 import { grownSamples } from "./stories/samples.ts";
 import {
   corruptSeen,
@@ -65,6 +65,7 @@ export const session = manifest({
     oversizedRecord,
     wall,
     avatarWall,
+    waveNoop,
     signedOutReloaded,
     bylineReturns,
     guestBadgeFirst,
@@ -101,6 +102,7 @@ export const session = manifest({
     persist: Option.some(() => long),
     stories: [
       benchTurn(() => agendaLong),
+      benchTurn(() => waveNoop),
       benchTurn(() => archiveLarge),
       benchPoint(() => wall, { series: "saved-identities", n: 64, unit: "saved", growth: "flat" }),
       benchPoint(() => wallOfSize(500), {

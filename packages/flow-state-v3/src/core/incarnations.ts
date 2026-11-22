@@ -3,13 +3,13 @@ import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
-import { armingsOf } from "./turn-arms.ts";
-import { Occasion } from "./schedule-decision.ts";
+import { Alarm } from "./alarms.ts";
+import { makeApply } from "./apply.ts";
+import { Change, Origin } from "./change.ts";
 import { makeSchedules } from "./schedules.ts";
 import { makeScheduleRestore } from "./schedule-restore.ts";
-import { sameForm } from "./slots.ts";
-import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
+import type { LaneSteps } from "./lanes.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { actorRecordKey, decodeRecords, laneRecordKey } from "./record.ts";
 import { RuntimeDefaults } from "./defaults.ts";
@@ -20,14 +20,10 @@ import {
   type ActorKey,
   type ActorRecord,
   type LaneId,
-  Command,
-  type Incarnation,
   Mail,
   Quarantine,
   quarantineText,
   sameActor,
-  Timer,
-  trackOf,
   byStart,
   type Use,
   type Wiring,
@@ -35,195 +31,79 @@ import {
 import type { Persistence } from "./persist.ts";
 
 /**
- * Incarnations: creation, restore, uses, the grace and the end, with their schedules.
+ * Incarnations: creation, restore, uses, the grace and the end; each a change the one applier
+ * applies.
  */
-// The source of an issue raised while an incarnation is created.
+export const makeIncarnations = (
+  tx: Tx,
+  persistence: Persistence,
+  ledger: LedgerSteps,
+  lanes: LaneSteps,
+) => {
+  const { setAlarm, clearAlarm, incarnationOf, used, lanesOf, enqueue } = tx;
+  const { removeActor } = persistence;
 
-// What an ended incarnation leaves for its handles to read.
-const terminal = (incarnation: Incarnation) => ({
-  state: incarnation.state,
-  memory: incarnation.memory,
-});
-
-export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
-  const { armTimer, disarm, incarnationOf, used, lanesOf, enqueue } = tx;
-  const { removeActor, saveActor } = persistence;
-
-  // ── incarnations.
   const schedules = makeSchedules(tx);
   const { restore } = makeScheduleRestore(tx, schedules);
-
-  // Every change of an incarnation is written from its state at the step's end.
-  const setIncarnation = (incarnation: Incarnation) => {
-    tx.putIncarnation(incarnation);
-    saveActor(incarnation.actor);
-  };
-
-  const publish = (incarnation: Incarnation) =>
-    tx.act(
-      Act.Published({
-        actor: incarnation.actor,
-        state: incarnation.state,
-        memory: incarnation.memory,
-      }),
-    );
 
   // A consumer's providers are ensured with a use and released when it ends; ensure and release
   // are defined below and only called once a step runs.
   const context = makeContext(tx, {
     ensure: (provider, use, wiring) => ensure(provider, use, "create", wiring),
     release: (provider, use) => release(provider, use),
-    // A changed context re-checks the keys, restarts and pauses that read it.
-    publish: (incarnation) => {
-      const settled = schedules.rechecked(incarnation, Occasion.Context());
-
-      if (settled !== incarnation) setIncarnation(settled);
-      publish(settled);
-    },
-    save: (incarnation) => setIncarnation(incarnation),
   });
 
+  const apply = makeApply(tx, {
+    persistence,
+    ledger,
+    lanes,
+    schedules,
+    restore,
+    context,
+    deliver: (actor, event, sender) => deliver(actor, event, sender),
+  });
+
+  const live = (actor: ActorId) => Option.fromUndefinedOr(incarnationOf(actor));
+
+  // A restored record binds the providers it was saved with, unless the ensure names its own, and
+  // starts the providers up its graph with the bindings it saved.
   const start = (
     actor: ActorId,
     from: Option.Option<ActorRecord>,
     input: Values,
-    wiring: Option.Option<Wiring>,
+    given: Option.Option<Wiring>,
   ) => {
     const compiled = tx.machines.get(actor.machine);
 
     if (compiled === undefined) return;
 
-    const memory = Option.match(from, {
-      onNone: () => create(compiled, input),
-      onSome: (r) => r.memory,
-    });
-
-    const state = Option.match(from, { onNone: () => compiled.initial, onSome: (r) => r.state });
-
-    const base: Incarnation = {
-      ...tx.mintIncarnation(),
-      actor,
-      state,
-      activations: chainOf(state).map(() => tx.mintActivation()),
-      history: new Map(),
-      memory: tx.env.admit(memory),
-      schedules: new Map(),
-      alarms: new Map(),
-      issues: [],
-      bound: new Map(),
-      // A start from a record keeps its saved selections while a selector throws.
-      context: Option.match(from, {
-        onNone: () => new Map(),
-        onSome: (r) =>
-          new Map(
-            [...r.seen].map(([slot, s]) => [slot, { ...s, value: tx.env.admit(s.value) }] as const),
-          ),
-      }),
-      baselines: [],
-      grace: Option.none(),
-    };
-
-    tx.drop("ended", actorKey(actor));
-
-    // A live identity's record is read from its incarnation: the World keeps none beside it.
-    if (tx.world().records.has(actorKey(actor))) tx.drop("records", actorKey(actor));
-    setIncarnation(base);
-    tx.act(Act.Started({ actor }));
-
-    // Its slots bind before its first publication: the baselines are silent. A restored record
-    // binds the providers it was saved with, unless the ensure names its own, and starts the
-    // providers up its graph with the bindings it saved.
-    const fresh = context.bind(
-      base,
-      Option.getOrElse(
-        Option.orElse(
-          Option.map(
-            Option.flatMap(wiring, (given) => Option.fromUndefinedOr(given.get(actorKey(actor)))),
-            (given) => new Map([...compiled.wiring, ...given]),
-          ),
-          () =>
-            Option.filter(
-              Option.map(from, (r) => r.context),
-              (saved) => saved.size > 0,
-            ),
+    const wiring = Option.getOrElse(
+      Option.orElse(
+        Option.map(
+          Option.flatMap(given, (g) => Option.fromUndefinedOr(g.get(actorKey(actor)))),
+          (own) => new Map([...compiled.wiring, ...own]),
         ),
-        () => compiled.wiring,
+        () =>
+          Option.filter(
+            Option.map(from, (r) => r.context),
+            (saved) => saved.size > 0,
+          ),
       ),
-      Option.orElse(wiring, () => Option.map(from, (r) => r.graph)),
+      () => compiled.wiring,
     );
 
-    // A start from a saved record reads its providers now, and owes its reactions one wave for
-    // each slot whose saved selection differs. A reload of a consistent saved world differs in
-    // nothing, so it stays silent.
-    const bound = Option.match(from, {
-      onNone: () => fresh,
-      onSome: (record) => context.restore(fresh, record),
-    });
-
-    const incarnation = Option.match(from, {
-      onNone: () => {
-        const entered = chainOf(base.state);
-
-        const arm = armingsOf(
-          compiled,
-          base.state,
-          new Set(entered),
-          "",
-          {
-            memory: bound.memory,
-            context: Object.fromEntries([...bound.context].map(([slot, s]) => [slot, s.value])),
-            now: tx.env.now,
-          },
-          (name, series, attempt) => schedules.stepper(actor, name, tx.env.now)(series, attempt),
-        );
-
-        // A delay refused at creation has no turn to refuse: its timer's start is refused, with
-        // its issue, and the rest arm.
-        return schedules.turned(bound, bound.schedules, {
-          exits: [],
-          arms: arm,
-          disarms: [],
-          fired: Option.none(),
-        });
-      },
-      // A wake decides every schedule silently; when the context differs from what the record
-      // last heard, the schedules then hear it as a context change.
-      onSome: (record) => {
-        const woken = restore(bound, record.schedules);
-
-        const moved = [...bound.context].some(
-          ([slot, now]) =>
-            !sameForm(Option.fromUndefinedOr(record.seen.get(slot)), Option.some(now)),
-        );
-
-        return moved ? schedules.rechecked(woken, Occasion.Context()) : woken;
-      },
-    });
-
-    setIncarnation(incarnation);
-    publish(incarnation);
-    ledger.start(actor);
-
-    // The owed wave waits in its mailbox after the owed rows, ahead of the event that returned it.
-    if (context.owes(bound)) enqueue(Mail.Context({ actor, chain: tx.chainNow() }));
-  };
-
-  // The deadlines that came due while the actor was unused fire once each, in deadline order.
-  const fireWaiting = (actor: ActorId) => {
-    const incarnation = incarnationOf(actor);
-
-    if (incarnation === undefined) return;
-
-    for (const { tracked, run } of schedules.waiting(incarnation))
-      enqueue(
-        Mail.Firing({
-          actor,
-          incarnation: incarnation.id,
-          schedule: tracked.name,
-          track: trackOf(tracked.name, tracked.key),
-          arming: run.arming,
+    apply(
+      Option.none(),
+      Change.Begin({
+        actor,
+        origin: Option.match(from, {
+          onNone: () => Origin.Fresh({ input }),
+          onSome: (record) => Origin.Restored({ record }),
         }),
-      );
+        wiring,
+        graph: Option.orElse(given, () => Option.map(from, (r) => r.graph)),
+      }),
+    );
   };
 
   // A record the boot could not read is never restored: the identity starts fresh, reported, and
@@ -271,8 +151,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
     Option.match(use, {
       onNone: () => undefined,
       onSome: (u) => {
+        const returned = !used(actor);
         tx.putUses(actor, [...(tx.world().uses.get(key) ?? []), u]);
-        fireWaiting(actor);
+
+        if (returned) apply(live(actor), Change.Use({ returned }));
       },
     });
   };
@@ -291,53 +173,38 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
 
     if (at < 0) return;
     tx.putUses(actor, uses.toSpliced(at, 1));
+
+    // The last use released: the actor's schedules sleep, holding no alarm.
+    if (!used(actor) && Option.isSome(live(actor)))
+      apply(live(actor), Change.Use({ returned: false }));
   };
 
-  // An ending incarnation leaves: its schedules and grace stop, its reads stop, and its handles
-  // keep its terminal snapshot.
-  const retire = (incarnation: Incarnation) => {
-    schedules.stopAll(incarnation);
-
-    for (const timer of Option.toArray(incarnation.grace)) disarm(timer);
-    tx.dropIncarnation(incarnation.actor);
-    tx.put("ended", actorKey(incarnation.actor), terminal(incarnation));
-
-    for (const [call, read] of tx.world().reads)
-      if (read.incarnation === incarnation.id) tx.drop("reads", call);
-
-    tx.command(Command.EndWork({ owners: [incarnation.id], reportTo: "ref" }));
-    tx.act(Act.Finished({ actor: incarnation.actor }));
-    context.unbind(incarnation);
-  };
-
+  // A free actor's grace passed: it ends with its record kept. The end waits while the identity's
+  // actor record cannot encode: its grace starts again.
   const end = (actor: ActorId) => {
-    const incarnation = incarnationOf(actor);
+    if (Option.isNone(live(actor)) || !persistence.encodes(actor)) return;
 
-    // The end waits while the identity's actor record cannot encode: its grace starts again.
-    if (incarnation === undefined || !persistence.encodes(actor)) return;
-
-    // An end captures every marked record at once, not at the next interval.
-    persistence.keepEnded(incarnation);
-    retire(incarnation);
-    ledger.suspend(actor, false);
+    apply(live(actor), Change.End({ how: "Grace" }));
   };
 
   /**
-   * Disposes an identity or forgets it: its incarnation ends without a record, its record is
+   * Disposes an identity or forgets it: its live incarnation ends without a record, its record is
    * removed, and its lanes stay, unbound until an adopting ensure. Forget also lets go of its
    * parked and kept endings, as evidence.
    */
   const dispose = (actor: ActorId, forgetting: boolean) => {
-    const incarnation = incarnationOf(actor);
     const key = actorKey(actor);
 
-    if (incarnation !== undefined) retire(incarnation);
+    if (Option.isSome(live(actor)))
+      apply(live(actor), Change.End({ how: forgetting ? "Forgotten" : "Disposed" }));
+    else {
+      ledger.suspend(actor, forgetting);
+      tx.dropMail(actor);
+    }
 
     tx.drop("records", key);
     tx.dropUses(actor);
     removeActor(actor);
-    ledger.suspend(actor, forgetting);
-    tx.dropMail(actor);
 
     if (tx.world().quarantined.has(actorRecordKey(key)))
       tx.drop("quarantined", actorRecordKey(key));
@@ -408,21 +275,11 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         lanesOf(incarnation.actor).some(([, lane]) => isInFlight(lane)) ||
         tx.world().mail.has(actorKey(incarnation.actor));
 
-      const timing = Option.filter(incarnation.grace, (t) => tx.world().timers.has(t));
+      const grace = Alarm.Grace({ actor: incarnation.actor, incarnation: incarnation.id });
 
-      if (busy && Option.isSome(timing)) {
-        disarm(timing.value);
-        tx.putIncarnation({ ...incarnation, grace: Option.none() });
-      }
-
-      if (!busy && Option.isNone(timing)) {
-        const grace = armTimer(
-          Timer.Grace({ actor: incarnation.actor, incarnation: incarnation.id }),
-          tx.env.now + Duration.toMillis(RuntimeDefaults.freeGrace),
-        );
-
-        tx.putIncarnation({ ...incarnation, grace: Option.some(grace) });
-      }
+      if (busy) clearAlarm(grace);
+      else if (Option.isNone(tx.alarmed(grace)))
+        setAlarm(grace, tx.env.now + Duration.toMillis(RuntimeDefaults.freeGrace));
     }
   };
 
@@ -496,12 +353,10 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
   };
 
   return {
+    apply,
     dispose,
     schedules,
-    setIncarnation,
-    publish,
     start,
-    fireWaiting,
     ensure,
     deliver,
     create: createLocal,

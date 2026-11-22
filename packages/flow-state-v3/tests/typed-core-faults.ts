@@ -94,9 +94,9 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     rule: "Turn R21",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "            onSome: (activation) => OwnedBy.State({ activation }),",
-        replace: "            onSome: () => OwnedBy.Root(),",
+        file: "src/core/lanes.ts",
+        find: "        { onNone: () => OwnedBy.Root(), onSome: (activation) => OwnedBy.State({ activation }) },",
+        replace: "        { onNone: () => OwnedBy.Root(), onSome: () => OwnedBy.Root() },",
       },
     ],
   },
@@ -206,9 +206,10 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     rule: "Turn R10",
     edits: [
       {
-        file: "src/core/turn.ts",
-        find: "      const written = recordFrom(update, read);",
-        replace: "      const written = call(update.slot, () => update.run(read));",
+        file: "src/core/walk.ts",
+        find: "          const written = recordFrom(",
+        replace:
+          "          const written = ((slot: typeof update, read: Parameters<typeof update.run>[0]) => Result.try({ try: () => slot.run(read), catch: () => ({ slot: slot.slot }) }))(",
       },
     ],
   },
@@ -219,9 +220,9 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     rule: "Turn R19, I15",
     edits: [
       {
-        file: "src/core/serve.ts",
-        find: "      if (Option.isSome(route.ending)) publish(incarnation);",
-        replace: "      if (Option.isSome(route.ending) && false) publish(incarnation);",
+        file: "src/core/change.ts",
+        find: '    Unturned: () => Option.some<Why>("Other"),',
+        replace: "    Unturned: () => Option.none<Why>(),",
       },
     ],
   },

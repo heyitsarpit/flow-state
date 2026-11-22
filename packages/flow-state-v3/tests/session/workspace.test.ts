@@ -236,7 +236,7 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
     });
   });
 
-  it.fails("Changes R21, I7: each avatar's context update is served with its reaction's turn, in one step, with no other actor's record between them", async () => {
+  it("Changes R21, I7: each avatar's context update is served with its reaction's turn, in one step, with no other actor's record between them", async () => {
     const run = await avatarWall.run();
     const signIn = run.steps.findIndex((s) => s._tag === "send");
     const stepOf = new Map<unknown, number>();

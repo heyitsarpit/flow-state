@@ -1,7 +1,7 @@
 import { type Brand, Data, type Option } from "effect";
 import type { Series, Values } from "./compiled.ts";
 import type { IssueCode } from "./vocabulary.ts";
-import type { ArmingId, TimerId } from "./world.ts";
+import type { ArmingId } from "./world.ts";
 
 // A schedule's timers as the one decision builds them: each check's last outcome, the arming and
 // its run, and the views kept beside them.
@@ -47,7 +47,7 @@ export const Selection = Data.taggedEnum<Selection>();
 
 /**
  * Where a run is: due at `dueAt`, or held by its timer's pause reasons with `left` milliseconds to
- * go. A host alarm is a view of a due run, kept beside the timers by arming id.
+ * go. A due run of an awake scope has one host alarm (`alarms.ts`).
  */
 export type Timing = Data.TaggedEnum<{ Due: { dueAt: number }; Held: { left: number } }>;
 
@@ -142,8 +142,3 @@ export type Scheduled = Decided &
  */
 export const timersIn = (scheduled: Scheduled) =>
   scheduled._tag === "Single" ? [scheduled.timer] : [...scheduled.timers.values()];
-
-/**
- * A host alarm standing for a due run: its host timer and the deadline it was set for.
- */
-export type Alarm = { readonly timer: TimerId; readonly dueAt: number };

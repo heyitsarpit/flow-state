@@ -84,7 +84,7 @@ const judge = async (rule: (j: Judged) => ReadonlyArray<string>) =>
   (await runs).flatMap((j) => rule(j).map((breach) => `${j.atoms.join(" > ")}: ${breach}`));
 
 describe("the turn's parts over every sequence of home's atoms (Changes T1, T14)", () => {
-  it.fails("Changes I12: after every step the alarms are exactly one per live owner fact", async () => {
+  it("Changes I12: after every step the alarms are exactly one per live owner fact", async () => {
     const breaches = await judge(({ run }) =>
       Object.entries(run.checkpoints).flatMap(([name, cut]) => alarmsMatch(cut, name)),
     );
