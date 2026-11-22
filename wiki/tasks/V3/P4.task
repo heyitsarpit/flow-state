@@ -3002,7 +3002,7 @@ tasks
             (2026-11-22, P4 comment).
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
@@ -3673,6 +3673,25 @@ tasks
             out, unseen by its test. Rejected: an interval change not followed (R11), a far bill armed only on an
             occasion (R1, the user's answer), events in place of server reads and thin structure (as before the move),
             Spec ids in titles (tests cite rules by id).
+        comment     2026-11-22T06:58:18Z
+            Routed stress replay 1 of 3, generated home-rooms rest-2: a real breach, the runtime's side. Seed 5
+            deterministically breaks Turn I9 (the lounge's Disconnected turn from OFFLINE to OFFLINE publishes twice,
+            with a held thermostat write and a refused store load); the same seed fails the same way on df9c9ff6, before
+            this Task's runtime, so it is not this build's. Not routed to an owner yet: the second publish is not a
+            schedule pass's.
+        comment     2026-11-22T07:08:10Z
+            Routed stress replays 2 and 3, sweep-stress-abort-0 and sweep-stress-land-0: the tooling's side, a time
+            limit, not a breach seen. Each run alone times out at its 164 s limit (abort-0 249 s, land-0 245 s on
+            74675069 and later); abort-0 alone also timed out on df9c9ff6, before this Task's runtime (188 s), so the
+            shard outgrew its limit earlier and this build makes it about a third slower. No breach was shown before the
+            limit; unattached-0 failed the same way in the close stress run.
+        comment     2026-11-22T07:08:10Z
+            Close (builder): check, suite, docs:build pass on the final revision; stress fails only rest-2 seed 5 (Turn
+            I9, the lounge's offline turn publishing twice) and three sweep shards past their time limit, all failing
+            before this Task's runtime too. Ten fresh seeds per generated fixture found the same Turn I9 class at usual
+            seed 15, landed inverted in tests/generated/generated.test.ts with no owner yet. Every schedule plant of
+            this Task (48, re-pointed and new) is caught by `nub run faults --only`. The wrong list is deleted and no
+            `it.fails` is left in the schedule tests.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
