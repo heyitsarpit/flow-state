@@ -996,7 +996,7 @@ tasks
             both emit halves.
     T89
         title       Slice: Foundations
-        status      open
+        status      done
         priority    high
         description
             Execution slice: its children run together through one requirements phase, requirements review, build and
@@ -1290,6 +1290,11 @@ tasks
             Fix round done; T131, T120, T140 back to review. Compiled moved under the machine's internals key and faces
             freeze through collections (T131); the nested-placement refusal reverted to an inverted Schedules R8 test
             for T118 (T120). The Operations specs.log note is written; the Types note is moot, its edit reverted.
+        comment     2026-11-22T01:54:35Z
+            Slice closed (orchestrator, 2026-11-22). Requirements reviewed twice, built, close review ISSUES (one T131
+            blocker, two build Spec edits shaped to fit the code), fixed in d566ff4c and 3e6a2ae1 and checked by the
+            orchestrator on the slice tests; the next review checks the fix round per the Epic. The user's
+            page: code:wiki/plans/flow/references/pages/T89-foundations.md.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -3271,7 +3276,7 @@ tasks
 
     T120
         title       Declared schedules: the runtime half
-        status      review
+        status      done
         priority    high
         parent      [@T89]
 
@@ -3779,7 +3784,7 @@ tasks
               T1, T6).
     T131
         title       Construction trust: the doors
-        status      review
+        status      done
         priority    high
         parent      [@T89]
 
@@ -3987,7 +3992,7 @@ tasks
 
     T140
         title       Declared schedules: every user migrated, old form deleted
-        status      review
+        status      done
         priority    high
         parent      [@T89]
         blocked_by  [@T120]
