@@ -127,7 +127,8 @@ const startupBenches = (m: Manifest) => {
   ];
 };
 
-// The construction of the smallest, the widest and the deepest fixture machine (Types R7).
+// The construction of the fixture machines with the fewest states, the most states, and the
+// deepest tree (Types R7): each id names the extreme it measures among the fixtures.
 const constructBenches = constructed(manifests).flatMap(([size, machine]) =>
   Option.toArray(machine).map((built) =>
     bench({

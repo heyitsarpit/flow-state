@@ -135,6 +135,16 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ReasonMissing", "true"]]);
   });
 
+  it("Types I13: a declared reason given undefined in place of its callback is refused WrongKind, so it never holds a timer unseen", () => {
+    expect(
+      refusedAt(TICK, () =>
+        lampMachine({ tick: { pausedBy: ["Away"] } }, ({ E }) => ({
+          tick: { schedule: 1000, send: E["Tick"], paused: { Away: undefined } },
+        })),
+      ),
+    ).toEqual([["WrongKind", "true"]]);
+  });
+
   it("Types I13, Q4: a declared reason missing from a second placement is refused ReasonMissing at that placement", () => {
     expect(
       refusedAt("states.ON.schedules.tick", () =>

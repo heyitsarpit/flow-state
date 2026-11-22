@@ -26,7 +26,7 @@ export const optionsSchema = [
 
 const insideFolder = (path: string, folder: string) => path.startsWith(`${folder}/`);
 
-const isTestFile = (path: string) =>
+export const isTestFile = (path: string) =>
   /\.test\.tsx?$/u.test(path) || path.split("/").includes("test");
 
 export const relativePath = (filename: string) => {

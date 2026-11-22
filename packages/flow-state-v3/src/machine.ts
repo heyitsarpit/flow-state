@@ -8,7 +8,7 @@ import type { BodyTokens, MachineBody } from "./derive.ts";
 import { bodyFindings, inDeclarationOrder } from "./config.ts";
 import { type Finding, flowErrorOf, invalid, raise, refuse } from "./error.ts";
 import { builder, door } from "./entry.ts";
-import { internalsOf, made, madeOf } from "./made.ts";
+import { internalsOf, type KindOf, made, madeOf } from "./made.ts";
 import { endingOf, structOf } from "./events.ts";
 import { defect } from "./core/defect.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
@@ -63,9 +63,66 @@ const changeTokens = (slots: ReadonlyArray<string>, owner: symbol) =>
     ]),
   );
 
-// The body function. A conditional type, so a call that infers D instantiates it before checking
-// the body: the returned literal is then checked against the definition's own tree at every depth.
-type BodyOf<D> = [D] extends [AnyDefinition] ? (tokens: BodyTokens<D>) => MachineBody<D> : never;
+type Callable = (...args: never) => unknown;
+
+// A value a body holds whole: a token Flow made, or an Effect value such as a Duration or Schedule.
+// FLOW_STATE_ALLOW_UNKNOWN: either brand is matched by its key alone, whatever it holds.
+type Opaque = { readonly [KindOf]: unknown } | { readonly pipe: unknown };
+
+type KeysOf<T> = T extends unknown ? keyof T : never;
+
+type RecordOf<T> = T extends Opaque | Callable | ReadonlyArray<unknown>
+  ? never
+  : // oxlint-disable-next-line lint-bomb/no-object-type -- a slot's record may be an interface, such as Effect's Duration input, which no index-signature type matches
+    T extends object
+    ? T
+    : never;
+
+type At<T, K> = T extends unknown ? (K extends keyof T ? Exclude<T[K], undefined> : never) : never;
+
+type ElementOf<T> = T extends ReadonlyArray<infer E> ? E : never;
+
+type ReturnOf<T> = T extends Callable ? ReturnType<T> : never;
+
+// What a misspelt key meets: an object, so the error lands on that key alone and never collapses
+// its siblings to never.
+type Unknown<K> = { readonly "unknown key": K };
+
+// A returned record's keys checked against the records the slot may return.
+// FLOW_STATE_ALLOW_UNKNOWN: a value with no key to check is held to nothing more.
+type KeysOnly<R, T> = [T] extends [never]
+  ? unknown
+  : R extends ReadonlyArray<unknown> | Callable | Opaque
+    ? unknown
+    : R extends Values
+      ? { readonly [K in keyof R]: K extends KeysOf<RecordOf<T>> ? unknown : Unknown<K> }
+      : unknown;
+
+// The body as written, with every key its slot lacks marked, at every depth, in every union member,
+// and in the records a callback returns. A return is no fresh literal, so TypeScript's own
+// excess-key check never runs on a body function's result.
+type Exact<V, T> = unknown extends T
+  ? V
+  : V extends Opaque
+    ? V
+    : V extends (...args: infer A) => infer R
+      ? (...args: A) => KeysOnly<R, ReturnOf<T>>
+      : V extends ReadonlyArray<unknown>
+        ? { readonly [I in keyof V]: Exact<V[I], ElementOf<T>> }
+        : V extends Values
+          ? {
+              readonly [K in keyof V]: K extends KeysOf<RecordOf<T>>
+                ? Exact<V[K], At<RecordOf<T>, K>>
+                : Unknown<K>;
+            }
+          : V;
+
+// The body function, its result captured as B. A conditional type, so a call that infers D
+// instantiates it before checking the body: the returned literal is checked against the
+// definition's own tree at every depth, and B against the same tree for keys it lacks.
+type BodyOf<D, B> = [D] extends [AnyDefinition]
+  ? (tokens: BodyTokens<D>) => [MachineBody<D>] extends [B] ? B : B & Exact<B, MachineBody<D>>
+  : never;
 
 // The kinds of a reaction this machine's C made: a when that is no function and an event that is
 // no event token, judged with the body's kinds.
@@ -356,7 +413,10 @@ const build = (definition: AnyDefinition, body: BodyFunction) => {
  */
 export const machine = door<
   // RETURN_TYPE: the exported Machine keeps the definition's literal types.
-  <D extends AnyDefinition>(definition: D, body: BodyOf<NoInfer<D>>) => Machine<D>
+  <D extends AnyDefinition, B extends MachineBody<D> = MachineBody<D>>(
+    definition: D,
+    body: BodyOf<NoInfer<D>, B>,
+  ) => Machine<D>
 >("machine", build);
 
 /**

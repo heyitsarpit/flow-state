@@ -6191,7 +6191,7 @@ tasks
               doc sample.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
-        status      in_progress
+        status      review
         priority    high
         parent      [@T142]
         blocked_by  [@T113]
@@ -6328,3 +6328,63 @@ tasks
             Routed (orchestrator) from T143's close review: paused: { r: undefined } is accepted and never pauses
             (predates T143); the body capture should refuse undefined there, with a type test; T118 is closed so it
             lands here.
+        comment     2026-11-22T13:19:19Z
+            [decided: agent builder 2026-11-22] The body capture lands as @proposal.body-key-typos shape A: `machine`
+            takes `B extends MachineBody<D>` and checks `B & Exact<B, MachineBody<D>>`
+            (code:packages/flow-state-v3/src/machine.ts#BodyOf). Why: the user's Q5 A, which reverses @spec.Types Q19 C;
+            no body changed but the two planted fixtures, which now carry `@ts-expect-error`. Reverse: `body:
+            BodyOf<NoInfer<D>>` without B.
+        comment     2026-11-22T13:19:20Z
+            [decided: agent builder 2026-11-22] A small helper serving several handlers stays, typed from derived types
+            (`typeof D.E.X.Type`, `typeof D.Memory.Type`); a one-use mapper and a hoisted handler object are written in
+            place. So K5 reads one `byRepo` per definition: Sync's and the lanes client's, each typed by its own
+            definition; `fromAccount` is one. Why: the user's review of the in-progress diff. Reverse: one shared
+            `byRepo` typed structurally.
+        comment     2026-11-22T13:19:21Z
+            [decided: agent builder 2026-11-22] `fixtures/lanes/machines/clients.ts` keeps `clientUnder`. Why: unrolled,
+            each client's id is its own literal type, so `clients[policy]` in the policy tables (`policy-cells.test.ts`,
+            `lanes/stories/usual.ts`) becomes a union no `send` or `ensure` accepts; the factory gives the three one
+            type. `Policy` there names three of Flow's own concurrency values, not a definition's declaration. Reverse:
+            three written definitions and per-client table code.
+        comment     2026-11-22T13:19:32Z
+            [decided: agent builder 2026-11-22] The construct rows are renamed `startup.construct.fewest-states`,
+            `.most-states` and `.deepest`: no fixture app has a real reason for a machine deeper than 2 or wider than 9
+            (a long wizard or nested House modes would be shape for its own sake), so each row names the extreme it
+            times. Why: the routed item's fallback. Reverse: extend Booking or House and restore `wide` and `deep`.
+        comment     2026-11-22T13:19:33Z
+            [decided: agent builder 2026-11-22] Routed item 3 of T113's close (`Nudger` in
+            `tests/home/schedules.test.ts`) stays as written. Why: Room's `reconnect` mapper reads `attempt` only, and
+            making it read an always-undefined `key` would bend a user fixture for a test; the type half is pinned on
+            Room in `schedules.test-d.ts`. Reverse: give Room a mapper that reads `key`.
+        comment     2026-11-22T13:19:34Z
+            [decided: agent builder 2026-11-22] `tools/faults/run.ts` turns on typecheck for the scratch copies
+            (`*.test-d.ts`, the package tsconfig), as the default suite does. Root cause: the copy's vite config
+            included `*.test.ts` only, so a fault in a type could never be caught and a type-test target printed no
+            summary. Why: the body capture and the three renames are type rules. Reverse: drop the typecheck block and
+            target runtime tests only.
+        comment     2026-11-22T13:55:14Z
+            Build notes (builder). Origins: K1 to K6 were Flow-free hand types in fixtures and tests; mapper parameters
+            already infer, so K1 is deleted text. The `paused: { r: undefined }` routed item: the type already refused
+            it (`exactOptionalPropertyTypes`) and construction refuses it WrongKind on the placement, now pinned in
+            `excess-keys.test-d.ts` and `tests/compile/schedule-declarations.test.ts`. Type plants in fault copies: a
+            type error outside a test's own lines is no failed test, so `receipt-renamed` also renames the bank's
+            answer, and each rename was checked with tsc to break every helper that reads it (`byRepo`, `repo.ts`,
+            `fromAccount` and its two test uses, the Done mapper). Extra files: `tools/faults/run.ts`,
+            `tools/flow-state-lint/rules/shared.ts` (`isTestFile` exported), `tests/untyped.ts` (one plain-JavaScript
+            caller for three tests), `tests/door-faults.ts` (re-anchored), `wiki/tasks/V3/P5.task` (dead
+            `PayBody` link).
+        comment     2026-11-22T13:55:15Z
+            Close (builder): every acceptance item holds; set to review. Done-checks: K1 lists only `loose`, the three
+            deliberate type-test refusals and one derived bare sample; K2 is empty; K3's regex lists only derived types,
+            derived aliases, `loose` and erased-record test helpers, and `no-hand-typed-callback` (the precise check)
+            reports 0; K4 lists derived aliases, `tests/untyped.ts#Tokens`, `Held` (untyped body), test outcome models
+            `Seen` and `Outcome`, and clients.ts `Policy`; K5 one `byRepo` per definition, one `fromAccount`; K6 only
+            the type test; palette `Picked`/`Pick` gone; `it.fails` none. Faults `--only` 6 of 6 caught by targets
+            (`body-capture-dropped`, `sync-repo-renamed`, `account-renamed`, `receipt-renamed`, `initial-first-state`,
+            re-anchored `copy-taken-as-made` stays planted). Gates: `nub run check` 0; `lint:rules` pass; suite 25141
+            passed, 17 expected fail, 0 type errors (two runs on 6% battery timed out heavy files, each passing alone;
+            reran on AC); `docs:build` exit 0, no generated change; generated Stories at `FLOW_SEEDS=40` fail only
+            home-rooms seed 15 Turn I9 (T97's). Check time (tsgo, whole package, best of 3 to 4, load noisy): before
+            1.00 s, 5.10 M instantiations, 941 k types, 1.17 GB; after the sweep 1.05 s, 5.11 M; after the capture 1.27
+            s, 6.88 M, 1.21 M types, 1.48 GB (+27% time, +35% instantiations; the spike had +14%, +35%). Bench
+            `startup.construct.most-states --dev` 0.28 ms. Not run: stress (no stress Story or sweep touched).

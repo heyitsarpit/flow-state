@@ -30,10 +30,10 @@ export const constructed = (manifests: ReadonlyArray<Manifest>) => {
     Option.fromUndefinedOr(machines.toSorted((a, b) => order(a, b) || byId(a, b))[0]);
 
   return [
-    ["small", pick((a, b) => extentOf(a).states - extentOf(b).states)],
-    ["wide", pick((a, b) => extentOf(b).states - extentOf(a).states)],
+    ["fewest-states", pick((a, b) => extentOf(a).states - extentOf(b).states)],
+    ["most-states", pick((a, b) => extentOf(b).states - extentOf(a).states)],
     [
-      "deep",
+      "deepest",
       pick(
         (a, b) => extentOf(b).depth - extentOf(a).depth || extentOf(b).states - extentOf(a).states,
       ),

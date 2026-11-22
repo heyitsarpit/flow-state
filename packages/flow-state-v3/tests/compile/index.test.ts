@@ -1,7 +1,8 @@
 import { readdirSync } from "node:fs";
 import { Option, Predicate, Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { compiledOf } from "../../src/host/inspect.ts";
+import { compiledOf, InternalsId } from "../../src/host/inspect.ts";
+import { loose } from "../../src/test/loose.ts";
 
 type Compiled = ReturnType<typeof compiledOf>;
 
@@ -31,6 +32,7 @@ const machines = modules.flatMap(({ file, exports }) =>
       ? Option.toArray(
           Option.map(Result.getSuccess(Result.try(() => compiledOf(value))), (compiled) => ({
             name: `${file}#${name}`,
+            machine: value,
             compiled,
           })),
         )
@@ -59,6 +61,33 @@ const handledOf = (compiled: Compiled) =>
     ...[...compiled.states.values()].flatMap((node) => [...node.on.keys()]),
   ]);
 
+// FLOW_STATE_ALLOW_UNKNOWN: a value read one property at a time, as plain JavaScript reads it.
+const field = (value: unknown, key: PropertyKey) =>
+  Predicate.hasProperty(value, key) ? value[key] : undefined;
+
+// FLOW_STATE_ALLOW_UNKNOWN: a callback read off a value, called as plain JavaScript calls it.
+const called = (f: unknown, input: unknown) => {
+  const run: (input: unknown) => unknown = loose(f);
+
+  return Predicate.isFunction(f) ? run(input) : undefined;
+};
+
+// The path the authored root default names: the machine's body run again with its definition's
+// tokens (a `C` whose reactions are blank), and the default it returns found among the
+// definition's state tokens by identity, so the oracle never reads what construction derived.
+const authoredDefault = (machine: unknown, compiled: Compiled) => {
+  const definition = field(machine, "definition");
+  const S = field(definition, "S");
+  const C = new Proxy({}, { get: () => ({ change: () => ({}) }) });
+  const body = field(field(field(machine, InternalsId), "internals"), "body");
+  const written = called(body, { S, E: field(definition, "E"), O: field(definition, "O"), C });
+  const chosen = field(written, "default");
+
+  return (
+    [...compiled.states.keys()].find((path) => path.split(".").reduce(field, S) === chosen) ?? ""
+  );
+};
+
 describe("Compiled's derived fields equal their slow scans (Types I10, T5)", () => {
   it("Types T5: every fixture machines module builds its machines", () => {
     expect(modules.filter((m) => !m.loaded).map((m) => m.file)).toEqual([]);
@@ -75,7 +104,7 @@ describe("Compiled's derived fields equal their slow scans (Types I10, T5)", () 
     }).toEqual({ machines: true, nested: true });
   });
 
-  for (const { name, compiled } of machines)
+  for (const { name, machine, compiled } of machines)
     it(`Types I10: ${name}'s chain, depth, leaf, initial and handled tags`, () => {
       const nodes = [...compiled.states.values()];
 
@@ -89,7 +118,7 @@ describe("Compiled's derived fields equal their slow scans (Types I10, T5)", () 
         chains: nodes.map((n) => chainOf(n.path)),
         depths: nodes.map((n) => chainOf(n.path).length),
         leaves: nodes.map((n) => leafOf(compiled, n.path)),
-        initial: leafOf(compiled, chainOf(compiled.initial)[0] ?? ""),
+        initial: leafOf(compiled, authoredDefault(machine, compiled)),
         handled: [...handledOf(compiled)].toSorted(),
       });
     });

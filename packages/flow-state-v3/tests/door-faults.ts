@@ -17,8 +17,8 @@ export const doorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: 'import { internalsOf, made, madeOf } from "./made.ts";',
-        replace: 'import { internalsOf, made, madeOf, ownerOf } from "./made.ts";',
+        find: 'import { internalsOf, type KindOf, made, madeOf } from "./made.ts";',
+        replace: 'import { internalsOf, type KindOf, made, madeOf, ownerOf } from "./made.ts";',
       },
       {
         file: "src/machine.ts",

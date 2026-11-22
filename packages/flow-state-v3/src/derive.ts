@@ -159,11 +159,12 @@ export type MachineBody<D extends AnyDefinition> = {
  *
  * **When to use**
  *
- * To type a body written apart from its `machine(definition, body)` call, such as one body shared
- * by two machines of one definition.
+ * To type a helper written apart from its `machine(definition, body)` call that takes the body's
+ * tokens, such as one that builds an action several handlers share.
  *
  * ```ts
- * const payBody = ({ S, E, O }: Flow.BodyTokens<typeof Pay>) => ({ default: S.IDLE })
+ * const releaseHold = ({ O }: Flow.BodyTokens<typeof Pay>) =>
+ *   O.void.commit(({ memory }) => ({ intentId: memory.intentId }))
  * ```
  */
 export type BodyTokens<D extends AnyDefinition> = {

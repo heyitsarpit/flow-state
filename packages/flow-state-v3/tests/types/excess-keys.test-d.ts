@@ -16,9 +16,8 @@ import { transaction } from "../../src/index.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // Each `@ts-expect-error` names the rule its line breaks; beside it the correct use of the same
-// parameter is asserted exactly. Lines still marked `wrong` compile: their type half is owed, with
-// the reason beside them; construction refuses a body, alternative or list key at load, and the
-// turn refuses a returned key whole.
+// parameter is asserted exactly. Construction still refuses a body, alternative or list key the
+// types did not see, and the turn refuses a returned key whole.
 
 const Pay = definition({
   id: "types/ExcessPay",
@@ -59,14 +58,21 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
     }));
   });
 
-  // Owed, a TypeScript limit: a returned object is not excess-checked, and an exact body inferred
-  // from the return breaks the contextual typing of handles and sends. Construction does not see a
-  // returned key: the machine builds, and the turn that returns it is refused whole (InvalidTurn,
-  // Turn R8).
-  it("Compile R14 (owed in types): a misspelt field beside a writable one compiles", () => {
+  // A body function's result is no fresh literal, so TypeScript runs no excess-key check on it:
+  // machine captures the body as written and marks each key its slot lacks, here in a record
+  // updateMemory returns.
+  it("Types R2: a misspelt field beside a writable one is refused on the returned record", () => {
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, updateMemory: () => ({ count: 1 }) } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      on: { go: { updateMemory: () => ({ count: 1, cuont: 2 }) } }, // wrong: `cuont`
+      // @ts-expect-error Types R2: `cuont` is no field of Pay's memory
+      on: { go: { updateMemory: () => ({ count: 1, cuont: 2 }) } },
     }));
   });
 
@@ -86,41 +92,204 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
   });
 });
 
-// Owed in types, as above: construction refuses each misspelt key UnknownField at load
-// (tests/compile/construction.test.ts, Compile R4).
-describe("Compile R4, R14 (owed in types): a machine body is exact", () => {
+// Each misspelt key is a type error on that key, beside a correctly spelt sibling, so the weak-type
+// check TypeScript would otherwise rely on never hides it; construction refuses the same keys
+// UnknownField at load (tests/compile/construction.test.ts, Compile R4).
+const Wizard = definition({
+  id: "types/ExcessWizard",
+  states: ["IDLE", "ON", { MORE: ["A", "B"] }],
+  events: { go: {} },
+  internalEvents: { Tick: {} },
+  memory: { count: Flow.initial(Schema.Number, 0) },
+  schedules: { tick: { pausedBy: ["Away"] } },
+});
+
+describe("Types R2: a machine body is exact, at every depth", () => {
   it("a misspelt body key", () => {
-    machine(Pay, ({ S }) => ({ default: S.IDLE, onn: {} })); // wrong: `onn`
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, updateMemory: () => ({ count: 1 }) } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
+    // @ts-expect-error Types R2: `onn` is no body key
+    machine(Pay, ({ S }) => ({ default: S.IDLE, onn: {} }));
   });
 
-  it("a misspelt alternative key", () => {
+  it("a misspelt target beside the target", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, guard: [], actions: [] } },
+        states: { ON: {} },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
+    machine(Wizard, ({ S }) => ({
+      default: S.IDLE,
+      // @ts-expect-error Types R2: `taget` is no alternative key
+      on: { go: { taget: S.ON, target: S.ON } },
+    }));
+  });
+
+  it("a misspelt updateMemory beside a target", () => {
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, updateMemory: () => ({ count: 1 }) } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      on: { go: { target: S.ON, updateMemry: () => ({}) } }, // wrong: `updateMemry`
+      // @ts-expect-error Types R2: `updateMemry` is no alternative key
+      on: { go: { target: S.ON, updateMemry: () => ({}) } },
+    }));
+  });
+
+  it("a misspelt guard beside a target", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, guard: [], actions: [] } },
+        states: { ON: {} },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
+    machine(Wizard, ({ S }) => ({
+      default: S.IDLE,
+      // @ts-expect-error Types R2: `gaurd` is no alternative key
+      on: { go: { target: S.ON, gaurd: [] } },
+    }));
+  });
+
+  it("a misspelt actions beside a target", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, guard: [], actions: [] } },
+        states: { ON: {} },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
+    machine(Wizard, ({ S }) => ({
+      default: S.IDLE,
+      // @ts-expect-error Types R2: `actionss` is no alternative key
+      on: { go: { target: S.ON, actionss: [] } },
     }));
   });
 
   it("an unknown key in a handler list", () => {
-    machine(Pay, ({ S }) => ({ default: S.IDLE, on: { go: [{ target: S.ON, bogus: 1 }] } })); // wrong
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, updateMemory: () => ({ count: 1 }) } },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
+    machine(Pay, ({ S }) => ({
+      default: S.IDLE,
+      // @ts-expect-error Types R2: `bogus` is no alternative key
+      on: { go: [{ target: S.ON, bogus: 1 }] },
+    }));
   });
 
-  it("the same body spelt right compiles", () => {
-    const right = machine(Pay, ({ S }) => ({
+  it("a misspelt state beside a declared one, and a misspelt key in a nested state", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON, guard: [], actions: [] } },
+        states: { ON: {} },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
+    machine(Wizard, ({ S }) => ({
       default: S.IDLE,
-      on: { go: [{ target: S.ON, updateMemory: () => ({ count: 1 }) }] },
+      // @ts-expect-error Types R2: `Zed` is no state of Wizard
+      states: { ON: {}, Zed: {} },
     }));
 
-    expectTypeOf(right).toEqualTypeOf<Machine<typeof Pay>>();
+    machine(Wizard, ({ S }) => ({
+      default: S.IDLE,
+      states: {
+        MORE: {
+          default: S.MORE.A,
+          // @ts-expect-error Types R2: `taget` is no alternative key, at depth 3
+          states: { A: { on: { go: { target: S.MORE.B, taget: S.IDLE } } } },
+        },
+      },
+    }));
   });
 
-  it("a nested state's unknown key is refused today", () => {
+  it("a misspelt key in a schedule's placement, and a pause reason with no callback", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S, E }) => ({
+        default: S.IDLE,
+        states: {
+          ON: {
+            schedules: { tick: { schedule: 1000, send: E.Tick, paused: { Away: () => false } } },
+          },
+        },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
+    machine(Wizard, ({ S, E }) => ({
+      default: S.IDLE,
+      states: {
+        ON: {
+          schedules: {
+            tick: {
+              schedule: 1000,
+              send: E.Tick,
+              // @ts-expect-error Types R2: `sned` is no placement key
+              sned: E.Tick,
+              paused: { Away: () => false },
+            },
+          },
+        },
+      },
+    }));
+
+    machine(Wizard, ({ S, E }) => ({
+      default: S.IDLE,
+      states: {
+        ON: {
+          schedules: {
+            // @ts-expect-error Types R8: a declared reason needs its callback, never undefined
+            tick: { schedule: 1000, send: E.Tick, paused: { Away: undefined } },
+          },
+        },
+      },
+    }));
+  });
+
+  it("the same bodies spelt right compile", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S, E }) => ({
+        default: S.IDLE,
+        on: { go: [{ target: S.ON, guard: [], actions: [], updateMemory: () => ({ count: 1 }) }] },
+        states: {
+          ON: {
+            schedules: {
+              tick: { schedule: 1000, send: E.Tick, paused: { Away: () => false } },
+            },
+          },
+          MORE: {
+            default: S.MORE.A,
+            states: { A: { on: { go: { target: S.MORE.B } } } },
+          },
+        },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
     expectTypeOf(
       machine(Pay, ({ S }) => ({ default: S.IDLE, states: { ON: { on: { go: S.IDLE } } } })),
     ).toEqualTypeOf<Machine<typeof Pay>>();
 
     machine(Pay, ({ S }) => ({
       default: S.IDLE,
-      // @ts-expect-error Compile R4: `onn` is no state key
+      // @ts-expect-error Types R2: `onn` is no state key
       states: { ON: { onn: {} } },
     }));
   });

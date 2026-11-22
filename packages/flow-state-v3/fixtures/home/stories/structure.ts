@@ -193,7 +193,7 @@ export const undeclaredSchedule = () =>
 
 /**
  * Refused shape, the wrong ending of a misspelt reason: `Vacaton` is no declared pause reason of
- * `check`, so it would hold nothing; a construction error.
+ * `check`, so it would hold nothing; a type error, and a construction error past the types.
  */
 export const misspeltReason = () =>
   machine(Room, ({ S, E }) => ({
@@ -206,7 +206,11 @@ export const misspeltReason = () =>
             schedule: Duration.minutes(5),
             send: E.BoostEnded,
             restartOn: () => 20,
-            paused: { Vacation: () => false, Vacaton: () => true },
+            paused: {
+              Vacation: () => false,
+              // @ts-expect-error Types R2: Vacaton is no declared pause reason
+              Vacaton: () => true,
+            },
           },
         },
       },

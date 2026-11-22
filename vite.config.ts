@@ -297,6 +297,10 @@ export default defineConfig({
           "flow-state/no-event-name-filter": "error",
           "flow-state/paired-refusals": "error",
           "flow-state/no-hand-option": ["error", { only: ["src", "tests", "fixtures"] }],
+          "flow-state/no-hand-typed-callback": [
+            "error",
+            { only: ["src", "tests", "fixtures", "bench"] },
+          ],
           "flow-state/no-id-text": ["error", { only: ["src/core"], exceptTests: true }],
           "flow-state/no-tag-chain": ["error", { only: ["src"], exceptTests: true }],
           // Decides by path itself: the package, and outside it only when given `outside`.

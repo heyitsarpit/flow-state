@@ -3,6 +3,7 @@ import { eslintCompatPlugin } from "@oxlint/plugins";
 import { bans } from "./rules/bans.ts";
 import { derivedReportsRule } from "./rules/derived-reports.ts";
 import { noHandOptionRule } from "./rules/no-hand-option.ts";
+import { noHandTypedCallbackRule } from "./rules/no-hand-typed-callback.ts";
 import { noIdTextRule } from "./rules/no-id-text.ts";
 import { noTagChainRule } from "./rules/no-tag-chain.ts";
 import { noUndeclaredScheduleRule } from "./rules/no-undeclared-schedule.ts";
@@ -21,6 +22,7 @@ const flowStateLintPlugin = eslintCompatPlugin({
     "no-raw-event": noRawEventRule,
     "no-event-name-filter": noEventNameFilterRule,
     "no-hand-option": noHandOptionRule,
+    "no-hand-typed-callback": noHandTypedCallbackRule,
     "no-id-text": noIdTextRule,
     "no-tag-chain": noTagChainRule,
     "no-undeclared-schedule": noUndeclaredScheduleRule,

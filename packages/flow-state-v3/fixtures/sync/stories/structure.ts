@@ -48,8 +48,8 @@ export const repoOpenedInBackoff = backingOffClient("sync/repo-opened-in-backoff
 
 /**
  * A head reaction written in the paused state's body, where no reaction is declared (S7): refused
- * when the machine is built, since only the root declares `onContext`. A state body's extra key is
- * not a type error today, so construction is what refuses it.
+ * when the machine is built, since only the root declares `onContext`. The types refuse the state
+ * body's extra key too; construction refuses a body the types did not see.
  */
 export const pausedPull = () =>
   machine(AutoPull, ({ S, E, C }) => ({
@@ -58,6 +58,7 @@ export const pausedPull = () =>
     states: {
       WATCHING: { on: { Pause: S.PAUSED } },
       PAUSED: {
+        // @ts-expect-error Types R2: a state body has no onContext
         onContext: [C.head.change({ event: E.HeadMoved.from((head) => ({ head })) })],
         on: { Resume: S.WATCHING },
       },
