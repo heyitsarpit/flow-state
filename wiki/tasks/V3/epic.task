@@ -104,6 +104,7 @@ description
     - commit locally to `flow-rewrite` with explicit paths; never push, never stash;
     - start agents as the loop's instructions say;
     - insert Tasks, split a phase that keeps its goal, reorder without breaking a dependency;
+    - move, split or add context comments to Tasks within a slice; new slices are avoided (the user, 2026-11-22);
     - start the next phase after its completion audit passes, unless it starts with a stop;
     - write and revise Specs (skill:to-spec, skill:to-design), each change logged in `wiki/specs/specs.log` (`wk log
       add specs`).

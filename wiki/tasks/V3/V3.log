@@ -577,3 +577,17 @@ note 2026-11-21T21:15:28Z
     The user decided (2026-11-22) that declared schedules supersede the body-declared form and Flow.keyed outright; T120
     deletes and simplifies what the declaration makes redundant and edits the Specs to match (T120's comment holds the
     decision).
+
+note 2026-11-22T03:41:27Z
+    Run resumed at workflow@4f316bf; no live agents, tree clean. Current: T118 (own slice), next in P4's Order. First
+    action: R48 breakdown review of P4's open and draft Tasks (skipped only for slice T89), then T118's slice. Daily
+    faults started. Risk: the Order is the user's; any reorder or regroup it proposes goes to the user as questions.
+
+note 2026-11-22T03:47:10Z
+    [decided: user 2026-11-22] "you are allowed to make task changes to move things around or split things up within a
+    slice, or add more context of comment but try to avoid creating new slices." Scope: the whole run. Applies to the
+    R48 review's findings: within-slice moves, splits and context comments are the orchestrator's; new slices avoided.
+
+note 2026-11-22T03:51:10Z
+    Open for the user: R48 fix 13 (P4 comment 2026-11-22T03:50Z), T92's 2026-11-19 deferral vs the 2026-11-22 Order that
+    puts it sixth. Recommended: the Order supersedes the deferral. Holds only T92's slice; T118 and T113 go on.

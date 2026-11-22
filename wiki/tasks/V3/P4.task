@@ -60,8 +60,8 @@ description
     **Order:** @task.V3.T131, @task.V3.T120 (slice parent @task.V3.T89), @task.V3.T118, @task.V3.T113, @task.V3.T119,
     @task.V3.T92, @task.V3.T21's children @task.V3.T121 to @task.V3.T124, @task.V3.T56, the Fragments slice
     (@task.V3.T133: @task.V3.T109, @task.V3.T110), the channels slice (@task.V3.T77: @task.V3.T127, @task.V3.T76,
-    @task.V3.T128, @task.V3.T78), the UI slice (@task.V3.T72: @task.V3.T129, @task.V3.T130, @task.V3.T73), the Errors
-    and CLI slice (@task.V3.T134: @task.V3.T100, @task.V3.T22, @task.V3.T23); the host track after @task.V3.T119: Host A
+    @task.V3.T128), the UI slice (@task.V3.T72: @task.V3.T129, @task.V3.T130, @task.V3.T78, @task.V3.T73), the Errors
+    and CLI slice (@task.V3.T134: @task.V3.T22, @task.V3.T100, @task.V3.T23); the host track after @task.V3.T119: Host A
     (@task.V3.T135: @task.V3.T112, @task.V3.T111), Host B (@task.V3.T136: @task.V3.T97, @task.V3.T117). [decided: user
     2026-11-22] Why: the algorithm designs put the typed machine, the turn walk and the records first, and every slice
     after them. Reverse: the order of the breakdown review (the orchestrator, 2026-11-20). A `blocked_by` link is a real
@@ -83,6 +83,102 @@ comment 2026-11-21T18:31:25Z
     T119, T92, T121, T122, T123, T124, T109, T110, T127, T76, T129, T128, T130, T78, T73, T56, T100, T22, T23; the host
     track T112, T111, T97, T117 runs beside it once T119 lands. Fourteen Tasks are new (T119 to T132); T21, T24, T77,
     T72 and T98 stay as close-outs of their parts.
+comment 2026-11-22T03:50:19Z
+    Breakdown review (R48, reviewing lead, 2026-11-22): CHANGES. Most boundaries follow state ownership, but there are
+    13 fixes. The orchestrator can make 12 itself; 1 needs the user. No fix touches T118's own boundary, so T118 can
+    start once fixes 1 and 2 are made.
+
+    Proposed changes:
+
+    1. **orchestrator:** `fire` belongs to Schedules, but T119 also lists it under Supersedes. @spec.Changes section 6
+       gives Schedules (@task.V3.T118) `decide` and `fire`, and C1 of @proposal.algo-resolutions makes `tick` only queue
+       `Mail.Firing`. Yet both Tasks list code:packages/flow-state-v3/src/core/firings.ts#fire, and T119 also lists
+       `step.ts#fired` and `serve.ts#raised`, which write T118's last-firing-failure field and its issues. Remove
+       `firings.ts#fire` from T119's Supersedes. Add a comment to both Tasks: T118 owns every write to a timer's check
+       outcomes; T119 only swaps `fired` for `tick` and re-points the call.
+    2. **orchestrator:** `ledger.ts#start` and `ledger.ts#restore` are claimed by both @task.V3.T119 and @task.V3.T121.
+       They write owed rows (queue Waiting rows, give Kept rows one try, the head's unknown Restored). That state
+       belongs to T121 (owed rows, head unknown). T119 owns only the actor's start that calls them. Remove both from
+       T119's Supersedes, or mark them "call site only".
+    3. **orchestrator:** T92 is missing a blocker on T118. @task.V3.T92 adds its rows to the format 5 to 6 step that
+       T118 creates (@spec.Records R12), but it has no `blocked_by`. Add T118, crossing value: the step and format 6.
+       The three writers of the step (T118 the schedule row, T92 the other partitions, @task.V3.T56 the version rules)
+       own disjoint partitions, so the split itself stands.
+    4. **orchestrator:** the slice parents still carry build acceptance. @task.V3.T21, @task.V3.T77 and @task.V3.T72
+       keep the acceptance they had before the split, which repeats their children's (T21's mapper and placement items
+       restate T121 and T123; T77's items restate T127, T128 and T76; T72's restate T129 and T130). Since Tasks are the
+       unit of acceptance, nothing checks these items:
+       - T21's "Boot refuses an operation whose service the Runtime Layer lacks" is on no child and is not in code. Move
+         it to a child; T121 is closest.
+       - The Fixtures-first lines (catalog step 4 on T21, step 3 on T77, step 8 on T72) sit only on the parents. As a
+         result T119, T121 to T124, T127, T128, T113 and T100 name no fixture app in acceptance. Give each child its
+         catalog rows.
+       - Set each parent's acceptance to the slice form: "every child accepted, seams checked". T72's missing
+         Correctness item is then moot.
+    5. **orchestrator:** move @task.V3.T78 from slice T77 to slice T72. T78 (number input) owns no state; it only reads
+       props and emits. T72 is the next slice and holds the other consumer fixtures (T129, T130, T73). After the move,
+       T77 holds only the three Tasks that own state (T127, T76, T128). That cuts T77's roughly 22 acceptance items, the
+       largest of any slice. The slice order is unchanged.
+    6. **orchestrator:** in slice T134, put @task.V3.T22 before @task.V3.T100. T100's
+       `CATALOG.InvalidConfiguration.reasons` is derived from T22's `CHECKS` (C9 of @proposal.algo-resolutions), so the
+       owner should come before its reader.
+    7. **orchestrator:** T100 needs a context comment. Its routed comment of 2026-11-20 still covers every creation
+       issue, but the creation issue on a schedule slot moved to T118 (`Arming.Refused`, T118's ruling of 2026-11-20).
+       State that only non-schedule creation issues remain T100's.
+    8. **orchestrator:** the `test:coverage` items appear twice. @task.V3.T97's acceptance still has them (the "Moved
+       from T112" item), and @task.V3.T117 took them over. Both Tasks are in slice T136, so drop them from T97.
+    9. **orchestrator:** `snapshot.ts` has overlapping claims. `snapshot.ts#asOutside` is a cast, so it belongs to
+       @task.V3.T113 (carried types); drop it from @task.V3.T111's Supersedes. T118 lists the whole
+       code:packages/flow-state-v3/src/host/snapshot.ts, which overlaps T113 (`Timers`) and T100 (`issueOf`,
+       `DIAGNOSTIC_OF`). Narrow T118's entry to the schedule part of the issue read (`scheduleIssues`, C5b).
+    10. **orchestrator:** the React binding has opposite owners in the records. @task.V3.T111 still says @task.V3.T30
+        "builds the full React binding". The user answered on 2026-11-22 that T111 builds the whole binding and T30 does
+        channels and the overlay. Correct T111's text. Also add T111 to T30's `blocked_by` (crossing value: the binding
+        T30 extends); today T30 has no path to T111.
+    11. **orchestrator:** three seams need a comment on both sides, each naming the owner and the one value
+        that crosses:
+        - The mapper's `{ input, key }`: T121 adds it through T113's derived row, not through its own typing path.
+        - Emit listeners: T127 owns the listener set; T111 owns publication and keeps the single call (C4).
+        - The persist gate: T124 owns the resource-entry gate (`gcTime: 0`, Q15); T56 owns the discard of machine
+          records under `persist: false`.
+    12. **orchestrator:** @task.V3.T73's Correctness item has no @spec Requirement or Invariant ids, and its wording
+        differs from the Epic's text. Restate it.
+    13. **needs the user:** two user decisions conflict on T92.
+        - 2026-11-19, phase comment and T92: "T92 and T56 stay open until the trust-boundaries consult", which waits
+          until P4 closes, and "block nothing now".
+        - 2026-11-22, the Order: T92 is sixth. T121, T124 and T56 are `blocked_by` it, so the whole T21 slice and T56
+          wait on it. T92's threat-model question (Restore Q4) is also still with the user.
+        - Recommendation: confirm that the 2026-11-22 Order supersedes the deferral (T92 builds from algo-records 6.1 to
+          6.6 with its sequence test first, and Q4 stays as `it.fails`). Otherwise, T121 and T124 must drop their
+          blocker on T92.
+
+    Size risks (no change proposed; check against the slice's state inventory at its requirements phase). The
+    calibration slice T89 had 14 items and about 3 h of active time, with two requirements reviews that found issues.
+
+    - The T21 slice: four state owners and about 18 child items.
+    - T119: about 60 superseded symbols across 12 files.
+    - T113: about 100 sites plus a lint rule and two spikes.
+    - T118: 365 red rows plus format 6.
+
+    If one of these overruns, the only fix is a new slice, which needs the user. Correctness items: every building Task
+    has one.
+
+    Sidecar results (4 Haiku at effort medium; each verified against the records and code):
+
+    - Accepted: double claims on `fire`, `fired` and `raised` (1); `ledger.ts` start and restore (2); the format step
+      and T92's missing blocker (3); the binding owner and T30's blocker (10); `asOutside` (9); T97 and T117 coverage
+      (8); the T100 creation issue (7); T100 reading T22's `CHECKS` (6); T73's Spec ids (12); slice sizes (risks).
+    - Changed: "no Correctness item on T72" became fix 4, since the parent's acceptance should be the slice form. "The
+      boilerplate names no app" became fix 4 too: the apps are named on the parents only.
+    - Rejected:
+      - T112 and T97 on idempotency keys: T97 has none.
+      - T22 and T106 forming a cycle: T106 adds rows after T22's command, which is consistent.
+      - T29 missing T76: it is reached through T23.
+      - `machine.ts`, `tree.ts` and `config.ts#findingsAgainst`: the other claimant is done or the claim is resolved.
+      - `close.ts` (T100 and T123): disjoint state in one file.
+      - T132 outside the tree: it is in P5 by design.
+comment 2026-11-22T03:54:16Z
+    Breakdown review fixes 1-12 applied (orchestrator); fix 13 waits for the user.
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
@@ -308,26 +404,7 @@ tasks
             False pass: a read rule checked only by what the runtime reports → caught by run rules over what the fake
             server received.
         acceptance
-            - The Requirements of @spec.Operations this slice builds hold, shown by Story tests and run rules.
-            - Each new rule has a planted fault that `nub run faults` catches.
-            - Boot refuses an operation whose service the Runtime Layer lacks, by name, read from the contract's
-              `services` list (decisions §5 G1, G2); the reference contracts list their services.
-            - A placement released within the disposal bound is an activity placement: it is released within the bound,
-              with `ReleaseOverdue` past it (@plan.Runtime.O6).
-            - Outcome mappers receive `(value, { input, key })`, not the value alone (`src/core/serve.ts`;
-              @plan.Operations.O3; the mapper context of @spec.Operations).
-            - Fixtures first (@convention.fixtures): step 4 of @convention.fixture-catalog: `pay`, `transfers`,
-              `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`, `draft`) gain the
-              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
-              marked used at the close.
-            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
-              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
-              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
-              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R1–R15, I1–I25); the Invariants its tests check after every step are @spec.Operations (I1–I25;
-              tests T1–T7).
+            - Every child accepted, and the seams between them checked by the slice review.
         comment     2026-11-15T14:33:25Z
             Why is this blocked by @task.V3.T57? No fragment use found; check at the phase rewrite.
         comment     2026-11-15T20:44:53Z
@@ -373,6 +450,9 @@ tasks
         comment     2026-11-21T19:26:36Z
             Contradiction resolved: Read first and acceptance re-pointed from @spec.Reads to @spec.Operations; the
             mapper row now reads (value, { input, key }).
+        comment     2026-11-22T03:54:04Z
+            Fix 4: acceptance is now the slice form; the boot-refusal item moved to @task.V3.T121, the rest restated the
+            children's. R48 breakdown review (2026-11-22, P4 comment).
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -521,6 +601,9 @@ tasks
         comment     2026-11-21T19:40:57Z
             Blocker re-pointed from T21 to T124 (the persist record format), so it runs after slice 6; Turn R22 mapped
             to @spec.Records R15.
+        comment     2026-11-22T03:54:14Z
+            Fix 11: owns the discard of machine records under `persist: false`; @task.V3.T124 owns the resource-entry
+            gate (`gcTime: 0`, Q15). R48 breakdown review (2026-11-22, P4 comment).
     T22
         title       CLI check, explain and graph
         status      draft
@@ -614,6 +697,9 @@ tasks
             [decided: agent requirements lead 2026-11-22] `flow check` gains the unknown-body-key finding and
             @proposal.external-rules' rows; T106 builds them, this Task owns the command. Why: exactness is runtime only
             (the user's option C, Q19). Reverse: a type-level excess check.
+        comment     2026-11-22T03:54:08Z
+            Fix 6: now ordered before @task.V3.T100, which reads its `CHECKS` (C9 of @proposal.algo-resolutions). R48
+            breakdown review (2026-11-22, P4 comment).
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -702,13 +788,20 @@ tasks
             - Fixtures first (@convention.fixtures): this Task's rows of step 8 of @convention.fixture-catalog: the
               combobox in `kanban`, the tree in `draft` and the token input in `chat` gain the features, scenarios and
               sources of their rows; each scenario red before the build, and those cells marked used at the close.
-            - Correctness: each fixture is a whole app written the way a user would write it
-              (@convention.fixture-catalog); a Story tests each primitive, plus a Story of its wrong ending; a test runs
-              each Story; type tests show the primitives typed as a user expects (two-sided pins, no annotations in user
-              code); each new rule has a planted fault that `nub run faults` catches.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
+              (R3, R4, R5), @spec.Schedules (R8), @spec.Changes (R19); the Invariants its tests check after every step
+              are @spec.Operations (I7, I9, I10; tests T1, T2), @spec.Schedules (I7; tests T1, T2), @spec.Changes (I5).
         comment     2026-11-20T13:01:57Z
             Breakdown review (orchestrator, 2026-11-20, R48): fixtures line names only this Task's rows of catalog step
             8: the combobox in kanban, the tree in draft and the token input in chat.
+        comment     2026-11-22T03:54:15Z
+            Fix 12: Correctness item restated with the Epic's wording and the @spec ids this Task's tests cover. R48
+            breakdown review (2026-11-22, P4 comment).
     T72
         title       UI primitives, second wave: toaster and menu fixtures
         status      open
@@ -746,16 +839,7 @@ tasks
 
             User's read: each dropped upstream scenario with its reason.
         acceptance
-            - `fixtures/toaster/` and `fixtures/menu/` exist in the four-file shape, each with a usual and a
-              stress Story.
-            - Every core test of ui-sdk's toast (34) and menu (36) maps to a Story test asserting the same behaviour, or
-              is listed as dropped with its reason, in one mapping comment on this Task.
-            - The run rules and the reload sweep cover the new Stories; each new runtime rule has a planted fault that
-              `nub run faults` catches, and a dead core fails every new test.
-            - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
-            - Fixtures first (@convention.fixtures): this Task's rows of step 8 of @convention.fixture-catalog: the
-              toaster and the menu in `kanban` gain the features, scenarios and sources of their rows; each scenario red
-              before the build, and those cells marked used at the close.
+            - Every child accepted, and the seams between them checked by the slice review.
         comment     2026-11-18T19:39:05Z
             Owes (proposed, P3 close fix round): review items A64 and A65 from T86, rename the ShopApi, CartApi and
             GitApi keys and place commands.ts, contracts.ts and the cells' Pay base by the fixture layout.
@@ -766,6 +850,9 @@ tasks
         comment     2026-11-21T18:31:18Z
             Split per @review.spec-cohesion-r2 question 15: @task.V3.T129 toaster (after root emits), @task.V3.T130 menu
             (after fragments). [proposed] This Task stays as their close-out.
+        comment     2026-11-22T03:54:06Z
+            Fix 4: acceptance is now the slice form. Fix 5: @task.V3.T78 joined this slice, with the other consumer
+            fixtures T129, T130, T73. R48 breakdown review (2026-11-22, P4 comment).
 
     T76
         title        Declared props on local actors
@@ -903,25 +990,7 @@ tasks
             False pass: an emit asserted only through a listener → caught by emit records in a Story run with no
             listener, and by a reload that replays none.
         acceptance
-            - Any accepted transition may emit (send, firing, ending, `onContext` or `onProps` event); entry, exit and a
-              refused turn never do; a copy that ends in the same turn still delivers (@spec.Changes.R19).
-            - An emit part naming an undeclared emit is a construction error; `UnusedEmit` warning.
-            - `actor.onEmit(handlers)` hears emits after their turn, in order; it is not a use; with no listener they
-              are dropped; a reload or restore replays none.
-            - A fragment's emits are heard under its instance name and an .each copy's key, and appear in its
-              summary type.
-            - An `emit` evidence kind and Story emit records exist; each new rule has a planted fault.
-            - Fixtures first (@convention.fixtures): step 3 of @convention.fixture-catalog: `sign-in`, `command-palette`
-              gain the features, scenarios and sources of their rows; each scenario red before the build, and the step's
-              cells marked used at the close.
-            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
-              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
-              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
-              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
-              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
-              (R19), @spec.Host (R3, I4); the Invariants its tests check after every step are @spec.Changes (I5, I14),
-              @spec.Host (I4; tests T1, T8).
+            - Every child accepted, and the seams between them checked by the slice review.
         comment      2026-11-20T13:01:53Z
             Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T113, since its emit summary joins the one
             carried snapshot type.
@@ -937,12 +1006,15 @@ tasks
             nothing' matches R19.
         comment      2026-11-21T19:26:54Z
             Contradiction resolved: @spec.Turn.R29 re-pointed to @spec.Changes.R19 in Read first and acceptance.
+        comment      2026-11-22T03:54:05Z
+            Fix 4: acceptance is now the slice form. Fix 5: @task.V3.T78 moved to slice @task.V3.T72; this slice holds
+            the three state owners T127, T76, T128. R48 breakdown review (2026-11-22, P4 comment).
 
     T78
         title       Number input on declared props and emits
         status      draft
         priority    medium
-        parent      [@T77]
+        parent      [@T72]
 
         blocked_by  [@T76, @T127]
         description
@@ -994,6 +1066,9 @@ tasks
         comment     2026-11-21T18:39:42Z
             [proposed] Blocked by @task.V3.T127 (root emits) in place of @task.V3.T77, which is now the close-out of
             both emit halves.
+        comment     2026-11-22T03:54:06Z
+            Fix 5: moved from slice @task.V3.T77 to @task.V3.T72; it owns no state, only reads props and emits. R48
+            breakdown review (2026-11-22, P4 comment).
     T89
         title       Slice: Foundations
         status      done
@@ -1300,6 +1375,8 @@ tasks
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
         status      draft
         priority    high
+        blocked_by  [@T118]
+
         satisfies   [@plan.Runtime.O1]
         description
             Saved records decode through Schemas built from the compiled app, with branded identifiers and each fact
@@ -1486,7 +1563,9 @@ tasks
             Contradiction resolved: brands follow @spec.Records' realization list, every saved name resolves through the
             one reference table (R15), identity only in the key (R4); Restore and Codec cites re-pointed
             to @spec.Records.
-
+        comment     2026-11-22T03:54:03Z
+            Fix 3: blocked_by T118 added (crossing value: the format 5 to 6 step and format 6). T118 the schedule row,
+            T92 the other partitions, T56 the version rules. R48 breakdown review (2026-11-22, P4 comment).
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
@@ -1694,8 +1773,7 @@ tasks
               before the seam file is deleted.
             - The routed items in the Approach are each done or routed on with a reason in this Task's comments.
             - Moved from @task.V3.T112 (test tooling, not fakes): Turn I9's run rule counts a context-update publication
-              caused by another actor's turn as part of that turn; `test:coverage` passes reporter flags through and
-              writes a report on failure; the coverage timeouts of shop's large cart and home's 64 rooms hold.
+              caused by another actor's turn as part of that turn.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -1724,6 +1802,9 @@ tasks
         comment     2026-11-21T19:40:55Z
             Sources moved out of the description: @review.code-quality-review (section 4) and
             @review.code-quality-review-2 (section 5, A7).
+        comment     2026-11-22T03:54:09Z
+            Fix 8: the `test:coverage` items dropped; @task.V3.T117 owns them (both are in slice @task.V3.T136). R48
+            breakdown review (2026-11-22, P4 comment).
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
         status      done
@@ -1819,6 +1900,7 @@ tasks
         priority    medium
         parent      [@T134]
 
+        blocked_by  [@T22]
         satisfies   [@plan.Diagnostics.O1, @plan.Diagnostics.O3, @plan.Diagnostics.O4]
         description
             Finish Diagnostics: a safe Diagnostic renderer (@plan.Diagnostics.O4) and whole Causes kept through cleanup
@@ -1867,6 +1949,10 @@ tasks
               forgetFailed), with one `reasonOf`; moved from @task.V3.T98.
             - `FlowError` carries an `evidence` field (@plan.Diagnostics.O1), moved from @task.V3.T29.
             - `nub run check` and the suite pass; `nub run faults --only` catches this Task's planted faults.
+            - Fixtures first (@convention.fixtures): the rows of of @convention.fixture-catalog that name this Task as
+              owner: `pay`'s port fake whose status read's cleanup throws, CleanupFailed under load (`pay` with
+              sessions, `transfers`) and the `sync` interrupt-cleanup case; each scenario red before the build, and
+              those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -1924,6 +2010,12 @@ tasks
         comment     2026-11-21T19:26:55Z
             Contradiction resolved: superseded @spec.Diagnostics cites dropped from Read first and May change;
             @spec.Operations is the Spec.
+        comment     2026-11-22T03:54:07Z
+            Fix 7: only non-schedule creation issues remain this Task's; the creation issue on a schedule slot moved to
+            @task.V3.T118 (`Arming.Refused`). R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T03:54:08Z
+            Fix 6: blocked_by @task.V3.T22 added; `CATALOG.InvalidConfiguration.reasons` reads T22's `CHECKS`, so T22
+            comes first in the slice. R48 breakdown review (2026-11-22, P4 comment).
     T102
         title       Core shapes: typed reason codes, branded runtime ids, chain state, one turn cause
         status      done
@@ -2564,8 +2656,8 @@ tasks
             browser runner this uses.
 
             **Read first:** @plan.React.O1, @plan.Inspection.O2, @task.V3.T58, @convention.fixture-catalog (step 9).
-            @task.V3.T30 builds the full React binding. Spec: @spec.Host (R1–R4, R6, I1–I10, I19, I20, I24),
-            companion `wiki/specs/v3/Host.md`.
+            This Task builds the whole React binding; @task.V3.T30 adds channels and the overlay (the user, 2026-11-22).
+            Spec: @spec.Host (R1–R4, R6, I1–I10, I19, I20, I24), companion `wiki/specs/v3/Host.md`.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2575,9 +2667,8 @@ tasks
             code:packages/flow-state-v3/src/host/driver.ts#run, code:packages/flow-state-v3/src/host/driver.ts#stop;
             code:packages/flow-state-v3/src/host/runtime.ts#getSnapshot;
             code:packages/flow-state-v3/src/host/edge.ts#pump, code:packages/flow-state-v3/src/host/edge.ts#settle;
-            code:packages/flow-state-v3/src/core/tx.ts#Out; code:packages/flow-state-v3/src/core/step.ts#Capture;
-            code:packages/flow-state-v3/src/host/snapshot.ts#asOutside. Do not delete it before its replacement lands
-            and the suite passes.
+            code:packages/flow-state-v3/src/core/tx.ts#Out; code:packages/flow-state-v3/src/core/step.ts#Capture. Do not
+            delete it before its replacement lands and the suite passes.
 
             May change: `src/host/`, `src/react/` or the binding's folder, `fixtures/`, `tests/`, the browser-run
             folder. Evidence: this Task's comments.
@@ -2606,6 +2697,12 @@ tasks
         comment     2026-11-21T18:31:21Z
             [proposed] Builds @proposal.algo-host 6.1 to 6.4 with the edge cells and the Out.hiddenRetried field of
             @proposal.algo-resolutions 1.6 (re-run in the model: no stuck ticket, stranded mark or hidden livelock).
+        comment     2026-11-22T03:54:11Z
+            Fix 10: builds the whole React binding (the user, 2026-11-22); @task.V3.T30 does channels and the overlay.
+            Fix 9: `snapshot.ts#asOutside` is @task.V3.T113's. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T03:54:11Z
+            Fix 11: publishes emits with the single call (C4); @task.V3.T127 owns the listener set, and the value that
+            crosses is the delivered emit. R48 breakdown review (2026-11-22, P4 comment).
     T112
         title       Fakes as hostile as the real thing: store, page and servers
         status      draft
@@ -2798,6 +2895,10 @@ tasks
               (`{ readonly event: {...} }`, `{ readonly memory: {...} }`, a typed `.from` mapper parameter), with plants
               in its test.
             - `nub run check` and the suite pass.
+            - Fixtures first (@convention.fixtures): no new matrix cell of of @convention.fixture-catalog: the manifest
+              apps (`pay`, `cells`, `lanes`, `sync`, `transfers`, `sign-in`, `session`, `command-palette`,
+              `number-input`, `player`, `wizard`, `home`, `kanban`) compile unchanged against the derived types, each
+              type scenario red before the build.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -2845,6 +2946,9 @@ tasks
             Routed by the orchestrator's ruling (2026-11-22): typing the schedule readers (snapshot timers, evidence,
             saved timers) from the declaration, and deleting their casts, is @task.V3.T140's; this Task keeps the
             general derive.ts rows.
+        comment     2026-11-22T03:54:02Z
+            Fix 11: owns the derived row that carries the mapper's `{ input, key }`; @task.V3.T121 adds it through that
+            row and Fix 9: owns `snapshot.ts#asOutside`. R48 breakdown review (2026-11-22, P4 comment).
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
@@ -2887,6 +2991,9 @@ tasks
         comment     2026-11-21T18:46:48Z
             Takes the coverage-run items from @task.V3.T97, per @review.spec-cohesion-r2 question 15 (TT D4); the item
             list is @proposal.spec-test-tooling R11. [proposed] Also owns @proposal.algo-host section 10's rows.
+        comment     2026-11-22T03:54:10Z
+            Fix 8: owns the `test:coverage` items alone; @task.V3.T97's copy of them was dropped. R48 breakdown review
+            (2026-11-22, P4 comment).
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
         status      open
@@ -2941,10 +3048,11 @@ tasks
             code:packages/flow-state-v3/src/core/firings.ts#fire; code:packages/flow-state-v3/src/core/world.ts#Timing,
             code:packages/flow-state-v3/src/core/world.ts#Run, code:packages/flow-state-v3/src/core/world.ts#Tracked,
             code:packages/flow-state-v3/src/core/world.ts#withIssuesOf;
-            code:packages/flow-state-v3/src/host/owners/schedule-steps.ts;
-            code:packages/flow-state-v3/src/host/snapshot.ts; the five stored-issue faults in `tests/schedule-faults.ts`
-            (re-pointed, not deleted) and `tests/turn/schedule-sequences-wrong.ts` (delete once empty). Do not delete it
-            before its replacement lands and the suite passes.
+            code:packages/flow-state-v3/src/host/owners/schedule-steps.ts; the schedule part of the issue read in
+            code:packages/flow-state-v3/src/host/snapshot.ts (`scheduleIssues`, C5b of @proposal.algo-resolutions); the
+            five stored-issue faults in `tests/schedule-faults.ts` (re-pointed, not deleted) and
+            `tests/turn/schedule-sequences-wrong.ts` (delete once empty). Do not delete it before its replacement lands
+            and the suite passes.
 
             **Risk:** the redesign keeps `decide`, the occasions and T57's tables; it must not reopen what they prove.
             The record format moves from 5 to 6 by the one step of @spec.Records R12, with restore after a definition
@@ -3158,6 +3266,16 @@ tasks
             reason dropped, a keying change or unreadable key restarting keys from step one (Schedules R14), and records
             saved before the key codec, whose key text the format step carries, are this Task's. Guard to keep:
             `tests/restore/ schedule-declarations.test.ts` (a declared key reordered across a reload keeps its timer).
+        comment     2026-11-22T03:53:58Z
+            Fix 1: this Task owns every write to a timer's check outcomes (`fire` stays here; T119 only swaps `fired`
+            for `tick`). R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T03:53:59Z
+            Fix 9: Supersedes narrowed from all of snapshot.ts to the schedule part of the issue read (`scheduleIssues`,
+            C5b). R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T03:54:51Z
+            Seam (orchestrator, R48 follow-up): T118 and T121 both list host/owners/schedule-steps.ts. T118 owns its
+            timer and check-outcome writes and lands first; T121 supersedes only what the ending path leaves of it
+            after T118.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -3227,7 +3345,6 @@ tasks
             code:packages/flow-state-v3/src/core/context.ts#settle,
             code:packages/flow-state-v3/src/core/context.ts#update,
             code:packages/flow-state-v3/src/core/context.ts#quiet, code:packages/flow-state-v3/src/core/context.ts#wave;
-            code:packages/flow-state-v3/src/core/firings.ts#fire,
             code:packages/flow-state-v3/src/core/firings.ts#firing,
             code:packages/flow-state-v3/src/core/firings.ts#recheckLanes;
             code:packages/flow-state-v3/src/core/disposal.ts#started,
@@ -3236,9 +3353,7 @@ tasks
             code:packages/flow-state-v3/src/core/ledger.ts#Audience,
             code:packages/flow-state-v3/src/core/ledger.ts#live,
             code:packages/flow-state-v3/src/core/ledger.ts#onRecord,
-            code:packages/flow-state-v3/src/core/ledger.ts#suspend,
-            code:packages/flow-state-v3/src/core/ledger.ts#start,
-            code:packages/flow-state-v3/src/core/ledger.ts#restore;
+            code:packages/flow-state-v3/src/core/ledger.ts#suspend;
             code:packages/flow-state-v3/src/core/following.ts#following;
             code:packages/flow-state-v3/src/core/world.ts#Incarnation,
             code:packages/flow-state-v3/src/core/world.ts#OwnedBy, code:packages/flow-state-v3/src/core/world.ts#Mail,
@@ -3259,6 +3374,9 @@ tasks
             - An ended scope's schedule callbacks do not run in the turn that ended it (the X3 trace), with a
               planted fault.
             - Each new rule has a planted fault that `nub run faults` catches.
+            - Fixtures first (@convention.fixtures): no new matrix cell of of @convention.fixture-catalog: every fixture
+              app of step 1 runs unchanged on the new walk, applier, alarms and mail, each scenario that pins a rule red
+              before the build.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -3273,6 +3391,12 @@ tasks
         comment     2026-11-21T19:26:58Z
             Contradiction resolved: Types' answer stands; Changes.md now deletes chainOf and leafOf, and this Task
             deletes them once the walk reads Node.chain; algo proposal cites re-pointed to @spec.Changes sections.
+        comment     2026-11-22T03:53:59Z
+            Fix 1: `firings.ts#fire` removed from Supersedes; it is @task.V3.T118's. This Task only swaps `fired` for
+            `tick` and re-points the call. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T03:54:00Z
+            Fix 2: `ledger.ts#start` and `#restore` removed from Supersedes; owed rows belong to @task.V3.T121. This
+            Task owns only the actor's start that calls them. R48 breakdown review (2026-11-22, P4 comment).
 
     T120
         title       Declared schedules: the runtime half
@@ -3499,6 +3623,12 @@ tasks
               `retryable-ignores-count` are caught.
             - A mapper that throws refuses its row's turn; the row is tried once more and then kept with its issue.
             - Each new rule has a planted fault that `nub run faults` catches.
+            - Boot refuses an operation whose service the Runtime Layer lacks, by name, read from the contract's
+              `services` list (decisions §5 G1, G2); the reference contracts list their services.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
+              `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
+              `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
+              those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -3508,6 +3638,16 @@ tasks
               (R1, R2, R6, R7, R11, R15, I8, I13–I16, I20, I21, I23), @spec.Records (R1–R3, R16, I6, I7); the Invariants
               its tests check after every step are @spec.Operations (I8, I11, I13–I16, I18, I20, I21, I23; tests T1–T6),
               @spec.Records (I1, I4–I7, I11, I16, I18; tests T1–T6, T9–T15).
+        comment     2026-11-22T03:54:01Z
+            Fix 2: owns `ledger.ts#start` and `#restore` (owed rows, the head's unknown Restored); @task.V3.T119 keeps
+            only the call site. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T03:54:02Z
+            Fix 4: took the boot-refusal item from @task.V3.T21 and the catalog step 4 rows; fix 11: `{ input, key }`
+            reaches the mapper through @task.V3.T113's derived row, not a typing path of its own. R48 breakdown review
+            (2026-11-22, P4 comment).
+        comment     2026-11-22T03:54:51Z
+            Seam (orchestrator, R48 follow-up): host/owners/schedule-steps.ts is T118's first (timer and check-outcome
+            writes); T121 supersedes only the ending-path parts left after T118 lands.
     T122
         title       Read entries and read slots
         status      draft
@@ -3555,6 +3695,10 @@ tasks
             - An entry with no hold is removed at `gcTime` by `Alarm.Collect`; `gcTime: 0` removes it in the same step.
             - A freeze owes each waiting lookup one `Interrupted` row and leaves the entry's request running.
             - A lookup's input is checked by its Schema at run time (routed from @task.V3.T104's close review).
+            - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
+              `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
+              `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
+              those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -3601,6 +3745,10 @@ tasks
               incarnation that holds the call's key, with no host code.
             - Placements are unplaced at a freeze and placed at a thaw.
             - Each new rule has a planted fault that `nub run faults` catches.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
+              `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
+              `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
+              those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -3642,6 +3790,10 @@ tasks
             - A saved entry installs with `asked: none`, so the first ask after a reload starts a request.
             - An entry already in memory wins over a saved one at adoption.
             - `persist: true` without `output` is refused at construction.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
+              `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
+              `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
+              those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -3650,6 +3802,9 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
               (R12, I24), @spec.Records (R8, R18, I12, I19); the Invariants its tests check after every step are
               @spec.Operations (I24; tests T4), @spec.Records (I12, I19; tests T8, T14, T15).
+        comment     2026-11-22T03:54:14Z
+            Fix 11: owns the resource-entry persist gate (`gcTime: 0`, Q15); @task.V3.T56 owns the discard of machine
+            records under `persist: false`. R48 breakdown review (2026-11-22, P4 comment).
     T127
         title       Declared emits at the root
         status      draft
@@ -3679,6 +3834,9 @@ tasks
             - A listener that reads `getSnapshot()` at an emit sees the snapshot that includes the emitting turn.
             - A listener that throws is one host report; the next listener still runs.
             - Emits delivered per step, before the publication, is a planted fault that `nub run faults` catches.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 3 of @convention.fixture-catalog:
+              `sign-in`, `command-palette` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
@@ -3687,6 +3845,9 @@ tasks
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Changes
               (R19, I5), @spec.Host (R3, I4); the Invariants its tests check after every step are @spec.Changes (I5,
               I14), @spec.Host (I4; tests T1, T8).
+        comment     2026-11-22T03:54:13Z
+            Fix 11: owns the emit listener set; @task.V3.T111 owns publication and keeps the single call (C4). Catalog
+            step 3 rows added to acceptance. R48 breakdown review (2026-11-22, P4 comment).
     T128
         title       Fragment emits
         status      draft
@@ -3712,6 +3873,9 @@ tasks
         acceptance
             - An instance that ends in a turn still emits in it; the emit holds its address by value.
             - The listener's `key` and `keys` are typed from the fragment's declaration with no annotation.
+            - Fixtures first (@convention.fixtures): this Task's rows of step 3 of @convention.fixture-catalog:
+              `sign-in`, `command-palette` gain the features, scenarios and sources of their rows; each scenario red
+              before the build, and those cells marked used at the close.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the

@@ -543,7 +543,7 @@ tasks
         priority    high
         parent      [@T139]
 
-        blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77, @task.V3.T98]
+        blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77, @task.V3.T98, @task.V3.T111]
         satisfies   [
                     @plan.React.O1,
                     @plan.React.O2,
@@ -619,6 +619,9 @@ tasks
         comment     2026-11-21T19:27:00Z
             Contradiction resolved: description now builds channels, the hydrate overlay, emit delivery in React, props
             and eligibility; publication and the binding are @task.V3.T111's, per @spec.Host.
+        comment     2026-11-22T03:54:12Z
+            Fix 10: blocked_by @task.V3.T111 added (crossing value: the binding this Task extends); T111 builds the
+            whole binding. R48 breakdown review (2026-11-22, P4 comment).
     T106
         title       Rules with `.rules(build)`: invariants, turns and terminals, judged by Story tooling, with coverage
         status      draft
