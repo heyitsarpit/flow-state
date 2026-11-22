@@ -5128,6 +5128,41 @@ tasks
             publication is its why-Turn one; the second was the room's context update after it, a change of its own.
             Done this round: `chainOf` and `leafOf` deleted; pending owners read only on a late turn's first question;
             `How` a tag table (`ENDS`); Spec ids out of `src` comments; stale citations fixed.
+        comment     2026-11-22T20:18:06Z
+            Close review 2: PASS at d1edf168. Both blockers are fixed at their owners and stay fixed; nothing left meets
+            the stopping rule (check 0; stress 99 of 99; faults --only 10 of 10 changed plants caught by their targets;
+            coverage run 25,186 passed, 16 expected fail, the same 6 instrumentation timeouts, no assertion failed).
+
+            - Blocker 1: the host's wake is `World.wake`, spent by a Tick and set again or dropped (`Sleep`) at the
+              step's end, and `alarmDrift` judges it at every cut. `home/chime-rings-thrice` rings 3; plant
+              `wake-spent-kept` turns it red there, `wake-held-without-alarm` is caught by the sequence test's I12
+              check. My probe now fires 3 of 3 (`recurs`, zero-ms `spaced`).
+            - Blocker 2: every use goes through `addUse` (only it and `release` call `putUses`). The new `create` step's
+              `home/chime-local` holds its alarm and checks on its hour; `local-use-unapplied` is caught there. My probe
+              now arms at 1000 with no drift.
+            - The zero-delay ruling holds: Changes.spec (Realization, a zero delay) says the loop guard does not count
+              firings, and each tick is its own step after a yield. An endless `spaced("0 millis")` Story stops with
+              `StoryTurnLimit` in under a second: the author's own series, not a wedge.
+            - R10: the numbers (a mailbox of 1,000 at 0.0275 ms per turn, a wave to 100 at 0.082, many rooms at 0.054)
+              justify keeping `shift()` and the scan under the recorded reverse condition.
+
+            Routed or noted (none blocks):
+
+            - @task.V3.T97 (Story tooling): `create` has no two-sided type pin, and `samples.ts` prints
+              `.create(<machine id>, …)`, which does not compile (that line is uncovered). The bench-only Stories
+              `session/newsletter-run` and `wave-noop` assert nothing. Chime and Mailer have no step samples, and the
+              catalog's machine lists omit them.
+            - @task.V3.T109: R10's `turn.fragments.none` and `.copies-100` need fragments.
+            - Noted: `ENDS.RuntimeDisposed` says no record and rows kept, while the Spec says record saved, rows wait
+              (behaviour is right, since that row drops nothing). The `Unhandled` emission is written twice (`apply.ts`,
+              `disposal.ts`). Eight inlined `chain ?? []` reads treat an unknown state as silent, not a defect. The
+              Spec's wake text predates `Sleep` and the spent wake.
+
+            Sidecars (4 Haiku, high). Accepted: the printed create step, the missing pin, the samples and catalog gaps,
+            the assertion-free benches, `ENDS`, the double `Unhandled`, the silent chain. Rejected after running: flip's
+            survivors `local-use-unapplied` and `turn-published-as-other` (both caught; the second by the
+            `publishedOnce` run rule), and the R22 scan missing `walk.ts` (it scans every core file). Changed: the
+            early-Tick `Wake` follows the Spec's last-row `Wake`.
 
     T120
         title       Declared schedules: the runtime half
