@@ -6558,3 +6558,48 @@ tasks
             run check` 0, suite 25148 passed, 1 failure a 5 s timeout in shop/context (1000 lines) under load, passing
             alone. Sample `--only` group of 5: 2.8 s before and after (all caught by targets; the saving is on misses,
             each formerly a whole-suite run).
+        comment     2026-11-22T15:03:54Z
+            Close review (reviewing lead, 2026-11-22): ISSUES. The runner change holds; two fault calls are wrong, each
+            red on current code and fixable by the builder. Gates: `nub run check` 0; package suite 25149 passed (209
+            files); `--only` the 10 re-aimed: 10 of 10 caught by targets (unchanged 47 passed).
+
+            1. **`sent-without-persistence` plants the opposite fault.** Origin: its edit
+               (code:packages/flow-state-v3/tests/rule-faults.ts, pre-dating this Task) deletes `!tx.world().persistence
+               &&` in code:packages/flow-state-v3/src/core/lanes.ts, so every persisted commit declines NoPersistence
+               even with persistence; c6b544f2 re-aimed it to `tests/restore/deep-inputs.test.ts`, which catches that
+               inverted runtime, not WriteLanes R12. Scratch check: the true breach (`false &&`) passes deep-inputs and
+               fails `tests/actors/edges.test.ts` ("WriteAhead R16: ... ends its commit NotSent { NoPersistence }"); the
+               literal edit passes edges. Fix: replace the line with `false &&`, target edges.test.ts. Tests missed it
+               because a verdict checks that targets fail, not that the edit matches `says`.
+            2. **`rows-dropped-outside-ledger` is a runtime fault, deleted as lint.** Origin: the classification comment
+               took "targeted at one-builder" as "only a scan sees it". Its edit skips `ledger.suspend` on forget in
+               code:packages/flow-state-v3/src/core/incarnations.ts; planted in scratch it fails 16 runtime tests
+               (`tests/actors/runtime-life.test.ts`, the Actors R21 forget cases; `tests/session/workspace.test.ts` S6).
+               Fix: restore it from 3dea2481 aimed at runtime-life.test.ts. The other two one-builder faults are lint
+               rightly: their edits name `Due` and `Evidence`, not imported in incarnations.ts and disposal.ts, so
+               planted they throw ReferenceError; the cast faults are covered by the ratchet's must-flag cases
+               (derivation.test.ts, Types T7).
+            3. **BareFunction is a guard; keep it.** Typed trace: unreachable (`compiledOf` is not exported from
+               `src/index.ts`; the compiler puts only Slots at walked positions). Untyped JS trace: reachable. The card
+               is frozen only shallowly (code:packages/flow-state-v3/src/made.ts#describe) and the Compiled not at all,
+               so `m[Symbol.for("flow-state/Internals")].internals.compiled.root.set(...)` then
+               `runtimeSetup(...).construct()` reaches `malformedOf`
+               (code:packages/flow-state-v3/src/host/runtime.ts#buildRuntime); a scratch test got
+               `["InvalidConfiguration","BareFunction"]`. So the premise "no public path reaches it" is wrong, as is the
+               matching comment in `src/core/well-formed.test.ts`; `bare-function-accepted` can target a door-level
+               case. Noted, not in range: the verdict cache (`runtime.ts#verdictOf`) misses a mutation made after the
+               first construct.
+            4. Minor: `receipt-renamed`'s named cover, endings.test-d.ts, stays green under the mutant; the fixture's
+               own compile catches it (`fixtures/transfers/machines/transfers.ts`, `tests/transfers/bank.contract.ts`).
+               `body-capture-dropped` (12 errors in excess-keys.test-d.ts) and `sync-repo-renamed` (4 in
+               derived.test-d.ts) checked. Wording: `tests/faults.ts` header says "at least one test must fail", not one
+               of its targets; verdict.test.ts drops the known-red case's verdict.
+
+            Held: `judge` runs only targets, a miss is MISSED (verdict.test.ts), known reds never credited, no
+            type-check in copies; the re-aimed seven others catch for the right reason (`not-sent-mapped-unknown`: the
+            NotSent ending mapped by `unknown:` lands UNSURE in PAY-07); the glossary line and runner header match.
+
+            Sidecars (3 Haiku, high; one blind to comments): accepted 1 and 3's untyped trace, both re-run in scratch,
+            and the wording nits. Rejected: "not-sent-mapped-unknown likely missed" (the run caught it); a `""` target
+            running the whole package (no such data); known reds incomplete (a file that would not load is NOT JUDGED).
+            Changed: the Schedule-closure note went to "not in range".
