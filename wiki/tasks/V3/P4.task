@@ -1807,6 +1807,11 @@ tasks
             @spec.Records R20 records the user's ruling of 2026-11-22 that they are out of scope; flow-rewrite holds no
             such inverted test (branch t92-format-4's were never merged), and corrupt.test.ts generates no valid copy.
             Also the decision above that overrides @spec.Records Q2's executable model with the Epic's constraint.
+        comment     2026-11-22T21:12:29Z
+            Rulings (orchestrator, 2026-11-23): Restore Q4 is closed, not held. @spec.Records R20 records the user's
+            2026-11-22 ruling that forged-but-valid records are out of scope, which corrects my opening comment. The
+            Epic's no-model-of-the-core constraint (the user's) overrides the Spec's executable model Q2. The IndexedDB
+            whole-load refusal routed to T28 stands.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

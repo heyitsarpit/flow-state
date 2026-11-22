@@ -822,3 +822,7 @@ note 2026-11-22T20:19:34Z
 note 2026-11-22T20:20:20Z
     Slice T92 (own slice) started: opened with acceptance re-pointed to @spec.Records and a restore-after-edit item;
     requirements lead (high) starts. Weekly 90%.
+
+note 2026-11-22T21:12:30Z
+    T92 requirements in (fc10aecb); orchestrator rulings on Q4, the Spec model and T28 in a T92 comment. Requirements
+    review starts.
