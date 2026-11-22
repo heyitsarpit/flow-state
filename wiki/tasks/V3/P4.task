@@ -3191,6 +3191,126 @@ tasks
             types (typeof D.Memory.Type, E.X.Type); Reads<D, View> is deferred. Why: correctness first: Reads as
             specified lacks event, now and state; the per-part types are exact and already derived. Reverse: add Reads
             with every field a body callback receives.
+        comment     2026-11-22T10:33:30Z
+            [decided: user 2026-11-22] Scope added (Q1 A): the definition's config echo (states, events, internalEvents,
+            memory, context, operations, schedules) leaves the public face and Flow reads a private copy, as T131 did
+            for the machine's Compiled; Room.state is renamed (name pending the user; S.current proposed); a part's type
+            is its token's .Type (E.X.Type, M.field.Type) and M.field.schema leaves the face; Schemas (Event, State,
+            Input, Memory, Snapshot) stay for decoding whole values. Every caller, fixture, test and doc migrates in the
+            same pass. Why: one way to reach each fact; the 140-site sweep touches each site once. Reverse: restore the
+            echo and state.
+        comment     2026-11-22T10:35:34Z
+            [decided: user 2026-11-22] Q2 C: state keeps its name; the fold-in renames nothing. Q3 B: the operation
+            handle gets no Input or Key type; outside-body code uses the contract's input Schema. Amends the scope
+            comment above (no state rename).
+        comment     2026-11-22T10:36:09Z
+            Requirements review (lead, 2026-11-22, at adccdb43): ISSUES. One blocking finding: item 11's I4 red has no
+            reachable done-state inside T113. The rest map one to one onto the acceptance. I re-ran the reds:
+            `derivation.test.ts` gives 2 expected fails (`Parts` only in `machine.ts`; 39 cast disables against 17
+            named), and `tsc -p` exits 0. A scratch copy without the `@ts-expect-error`s shows exactly one error per
+            inverted pin, TS2339 or TS2694 on the missing row.
+
+            **Guards.** Items 1 to 3 pin two-sided: `expectTypeOf(...).toEqualTypeOf` is expect-type's identity check. A
+            probe shows `any`, `unknown` and `string | undefined` each fail against `undefined`, and the send callback's
+            body is type-checked. Item 1's exact `Snapshot<typeof Room>["schedules"]` pin covers four distinct
+            reason sets.
+
+            **Blocking**
+
+            1. I4's exact list cannot pass by T113's close as written.
+               - Origin: `tests/surface/derivation.test.ts#NAMED` against the 39 disables in `src/`.
+               - Three named entries do not exist yet: `entry.ts#door` (the cast sits in `registered`),
+                 `handles.ts#slot`, and `host/snapshot.ts#project`. Types' Crossings declares `project<D, View>`, and
+                 `View` is the part the ruling left open with `Reads`.
+               - 22 disables must go. Supersedes and the made-fold cover 9; 13 have no owner or absorbing crossing in
+                 the list: `compile-body.ts#levelOf`, `contract.ts#trusted`, `#boundOf`, `core/compiled.ts#durationOf`,
+                 `core/tx.ts#own`, `entry.ts#registered`, `events.ts#selectionCodec`, `flow.ts#marker`, `#Flow`,
+                 `handles.ts#member`, `#guard`, `host/refs.ts#refOf` and `host/run-promise.ts#admitted`. `run-promise`
+                 goes through `provided`, on the host track.
+               - Types T7 itself allows a ratchet ("its count goes from 38 to the list as the casts are deleted").
+               - Needed before the build: either (a) list each of the 22 with its absorbing crossing and owner, all
+                 inside T113, or (b) make the red T7's ratchet: the casts T113 deletes, plus a count that can only fall,
+                 with the exact list owned by the Task that builds `project`. Recommendation: (b), since `project` waits
+                 on `View`.
+               - Why the tests missed it: the red was checked for its reason, not for reachability.
+
+            **Accepted, non-blocking** (fold into the list before the build)
+
+            - Inventory scope. `src/host/*.test.ts` holds 14 K1 sites and 5 K2 sites, outside the searches (`fixtures
+              tests bench`): `lanes.test.ts:51,80,115,159,160,199,301,307`, `ledger.test.ts:69,131,205,211`,
+              `runtime.test.ts:56`, `life.test.ts:44`, `runtime.test.ts:68`, `close.test.ts:54` and
+              `ledger.test.ts:83,142,224`. K3's command reproduces as 47 + 22 lines, not 38, and the out-of-class lines
+              miss `schedule-sequences.test.ts:182-204` (inside `loose`).
+            - Missing K4 and K6 sites:
+              - `Held` at `tests/restore/schedule-declarations.test.ts:27` (memory and `now`);
+              - `TimerView`, `Outcome` and `Seen` copied in `tests/turn/schedule-table.test.ts:318-324` and
+                `schedule-keys-table.test.ts:152-160`, plus a second `Inputs` at `:26`;
+              - `Confirmed` at `fixtures/services/shop/operations/writes.ts:30`;
+              - the `Configure` payload restated at `fixtures/command-palette/stories/usual.ts:43-46`;
+              - `Omit<typeof Head.M.n, "~definition" | "~provider">` at `tests/actors/follow-ups.test.ts:28`.
+            - Checks that are only shell counts or prose: K4 to K6 have no `rg` done-check (for example, exactly one
+              `const byRepo`), and the plants are scratch-only. Item 8 must also register the rule in
+              `tools/flow-state-lint/index.ts` and `vite.config.ts`, beside the `lint:rules` entry. Otherwise the
+              simplest wrong build is a file that flags nothing and is never run.
+            - Flipped forms. `BodyTokens` must pin the whole record, not only `["S"]`: `{ S; E: any; O: any }` passes
+              today. Each `.Type` flip adds its wrong-field refusal (acceptance 5), plus a payload-less event.
+            - Inverted pins pass any error. A build that lands `.Type` wrong leaves them inverted and green. Flip A at
+              the close must confirm that each one is flipped.
+            - Multiple writers:
+              - `snapshot.ts#snapshotIn` writes `Snapshot` in four literals, and T76, T77 and T109 each add a field to
+                it. Since Q19, the carried type T113 owns has no name: name it, with one writer.
+              - `handledTags` replaces `machine.ts#handled`; it is not a second computation.
+              - `Node.leaf` is written once, so `Compiled.initial` is no longer written twice
+                (`machine.ts:441`, `:481`).
+            - Temporary text: test titles name symbols due for deletion ("replaces tree.ts#chainOf"). Drop those words
+              at the flip.
+
+            **Rejected**
+
+            - Rows of Blind A not covered: R10's resource and timeout rules, Q17, T4 and I5 to I9. They are routed:
+              T106, T22, and amendments 1 and 6.
+            - The conflict between `{ why: string }` and G3: deleting the annotation leaves `why` as `string`.
+            - Service ports and `idempotencyKey` options typed in `fixtures/*/services.ts`: they are the user's own port
+              interfaces, not values Flow hands over.
+            - A pause union right only for Room: Flow derives the union, so there is no per-definition hand-write
+              to catch.
+
+            **Size.** About 160 sites, plus the AnyBody spike, the crossings, the derived fields with T5 and two faults,
+            the lint rule and the bench rows. That is more than one 5-hour window, even before the fold-in.
+
+            **For the fold-in** (the user's scope of 10:33, as amended at 10:35; not findings against the current list)
+
+            - Reds:
+              - `expectTypeOf<typeof Room>().not.toHaveProperty(p)` for each of `states`, `events`, `internalEvents`,
+                `memory`, `context`, `operations` and `schedules`, and for `M.field.schema`. `state` stays, so it gets
+                no absence pin;
+              - positive pins that `Event`, `State`, `Input`, `Memory` and `Snapshot` stay;
+              - a pin that `O.x` carries no `Input` or `Key` type (Q3 B);
+              - flips of `derived.test-d.ts:113` (`M.sensors.schema.Type`) and of `src/derive.test-d.ts:36`
+                (`Wallet.operations.send`). The `MapperContext` and `BoundKey` pins read the contract (`typeof send`),
+                not the handle.
+            - Internal readers of the echo:
+              - value reads in `definition.ts`, `machine.ts`, `compile-schedules.ts`, `compiled-parts.ts`,
+                `core/well-formed.ts` and `construction.ts`;
+              - `flow.ts:107`, where `Flow.context` reads a reader token's `.schema`;
+              - type-index reads `D["events"|…]` in 13 `src` files, the most in `host/testing/select.ts` (14) and
+                `host/snapshot.ts` (9). They move to the private copy, through `derive.ts#Parts`.
+            - Public callers:
+              - `fixtures/cells/machines/cells.ts:11-16` builds a definition from `Pay`'s echo. That is a real
+                extend-a-definition use, and it needs a decided replacement, such as exporting the config or
+                an `extend`.
+              - `tests/compile/corruption.test.ts:101-235`, `tests/restore/schedule-{declarations,edits}.test.ts`
+                (`Booking.events`), and `tests/surface/doors.test.ts:265,290` with
+                `tests/types/doors.test-d.ts:26-29` (`Lamp.operations`).
+              - The `X.state` reads stay as they are, since nothing is renamed. Outside-body code that needs an
+                operation's input names the contract's input Schema.
+            - Split inside the slice, one builder run each, in this order:
+              - (a) the face: `derive.ts` with `Parts`, the private echo, `.Type`, `BodyTokens` and `MapperContext`,
+                with items 1 to 6 and I1;
+              - (b) crossings and derived fields: the AnyBody spike, `door` and `slot`, the cast ratchet, `Node` fields,
+                `handledTags`, T5, both faults and `construct.*` (I4, I10, R7, R13, R14);
+              - (c) the sweep and the guard: K1 to K6 against (a)'s types, with each site touched once, the duplicated
+                helpers, the plants and the lint rule (items 7 and 8). (c) is blocked by (a); (b) is independent.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
