@@ -5739,6 +5739,66 @@ tasks
             - Seams:
               - (a) to (c): the types (c) migrates to;
               - (a) and (b): `definition()`, where (a) owns the face and (b) the cast at its return. Built in order.
+        comment     2026-11-22T10:56:04Z
+            Requirements re-review (reviewing lead, 2026-11-22, at ce4549d9): ISSUES. Two blocking findings, both before
+            @task.V3.T143's build; @task.V3.T113 may start as written. The split follows the state inventory, and
+            @task.V3.T144 is rightly `blocked_by` T113. I re-ran the reds: `derivation.test.ts` gives 1 pass and 2
+            expected fails, and a scratch copy without the `@ts-expect-error`s fails exactly once per inverted pin (16),
+            TS2339 or TS2694 on the missing row, TS2554 on each present echo key.
+
+            **Blocking**
+
+            1. The ratchet passes with a cast moved or renamed (origin: ratchet sidecar, confirmed by
+               reading `tests/surface/derivation.test.ts`).
+               - R13 matches `ABSORBED` by name in a Set, and T7 checks only `MOST >= count`. T143's Supersedes replaces
+                 `erasedBody`, `erasedWhen`, `trustedTokens`, `codecOf`, `trusted` and `trustedAttempt`, so a cast kept
+                 in the replacement under a new name passes both. T143's False pass line says the absorbed list catches
+                 it; it does not.
+               - Each absorbed name holds exactly one cast today, so the done count is at most 28 (39, less 13 absorbed,
+                 plus `door` and `slot`).
+               - Needed: T143's acceptance pins `MOST` at 28 or lower at the close; T7 asserts `toBe(MOST)`, so each
+                 deletion lowers it; R13 counts each crossing as exactly 1 (an array, not a Set); the counter counts any
+                 disable line naming the rule (it matches only the `-next-line` form).
+            2. `project` and `snapshot.ts#asOutside` have two owners, and the fault `project-second-cast` (R13)
+               has none.
+               - Fix 9 (P4 comment, item 9; T113's and T111's comments of 03:54) gives `asOutside` to T113. T143's
+                 Approach and the routing comment on @task.V3.T114 give it, with the exact list, to the Task that builds
+                 `project`. The old item 11's fault is in no child and not in the routing.
+               - T114 is a poor holder: it sits in P5, it is blocked by T69 and T70, and its May change
+                 excludes `src/host/snapshot.ts`.
+               - Better owner, visible in P4's Order: @task.V3.T111 (Host A). It builds the publication (Host R1, R2),
+                 whose memo entry is `project`ed (Host.spec, the publication algorithm), supersedes
+                 `runtime.ts#getSnapshot`, and may change `src/host/`. Needed: one ruling that gives `project`,
+                 `asOutside`, the exact list and `project-second-cast` to T111, and retracts Fix 9's claim.
+
+            **Accepted, non-blocking**
+
+            - T143 needs `blocked_by` T113 (seams sidecar, checked): `definition.ts:576` casts to the `Made` that (a)
+              shrinks, and the `AnyBody` spike reads `MachineBody<D>` over the `Parts` (a) moves. `machine()` is a
+              second unnamed (a)/(b) seam (the private copy, and the `AnyBody` return).
+            - T143's fold list misses the same-class kind-brand casts `handles.ts#member` and `#guard` (blind and
+              ratchet sidecars): name them, or fold them into the `made.ts` doors.
+            - T143 has no Flip A for its inverted `Node` and `handledTags` pins (folding sidecar).
+            - Done-checks that stay red after a correct build (folding and seams sidecars): T143 and T144 grep
+              `tests/faults.ts`, but faults live in `tests/*-faults.ts` modules; K4's regex omits `Memory` (five sites)
+              and misses `export type Confirmed`; K6 misses `ReturnType<typeof X.E.…>`
+              (`schedule-sequences.test.ts:319-322`, plus `fixtures/lanes/stories/usual.ts:62`, not in the inventory).
+            - Stale Approach text (seams sidecar): `flow.ts:107` reads the reader's internal `schema`, not the face;
+              `compile-schedules.ts` has no cast.
+            - `host/testing/` is excluded from the count but imported by production (`host/cli/discover.ts`,
+              `host/trace.ts`); a cast moved there escapes. Pin its count (8) beside `MOST`.
+
+            **Rejected**
+
+            - Generic type arguments through `erase`, `trusted` and `madeOf` as uncounted crossings: a typed crossing is
+              the named-point design.
+            - Type predicates, widening casts and the lint-bomb allow comment: older than this change and outside
+              T7's subject.
+            - "Every T144 item has no check": its reds are `rg` absences, accepted at the first review.
+
+            **Size.** In order, with a checkpoint commit after each child, the slice is three builder runs: (a) about 14
+            `src` files and 7 caller files; (b) about 13 `src` files, the spike, T5, two faults and the bench rows; (c)
+            about 53 files, mostly mechanical, plus the lint rule. It is not one run.
 
     T143
         title       The typed machine (b): named crossings and Compiled's derived fields
