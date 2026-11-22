@@ -73,7 +73,7 @@ const editedMachine = (which: Which) => {
         memory,
         now,
       }: {
-        readonly memory: { readonly heldUntil: number };
+        readonly memory: typeof Edited.Memory.Type;
         readonly now: number;
       }) => memory.heldUntil - now,
       send: which === "resent" ? E.Lapsed : E.Expired,
@@ -85,7 +85,7 @@ const editedMachine = (which: Which) => {
         memory,
         now,
       }: {
-        readonly memory: { readonly heldUntil: number };
+        readonly memory: typeof Edited.Memory.Type;
         readonly now: number;
       }) => memory.heldUntil - WARN_MS - now,
       send: E.Warned,
@@ -106,7 +106,7 @@ const editedMachine = (which: Which) => {
         remind: {
           schedule: Duration.minutes(1),
           send: E.Reminded,
-          restartOn: ({ memory }: { readonly memory: { readonly heldUntil: number } }) =>
+          restartOn: ({ memory }: { readonly memory: typeof Edited.Memory.Type }) =>
             memory.heldUntil,
         },
       },

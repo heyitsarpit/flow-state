@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 
-import type { Declined } from "../services.ts";
 import { transfer } from "../operations/writes.ts";
 
 export const Transfers = definition({
@@ -23,18 +22,18 @@ export const Transfers = definition({
   memory: { notice: Flow.initial(Schema.String, "") },
   operations: ({ E }) => ({
     transfer: transfer.outcomes({
-      success: E.Done.from((v: { readonly receipt: string }) => ({ receipt: v.receipt })),
+      success: E.Done.from((v) => ({ receipt: v.receipt })),
       failure: {
-        Declined: E.Declined.from((e: Declined) => ({ code: e.code })),
+        Declined: E.Declined.from((e) => ({ code: e.code })),
       },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
   schedules: { nudge: {} },
 });
 
-const byTransfer = ({ event }: { readonly event: { readonly transferId: string } }) => ({
+const byTransfer = ({ event }: { readonly event: typeof Transfers.E.Resend.Type }) => ({
   transferId: event.transferId,
 });
 

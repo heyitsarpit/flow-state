@@ -30,7 +30,7 @@ export const AccountSwitcherMachine = machine(AccountSwitcher, ({ S, E, C }) => 
   onContext: [
     C.account.change({
       when: (current, _previous, { memory }) => current !== "" && !memory.recent.includes(current),
-      event: E.Remembered.from((account: string) => ({ account })),
+      event: E.Remembered.from((account) => ({ account })),
     }),
   ],
   on: {

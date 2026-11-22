@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 import { signIn } from "../operations/writes.ts";
-import type { Refused } from "../services.ts";
 import { Org } from "./org.ts";
 
 export const Session = definition({
@@ -23,12 +22,12 @@ export const Session = definition({
   context: { org: Flow.context(Org.M.name) },
   operations: ({ E }) => ({
     signIn: signIn.outcomes({
-      success: E.SignedIn.from((p: { readonly user: string; readonly displayName: string }) => ({
+      success: E.SignedIn.from((p) => ({
         user: p.user,
         displayName: p.displayName,
       })),
-      failure: { Refused: E.Refused.from((e: Refused) => ({ reason: e.reason })) },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      failure: { Refused: E.Refused.from((e) => ({ reason: e.reason })) },
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),

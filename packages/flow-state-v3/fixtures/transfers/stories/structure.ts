@@ -126,7 +126,7 @@ export const orderWithoutReturn = () =>
     // @ts-expect-error Compile R4: the operations callback returns a record
     operations: ({ E }) => {
       void balance.outcomes({
-        success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
+        success: E.BalanceRead.from((v) => ({ cents: v.cents })),
         failure: {
           NoAnswer: E.BalanceFailed,
           Defect: E.BalanceFailed,
@@ -177,7 +177,7 @@ export const orderHearingFormsEvent = () =>
     onContext: [
       C.customer.change({
         // @ts-expect-error Compile R12: another definition's event
-        event: TransferForm.E.AccountChanged.from((account: string) => ({ account })),
+        event: TransferForm.E.AccountChanged.from((account) => ({ account })),
       }),
     ],
   }));

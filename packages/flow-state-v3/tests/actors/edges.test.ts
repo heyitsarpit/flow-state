@@ -34,20 +34,16 @@ const Draft = definition({
     save: save.outcomes({
       success: E.Saved,
       failure: {},
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
 });
 
-const byText = ({ event }: { readonly event: { readonly text: string } }) => ({
-  text: event.text,
-});
-
 const DraftMachine = machine(Draft, ({ S, O }) => ({
   default: S.OPEN,
   on: {
-    Save: { actions: [O.save.commit(byText)] },
+    Save: { actions: [O.save.commit(({ event }) => ({ text: event.text }))] },
     Saved: {},
     NotSent: {},
     Unsure: {},
@@ -150,7 +146,7 @@ const Post = definition({
     post: post.outcomes({
       success: E.Posted,
       failure: { Rejected: E.Refused },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
@@ -159,7 +155,7 @@ const Post = definition({
 const PostMachine = machine(Post, ({ S, O }) => ({
   default: S.OPEN,
   on: {
-    Post: { actions: [O.post.commit(byText)] },
+    Post: { actions: [O.post.commit(({ event }) => ({ text: event.text }))] },
     Retry: { actions: [O.post.retry(() => ({}))] },
     Posted: {},
     Refused: {},

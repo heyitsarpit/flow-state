@@ -162,7 +162,9 @@ const SLOTS: ReadonlyArray<Slot> = [
     name: "a reaction's ending",
     samples: [
       StandingOrder.E.AccountChanged,
-      StandingOrder.E.AccountChanged.from((account: string) => ({ account })),
+      StandingOrder.E.AccountChanged.from((account: typeof StandingOrder.M.account.Type) => ({
+        account,
+      })),
     ],
     construct: (value) =>
       machine(StandingOrder, ({ S, C }) =>
@@ -264,6 +266,7 @@ const SLOTS: ReadonlyArray<Slot> = [
       Flow.input(Schema.String),
       Flow.initial(Schema.String, ""),
       Flow.initial(Schema.NullOr(Schema.DateFromString), null),
+      Flow.initial(Schema.Number, 0),
       Schema.optional(Schema.String),
     ],
     construct: (value) =>

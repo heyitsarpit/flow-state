@@ -106,21 +106,23 @@ export const flowBoundLate = storeStory("shop/flow-bound-late")
   .send(mainFlow, CheckoutFlow.E.Begin())
   .checkpoint("begun");
 
-// A mini-cart definition over any reads, so the reads' providers are not checked by the type.
-const pulseOver = (reads: Parameters<typeof Flow.context>[1]["reads"]) =>
+/**
+ * A mini-cart count read from the cart and the shopper, two providers: a type error, and at run time
+ * the definition refuses it (S7): `InvalidConfiguration` at the read that names the second provider.
+ */
+export const mixedProviderPulse = () =>
   definition({
     id: "Shop/MixedPulse",
     states: ["SHOWN"],
     events: {},
-    context: { count: Flow.context(Schema.Number, { reads, select: () => 0 }) },
+    context: {
+      count: Flow.context(Schema.Number, {
+        // @ts-expect-error Compile S7: a derived slot reads one provider
+        reads: { lines: Cart.M.lines, name: Shopper.M.name },
+        select: () => 0,
+      }),
+    },
   });
-
-/**
- * A mini-cart count read from the cart and the shopper, two providers, wired through a widened type
- * so only the definition can refuse it (S7): `InvalidConfiguration` at the read that names the
- * second provider.
- */
-export const mixedProviderPulse = () => pulseOver({ lines: Cart.M.lines, name: Shopper.M.name });
 
 /**
  * A mini-cart whose count reaction enqueues an event no state handles (S7): refused when the

@@ -27,7 +27,7 @@ export const TransferForm = definition({
   context: { customer: Flow.context(Customer.M.account) },
   operations: ({ E }) => ({
     balance: balance.outcomes({
-      success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
+      success: E.BalanceRead.from((v) => ({ cents: v.cents })),
       failure: {
         NoAnswer: E.BalanceFailed,
         Defect: E.BalanceFailed,
@@ -35,10 +35,6 @@ export const TransferForm = definition({
       },
     }),
   }),
-});
-
-const fromAccount = ({ memory }: { readonly memory: { readonly account: string } }) => ({
-  account: memory.account,
 });
 
 /**
@@ -60,7 +56,7 @@ export const TransferFormMachine = machine(TransferForm, ({ S, E, O, C }) => ({
           target: S.CHECKING,
           guard: [({ context }) => (context.customer ?? "") !== "" || deny("NoAccount")],
           updateMemory: ({ context }) => ({ account: context.customer ?? "" }),
-          actions: [O.balance.lookup(fromAccount)],
+          actions: [O.balance.lookup(({ memory }) => ({ account: memory.account }))],
         },
       },
     },

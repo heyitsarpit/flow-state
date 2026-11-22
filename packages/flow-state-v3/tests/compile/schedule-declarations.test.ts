@@ -1,24 +1,14 @@
 import { Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import { definition, Flow, type Machine, machine } from "../../src/index.ts";
-import { loose } from "../../src/test/loose.ts";
+import { Flow, machine } from "../../src/index.ts";
+import { type Tokens, untyped } from "../untyped.ts";
 import { refusal } from "../refusals.ts";
 import { compiledOf } from "../../src/host/inspect.ts";
 
 // Declared schedules, the runtime half: the declaration on the definition, the body's placement
 // checked against it at construction (the twin rule), and each schedule's key and selection codec
 // in `Compiled.schedules`. These call `definition` and `machine` as plain JavaScript does.
-
-type Tokens = {
-  readonly S: Readonly<Record<string, unknown>>;
-  readonly E: Readonly<Record<string, unknown>>;
-};
-
-const untyped: {
-  readonly definition: (config: unknown) => Tokens;
-  readonly machine: (definition: unknown, body: (tokens: Tokens) => unknown) => Machine;
-} = loose({ definition, machine });
 
 // A lamp whose definition declares `schedules`, as an app author writes it.
 const Lamp = (schedules: unknown) =>

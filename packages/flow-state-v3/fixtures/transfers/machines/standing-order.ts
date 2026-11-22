@@ -38,7 +38,7 @@ export const StandingOrder = definition({
   context: { customer: Flow.context(Customer.M.account) },
   operations: ({ E }) => ({
     balance: balance.outcomes({
-      success: E.BalanceRead.from((v: { readonly cents: number }) => ({ cents: v.cents })),
+      success: E.BalanceRead.from((v) => ({ cents: v.cents })),
       failure: {
         NoAnswer: E.BalanceFailed,
         Defect: E.BalanceFailed,
@@ -51,7 +51,11 @@ export const StandingOrder = definition({
 /**
  * A balance lookup's input: the account the order pays from.
  */
-export const fromAccount = ({ memory }: { readonly memory: { readonly account: string } }) => ({
+export const fromAccount = ({
+  memory,
+}: {
+  readonly memory: { readonly account: typeof StandingOrder.M.account.Type };
+}) => ({
   account: memory.account,
 });
 

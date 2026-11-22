@@ -29,7 +29,7 @@ export const SessionBanner = definition({
 export const SessionBannerMachine = machine(SessionBanner, ({ S, E, C }) => ({
   default: S.SHOWN,
   onContext: [
-    C.phase.change({ event: E.StepShown.from((step: string) => ({ step })) }),
+    C.phase.change({ event: E.StepShown.from((step) => ({ step })) }),
     C.signedIn.change({ when: (current) => current, event: E.Welcomed }),
   ],
   on: {

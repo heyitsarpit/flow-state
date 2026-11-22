@@ -6,8 +6,6 @@ type Policy = "latest" | "serialize" | "cancel";
 
 const repo = { repo: Schema.String };
 
-const byRepo = ({ event }: { readonly event: { readonly repo: string } }) => ({ repo: event.repo });
-
 // One sync of a repository under a policy, keyed by the repository: a lost answer is unknown.
 const syncUnder = (concurrency: Policy) =>
   transaction({
@@ -49,10 +47,14 @@ const clientUnder = (concurrency: Policy) => {
       sync: syncUnder(concurrency).outcomes({
         success: E.Synced,
         failure: { RateLimited: E.Limited },
-        notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+        notSent: E.NotSent.from((e) => ({ why: e.why })),
         unknown: E.Unsure,
       }),
     }),
+  });
+
+  const byRepo = ({ event }: { readonly event: typeof Client.E.Commit.Type }) => ({
+    repo: event.repo,
   });
 
   const Machine = machine(Client, ({ S, O }) => ({

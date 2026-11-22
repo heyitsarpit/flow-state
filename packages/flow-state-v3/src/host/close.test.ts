@@ -51,7 +51,7 @@ const DoorMachine = machine(Door, ({ S, O }) => ({
   on: {
     Ring: {
       actions: [
-        O.ring.commit(({ event }: { readonly event: { readonly tone: string } }) => ({
+        O.ring.commit(({ event }) => ({
           tone: event.tone,
         })),
       ],

@@ -66,24 +66,17 @@ const Notes = definition({
     sync: sync.outcomes({
       success: E.Synced,
       failure: { RateLimited: E.Limited },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
     publish: publish.outcomes({
       success: E.Synced,
       failure: { RateLimited: E.Limited },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
 });
-
-const withDoc = ({ event }: { readonly event: { readonly doc: Schema.Json } }) => ({
-  repo: "flow",
-  doc: event.doc,
-});
-
-const byRepo = ({ event }: { readonly event: { readonly repo: string } }) => ({ repo: event.repo });
 
 // A notebook whose notes grow to any length, that a scribble leaves holding a lone surrogate (a
 // string with no canonical form), and that syncs.
@@ -96,8 +89,8 @@ const NotesMachine = machine(Notes, ({ S, O }) => ({
       }),
     },
     Scribble: { updateMemory: () => ({ notes: ["\uD800"] }) },
-    Sync: { actions: [O.sync.commit(byRepo)] },
-    Publish: { actions: [O.publish.commit(withDoc)] },
+    Sync: { actions: [O.sync.commit(({ event }) => ({ repo: event.repo }))] },
+    Publish: { actions: [O.publish.commit(({ event }) => ({ repo: "flow", doc: event.doc }))] },
     Synced: {},
     Limited: {},
     NotSent: {},

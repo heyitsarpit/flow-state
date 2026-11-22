@@ -58,7 +58,7 @@ const Pad = definition({
     sync: sync.outcomes({
       success: E.Synced,
       failure: {},
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),

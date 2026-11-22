@@ -41,7 +41,7 @@ const Room = definition({
     ring: ring.outcomes({
       success: E.Rang,
       failure: {},
-      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotRung.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),

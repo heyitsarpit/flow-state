@@ -36,13 +36,19 @@ const Badge = definition({
 
 const counted = {
   Heard: {
-    updateMemory: ({ memory }: { memory: { heard: number } }) => ({ heard: memory.heard + 1 }),
+    updateMemory: ({ memory }: { readonly memory: typeof Badge.Memory.Type }) => ({
+      heard: memory.heard + 1,
+    }),
   },
   Bumped: {
-    updateMemory: ({ memory }: { memory: { bumped: number } }) => ({ bumped: memory.bumped + 1 }),
+    updateMemory: ({ memory }: { readonly memory: typeof Badge.Memory.Type }) => ({
+      bumped: memory.bumped + 1,
+    }),
   },
   Pinged: {
-    updateMemory: ({ memory }: { memory: { pinged: number } }) => ({ pinged: memory.pinged + 1 }),
+    updateMemory: ({ memory }: { readonly memory: typeof Badge.Memory.Type }) => ({
+      pinged: memory.pinged + 1,
+    }),
   },
 };
 

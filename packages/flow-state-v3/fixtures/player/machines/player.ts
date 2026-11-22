@@ -29,7 +29,7 @@ export const Player = definition({
   operations: ({ E }) => ({
     play: play.outcomes({
       success: E.Started,
-      failure: { Unavailable: E.Refused.from((e: { readonly why: string }) => ({ why: e.why })) },
+      failure: { Unavailable: E.Refused.from((e) => ({ why: e.why })) },
       unknown: E.Unsure,
     }),
   }),
@@ -39,7 +39,7 @@ export const Player = definition({
 /**
  * The player's label, its room and its speaker, derived where it is shown.
  */
-export const labelOf = (memory: { readonly room: string; readonly device: string }) =>
+export const labelOf = (memory: Pick<typeof Player.Memory.Type, "room" | "device">) =>
   `${memory.room}: ${memory.device}`;
 
 /**

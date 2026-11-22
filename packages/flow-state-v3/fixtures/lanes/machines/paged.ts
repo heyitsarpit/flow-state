@@ -36,17 +36,11 @@ export const Paged = definition({
     sync: syncPage.outcomes({
       success: E.Synced,
       failure: { RateLimited: E.Limited },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
 });
-
-const byPage = ({
-  event,
-}: {
-  readonly event: { readonly repo: string; readonly page: number };
-}) => ({ repo: event.repo, page: event.page });
 
 /**
  * A history client that syncs pages by number, so its lane key holds a number.
@@ -54,7 +48,9 @@ const byPage = ({
 export const PagedMachine = machine(Paged, ({ S, O }) => ({
   default: S.READY,
   on: {
-    CommitPage: { actions: [O.sync.commit(byPage)] },
+    CommitPage: {
+      actions: [O.sync.commit(({ event }) => ({ repo: event.repo, page: event.page }))],
+    },
     Synced: {},
     Limited: {},
     NotSent: {},

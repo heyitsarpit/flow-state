@@ -35,15 +35,15 @@ export const Mirror = definition({
   },
 });
 
-const upstreamOf = ({ memory }: { readonly memory: { readonly upstream: string } }) =>
+const upstreamOf = ({ memory }: { readonly memory: typeof Mirror.Memory.Type }) =>
   actorRef(MirrorMachine, { remote: memory.upstream });
 
 const taken = ({
   memory,
   event,
 }: {
-  readonly memory: { readonly seen: number };
-  readonly event: { readonly sha: string };
+  readonly memory: typeof Mirror.Memory.Type;
+  readonly event: typeof Mirror.E.Push.Type;
 }) => ({ seen: memory.seen + 1, lastSha: event.sha });
 
 /**
@@ -155,7 +155,7 @@ export const ReplicaMachine = machine(Replica, ({ S, E, C }) => ({
             updateMemory: ({ memory }) => ({ pushed: memory.pushed + 1 }),
             actions: [
               send(
-                upstreamOf,
+                ({ memory }) => actorRef(MirrorMachine, { remote: memory.upstream }),
                 Mirror.E.Push.from(({ event }) => ({ sha: event.sha, hops: 0 })),
               ),
             ],

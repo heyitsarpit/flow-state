@@ -25,7 +25,7 @@ const Payer = definition({
   memory: { paid: Flow.initial(Schema.Number, 0) },
 });
 
-const payee = ({ event }: { readonly event: { readonly payee: string } }) =>
+const payee = ({ event }: { readonly event: typeof Payer.E.Pay.Type }) =>
   actorRef(AccountMachine, { accountId: event.payee });
 
 describe("Actors R16: a send's target and event", () => {

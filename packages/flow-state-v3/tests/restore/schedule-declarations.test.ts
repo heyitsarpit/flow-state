@@ -1,11 +1,12 @@
 import { Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { WARN_MS } from "../../fixtures/wizard/machines/booking.ts";
+import { Booking, WARN_MS } from "../../fixtures/wizard/machines/booking.ts";
 import { usual } from "../../fixtures/wizard/stories/usual.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Story } from "../../src/host/testing/index.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { actorRef, app, Flow, runtimeSetup } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
+import { untyped } from "../untyped.ts";
 import { played } from "../rules/played.ts";
 import { timersOf } from "../timers.ts";
 
@@ -14,17 +15,7 @@ import { timersOf } from "../timers.ts";
 // runtime half of declared schedules; today the definition accepts the declaration and reads none of
 // it. The build is written as plain JavaScript writes it.
 
-type Tokens = {
-  readonly S: Readonly<Record<string, unknown>>;
-  readonly E: Readonly<Record<string, unknown>>;
-};
-
-const untyped: {
-  readonly definition: (config: unknown) => Tokens;
-  readonly machine: (definition: unknown, body: (tokens: Tokens) => unknown) => unknown;
-} = loose({ definition, machine });
-
-type Held = { readonly memory: { readonly heldUntil: number }; readonly now: number };
+type Held = { readonly memory: typeof Booking.Memory.Type; readonly now: number };
 
 // The booking edited in a later build: its schedules declared in `declared`'s order, placed in
 // HELD by `placed`.

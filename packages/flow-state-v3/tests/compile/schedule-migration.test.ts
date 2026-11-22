@@ -2,23 +2,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import { Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
-import { definition, Flow, machine } from "../../src/index.ts";
-import { loose } from "../../src/test/loose.ts";
+import { Flow } from "../../src/index.ts";
+import { untyped } from "../untyped.ts";
 import { refusal } from "../refusals.ts";
 import { compiledOf } from "../../src/host/inspect.ts";
 
 // Every user of schedules migrated to the declared form, and the old form deleted. Each check is
 // inverted until the last user moves.
-
-type Tokens = {
-  readonly S: Readonly<Record<string, unknown>>;
-  readonly E: Readonly<Record<string, unknown>>;
-};
-
-const untyped: {
-  readonly definition: (config: unknown) => Tokens;
-  readonly machine: (definition: unknown, body: (tokens: Tokens) => unknown) => unknown;
-} = loose({ definition, machine });
 
 // A machine's `Compiled.schedules`, when it has one.
 // RETURN_TYPE: a Map or a record, read as one Map, so the check does not fix the field's shape.

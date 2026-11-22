@@ -51,14 +51,10 @@ const Shelf = definition({
     publish: publish.outcomes({
       success: E.Published,
       failure: { RateLimited: E.Limited },
-      notSent: E.NotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotSent.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
-});
-
-const treeOf = ({ event }: { readonly event: { readonly depth: number } }) => ({
-  folder: foldersOf(event.depth),
 });
 
 // A shelf that holds a folder tree and publishes a tree as deep as each event asks.
@@ -67,7 +63,7 @@ const ShelfMachine = machine(Shelf, ({ S, O }) => ({
   on: {
     Publish: {
       updateMemory: ({ event }) => ({ held: foldersOf(event.depth) }),
-      actions: [O.publish.commit(treeOf)],
+      actions: [O.publish.commit(({ event }) => ({ folder: foldersOf(event.depth) }))],
     },
     Published: {},
     Limited: {},

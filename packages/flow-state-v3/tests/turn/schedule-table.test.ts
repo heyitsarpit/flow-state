@@ -11,6 +11,7 @@ import {
   machine,
   runtimeSetup,
   type ScheduleDecl,
+  type TimerView,
 } from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
@@ -27,13 +28,6 @@ const Flag = Schema.Literals(["t", "f", "x"]);
 type Flag = typeof Flag.Type;
 
 const Inputs = { a: Flag, b: Flag, sel: Schema.Number, keys: Schema.Array(Schema.String) };
-
-type Inputs = {
-  readonly a: Flag;
-  readonly b: Flag;
-  readonly sel: number;
-  readonly keys: ReadonlyArray<string>;
-};
 
 // The table's definition, its schedule t declared as each kind places it.
 const tableOf = <const T extends ScheduleDecl>(t: T) =>
@@ -64,13 +58,6 @@ const tableOf = <const T extends ScheduleDecl>(t: T) =>
 
 const Table = tableOf({});
 
-type Memory = Inputs & {
-  readonly na: Flag;
-  readonly nb: Flag;
-  readonly nsel: number;
-  readonly nkeys: ReadonlyArray<string>;
-};
-
 const flag = (value: Flag) => {
   if (value === "x") throw new Error("the reason cannot be read");
 
@@ -83,45 +70,43 @@ const selection = (sel: number) => {
   return sel;
 };
 
-const written = ({ event }: { readonly event: Inputs }) => ({
+const written = (event: typeof Table.E.Set.Type) => ({
   a: event.a,
   b: event.b,
   sel: event.sel,
   keys: event.keys,
 });
 
-const queued = ({ event }: { readonly event: Inputs }) => ({
+const queued = (event: typeof Table.E.Queue.Type) => ({
   na: event.a,
   nb: event.b,
   nsel: event.sel,
   nkeys: event.keys,
 });
 
-const ticked = ({ memory }: { readonly memory: Memory }) => ({
+const ticked = (memory: typeof Table.Memory.Type) => ({
   a: memory.na,
   b: memory.nb,
   sel: memory.nsel,
   keys: memory.nkeys,
 });
 
-const ROOT = {
-  Set: { updateMemory: written },
-  Go: { updateMemory: written },
-  Stop: { updateMemory: written },
-  Queue: { updateMemory: queued },
-  Tick: { updateMemory: ticked },
-};
-
 const EntryTable = machine(
   tableOf({ pausedBy: ["A", "B"], restartOn: Schema.Number }),
   ({ S, E }) => ({
     default: S.ON,
-    on: ROOT,
+    on: {
+      Set: { updateMemory: ({ event }) => written(event) },
+      Go: { updateMemory: ({ event }) => written(event) },
+      Stop: { updateMemory: ({ event }) => written(event) },
+      Queue: { updateMemory: ({ event }) => queued(event) },
+      Tick: { updateMemory: ({ memory }) => ticked(memory) },
+    },
     states: {
       ON: {
         on: {
-          Reenter: { target: S.ON, updateMemory: written },
-          ReenterStop: { target: S.ON, updateMemory: written },
+          Reenter: { target: S.ON, updateMemory: ({ event }) => written(event) },
+          ReenterStop: { target: S.ON, updateMemory: ({ event }) => written(event) },
         },
         schedules: {
           t: {
@@ -140,12 +125,18 @@ const EntryTable = machine(
 
 const ArmOnTable = machine(tableOf({ pausedBy: ["A", "B"] }), ({ S, E }) => ({
   default: S.ON,
-  on: ROOT,
+  on: {
+    Set: { updateMemory: ({ event }) => written(event) },
+    Go: { updateMemory: ({ event }) => written(event) },
+    Stop: { updateMemory: ({ event }) => written(event) },
+    Queue: { updateMemory: ({ event }) => queued(event) },
+    Tick: { updateMemory: ({ memory }) => ticked(memory) },
+  },
   states: {
     ON: {
       on: {
-        Reenter: { target: S.ON, updateMemory: written },
-        ReenterStop: { target: S.ON, updateMemory: written },
+        Reenter: { target: S.ON, updateMemory: ({ event }) => written(event) },
+        ReenterStop: { target: S.ON, updateMemory: ({ event }) => written(event) },
       },
       schedules: {
         t: {
@@ -162,12 +153,18 @@ const ArmOnTable = machine(tableOf({ pausedBy: ["A", "B"] }), ({ S, E }) => ({
 
 const PlainTable = machine(tableOf({ pausedBy: ["A", "B"] }), ({ S, E }) => ({
   default: S.ON,
-  on: ROOT,
+  on: {
+    Set: { updateMemory: ({ event }) => written(event) },
+    Go: { updateMemory: ({ event }) => written(event) },
+    Stop: { updateMemory: ({ event }) => written(event) },
+    Queue: { updateMemory: ({ event }) => queued(event) },
+    Tick: { updateMemory: ({ memory }) => ticked(memory) },
+  },
   states: {
     ON: {
       on: {
-        Reenter: { target: S.ON, updateMemory: written },
-        ReenterStop: { target: S.ON, updateMemory: written },
+        Reenter: { target: S.ON, updateMemory: ({ event }) => written(event) },
+        ReenterStop: { target: S.ON, updateMemory: ({ event }) => written(event) },
       },
       schedules: {
         t: {
@@ -185,12 +182,18 @@ const KeyedTable = machine(
   tableOf({ key: { id: Schema.String }, pausedBy: ["A", "B"], restartOn: Schema.Number }),
   ({ S, E }) => ({
     default: S.ON,
-    on: ROOT,
+    on: {
+      Set: { updateMemory: ({ event }) => written(event) },
+      Go: { updateMemory: ({ event }) => written(event) },
+      Stop: { updateMemory: ({ event }) => written(event) },
+      Queue: { updateMemory: ({ event }) => queued(event) },
+      Tick: { updateMemory: ({ memory }) => ticked(memory) },
+    },
     states: {
       ON: {
         on: {
-          Reenter: { target: S.ON, updateMemory: written },
-          ReenterStop: { target: S.ON, updateMemory: written },
+          Reenter: { target: S.ON, updateMemory: ({ event }) => written(event) },
+          ReenterStop: { target: S.ON, updateMemory: ({ event }) => written(event) },
         },
         schedules: {
           t: {
@@ -314,10 +317,6 @@ const SLOTS = {
   B: `${SLOT}.paused.B`,
   restartOn: `${SLOT}.restartOn`,
 } as const;
-
-type TimerView =
-  | { readonly dueAt: number }
-  | { readonly left: number; readonly pausedBy: ReadonlyArray<string> };
 
 type Seen = readonly ["Paused", ReadonlyArray<string>, number] | readonly ["Resumed", number];
 
@@ -463,7 +462,7 @@ const expected = (row: Row): Outcome => {
 
 // ── the runs.
 
-const NONE: Inputs = { a: "f", b: "f", sel: 0, keys: [] };
+const NONE: typeof Table.E.Set.Type = { a: "f", b: "f", sel: 0, keys: [] };
 
 const WITH_KEY: ReadonlyArray<string> = ["k"];
 
@@ -476,10 +475,10 @@ const inputsOf = (row: Row) =>
     b: row.b,
     sel: SEL[row.restart],
     keys: row.kind === "byKey" && row.key !== "leave" ? WITH_KEY : [],
-  }) satisfies Inputs;
+  }) satisfies typeof Table.E.Set.Type;
 
 // The event a turn or a start sends.
-const eventOf = (turn: Turn | "queue", inputs: Inputs) => {
+const eventOf = (turn: Turn | "queue", inputs: typeof Table.E.Set.Type) => {
   if (turn === "go") return Table.E.Go(inputs);
 
   if (turn === "stop") return Table.E.Stop(inputs);
@@ -493,7 +492,7 @@ const eventOf = (turn: Turn | "queue", inputs: Inputs) => {
   return Table.E.Set(inputs);
 };
 
-type Sent = readonly [Turn | "queue", Inputs];
+type Sent = readonly [Turn | "queue", typeof Table.E.Set.Type];
 
 // What each start sends after its timer is armed: idle is then disarmed (with A true for "idle,
 // held by A", then A throwing for "idle, A threw"), held paused by A, and "running, A threw" meets
@@ -509,11 +508,11 @@ const STARTS = {
   running: () => [],
   held: (base) => [["write", { ...base, a: "t" }]],
   "running, A threw": (base) => [["write", { ...base, a: "x" }]],
-} as const satisfies Record<Before, (base: Inputs) => ReadonlyArray<Sent>>;
+} as const satisfies Record<Before, (base: typeof Table.E.Set.Type) => ReadonlyArray<Sent>>;
 
 // An armOn timer is armed by Go unless it starts idle; a keyed one by its key.
 // RETURN_TYPE: the sends a prelude spreads, whichever branch builds them.
-const armingOf = (row: Row, base: Inputs): ReadonlyArray<Sent> => {
+const armingOf = (row: Row, base: typeof Table.E.Set.Type): ReadonlyArray<Sent> => {
   if (row.kind === "armOn")
     return row.before === "idle" ||
       row.before === "idle, held by A" ||

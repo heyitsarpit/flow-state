@@ -24,16 +24,6 @@ const confirmed = (status: string, clientSecret: string, afterUnsure: boolean) =
 });
 
 /**
- * `pay`'s success: the intent's status and client secret, and whether an earlier send may have
- * applied.
- */
-export type Confirmed = {
-  readonly status: string;
-  readonly clientSecret: string;
-  readonly afterUnsure: boolean;
-};
-
-/**
  * One charge of a cart's intent, keyed by the intent: a lost answer, or none within 60 seconds,
  * is unknown; an intent busy elsewhere is a success only when an earlier send may have applied and
  * the intent is capturable.

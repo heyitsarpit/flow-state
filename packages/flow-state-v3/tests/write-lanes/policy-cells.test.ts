@@ -22,8 +22,6 @@ import { Fake, type Cut, Story } from "../../src/host/testing/index.ts";
 import { endings, laneFacts, type Records } from "../checkout.ts";
 import { played } from "../rules/played.ts";
 
-type Policy = "latest" | "serialize" | "cancel";
-
 type Phase =
   | "Idle"
   | "Acknowledging"
@@ -37,6 +35,8 @@ type Phase =
 
 const clients = { latest: latestClient, serialize: serializeClient, cancel: cancelClient };
 
+type Policy = keyof typeof clients;
+
 const machines = { latest: LatestMachine, serialize: SerializeMachine, cancel: CancelMachine };
 
 const FLOW = { repo: "flow" };
@@ -45,7 +45,7 @@ const definitions = { latest: Latest, serialize: Serialize, cancel: Cancel };
 
 const commit = Serialize.E.Commit(FLOW);
 
-type Tag = "Commit" | "Twice" | "RetryCommit" | "CancelCommit" | "Cancel" | "Retry";
+type Tag = (typeof Serialize.Event.Type)["_tag"];
 
 // The lane's row for the flow repository at a cut, undefined when it has no lane.
 const rowAt = (cut: Cut, policy: Policy) => {

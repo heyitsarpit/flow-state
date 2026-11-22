@@ -2,8 +2,6 @@ import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 import { Cart } from "./cart.ts";
 
-type Lines = Readonly<Record<string, { readonly quantity: number }>>;
-
 /**
  * How many items the shopper sees in the cart: each line's quantity as last asked for, the answered
  * one where no edit waits.
@@ -12,8 +10,8 @@ export const shownCount = ({
   lines,
   wanted,
 }: {
-  readonly lines: Lines;
-  readonly wanted: Readonly<Record<string, number>>;
+  readonly lines: typeof Cart.M.lines.Type;
+  readonly wanted: typeof Cart.M.wanted.Type;
 }) => Object.entries(lines).reduce((sum, [id, line]) => sum + (wanted[id] ?? line.quantity), 0);
 
 /**
@@ -51,7 +49,7 @@ export const CartPulseMachine = machine(CartPulse, ({ S, E, C }) => ({
       when: (current, previous) => previous === undefined || current > previous,
       event: E.Grew,
     }),
-    C.count.change({ event: E.Counted.from((count: number) => ({ count })) }),
+    C.count.change({ event: E.Counted.from((count) => ({ count })) }),
   ],
   on: {
     Grew: { target: S.PULSING, updateMemory: ({ memory }) => ({ pulses: memory.pulses + 1 }) },

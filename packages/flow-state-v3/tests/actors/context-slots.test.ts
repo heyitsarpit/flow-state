@@ -224,35 +224,61 @@ const Twin = definition({
   memory: { name: Flow.initial(Schema.String, "") },
 });
 
-const totalOf = (reads: Parameters<typeof Flow.context>[1]["reads"]) => () =>
-  definition({
-    id: "Slots/Total",
-    states: ["SHOWN"],
-    events: {},
-    context: { total: Flow.context(Schema.Number, { reads, select: () => 0 }) },
-  });
-
 describe("construction refuses a slot of two providers by definition, not by id (Compile R19)", () => {
   it("Compile R19, I18: two definitions of one factory, whose ids the type cannot tell apart, are refused at the second read", () => {
-    expect(refusal(totalOf({ a: listOf("a").M.size, b: listOf("b").M.size }))).toEqual([
-      ["InvalidConfiguration", "context.total.reads.b"],
-    ]);
+    expect(
+      refusal(() =>
+        definition({
+          id: "Slots/Total",
+          states: ["SHOWN"],
+          events: {},
+          context: {
+            total: Flow.context(Schema.Number, {
+              reads: { a: listOf("a").M.size, b: listOf("b").M.size },
+              select: () => 0,
+            }),
+          },
+        }),
+      ),
+    ).toEqual([["InvalidConfiguration", "context.total.reads.b"]]);
   });
 
   it("Compile R19, I18: two definitions under one id are two providers, refused at the second read", () => {
-    expect(refusal(totalOf({ name: Profile.M.name, twin: Twin.M.name }))).toEqual([
-      ["InvalidConfiguration", "context.total.reads.twin"],
-    ]);
+    expect(
+      refusal(() =>
+        definition({
+          id: "Slots/Total",
+          states: ["SHOWN"],
+          events: {},
+          context: {
+            total: Flow.context(Schema.Number, {
+              reads: { name: Profile.M.name, twin: Twin.M.name },
+              select: () => 0,
+            }),
+          },
+        }),
+      ),
+    ).toEqual([["InvalidConfiguration", "context.total.reads.twin"]]);
   });
 
   it("Compile R19: reads of one definition's fields and states are one provider", () => {
     expect(
-      refusal(
-        totalOf({
-          name: Profile.M.name,
-          seen: Profile.M.seen,
-          here: Profile.S.HERE,
-          at: Profile.state,
+      refusal(() =>
+        definition({
+          id: "Slots/Total",
+          states: ["SHOWN"],
+          events: {},
+          context: {
+            total: Flow.context(Schema.Number, {
+              reads: {
+                name: Profile.M.name,
+                seen: Profile.M.seen,
+                here: Profile.S.HERE,
+                at: Profile.state,
+              },
+              select: () => 0,
+            }),
+          },
         }),
       ),
     ).toEqual([]);

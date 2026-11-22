@@ -2,7 +2,6 @@ import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../../src/index.ts";
 import { me } from "../operations/reads.ts";
 import { setUsername } from "../operations/writes.ts";
-import type { Taken } from "../services.ts";
 
 // The activity counter a tab broadcasts, as text such as "17"; a report the page cannot read
 // throws, as a parser does.
@@ -63,37 +62,37 @@ export const AuthSession = definition({
   },
   operations: ({ E }) => ({
     save: setUsername.outcomes({
-      success: E.Saved.from((v: { readonly handle: string }) => ({ handle: v.handle })),
-      failure: { Taken: E.Refused.from((e: Taken) => ({ handle: e.handle })) },
-      notSent: E.NotSaved.from((e: { readonly why: string }) => ({ why: e.why })),
+      success: E.Saved.from((v) => ({ handle: v.handle })),
+      failure: { Taken: E.Refused.from((e) => ({ handle: e.handle })) },
+      notSent: E.NotSaved.from((e) => ({ why: e.why })),
       unknown: E.SaveUnsure,
     }),
     me: me.outcomes({
-      success: E.MeRead.from((v: { readonly handle: string; readonly refreshToken: string }) => v),
+      success: E.MeRead.from((v) => v),
       failure: { Unanswered: E.MeFailed, Defect: E.MeFailed, Interrupted: E.MeFailed },
     }),
   }),
   schedules: { idle: { restartOn: Schema.Number } },
 });
 
-type Memory = { readonly email: string; readonly handle: string; readonly edited: boolean };
-
 /**
  * The handle a session would save: the one typed or loaded, a blank one included once typed, else
  * the email's prefix, derived where it is read.
  */
-export const chosen = (memory: Memory) => {
+export const chosen = (memory: typeof AuthSession.Memory.Type) => {
   if (memory.edited || memory.handle !== "") return memory.handle;
 
   return memory.email.split("@")[0] ?? "";
 };
 
-const handleOf = ({ memory }: { readonly memory: Memory }) => ({
+const handleOf = ({ memory }: { readonly memory: typeof AuthSession.Memory.Type }) => ({
   email: memory.email,
   handle: chosen(memory),
 });
 
-const account = ({ memory }: { readonly memory: Memory }) => ({ email: memory.email });
+const account = ({ memory }: { readonly memory: typeof AuthSession.Memory.Type }) => ({
+  email: memory.email,
+});
 
 /**
  * The session: signing in reads the account; one with no saved handle is new and chooses one; a blank one is skipped and never saved; an unedited
@@ -105,118 +104,135 @@ const account = ({ memory }: { readonly memory: Memory }) => ({ email: memory.em
  * longest timer, or an activity report the page cannot read, is the session's issue until the next
  * policy or report.
  */
-export const AuthSessionMachine = machine(AuthSession, ({ S, E, O }) => {
-  const save = {
-    target: S.SAVING,
-    updateMemory: () => ({ held: true, notice: "" }),
-    actions: [O.save.commit(handleOf)],
-  };
-
-  return {
-    default: S.SIGNED_OUT,
-    on: {
-      Handle: { updateMemory: ({ event }) => ({ handle: event.handle, edited: true }) },
-      MeRead: {},
-      MeFailed: {},
-      NotSaved: {},
-      Activity: { updateMemory: ({ event }) => ({ report: event.report }) },
-      PolicyLoaded: { updateMemory: ({ event }) => ({ idleMs: event.idleMs }) },
-    },
-    states: {
-      SIGNED_OUT: { on: { SignedIn: { target: S.LOADING, actions: [O.me.lookup(account)] } } },
-      LOADING: {
-        on: {
-          MeRead: [
-            {
-              target: S.CHOOSING,
-              guard: [({ event }) => event.handle === "" || deny("HasHandle")],
-              updateMemory: ({ event }) => ({ refreshToken: event.refreshToken }),
-            },
-            {
-              target: S.SIGNED_IN,
-              updateMemory: ({ event }) => ({
-                refreshToken: event.refreshToken,
-                handle: event.handle,
-                saved: event.handle,
-              }),
-            },
-          ],
-          MeFailed: {
-            target: S.SIGNED_OUT,
-            updateMemory: () => ({ notice: "we could not load your account" }),
+export const AuthSessionMachine = machine(AuthSession, ({ S, E, O }) => ({
+  default: S.SIGNED_OUT,
+  on: {
+    Handle: { updateMemory: ({ event }) => ({ handle: event.handle, edited: true }) },
+    MeRead: {},
+    MeFailed: {},
+    NotSaved: {},
+    Activity: { updateMemory: ({ event }) => ({ report: event.report }) },
+    PolicyLoaded: { updateMemory: ({ event }) => ({ idleMs: event.idleMs }) },
+  },
+  states: {
+    SIGNED_OUT: { on: { SignedIn: { target: S.LOADING, actions: [O.me.lookup(account)] } } },
+    LOADING: {
+      on: {
+        MeRead: [
+          {
+            target: S.CHOOSING,
+            guard: [({ event }) => event.handle === "" || deny("HasHandle")],
+            updateMemory: ({ event }) => ({ refreshToken: event.refreshToken }),
           },
-        },
-      },
-      CHOOSING: {
-        on: {
-          SubmitHandle: [
-            {
-              target: S.SIGNED_IN,
-              guard: [({ memory }) => chosen(memory) === "" || deny("HasHandle")],
-            },
-            { target: S.CONFIRMING, guard: [({ memory }) => !memory.edited || deny("Edited")] },
-            save,
-          ],
-        },
-      },
-      CONFIRMING: { on: { ConfirmHandle: save, SubmitHandle: save } },
-      SAVING: {
-        on: {
-          SubmitHandle: { actions: [O.save.commit(handleOf)] },
-          Saved: {
+          {
             target: S.SIGNED_IN,
             updateMemory: ({ event }) => ({
-              held: false,
+              refreshToken: event.refreshToken,
               handle: event.handle,
               saved: event.handle,
             }),
           },
-          Refused: {
-            target: S.HANDLE_FAILED,
-            updateMemory: ({ event }) => ({ notice: `${event.handle} is taken` }),
-          },
-          SaveUnsure: [
-            { guard: [O.save.retryable(account, { times: 1 })], actions: [O.save.retry(account)] },
-            {
-              target: S.HANDLE_FAILED,
-              updateMemory: () => ({ notice: "we could not save your handle" }),
-            },
-          ],
-          NotSaved: [
-            { guard: [({ event }) => event.why === "Rejected" || deny("NotADoubleSubmit")] },
-            {
-              target: S.HANDLE_FAILED,
-              updateMemory: ({ event }) => ({ notice: `not saved: ${event.why}` }),
-            },
-          ],
-        },
-      },
-      HANDLE_FAILED: {
-        on: {
-          Retry: [
-            {
-              target: S.SAVING,
-              guard: [O.save.retryable(account, { times: 3 })],
-              updateMemory: () => ({ notice: "" }),
-              actions: [O.save.retry(account)],
-            },
-            save,
-          ],
-          SubmitHandle: save,
-        },
-      },
-      SIGNED_IN: {
-        on: { TimedOut: S.SIGNED_OUT, SignOut: S.SIGNED_OUT },
-        schedules: {
-          idle: {
-            schedule: ({ memory }) => memory.idleMs,
-            send: E.TimedOut,
-            armOn: [Flow.entry],
-            restartOn: ({ memory }) => countOf(memory.report),
-            disarmOn: [E.VideoStarted],
-          },
+        ],
+        MeFailed: {
+          target: S.SIGNED_OUT,
+          updateMemory: () => ({ notice: "we could not load your account" }),
         },
       },
     },
-  };
-});
+    CHOOSING: {
+      on: {
+        SubmitHandle: [
+          {
+            target: S.SIGNED_IN,
+            guard: [({ memory }) => chosen(memory) === "" || deny("HasHandle")],
+          },
+          { target: S.CONFIRMING, guard: [({ memory }) => !memory.edited || deny("Edited")] },
+          {
+            target: S.SAVING,
+            updateMemory: () => ({ held: true, notice: "" }),
+            actions: [O.save.commit(handleOf)],
+          },
+        ],
+      },
+    },
+    CONFIRMING: {
+      on: {
+        ConfirmHandle: {
+          target: S.SAVING,
+          updateMemory: () => ({ held: true, notice: "" }),
+          actions: [O.save.commit(handleOf)],
+        },
+        SubmitHandle: {
+          target: S.SAVING,
+          updateMemory: () => ({ held: true, notice: "" }),
+          actions: [O.save.commit(handleOf)],
+        },
+      },
+    },
+    SAVING: {
+      on: {
+        SubmitHandle: { actions: [O.save.commit(handleOf)] },
+        Saved: {
+          target: S.SIGNED_IN,
+          updateMemory: ({ event }) => ({
+            held: false,
+            handle: event.handle,
+            saved: event.handle,
+          }),
+        },
+        Refused: {
+          target: S.HANDLE_FAILED,
+          updateMemory: ({ event }) => ({ notice: `${event.handle} is taken` }),
+        },
+        SaveUnsure: [
+          { guard: [O.save.retryable(account, { times: 1 })], actions: [O.save.retry(account)] },
+          {
+            target: S.HANDLE_FAILED,
+            updateMemory: () => ({ notice: "we could not save your handle" }),
+          },
+        ],
+        NotSaved: [
+          { guard: [({ event }) => event.why === "Rejected" || deny("NotADoubleSubmit")] },
+          {
+            target: S.HANDLE_FAILED,
+            updateMemory: ({ event }) => ({ notice: `not saved: ${event.why}` }),
+          },
+        ],
+      },
+    },
+    HANDLE_FAILED: {
+      on: {
+        Retry: [
+          {
+            target: S.SAVING,
+            guard: [O.save.retryable(account, { times: 3 })],
+            updateMemory: () => ({ notice: "" }),
+            actions: [O.save.retry(account)],
+          },
+          {
+            target: S.SAVING,
+            updateMemory: () => ({ held: true, notice: "" }),
+            actions: [O.save.commit(handleOf)],
+          },
+        ],
+        SubmitHandle: {
+          target: S.SAVING,
+          updateMemory: () => ({ held: true, notice: "" }),
+          actions: [O.save.commit(handleOf)],
+        },
+      },
+    },
+    SIGNED_IN: {
+      on: { TimedOut: S.SIGNED_OUT, SignOut: S.SIGNED_OUT },
+      schedules: {
+        idle: {
+          schedule: ({ memory }) => memory.idleMs,
+          send: E.TimedOut,
+          armOn: [Flow.entry],
+          restartOn: ({ memory }) => countOf(memory.report),
+          disarmOn: [E.VideoStarted],
+        },
+      },
+    },
+  },
+}));

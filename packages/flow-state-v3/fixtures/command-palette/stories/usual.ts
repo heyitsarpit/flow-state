@@ -1,5 +1,5 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
-import { command, type Entries, group, type Scores, separator } from "../machines/commands.ts";
+import { command, type Entries, group, separator } from "../machines/commands.ts";
 import { palette, paletteSetup } from "../app.ts";
 import { Palette } from "../machines/palette.ts";
 import { Commands } from "../server/commands.ts";
@@ -42,7 +42,7 @@ export const fuzzy = { autoHighlight: true, scores: null } as const;
  */
 export const configure = (
   list: typeof Entries.Type,
-  props: { readonly autoHighlight: boolean; readonly scores: typeof Scores.Type } = fuzzy,
+  props: Omit<typeof Palette.E.Configure.Type, "commands"> = fuzzy,
 ) => Palette.E.Configure({ commands: list, ...props });
 
 /**

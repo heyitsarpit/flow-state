@@ -674,13 +674,12 @@ tasks
 
             **Risk:** the type surface: `Machine<D, N>` reads `N` from the keys of the builder's result alone (no body
             capture, @spec.Types Q19), the trait and subroutine forms and an app's tokens for placed fragments are
-            unspiked on the real package, and shared bodies such as
-            code:packages/flow-state-v3/fixtures/services/shop/machines/pay.ts#PayBody must still compile
-            (@plan.Rules.O3); write the type tests first. Rules read private memory, which the public snapshot hides, so
-            `verdictOf` reads the run's internal incarnation records. Rules over `operations` depend on when a row turns
-            busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109) and the raise
-            (@task.V3.T110, whose `hostEvents` the rules builder's `E` includes); its `Story.fragment` part lands
-            with @task.V3.T109.
+            unspiked on the real package, and a body written apart from its `machine` call, typed by `Flow.BodyTokens`,
+            must still compile (@plan.Rules.O3); write the type tests first. Rules read private memory, which the public
+            snapshot hides, so `verdictOf` reads the run's internal incarnation records. Rules over `operations` depend
+            on when a row turns busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109) and
+            the raise (@task.V3.T110, whose `hostEvents` the rules builder's `E` includes); its `Story.fragment` part
+            lands with @task.V3.T109.
 
             **Approach:** amend the existing rule sections of @spec.Types (R9, RuleTyping) and @spec.Host (R8, R12, I25)
             where building shows them wrong (no new Spec), then write the requirements as failing checks: type tests

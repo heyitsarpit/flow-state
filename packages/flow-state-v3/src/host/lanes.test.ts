@@ -48,7 +48,7 @@ const Door = definition({
     ring: ring.outcomes({
       success: E.Rang,
       failure: {},
-      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotRung.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
@@ -77,7 +77,7 @@ const Gate = definition({
     ring: ring.outcomes({
       success: E.Rang,
       failure: {},
-      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotRung.from((e) => ({ why: e.why })),
       unknown: E.Unsure,
     }),
   }),
@@ -112,7 +112,7 @@ const Jam = definition({
     ring: ring.outcomes({
       success: E.Rang,
       failure: {},
-      notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotRung.from((e) => ({ why: e.why })),
       unknown: E.Unsure.from(() => {
         // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
         throw new Error("the mapper throws");
@@ -156,8 +156,8 @@ const latchOver = (heard: Array<unknown>) => {
       ring: stubborn.outcomes({
         success: E.Rang,
         failure: {},
-        notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
-        unknown: E.Unsure.from((value: unknown) => {
+        notSent: E.NotRung.from((e) => ({ why: e.why })),
+        unknown: E.Unsure.from((value) => {
           heard.push(value);
 
           return {};
@@ -196,7 +196,7 @@ const stuckOver = (jam: { on: boolean }) => {
       ring: ring.outcomes({
         success: E.Rang,
         failure: {},
-        notSent: E.NotRung.from((e: { readonly why: string }) => {
+        notSent: E.NotRung.from((e) => {
           if (jam.on)
             // oxlint-disable-next-line lint-bomb/no-throw-in-core -- the case is an author mapper that throws
             throw new Error("the mapper throws");
@@ -298,13 +298,13 @@ const Pair = definition({
     first: firstRing.outcomes({
       success: E.Done,
       failure: {},
-      notSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotDone.from((e) => ({ why: e.why })),
       unknown: E.FirstUnsure,
     }),
     second: ring.outcomes({
       success: E.Done,
       failure: {},
-      notSent: E.NotDone.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.NotDone.from((e) => ({ why: e.why })),
       unknown: E.SecondUnsure,
     }),
   }),

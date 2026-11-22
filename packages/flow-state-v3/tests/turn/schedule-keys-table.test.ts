@@ -2,7 +2,15 @@ import { Option, Predicate, Schedule, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  runtimeSetup,
+  type TimerView,
+} from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
 
@@ -21,12 +29,6 @@ const Inputs = {
   keys: Schema.Array(Schema.String),
   far: Schema.Array(Schema.String),
   a: Schema.Record(Schema.String, Flag),
-};
-
-type Inputs = {
-  readonly keys: ReadonlyArray<string>;
-  readonly far: ReadonlyArray<string>;
-  readonly a: Readonly<Record<string, Flag>>;
 };
 
 const Pair = definition({
@@ -148,10 +150,6 @@ const titleOf = (row: Row) =>
 const SLOT = "states.ON.schedules.t.schedule";
 
 const SLOT_A = "states.ON.schedules.t.paused.A";
-
-type TimerView =
-  | { readonly dueAt: number }
-  | { readonly left: number; readonly pausedBy: ReadonlyArray<string> };
 
 type Seen =
   | readonly [Key, "Paused", ReadonlyArray<string>, number]
@@ -327,14 +325,14 @@ const startOf = (row: Row) =>
     keys: KEYS.filter((key) => row[key].start !== "absent"),
     far: KEYS.filter((key) => row[key].start === "refused"),
     a: Object.fromEntries(KEYS.map((key) => [key, START_FLAG[row[key].start]])),
-  }) satisfies Inputs;
+  }) satisfies typeof Pair.E.Set.Type;
 
 const inputsOf = (row: Row) =>
   ({
     keys: KEYS.filter((key) => present(row[key])),
     far: KEYS.filter((key) => row[key].far),
     a: Object.fromEntries(KEYS.map((key) => [key, row[key].a])),
-  }) satisfies Inputs;
+  }) satisfies typeof Pair.E.Set.Type;
 
 // RETURN_TYPE: a literal-shaped name, as a machine with no input is named.
 const nameOf = (n: number): `p${number}` => `p${n}`;

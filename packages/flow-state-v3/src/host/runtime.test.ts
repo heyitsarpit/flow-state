@@ -53,7 +53,7 @@ const Door = definition({
     ring: ring.outcomes({
       success: E.Rang,
       failure: {},
-      notSent: E.RingNotSent.from((e: { readonly why: string }) => ({ why: e.why })),
+      notSent: E.RingNotSent.from((e) => ({ why: e.why })),
       unknown: E.RingUnsure,
     }),
   }),
@@ -65,7 +65,7 @@ const DoorMachine = machine(Door, ({ S, O }) => ({
     Name: { updateMemory: ({ event }) => ({ label: event.label }) },
     Ring: {
       actions: [
-        O.ring.commit(({ event }: { readonly event: { readonly tone: string } }) => ({
+        O.ring.commit(({ event }) => ({
           tone: event.tone,
         })),
       ],

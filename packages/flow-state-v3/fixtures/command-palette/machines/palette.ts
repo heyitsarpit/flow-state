@@ -9,7 +9,6 @@ import {
   Scores,
   shownCommands,
 } from "./commands.ts";
-import type { CommandFailed } from "../services.ts";
 import { runCommand } from "../operations/writes.ts";
 
 // One open page and the text the field held when it opened, which Back gives back.
@@ -47,7 +46,7 @@ export const Palette = definition({
     run: runCommand.outcomes({
       success: E.Ran,
       failure: {
-        CommandFailed: E.RunFailed.from((e: CommandFailed) => ({
+        CommandFailed: E.RunFailed.from((e) => ({
           command: e.command,
           reason: e.reason,
         })),
@@ -122,31 +121,18 @@ const closed = (memory: PaletteMemory) => ({
 const withoutKey = (errors: Readonly<Record<string, string>>, key: string) =>
   Object.fromEntries(Object.entries(errors).filter(([k]) => k !== key));
 
-type Picked<P> = { readonly memory: PaletteMemory; readonly event: P };
+// The command a key names in the palette's commands; none for no key.
+const commandOf = (memory: PaletteMemory, key: Option.Option<string>) =>
+  Option.flatMap(key, (k) => findCommand(memory.commands, k));
 
-type Pick<P> = (input: Picked<P>) => Option.Option<string>;
+const known = (memory: PaletteMemory, key: Option.Option<string>) =>
+  Option.isSome(commandOf(memory, key)) || deny("Unknown");
 
-const commandOf = <P>(pick: Pick<P>, input: Picked<P>) =>
-  Option.flatMap(pick(input), (key) => findCommand(input.memory.commands, key));
+const enabled = (memory: PaletteMemory, key: Option.Option<string>) =>
+  !Option.exists(commandOf(memory, key), (c) => c.disabled) || deny("Disabled");
 
-const known =
-  <P>(pick: Pick<P>) =>
-  (input: Picked<P>) =>
-    Option.isSome(commandOf(pick, input)) || deny("Unknown");
-
-const enabled =
-  <P>(pick: Pick<P>) =>
-  (input: Picked<P>) =>
-    !Option.exists(commandOf(pick, input), (c) => c.disabled) || deny("Disabled");
-
-const hasPage =
-  <P>(pick: Pick<P>) =>
-  (input: Picked<P>) =>
-    Option.exists(commandOf(pick, input), (c) => c.items.length > 0) || deny("NoPage");
-
-const byKey = ({ event }: { readonly event: { readonly key: string } }) => Option.some(event.key);
-
-const byHighlight = ({ memory }: { readonly memory: PaletteMemory }) => highlighted(memory);
+const hasPage = (memory: PaletteMemory, key: Option.Option<string>) =>
+  Option.exists(commandOf(memory, key), (c) => c.items.length > 0) || deny("NoPage");
 
 /**
  * A command palette: typing ranks the commands and highlights the best match; Run or Enter runs a
@@ -154,84 +140,117 @@ const byHighlight = ({ memory }: { readonly memory: PaletteMemory }) => highligh
  * runs on its own keyed write, so a running command cannot run again while others can, a failed
  * one keeps its reason until it runs again, and an unknown one may be run once more.
  */
-export const PaletteMachine = machine(Palette, ({ S, O }) => {
-  const runs = <P>(pick: Pick<P>) => {
-    const key = (input: Picked<P>) => Option.getOrElse(pick(input), () => "");
-    const command = (input: Picked<P>) => ({ command: key(input) });
-
-    return [
-      {
-        guard: [known(pick), enabled(pick), hasPage(pick)],
-        updateMemory: (input: Picked<P>) => opened(input.memory, key(input)),
-      },
-      {
-        guard: [known(pick), enabled(pick), O.run.idle(command)],
-        updateMemory: (input: Picked<P>) => ({
-          errors: withoutKey(input.memory.errors, key(input)),
-        }),
-        actions: [O.run.commit(command)],
-      },
-      {
-        guard: [known(pick), enabled(pick), O.run.retryable(command, { times: 1 })],
-        actions: [O.run.retry(command)],
-      },
-    ];
-  };
-
-  return {
-    default: S.READY,
-    on: {
-      Ran: {},
-      Unsure: {},
-      RunFailed: {
-        updateMemory: ({ memory, event }) => ({
-          errors: { ...memory.errors, [event.command]: event.reason },
-        }),
-      },
+export const PaletteMachine = machine(Palette, ({ S, O }) => ({
+  default: S.READY,
+  on: {
+    Ran: {},
+    Unsure: {},
+    RunFailed: {
+      updateMemory: ({ memory, event }) => ({
+        errors: { ...memory.errors, [event.command]: event.reason },
+      }),
     },
-    states: {
-      READY: {
-        on: {
-          Configure: {
-            updateMemory: ({ event }) => ({
-              commands: event.commands,
-              autoHighlight: event.autoHighlight,
-              scores: event.scores,
+  },
+  states: {
+    READY: {
+      on: {
+        Configure: {
+          updateMemory: ({ event }) => ({
+            commands: event.commands,
+            autoHighlight: event.autoHighlight,
+            scores: event.scores,
+          }),
+        },
+        Typed: { updateMemory: ({ event }) => ({ query: event.text, highlighted: null }) },
+        Highlight: {
+          guard: [
+            ({ memory, event }) =>
+              enabledOf(memory).some((c: Command) => c.value === event.key) || deny("NotShown"),
+          ],
+          updateMemory: ({ event }) => ({ highlighted: event.key }),
+        },
+        Move: {
+          guard: [({ memory }) => enabledOf(memory).length > 0 || deny("NothingShown")],
+          updateMemory: ({ memory, event }) => ({ highlighted: movedBy(memory, event.by) }),
+        },
+        Run: [
+          {
+            guard: [
+              ({ memory, event }) => known(memory, Option.some(event.key)),
+              ({ memory, event }) => enabled(memory, Option.some(event.key)),
+              ({ memory, event }) => hasPage(memory, Option.some(event.key)),
+            ],
+            updateMemory: ({ memory, event }) => opened(memory, event.key),
+          },
+          {
+            guard: [
+              ({ memory, event }) => known(memory, Option.some(event.key)),
+              ({ memory, event }) => enabled(memory, Option.some(event.key)),
+              O.run.idle(({ event }) => ({ command: event.key })),
+            ],
+            updateMemory: ({ memory, event }) => ({
+              errors: withoutKey(memory.errors, event.key),
             }),
+            actions: [O.run.commit(({ event }) => ({ command: event.key }))],
           },
-          Typed: { updateMemory: ({ event }) => ({ query: event.text, highlighted: null }) },
-          Highlight: {
+          {
             guard: [
-              ({ memory, event }) =>
-                enabledOf(memory).some((c: Command) => c.value === event.key) || deny("NotShown"),
+              ({ memory, event }) => known(memory, Option.some(event.key)),
+              ({ memory, event }) => enabled(memory, Option.some(event.key)),
+              O.run.retryable(({ event }) => ({ command: event.key }), { times: 1 }),
             ],
-            updateMemory: ({ event }) => ({ highlighted: event.key }),
+            actions: [O.run.retry(({ event }) => ({ command: event.key }))],
           },
-          Move: {
-            guard: [({ memory }) => enabledOf(memory).length > 0 || deny("NothingShown")],
-            updateMemory: ({ memory, event }) => ({ highlighted: movedBy(memory, event.by) }),
-          },
-          Run: runs(byKey),
-          Enter: runs(byHighlight),
-          Back: {
+        ],
+        Enter: [
+          {
             guard: [
-              ({ memory }) => memory.query === "" || deny("NotEmpty"),
-              ({ memory }) => memory.frames.length > 0 || deny("TopPage"),
+              ({ memory }) => known(memory, highlighted(memory)),
+              ({ memory }) => enabled(memory, highlighted(memory)),
+              ({ memory }) => hasPage(memory, highlighted(memory)),
             ],
+            updateMemory: ({ memory }) => opened(memory, highlightOf(memory) ?? ""),
+          },
+          {
+            guard: [
+              ({ memory }) => known(memory, highlighted(memory)),
+              ({ memory }) => enabled(memory, highlighted(memory)),
+              O.run.idle(({ memory }) => ({ command: highlightOf(memory) ?? "" })),
+            ],
+            updateMemory: ({ memory }) => ({
+              errors: withoutKey(memory.errors, highlightOf(memory) ?? ""),
+            }),
+            actions: [O.run.commit(({ memory }) => ({ command: highlightOf(memory) ?? "" }))],
+          },
+          {
+            guard: [
+              ({ memory }) => known(memory, highlighted(memory)),
+              ({ memory }) => enabled(memory, highlighted(memory)),
+              O.run.retryable(({ memory }) => ({ command: highlightOf(memory) ?? "" }), {
+                times: 1,
+              }),
+            ],
+            actions: [O.run.retry(({ memory }) => ({ command: highlightOf(memory) ?? "" }))],
+          },
+        ],
+        Back: {
+          guard: [
+            ({ memory }) => memory.query === "" || deny("NotEmpty"),
+            ({ memory }) => memory.frames.length > 0 || deny("TopPage"),
+          ],
+          updateMemory: ({ memory }) => closed(memory),
+        },
+        Escape: [
+          {
+            guard: [({ memory }) => memory.query !== "" || deny("Empty")],
+            updateMemory: () => ({ query: "", highlighted: null }),
+          },
+          {
+            guard: [({ memory }) => memory.frames.length > 0 || deny("TopPage")],
             updateMemory: ({ memory }) => closed(memory),
           },
-          Escape: [
-            {
-              guard: [({ memory }) => memory.query !== "" || deny("Empty")],
-              updateMemory: () => ({ query: "", highlighted: null }),
-            },
-            {
-              guard: [({ memory }) => memory.frames.length > 0 || deny("TopPage")],
-              updateMemory: ({ memory }) => closed(memory),
-            },
-          ],
-        },
+        ],
       },
     },
-  };
-});
+  },
+}));

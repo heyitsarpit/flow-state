@@ -97,24 +97,13 @@ const flag = (value: "t" | "f" | "x") => (value === "x" ? unreadable("the reason
 
 const Pair = pairOf(["A"], ["B"]);
 
-type Memory = {
-  readonly keys: ReadonlyArray<"bad" | "good">;
-  readonly keysThrow: boolean;
-  readonly a: { readonly bad: "t" | "f" | "x"; readonly good: "t" | "f" | "x" };
-  readonly far: boolean;
-  readonly sel: number;
-  readonly selThrow: boolean;
-  readonly refuse: boolean;
-  readonly bump: boolean;
-  readonly b: boolean;
-  readonly ticks: ReadonlyArray<string>;
-};
+type Memory = typeof Pair.Memory.Type;
 
 // A firing's send: refused while sends are, and writing the selection while sends do.
-const ticked = ({ event, memory }: { readonly event: { id: string }; readonly memory: Memory }) => {
+const ticked = (memory: Memory, id: string) => {
   if (memory.refuse) return unreadable("the firing");
 
-  return { ticks: [...memory.ticks, event.id], sel: memory.bump ? memory.sel + 1 : memory.sel };
+  return { ticks: [...memory.ticks, id], sel: memory.bump ? memory.sel + 1 : memory.sel };
 };
 
 const offsetOf = (high: boolean) => (high ? 1000 : 0);
@@ -134,7 +123,7 @@ const Paused = machine(Pair, ({ S, E }) => ({
   on: {
     Set: { updateMemory: ({ event }) => event },
     Stop: { updateMemory: ({ event }) => event },
-    Tick: { updateMemory: ticked },
+    Tick: { updateMemory: ({ memory, event }) => ticked(memory, event.id) },
   },
   states: {
     ON: {
@@ -172,7 +161,7 @@ const editedOf = (forT: ReadonlyArray<string>, forU: ReadonlyArray<string>) =>
       on: {
         Set: { updateMemory: ({ event }) => event },
         Stop: { updateMemory: ({ event }) => event },
-        Tick: { updateMemory: loose(ticked) },
+        Tick: { updateMemory: ({ memory, event }) => ticked(memory, event.id) },
       },
       states: {
         ON: {
@@ -315,14 +304,8 @@ const GROUPS = Map.groupBy(SEQUENCES, patternOf);
 
 const refOf = (build: Build, n: number) => actorRef(BUILDS[build], `s${String(n)}`);
 
-type PairEvent =
-  | ReturnType<typeof Pair.E.Set>
-  | ReturnType<typeof Pair.E.Stop>
-  | ReturnType<typeof Pair.E.Reenter>
-  | ReturnType<typeof Pair.E.Go>;
-
 // The event each kind of step that is a turn sends, from the world it writes.
-const EVENTS = new Map<Atom["kind"], (world: World) => PairEvent>([
+const EVENTS = new Map<Atom["kind"], (world: World) => typeof Pair.Event.Type>([
   ["write", (world) => Pair.E.Set(fieldsOf(world))],
   ["stop", (world) => Pair.E.Stop(fieldsOf(world))],
   ["reenter", () => Pair.E.Reenter()],

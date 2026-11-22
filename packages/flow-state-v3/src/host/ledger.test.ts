@@ -66,7 +66,7 @@ const tollOver = (jam: Jam, counts: Array<number>, concurrency: "reject" | "canc
             return { why: "Declined" };
           }),
         },
-        notSent: E.NotRung.from((e: { readonly why: string }) => {
+        notSent: E.NotRung.from((e) => {
           tried(jam);
 
           return { why: e.why };
@@ -80,7 +80,7 @@ const tollOver = (jam: Jam, counts: Array<number>, concurrency: "reject" | "canc
     }),
   });
 
-  const byTone = ({ event }: { readonly event: { readonly tone: string } }) => ({
+  const byTone = ({ event }: { readonly event: typeof Toll.E.Ring.Type }) => ({
     tone: event.tone,
   });
 
@@ -128,7 +128,7 @@ const retrier = (() => {
       chime: chime.outcomes({
         success: E.Rang,
         failure: {},
-        notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
+        notSent: E.NotRung.from((e) => ({ why: e.why })),
         unknown: E.Unsure,
       }),
     }),
@@ -139,7 +139,7 @@ const retrier = (() => {
     on: {
       Ring: {
         actions: [
-          O.chime.commit(({ event }: { readonly event: { readonly tone: string } }) => ({
+          O.chime.commit(({ event }) => ({
             tone: event.tone,
           })),
         ],
@@ -202,13 +202,13 @@ const chainOver = (persist: boolean, limit: number, cancelAt: number) => {
       knock: knock.outcomes({
         success: E.Knocked,
         failure: {},
-        notSent: E.NotKnocked.from((e: { readonly why: string }) => ({ why: e.why })),
+        notSent: E.NotKnocked.from((e) => ({ why: e.why })),
         unknown: E.KnockUnsure,
       }),
       toll: toll.outcomes({
         success: E.Rang,
         failure: {},
-        notSent: E.NotRung.from((e: { readonly why: string }) => ({ why: e.why })),
+        notSent: E.NotRung.from((e) => ({ why: e.why })),
         unknown: E.Unsure,
       }),
     }),
@@ -221,7 +221,7 @@ const chainOver = (persist: boolean, limit: number, cancelAt: number) => {
       Poke: {},
       Ring: {
         actions: [
-          O.toll.commit(({ event }: { readonly event: { readonly tone: string } }) => ({
+          O.toll.commit(({ event }) => ({
             tone: event.tone,
           })),
         ],
