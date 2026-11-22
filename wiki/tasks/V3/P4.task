@@ -5094,7 +5094,7 @@ tasks
 
     T141
         title       Bench loads again: the testing entry imports no test runner
-        status      in_progress
+        status      review
         priority    high
         description
             The bench loads and records again: nothing the fixtures import pulls in the test runner at load time.
@@ -5228,3 +5228,19 @@ tasks
             is now from the slowest, land-0 at 73.9 s (`limitFrom`, 296 s). Why: no Story-level split fits one 228 s
             Story, and positions balance without a cost model. Reverse: deal whole Stories again and re-measure.
             home/stress-many-rooms still costs about 230 s per mode; cutting it is @task.V3.T117's.
+        comment     2026-11-22T09:13:12Z
+            Close (builder), at d8c06dbf: items 1, 2, 4 and 5 pass; item 3 passes in Chrome, and Safari did not start.
+
+            1. `nub run bench --only turn.cells.long.per-turn-ms --dev` exits 0 with its row; `--record` writes one row
+               to `bench/history/turn.csv`.
+            2. The load guard is green, red at ebecdd17. Planted fault `testing-entry-imports-runner` is caught by check
+               (b) alone. Check (a) can't catch it there: a faults copy has no `types/`, so nub loads the real vitest.
+            3. `nub run test:browser`: Chrome 16 of 16, the 14 store cases included. Safari exits 1 before any test with
+               "expected one automation Safari, found 0" (code:tools/browser/provider.ts). A user Safari window was
+               open, so safaridriver started no `--automation` process of its own. Re-run with Safari closed; no test
+               code ran there.
+            4. `nub run check` exits 0; the package suite passes (202 files).
+            5. All twelve stress sweep shards pass alone, 62 to 74 s.
+
+            Routed, outside this Task: the root `tsconfig.base.json` `paths` shim makes any runtime `vite-plus/test`
+            import empty under nub. Dropping it, or keeping its types without the redirect, needs its owner's call.
