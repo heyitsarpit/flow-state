@@ -246,6 +246,20 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "testing-entry-imports-runner",
+    tests: ["tests/bench/load.test.ts"],
+    says: "the testing entry imports the test runner at load, so the bench's fixtures pull it in",
+    rule: "Testing O1",
+    edits: [
+      {
+        file: "src/host/testing/store-contract.ts",
+        find: 'import { Store, StoreScope, type StoreWrite } from "../store.ts";',
+        replace:
+          'import "vite-plus/test";\nimport { Store, StoreScope, type StoreWrite } from "../store.ts";',
+      },
+    ],
+  },
+  {
     name: "bench-drops-a-round",
     tests: ["tests/bench/run.test.ts"],
     says: "the bench times a Story with its last round of steps cut, so it does less work than the tested run",

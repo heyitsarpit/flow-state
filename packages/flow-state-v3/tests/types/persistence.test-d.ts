@@ -1,7 +1,12 @@
 import { Layer, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { layerIndexedDb, type Store, type StoreScope } from "../../src/host/persistence.ts";
-import { Fake, type Story, storeContract } from "../../src/host/testing/index.ts";
+import {
+  type ContractRunner,
+  Fake,
+  type Story,
+  storeContract,
+} from "../../src/host/testing/index.ts";
 import {
   app,
   definition,
@@ -41,12 +46,19 @@ describe("WriteAhead R2: enabled persistence requires the Store service", () => 
 });
 
 describe("Pending D9: the store contract and the fake store as a Store Layer", () => {
-  it("flow-state/testing exports storeContract(name, layer)", () => {
+  it("flow-state/testing exports storeContract(name, layer, runner), the runner's describe and it as given", () => {
     expectTypeOf(storeContract).parameters.toEqualTypeOf<
-      // FLOW_STATE_ALLOW_UNKNOWN: a store's Layer may fail with its own error while it builds.
-      [name: string, layer: Layer.Layer<Store, unknown, StoreScope>]
+      [
+        name: string,
+        // FLOW_STATE_ALLOW_UNKNOWN: a store's Layer may fail with its own error while it builds.
+        layer: Layer.Layer<Store, unknown, StoreScope>,
+        runner: ContractRunner,
+      ]
     >();
     expectTypeOf(storeContract).returns.toEqualTypeOf<void>();
+    expectTypeOf({ describe, it }).toExtend<ContractRunner>();
+    // @ts-expect-error a runner needs its it as well as its describe
+    storeContract("no it", layerIndexedDb(), { describe });
   });
 
   it("Fake.storage gives the fake store as a Store Layer, for the contract", () => {

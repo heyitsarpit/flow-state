@@ -134,6 +134,11 @@ export const heldSlotsAt = (story: Story<string>, batches: ReadonlyArray<Batch>)
     );
 };
 
+/** Which reload positions of a Story a sweep covers, by index. */
+export type Positions = (at: number) => boolean;
+
+const every: Positions = () => true;
+
 /**
  * The reload positions of a Story a reload may make it skip: those inside a window from a hold to
  * the release that answers it (a wire hold to its endpoint's release or lose, oldest first; a
@@ -146,6 +151,7 @@ export const skipBound = (
   story: Story<string>,
   batches: ReadonlyArray<Batch>,
   reattach: boolean,
+  positions: Positions = every,
 ) => {
   const held = inHoldWindow(story, batches);
 
@@ -155,7 +161,7 @@ export const skipBound = (
   );
 
   return Array.from({ length: story.steps.length + 1 }, (_, at) => at).filter(
-    (at) => held(at) || (!reattach && at <= lastWord),
+    (at) => positions(at) && (held(at) || (!reattach && at <= lastWord)),
   ).length;
 };
 
@@ -206,10 +212,15 @@ const reloaded = Step.checkpoint({ name: "~reloaded" });
  * replays every step before it again.
  */
 // RETURN_TYPE: the Swept contract both forms give, so their verdicts compare position by position.
-export const replayed = async (story: Story<string>, reload: Reload): Promise<Swept> => {
+export const replayed = async (
+  story: Story<string>,
+  reload: Reload,
+  positions: Positions = every,
+): Promise<Swept> => {
   const verdicts: Array<Judged> = [];
 
   for (let at = 0; at <= story.steps.length; at += 1) {
+    if (!positions(at)) continue;
     const steps = story.steps.toSpliced(at, 0, reload, reloaded);
 
     // oxlint-disable-next-line no-await-in-loop -- one run at a time: each variant is its own world
@@ -232,19 +243,25 @@ export const replayed = async (story: Story<string>, reload: Reload): Promise<Sw
  * there, the same run the replay form gives.
  */
 // RETURN_TYPE: the Swept contract both forms give, so their verdicts compare position by position.
-export const forked = (story: Story<string>, reload: Reload): Promise<Swept> => {
+export const forked = (
+  story: Story<string>,
+  reload: Reload,
+  positions: Positions = every,
+): Promise<Swept> => {
   const verdicts: Array<Judged> = [];
 
   // oxlint-disable-next-line lint-bomb/no-effect-runner-in-domain -- a sweep runs its forks at the test's edge, one Story at a time
   return Effect.runPromise(
     forkReloads(story, (at, fork) =>
-      fork(reload, [reloaded, ...story.steps.slice(at)]).pipe(
-        Effect.match({
-          onSuccess: (run) => ({ kind: "ran", run }) satisfies Variant,
-          onFailure: faultOf,
-        }),
-        Effect.map((variant) => void verdicts.push(judgedVariant(nameAt(story, at), variant))),
-      ),
+      positions(at)
+        ? fork(reload, [reloaded, ...story.steps.slice(at)]).pipe(
+            Effect.match({
+              onSuccess: (run) => ({ kind: "ran", run }) satisfies Variant,
+              onFailure: faultOf,
+            }),
+            Effect.map((variant) => void verdicts.push(judgedVariant(nameAt(story, at), variant))),
+          )
+        : Effect.void,
     ).pipe(
       Effect.match({
         onSuccess: (run) => ({ verdicts, own: { kind: "ran", run } }) satisfies Swept,
@@ -299,6 +316,7 @@ export const sweep = async (
   stories: ReadonlyArray<Story<string>>,
   reattach: boolean,
   heldWrites: "abort" | "land" = "abort",
+  positions: Positions = every,
 ) => {
   const reload = Step.reload({ reattach, heldWrites });
   const failed: Array<string> = [];
@@ -309,9 +327,9 @@ export const sweep = async (
 
   for (const story of stories) {
     // oxlint-disable-next-line no-await-in-loop -- one Story at a time: each sweep is its own world
-    const fork = await forked(story, reload);
+    const fork = await forked(story, reload, positions);
     // oxlint-disable-next-line no-await-in-loop -- one Story at a time: each sweep is its own world
-    const counted = replay ? await replayed(story, reload) : fork;
+    const counted = replay ? await replayed(story, reload, positions) : fork;
 
     if (replay) differ.push(...differences(story, fork, counted));
     const skips = counted.verdicts.filter((v) => v.skipped).length;
@@ -321,7 +339,7 @@ export const sweep = async (
 
     if (counted.own.kind === "failed") failed.push(`${story.id}'s own run: ${counted.own.fault}`);
     else {
-      const bound = skipBound(story, counted.own.run.end.records.batches, reattach);
+      const bound = skipBound(story, counted.own.run.end.records.batches, reattach, positions);
 
       if (skips > bound) overBound.push(`${story.id}: ${skips} variants skipped, bound ${bound}`);
     }
@@ -379,8 +397,11 @@ export const sweepCost = (story: Story<string>) => (story.steps.length + 1) ** 2
 export type SweepMode = "abort" | "land" | "unattached";
 
 /**
- * One shard of the reload sweeps: the Stories the shard covers, each swept under all three reload
- * modes. Across the shards every Story runs at every position once per mode.
+ * One shard of the reload sweeps under the modes given, all three by default. The rest's shards
+ * split its Stories by `sweepCost`. The stress shards each sweep every stress Story at every
+ * `of`-th position, since one stress Story's sweep can outlast a shard's whole limit and its cost
+ * by steps alone underrates it. Across the shards every Story runs at every position once per
+ * mode.
  */
 export const sweepShard = (
   scope: "rest" | "stress",
@@ -389,7 +410,8 @@ export const sweepShard = (
   ms: number,
   modes: ReadonlyArray<SweepMode> = ["abort", "land", "unattached"],
 ) => {
-  const mine = shardOf(scope === "rest" ? slices.rest : slices.stress, sweepCost, shard, of);
+  const mine = scope === "rest" ? shardOf(slices.rest, sweepCost, shard, of) : slices.stress;
+  const positions: Positions = scope === "rest" ? every : (at) => at % of === shard;
 
   const stories =
     scope === "rest" ? "every fixture Story but the stress ones" : "every stress Story";
@@ -401,9 +423,9 @@ export const sweepShard = (
   };
 
   const runs: Record<SweepMode, () => ReturnType<typeof sweep>> = {
-    abort: () => sweep(mine, true),
-    land: () => sweep(mine, true, "land"),
-    unattached: () => sweep(mine, false),
+    abort: () => sweep(mine, true, "abort", positions),
+    land: () => sweep(mine, true, "land", positions),
+    unattached: () => sweep(mine, false, "abort", positions),
   };
 
   for (const mode of modes)

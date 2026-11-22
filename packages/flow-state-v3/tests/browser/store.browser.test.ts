@@ -9,7 +9,7 @@ import {
 import { storeContract } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 
-storeContract("layerIndexedDb in a real browser", layerIndexedDb());
+storeContract("layerIndexedDb in a real browser", layerIndexedDb(), { describe, it });
 
 const set = (key: string, text: string) => ({ key, value: Option.some(text) });
 

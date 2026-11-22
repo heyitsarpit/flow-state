@@ -1,8 +1,9 @@
 import { Effect, Layer, Option } from "effect";
+import { describe, it } from "vite-plus/test";
 import { Store, StoreScope } from "../../src/host/persistence.ts";
 import { Fake, storeContract } from "../../src/host/testing/index.ts";
 
-storeContract("Fake.storage", Fake.storage.layer());
+storeContract("Fake.storage", Fake.storage.layer(), { describe, it });
 
 // A store a user writes over plain Maps, as a custom adapter would be: one Map per app and scope,
 // kept outside the Layer so a later build loads what an earlier one wrote.
@@ -30,4 +31,4 @@ const mapStore = () => {
   );
 };
 
-storeContract("a plain Map store", mapStore());
+storeContract("a plain Map store", mapStore(), { describe, it });

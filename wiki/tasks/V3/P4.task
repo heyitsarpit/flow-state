@@ -5214,3 +5214,17 @@ tasks
             1.7.0 and vitest 5.1.0, the bench's worker processes and `bench/history/` (item 1), real Chrome and Safari
             (item 3). Overlap: @task.V3.T117 also names the land-0 bound; this Task changes the shards and the limit's
             measurement only.
+        comment     2026-11-22T09:11:22Z
+            [decided: agent builder 2026-11-22] Build-time choice: A. `storeContract(name, layer, { describe, it })`; a
+            broken case fails its own Effect, so the contract needs no `expect` and runs on any runner with that
+            `describe` and `it`. Both options pass the load guard; A adds one argument and the type `ContractRunner`,
+            while B adds an entry name, a phase stop. Why: the smaller public change, and `flow-state/testing` then
+            loads no runner. Reverse: move `storeContract` to its own testing entry and drop the argument.
+        comment     2026-11-22T09:11:23Z
+            [decided: agent builder 2026-11-22] Stress sweep shards: each of the four sweeps every stress Story at every
+            fourth position (code:packages/flow-state-v3/tests/rules/sweep.ts#sweepShard), in place of whole Stories
+            dealt by `(steps + 1)²`; the rest's shards are unchanged. Measured alone, all twelve pass: abort 71.7 to
+            72.8 s, land 73.1 to 73.9 s, unattached 61.7 to 64.2 s (was 228 s for abort-0). `LIMITS.stressReloadSweep`
+            is now from the slowest, land-0 at 73.9 s (`limitFrom`, 296 s). Why: no Story-level split fits one 228 s
+            Story, and positions balance without a cost model. Reverse: deal whole Stories again and re-measure.
+            home/stress-many-rooms still costs about 230 s per mode; cutting it is @task.V3.T117's.

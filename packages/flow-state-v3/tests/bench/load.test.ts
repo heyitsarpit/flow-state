@@ -19,7 +19,7 @@ const underNub = (args: ReadonlyArray<string>) =>
   });
 
 describe("the bench loads the way `nub run bench` loads it", () => {
-  it.fails(
+  it(
     "the bench runner lists its benches",
     () => {
       const done = underNub([runner, "--list"]);
@@ -34,7 +34,7 @@ describe("the bench loads the way `nub run bench` loads it", () => {
     2 * LIMITS.benchLoad,
   );
 
-  it.fails(
+  it(
     "nothing reachable from fixtures/index.ts or bench/benches/index.ts imports the test runner",
     () => {
       const done = underNub([
