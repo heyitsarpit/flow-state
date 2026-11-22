@@ -1965,6 +1965,36 @@ tasks
             bank-records forged an Attempt id open 1 mints (sample ids moved; R20, T28's id uniqueness); I6 and I17 run
             rules now count put records' Attempts as minted and excuse a work record a later boot kept (R1); two stress
             tests read format 6. Fresh seeds (FLOW_SEEDS=20) over generated, pairs and mix: green.
+        comment     2026-11-22T23:43:36Z
+            Close review: ISSUES at b301d7d6, one blocker. A Held head whose saved unknown slot holds a success (channel
+            success, reason success, a value) boots and is heard Done with nothing reported: a made-up success for an
+            Attempt no answer reached (Records R11, R16; probe red on b301d7d6, run beside saved-records.test.ts's
+            bootAccount and removed). Root cause: R11's one Shape codec used in both directions is not built; the writer
+            encodes by hand (code:packages/flow-state-v3/src/core/record-work.ts saves only channel unknown there),
+            record-shape.ts's Head.unknown takes any SavedEnding, and the oracle
+            code:packages/flow-state-v3/tests/rules/records.ts#writtenForm is a third, wider copy (ending: Schema.Json).
+            Tests missed it: corrupt.test.ts never swaps a literal for another valid one, and a mutant writtenForm
+            accepts is judged only for booting. So format 6 closes the identity and link classes by structure, but not
+            field domains: encode through the Shape, derive 'outside' from the writer (I2 image) rather than a hand
+            Shape, and add literal swaps; sweep the same gap (a graph entry for a persisted provider, which the writer
+            never writes and admit-position.ts accepts).
+
+            Proof: coverage run 25,240 passed, 7 failed, all instrumentation timeouts, green uninstrumented (6 files, 53
+            tests); stress 102 of 103, durability.stress 1,300 rows timed out at 9.6 s under load, 5.6 s alone (R21
+            unmeasured); faults --only 72 of 72 caught; nub run check clean. Supersedes gone; no no-id-text disables in
+            the record family; package self-contained, no temporary names.
+
+            Rewritten tests and rules: the HeldAtStart rewrites, the I17 port to work/<owner>, I6 counting put Attempts
+            and atStart's reload step follow R16 and R20; recordKinds' breachesAt exempts every record of an identity a
+            Story put, wider than its carried parts (noted). Needs a ruling: R16 'replaces it while it is not yet heard
+            or kept' against savedRows dropping a Kept unknown (src/host/ledger.test.ts 'two endings refused twice'),
+            live and reload disagree until T121; and acceptance 2, since World's ActorId stays plain strings and
+            record-names.ts's brands are decoded then dropped (amend the acceptance or owe it at T98's consult).
+            Deviations: keyless Unencodable rows and StorageRefused on a kept work record hold (R1; Records Fates Kept);
+            R12's FORMAT pin and R21's records-boot bench row go to T56. Notes: record-step.ts at 84% lines, its carry
+            branches uncovered; Stage 1's rows split across readKey, positionSide and workSide; AttemptId branded twice
+            (world.ts, record-shape.ts); world.ts Creation dead. @plan.Runtime.O1: record identity decodes against the
+            closed app (delivered); branded actor ids through the World (missed).
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
