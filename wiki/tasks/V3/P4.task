@@ -1820,6 +1820,10 @@ tasks
             the lounge's Disconnected turn OFFLINE to OFFLINE publishing twice, red before T118 too; landed inverted.
             Same class as this Task's Turn I9 context-wave item; T118's lead named the runtime side, this item names the
             run rule: replay with two traces and name the wrong side.
+        comment     2026-11-22T11:30:29Z
+            Routed (orchestrator) from T113's close: home-rooms seed 15 (FLOW_SEEDS=40) breaks Turn I9, an AddSensor
+            turn published twice, red before T113 too; same class as this Task's Turn I9 item. Trace its origin with
+            the rest.
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
         status      done
@@ -3412,6 +3416,55 @@ tasks
             home-rooms seed 15, Turn I9 (a turn on AddSensor published twice). It fails the same on 77bd2f79, before
             T113, so it predates this Task; it needs an owner and an inverted test (orchestrator to route). Stress runs
             not run: no stress Story or sweep touched.
+        comment     2026-11-22T11:30:30Z
+            Rulings (orchestrator) at T113's close: the home-rooms seed-15 Turn I9 breach goes to T97 (same class,
+            predates T113). The derive.ts option-bag lint exemption is accepted on machine.ts's precedent, for the close
+            review to confirm it is narrow and has its reason on the line.
+        comment     2026-11-22T11:43:06Z
+            Close review (reviewing lead, at 8a50ec08): PASS. Every acceptance item holds on HEAD; no finding meets the
+            stopping rule. Checked: `nub run check` 0; coverage run 25069 passed, 18 expected fail, 0 type errors, 5
+            timeouts under instrumentation only (64-room load, 1000-line cart, reloads, seeds, sweep; no assertion
+            failed; bounds are @task.V3.T117's); Flip A: `faults --only` 4 of 4 caught by their targets, and every T113
+            pin is flipped and exact. Absences: no echo or `M.field.schema` read in `src`, `tests`, `fixtures`;
+            `declarationOf` is the one reader (one `internalsOf` door, no cast per reader); `Declared` is an unexported
+            phantom, as Effect's `TypeId`. `machine()` keeps `<D>(definition, body: BodyOf<NoInfer<D>>)`, so
+            @task.V3.T144's second type parameter fits (risk: `Parts` must keep inferring once; the indexed form hit
+            TS2589). The `derive.ts` lint exemption is narrow: six `?:` body-bag properties moved from `machine.ts`,
+            under the block's reason.
+
+            **Routed** (accepted; non-blocking):
+
+            1. To @task.V3.T143 (the `machine()` seam): dead state the diff left. `compile-names.ts#Compile.definition`
+               is written at `machine.ts:299` and no longer read, and `compile-schedules.ts:123`'s `?? {}` is dead
+               (placement refuses first). Origin: Flow's code, the re-point to `compile.declaration`. Missed: no check
+               finds an unread field; coverage flags only the `??`.
+            2. To @task.V3.T143: one fact twice. `Declaration` (`declaration-of.ts:15`) and `Definition`'s inline
+               `[Declared]` (`definition.ts:225`) list the seven fields twice, and `definition.ts:26,38` re-export
+               `derive.ts` rows, so `PayloadOf` and `EventOf` have two import paths. Also two new non-doc comments
+               (`snapshot.ts:223,229`). Origin: Flow's code. Missed: I1's source check matches `Parts` only.
+            3. To @task.V3.T144: the unkeyed key's run read uses a test-local `Nudger`
+               (`tests/home/schedules.test.ts:277-310`), though Room's `reconnect` is the fixture home
+               (@convention.fixtures: a hand-written test alone never proves a feature). Origin: the test. Missed: the
+               requirements accepted a local machine because Room's `setTarget` needs a Layer.
+            4. To @task.V3.T144: `tests/compile/corruption.test.ts:262-268` dropped the Number memory sample
+               (`StandingOrder`'s `cents`) when the echo left. Origin: the test. Missed: the replacement list has no
+               check against the shapes it replaced.
+            5. To the orchestrator, for an owner: `tokens.ts#ScheduleMetadata` still carries `name`, against @spec.Types
+               Q10 (decided). Origin: Flow's code, before T113; outside its range.
+
+            **Rejected:**
+
+            - The declaration readable through the registered internals key: the same door as the machine's `Compiled`
+              (T131), not public API.
+            - `[Declared]` in hover: a phantom no user code can name; the type arguments already show the config.
+            - `MapperContext` outside `derive.ts`: I1 allows `contract.ts` for its own declarations.
+            - `outside()` as a second snapshot writer: it projects a written snapshot; `project` and `asOutside`
+              are @task.V3.T111's.
+            - `made.ts#frozen` parallel to `core/frozen.ts`: it exports the existing `seal`.
+            - `keyof`-only pins pass an `unknown` `.Type`: the exact `SyncRepo` and `sensors` pins on the same token
+              type fail it.
+            - Cells duplicating Pay: the orchestrator's correction. The R14 inversions and the R13 `it.fails`
+              are @task.V3.T143's.
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
         status      draft
@@ -6116,3 +6169,7 @@ tasks
             get a red line; one excess-keys type test per typo class; check time measured before and after (spike:
             +14%); construction's strict decode stays. Why: reverses Types Q19 C; nothing in user bodies changes.
             Reverse: drop the capture, back to runtime-only.
+        comment     2026-11-22T11:31:06Z
+            Sweep item (orchestrator, from the user's review): payBody is inlined into PayMachine (machine(Pay, ({ S, E,
+            O }) => ({ ... }))), and Cells writes its own full body instead of calling payBody; derive.ts's BodyTokens
+            doc example changes to a helper typed from the definition, not a whole shared body.
