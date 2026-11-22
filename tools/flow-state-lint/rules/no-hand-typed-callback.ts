@@ -48,7 +48,7 @@ const memberName = (member: ESTree.Node) =>
   member.type === "TSPropertySignature" && member.key.type === "Identifier" ? member.key.name : "";
 
 // A callback's hand types where the definition types them: an `event` or `memory` member of a
-// destructured parameter's literal type, a `memory` or `event` parameter typed by a literal, and an
+// destructured parameter's literal type or a local alias of one, a `memory` or `event` parameter typed by a literal, and an
 // ending mapper's typed parameter (`E.X.from((v: T) => ...)`). A type that reads `typeof` a
 // declaration, or names a local alias that does, is derived and allowed. Inside `loose(...)` the
 // test erases types on purpose, and a line under `@ts-expect-error` is a refusal a type test
@@ -69,6 +69,17 @@ export const noHandTypedCallbackRule = defineRule({
   createOnce(context) {
     let pending: Array<Pending> = [];
     let aliases = new Map<string, ESTree.Node>();
+    let named: Array<{ readonly node: ESTree.Node; readonly name: string }> = [];
+
+    const literalMembers = (literal: ESTree.TSTypeLiteral, at?: ESTree.Node) => {
+      for (const member of literal.members) {
+        const type =
+          member.type === "TSPropertySignature" ? member.typeAnnotation?.typeAnnotation : undefined;
+
+        if (DERIVED_PARTS.has(memberName(member)) && type !== undefined && type !== null)
+          pending.push({ node: at ?? member, type });
+      }
+    };
 
     const check = (fn: ESTree.Node, params: ReadonlyArray<ESTree.Node>, mapper: boolean) => {
       if (insideLoose(fn)) return;
@@ -83,13 +94,13 @@ export const noHandTypedCallbackRule = defineRule({
 
         if (mapper) pending.push({ node: param, type: annotation });
         else if (param.type === "ObjectPattern" && annotation.type === "TSTypeLiteral")
-          for (const member of annotation.members) {
-            const type =
-              member.type === "TSPropertySignature" ? member.typeAnnotation?.typeAnnotation : undefined;
-
-            if (DERIVED_PARTS.has(memberName(member)) && type !== undefined && type !== null)
-              pending.push({ node: member, type });
-          }
+          literalMembers(annotation);
+        else if (
+          param.type === "ObjectPattern" &&
+          annotation.type === "TSTypeReference" &&
+          annotation.typeName.type === "Identifier"
+        )
+          named.push({ node: param, name: annotation.typeName.name });
         else if (
           param.type === "Identifier" &&
           DERIVED_PARTS.has(param.name) &&
@@ -123,6 +134,7 @@ export const noHandTypedCallbackRule = defineRule({
         const given: Options = context.options[0] ?? {};
 
         pending = [];
+        named = [];
         aliases = new Map();
 
         return (
@@ -162,6 +174,12 @@ export const noHandTypedCallbackRule = defineRule({
             .filter((comment) => /^\s*@ts-expect-error\b/u.test(comment.value))
             .map((comment) => comment.loc.end.line + 1),
         );
+
+        for (const { node, name } of named) {
+          const alias = aliases.get(name);
+
+          if (alias?.type === "TSTypeLiteral") literalMembers(alias, node);
+        }
 
         for (const { node, type } of pending)
           if (!refused.has(node.loc.start.line) && !derived(type, new Set()))

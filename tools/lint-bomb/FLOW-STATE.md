@@ -193,6 +193,11 @@ on internal modules and `off` on public entrypoint modules.
   - `no-hand-option`: `_tag` compared with `"Some"` or `"None"`, or written as one in an object, in `src`,
     `tests` and `fixtures`. Read an `Option` with `Option.isSome`, `Option.isNone` or `Option.match`; build it
     with `Option.some` or `Option.none`.
+  - `no-hand-typed-callback`: a hand-written `event` or `memory` type on a callback's destructured input (a
+    literal, or a local alias of one), a parameter named `event` or `memory` typed by a literal, or a typed
+    parameter on an ending mapper (`E.X.from((v: T) => ...)`), in `tests`, `fixtures`, `bench` and the tests
+    beside `src`. Type a helper from the definition (`typeof D.E.X.Type`, `typeof D.Memory.Type`). Inside
+    `loose(...)` and under `@ts-expect-error` it is allowed.
 - `no-throw-in-core` is off in `src/error.ts` (`raise`, the one throw of a FlowError) and `src/entry.ts`
   (the public-function wrappers); every other FlowError goes through `raise`. The listed defect sites
   keep a disable with their reason: `core/defect.ts`, `core/frozen.ts` (a write to an admitted value),

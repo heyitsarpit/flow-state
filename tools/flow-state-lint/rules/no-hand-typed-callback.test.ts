@@ -17,8 +17,12 @@ plantRules({
       "const g = (memory: { readonly n: number }) => memory.n;",
       "const h = O.x.commit(({ event, memory }: { readonly event: { a: string }; readonly memory: Hand }) => event.a);",
       "const i = Mirror.E.Push.from(({ sha }: { readonly sha: string }) => ({ sha, hops: 0 }));",
+      "const aliased = ({ event }: Input) => event.repo;",
     ],
     quiet: [
+      "type Fine = { readonly event: typeof Sync.E.SyncRepo.Type };",
+      "const aliasQuiet = ({ event }: Fine) => event.repo;",
+      "type Input = { readonly event: { readonly repo: string } };",
       "type Copied = { readonly n: number };",
       "type Derived = typeof Room.Memory.Type;",
       "type Again = Derived;",

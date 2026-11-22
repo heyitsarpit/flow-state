@@ -43,10 +43,27 @@ export const usual = lanesStory("lanes/usual")
 
 const tags = ["Commit", "Twice", "RetryCommit", "CancelCommit", "Cancel", "Retry"] as const;
 
-const clients = [
-  { ref: latestClient, E: Latest.E },
-  { ref: serializeClient, E: Serialize.E },
-  { ref: cancelClient, E: Cancel.E },
+type Repo = { readonly repo: string };
+
+type Lanes = Story<string, typeof Latest | typeof Serialize | typeof Cancel>;
+
+// Each client's turn: every member sequence head, then a commit of each edge repository, sent to its own client.
+const clients: ReadonlyArray<(story: Lanes, repos: ReadonlyArray<Repo>) => Lanes> = [
+  (story, repos) =>
+    [...tags.map((tag) => Latest.E[tag](flow)), ...repos.map((r) => Latest.E.Commit(r))].reduce(
+      (s, event) => s.send(latestClient, event),
+      story,
+    ),
+  (story, repos) =>
+    [
+      ...tags.map((tag) => Serialize.E[tag](flow)),
+      ...repos.map((r) => Serialize.E.Commit(r)),
+    ].reduce((s, event) => s.send(serializeClient, event), story),
+  (story, repos) =>
+    [...tags.map((tag) => Cancel.E[tag](flow)), ...repos.map((r) => Cancel.E.Commit(r))].reduce(
+      (s, event) => s.send(cancelClient, event),
+      story,
+    ),
 ];
 
 /**
@@ -59,7 +76,7 @@ const latestLong = Latest.E.Commit(longRepo);
 const serializeLong = Serialize.E.Commit(longRepo);
 const cancelLong = Cancel.E.Commit(longRepo);
 
-const lanesSamples = (values: Readonly<Record<string, typeof Latest.Event.Type>>) =>
+const lanesSamples = (long: ReadonlyArray<Repo>) =>
   samplesOf({
     id: "lanes",
     story: lanesStory("lanes/samples"),
@@ -68,30 +85,22 @@ const lanesSamples = (values: Readonly<Record<string, typeof Latest.Event.Type>>
     servers: { Git },
     failures: [Git.rateLimit({ retryAfterMs: 2000 })],
     landedFailures: [],
-    values,
+    values: Object.fromEntries(long.map((r) => ["longCommit", Latest.E.Commit(r)])),
     controls: [],
-    steps: (story) =>
-      clients.reduce(
-        (s, { ref, E }) =>
-          [...tags.map((tag) => E[tag](flow)), ...Object.values(values)].reduce(
-            (t, event) => t.send(ref, event),
-            s,
-          ),
-        story,
-      ),
+    steps: (story) => clients.reduce<Lanes>((s, turn) => turn(s, long), story),
   });
 
 /**
  * What the three clients and the Git host can do, for generated runs: every member sequence on one
  * repository's lane under each policy; the host rate-limits.
  */
-export const samples = lanesSamples({});
+export const samples = lanesSamples([]);
 
 /**
  * The samples with the repository names' edge values, for the stress runs: commits of a
  * million-character repository.
  */
-export const stressSamples = lanesSamples({ longCommit: latestLong });
+export const stressSamples = lanesSamples([longRepo]);
 
 const commit = Cancel.E.Commit(flow);
 
@@ -114,7 +123,7 @@ export const seededStress = lanesStory("lanes/stress-36")
   .send(serializeClient, Serialize.E.Retry(flow))
   .send(latestClient, Latest.E.RetryCommit(flow))
   .reload({ reattach: false })
-  .send(serializeClient, latestLong)
+  .send(serializeClient, serializeLong)
   .send(serializeClient, Serialize.E.Cancel(flow))
   .send(cancelClient, Cancel.E.Cancel(flow))
   .send(cancelClient, Cancel.E.Retry(flow))
@@ -145,7 +154,7 @@ export const seededStress = lanesStory("lanes/stress-36")
   .send(cancelClient, Cancel.E.RetryCommit(flow))
   .send(serializeClient, Serialize.E.CancelCommit(flow))
   .send(cancelClient, Cancel.E.Cancel(flow))
-  .send(cancelClient, latestLong)
+  .send(cancelClient, cancelLong)
   .send(serializeClient, Serialize.E.Commit(flow))
   .send(cancelClient, Cancel.E.Commit(flow))
   .send(cancelClient, Cancel.E.Commit(flow))
@@ -165,8 +174,8 @@ export const seededStress = lanesStory("lanes/stress-36")
   .send(latestClient, Latest.E.Commit(flow))
   .world(Fake.storage.refuse())
   .send(latestClient, Latest.E.Retry(flow))
-  .send(serializeClient, latestLong)
-  .send(serializeClient, latestLong)
+  .send(serializeClient, serializeLong)
+  .send(serializeClient, serializeLong)
   .world(Fake.storage.refuseLoad())
   .reload({ reattach: false })
   .advance("4 millis")
@@ -201,7 +210,7 @@ export const seededStress = lanesStory("lanes/stress-36")
   .send(serializeClient, Serialize.E.Retry(flow))
   .send(latestClient, Latest.E.CancelCommit(flow))
   .advance("15 millis")
-  .send(cancelClient, latestLong)
+  .send(cancelClient, cancelLong)
   .advance("15 millis")
   .send(serializeClient, Serialize.E.Retry(flow))
   .advance("56438 millis")

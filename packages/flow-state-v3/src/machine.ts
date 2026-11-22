@@ -7,7 +7,7 @@ import type { AnyDefinition, Machine } from "./definition.ts";
 import type { BodyTokens, MachineBody } from "./derive.ts";
 import { bodyFindings, inDeclarationOrder } from "./config.ts";
 import { type Finding, flowErrorOf, invalid, raise, refuse } from "./error.ts";
-import { builder, door } from "./entry.ts";
+import { builder, type Callable, door } from "./entry.ts";
 import { internalsOf, type KindOf, made, madeOf } from "./made.ts";
 import { endingOf, structOf } from "./events.ts";
 import { defect } from "./core/defect.ts";
@@ -62,8 +62,6 @@ const changeTokens = (slots: ReadonlyArray<string>, owner: symbol) =>
       },
     ]),
   );
-
-type Callable = (...args: never) => unknown;
 
 // A value a body holds whole: a token Flow made, or an Effect value such as a Duration or Schedule.
 // FLOW_STATE_ALLOW_UNKNOWN: either brand is matched by its key alone, whatever it holds.

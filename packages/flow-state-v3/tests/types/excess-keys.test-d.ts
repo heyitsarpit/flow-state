@@ -76,7 +76,7 @@ describe("Compile R7, R14, T6: a returned memory write is exact", () => {
     }));
   });
 
-  it("the writable field alone compiles; the input field or the typo alone is refused today", () => {
+  it("the writable field alone compiles; the input field alone is refused", () => {
     expectTypeOf(
       machine(Pay, ({ S }) => ({
         default: S.IDLE,
@@ -145,6 +145,48 @@ describe("Types R2: a machine body is exact, at every depth", () => {
       default: S.IDLE,
       // @ts-expect-error Types R2: `updateMemry` is no alternative key
       on: { go: { target: S.ON, updateMemry: () => ({}) } },
+    }));
+  });
+
+  it("a misspelt event name under on, beside a declared one", () => {
+    expectTypeOf(
+      machine(Pay, ({ S }) => ({
+        default: S.IDLE,
+        on: { go: { target: S.ON }, Ping: {} },
+      })),
+    ).toEqualTypeOf<Machine<typeof Pay>>();
+
+    machine(Pay, ({ S }) => ({
+      default: S.IDLE,
+      // @ts-expect-error Types R2: `Pnig` is no event of Pay
+      on: { go: { target: S.ON }, Pnig: {} },
+    }));
+  });
+
+  it("a misspelt schedule name, beside a declared one", () => {
+    expectTypeOf(
+      machine(Wizard, ({ S, E }) => ({
+        default: S.IDLE,
+        states: {
+          ON: {
+            schedules: { tick: { schedule: 1000, send: E.Tick, paused: { Away: () => false } } },
+          },
+        },
+      })),
+    ).toEqualTypeOf<Machine<typeof Wizard>>();
+
+    machine(Wizard, ({ S, E }) => ({
+      default: S.IDLE,
+      states: {
+        ON: {
+          // oxlint-disable-next-line flow-state/no-undeclared-schedule -- the undeclared name this test shows refused
+          schedules: {
+            tick: { schedule: 1000, send: E.Tick, paused: { Away: () => false } },
+            // @ts-expect-error Types R2: `tikc` is no schedule of Wizard
+            tikc: { schedule: 1000, send: E.Tick },
+          },
+        },
+      },
     }));
   });
 
@@ -291,6 +333,26 @@ describe("Types R2: a machine body is exact, at every depth", () => {
       default: S.IDLE,
       // @ts-expect-error Types R2: `onn` is no state key
       states: { ON: { onn: {} } },
+    }));
+  });
+});
+
+// OPEN, owned by T121: `Opaque` matches an Effect value by a `pipe` key of any type, so an event
+// named `pipe` switches the typo check off for its record. The test is inverted: it pins the wrong
+// result, the typo compiling. When `Opaque` stops matching a bare `pipe` key, the line below gains
+// the `@ts-expect-error` it should have, and the title loses "today".
+const Piped = definition({
+  id: "types/ExcessPiped",
+  states: ["IDLE", "ON"],
+  events: { go: {}, pipe: {} },
+  memory: {},
+});
+
+describe("Types R2: a field named `pipe` must not turn the typo check off", () => {
+  it("a misspelt event beside `pipe` is accepted today, so the check is off", () => {
+    machine(Piped, ({ S }) => ({
+      default: S.IDLE,
+      on: { pipe: S.ON, stopp: S.IDLE },
     }));
   });
 });

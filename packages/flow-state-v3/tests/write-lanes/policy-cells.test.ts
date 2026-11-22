@@ -33,28 +33,52 @@ type Phase =
   | "Cancelling"
   | "Held";
 
-const clients = { latest: latestClient, serialize: serializeClient, cancel: cancelClient };
+type Policy = "latest" | "serialize" | "cancel";
 
-type Policy = keyof typeof clients;
-
-const machines = { latest: LatestMachine, serialize: SerializeMachine, cancel: CancelMachine };
+type Row = {
+  readonly ensure: (s: Story) => Story;
+  readonly send: (s: Story, tag: Tag) => Story;
+  readonly rowOf: (cut: Cut) => Option.Option<{ readonly waiting: boolean }>;
+};
 
 const FLOW = { repo: "flow" };
 
-const definitions = { latest: Latest, serialize: Serialize, cancel: Cancel };
-
-const commit = Serialize.E.Commit(FLOW);
-
 type Tag = (typeof Serialize.Event.Type)["_tag"];
 
-// The lane's row for the flow repository at a cut, undefined when it has no lane.
-const rowAt = (cut: Cut, policy: Policy) => {
-  const snapshot = cut.read(clients[policy]);
+// Each policy's row calls its own client, so one client's event is never sent to another.
+const lanes = {
+  latest: {
+    ensure: (s: Story) => s.ensure(latestClient),
+    send: (s: Story, tag: Tag) => s.send(latestClient, Latest.E[tag](FLOW)),
+    rowOf: (cut: Cut) =>
+      Option.flatMap(Option.fromNullishOr(cut.read(latestClient)), (snapshot) =>
+        LatestMachine.definition.O.sync.get(snapshot.operations, FLOW),
+      ),
+  },
+  serialize: {
+    ensure: (s: Story) => s.ensure(serializeClient),
+    send: (s: Story, tag: Tag) => s.send(serializeClient, Serialize.E[tag](FLOW)),
+    rowOf: (cut: Cut) =>
+      Option.flatMap(Option.fromNullishOr(cut.read(serializeClient)), (snapshot) =>
+        SerializeMachine.definition.O.sync.get(snapshot.operations, FLOW),
+      ),
+  },
+  cancel: {
+    ensure: (s: Story) => s.ensure(cancelClient),
+    send: (s: Story, tag: Tag) => s.send(cancelClient, Cancel.E[tag](FLOW)),
+    rowOf: (cut: Cut) =>
+      Option.flatMap(Option.fromNullishOr(cut.read(cancelClient)), (snapshot) =>
+        CancelMachine.definition.O.sync.get(snapshot.operations, FLOW),
+      ),
+  },
+} satisfies Record<Policy, Row>;
 
-  return snapshot === undefined
-    ? undefined
-    : Option.getOrUndefined(machines[policy].definition.O.sync.get(snapshot.operations, FLOW));
-};
+const latestCommit = Latest.E.Commit(FLOW);
+const serializeCommit = Serialize.E.Commit(FLOW);
+const cancelCommit = Cancel.E.Commit(FLOW);
+
+// The lane's row for the flow repository at a cut, undefined when it has no lane.
+const rowAt = (cut: Cut, policy: Policy) => Option.getOrUndefined(lanes[policy].rowOf(cut));
 
 const FLOW_REASONS = new Set(["Cancelled", "Restored"]);
 
@@ -68,9 +92,9 @@ const seen = (records: Records) =>
 // A Story that leaves the client's head in a phase, has one turn's commit meet it, checkpoints
 // "met", then lets every held store write and call go and checkpoints "after".
 const meeting = (policy: Policy, phase: Phase) => {
-  const client = clients[policy];
-  const story = lanesStory(`lane-cells/${policy}-${phase}`).ensure(client);
-  const send = (s: Story, tag: Tag) => s.send(client, definitions[policy].E[tag](FLOW));
+  const lane = lanes[policy];
+  const story = lane.ensure(lanesStory(`lane-cells/${policy}-${phase}`));
+  const send = lane.send;
 
   const reached: Record<Phase, () => Story> = {
     Idle: () => send(story, "Commit"),
@@ -199,9 +223,9 @@ it("latest: a commit that queues behind a queued commit ends it Superseded, so o
     lanesStory("lane-cells/latest-twice-queued")
       .ensure(latestClient)
       .world(Git.sync.hold())
-      .send(latestClient, commit)
-      .send(latestClient, commit)
-      .send(latestClient, commit)
+      .send(latestClient, latestCommit)
+      .send(latestClient, latestCommit)
+      .send(latestClient, latestCommit)
       .checkpoint("met")
       .world(Git.sync.release())
       .advance("1 second")
@@ -220,21 +244,21 @@ it("latest: a commit that queues behind a queued commit ends it Superseded, so o
 for (const [policy, sends, want] of [
   [
     "serialize",
-    [commit, commit, commit],
+    ["Commit", "Commit", "Commit"],
     ["notSent Restored", "notSent Restored", "unknown Restored"],
   ],
-  ["latest", [commit, commit], ["notSent Restored", "unknown Restored"]],
-  ["cancel", [commit, Cancel.E.CancelCommit(FLOW)], ["unknown Cancelled", OK]],
+  ["latest", ["Commit", "Commit"], ["notSent Restored", "unknown Restored"]],
+  ["cancel", ["Commit", "CancelCommit"], ["unknown Cancelled", OK]],
 ] as const)
   it(`${policy}: a reload with commits waiting ends each one Restored, once (Restore R3; WriteLanes R10)`, async () => {
-    const client = clients[policy];
+    const lane = lanes[policy];
 
     const sent = sends.reduce<Story>(
-      (s, event) => s.send(client, event),
-      lanesStory(`lane-cells/${policy}-reload`).ensure(client).world(Git.sync.hold()),
+      (s, tag) => lane.send(s, tag),
+      lane.ensure(lanesStory(`lane-cells/${policy}-reload`)).world(Git.sync.hold()),
     );
 
-    const run = await played(sent.reload().ensure(client).advance("1 second").checkpoint("after"));
+    const run = await played(lane.ensure(sent.reload()).advance("1 second").checkpoint("after"));
 
     expect(seen(run.evidence)).toEqual(want);
   });
@@ -250,7 +274,7 @@ it("under cancel a displaced Attempt whose lane ended first is heard unknown Res
     })
       .ensure(cancelClient)
       .world(Git.sync.hold())
-      .send(cancelClient, commit)
+      .send(cancelClient, cancelCommit)
       .send(cancelClient, Cancel.E.CancelCommit(FLOW))
       .reload()
       .ensure(cancelClient)
@@ -266,9 +290,9 @@ it("serialize: queued commits end NotSent Disposed when the Runtime's disposal s
     lanesStory("lane-cells/serialize-disposed")
       .ensure(serializeClient)
       .world(Git.sync.hold())
-      .send(serializeClient, commit)
-      .send(serializeClient, commit)
-      .send(serializeClient, commit)
+      .send(serializeClient, serializeCommit)
+      .send(serializeClient, serializeCommit)
+      .send(serializeClient, serializeCommit)
       .disposeRuntime()
       .advance(RuntimeDefaults.disposalBound)
       .checkpoint("after"),
@@ -285,8 +309,8 @@ it("serialize: a cancel of a Held head releases it and promotes the queued commi
     lanesStory("lane-cells/serialize-release-promotes")
       .ensure(serializeClient)
       .world(Git.sync.drop())
-      .send(serializeClient, commit)
-      .send(serializeClient, commit)
+      .send(serializeClient, serializeCommit)
+      .send(serializeClient, serializeCommit)
       .checkpoint("held")
       .send(serializeClient, Serialize.E.Cancel(FLOW))
       .advance("1 second")

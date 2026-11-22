@@ -254,9 +254,10 @@ costs the rule tokens, a stated limit (`Machine<D>` has no `N`). Gaps this Spec 
   (`number-input/machines/stepper.ts`, `shop/machines/cart.ts`, `home/machines/room.ts`, `sync/machines/mirror.ts:38`).
   Fix: `Reads<D, Scope, View>` and `E.X.Type` are exported as the author-facing names; a copied shape is a lint
   finding.
-- **A shared body.** `payBody` (`services/shop/machines/pay.ts:170`) hand-types
-  `Parameters<typeof machine<typeof Pay>>[1]`. Fix: export the existing `BodyTokens<D>` (G2); the return type is
-  inferred.
+- **A shared body.** Pay's body is written inline in `PayMachine` (`services/shop/machines/pay.ts`), and Cells writes
+  its own; a body is not shared whole. A helper several handlers share is typed from the definition: `BodyTokens<D>`
+  (G2) is exported for one that builds an action from the tokens (`({ O }: Flow.BodyTokens<typeof Pay>) =>
+  O.void.commit(...)`), and its return type is inferred.
 - **Decline reasons.** `deny("AtBound")` has a `why`; its union per event is not a row: G3 is dropped, and deny
   codes stay inline (Types.spec Q16).
 

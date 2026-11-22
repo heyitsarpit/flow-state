@@ -4946,6 +4946,10 @@ tasks
             Supersedes: `incarnations.ts#CREATION` is gone; @task.V3.T118 removed it when a start refused at creation
             became that timer's Refused arming with its schedule issue, so no Creation issue is raised any more. The
             link is now plain text; nothing of it is left for this Task to supersede.
+        comment     2026-11-22T14:10:48Z
+            Owns the open `pipe` gap: `machine.ts#Opaque` matches a `pipe` key of any type, so an event or memory field
+            named `pipe` turns the typo check off for its record. Pinned inverted in `tests/types/excess-keys.test-d.ts`
+            (flip it when fixed). Fix: `{ readonly pipe: Callable }`.
     T122
         title       Read entries and read slots
         status      draft
@@ -5931,7 +5935,7 @@ tasks
                Q19 still reads option C, and the realization says the capture is not built. Yet `excess-keys.test-d.ts`
                cites Types R2 for the type refusals. `wiki/specs/v3/Types.md:105,145,257` describe the old state
                (`payBody` at 257).
-            2. @proposal.body-key-typos was merged in ab64ce88. Delete it, and have its absorbing record name
+            2. `@proposal.body-key-typos` was merged in ab64ce88. Delete it, and have its absorbing record name
                the commit.
             3. The `clients.ts` factory is the user's ruling (two traces on @task.V3.T144).
 
@@ -6329,7 +6333,7 @@ tasks
             - Plants: `rg -n 'sync-repo-renamed|account-renamed|receipt-renamed' tests/faults.ts tests/*-faults.ts`.
         comment     2026-11-22T11:00:21Z
             [decided: user 2026-11-22] Scope added (Q5 A): machine captures the body's type as B and checks B & Exact<B,
-            MachineBody<D>> (@proposal.body-key-typos, its spiked machine.ts in the session scratchpad is prior art
+            MachineBody<D>> (`@proposal.body-key-typos`, its spiked machine.ts in the session scratchpad is prior art
             only), so typos in target, updateMemory (and its returned keys), guard, actions, states and schedules each
             get a red line; one excess-keys type test per typo class; check time measured before and after (spike:
             +14%); construction's strict decode stays. Why: reverses Types Q19 C; nothing in user bodies changes.
@@ -6348,7 +6352,7 @@ tasks
             (predates T143); the body capture should refuse undefined there, with a type test; T118 is closed so it
             lands here.
         comment     2026-11-22T13:19:19Z
-            [decided: agent builder 2026-11-22] The body capture lands as @proposal.body-key-typos shape A: `machine`
+            [decided: agent builder 2026-11-22] The body capture lands as `@proposal.body-key-typos` shape A: `machine`
             takes `B extends MachineBody<D>` and checks `B & Exact<B, MachineBody<D>>`
             (code:packages/flow-state-v3/src/machine.ts#BodyOf). Why: the user's Q5 A, which reverses @spec.Types Q19 C;
             no body changed but the two planted fixtures, which now carry `@ts-expect-error`. Reverse: `body:

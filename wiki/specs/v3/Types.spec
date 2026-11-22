@@ -27,13 +27,15 @@ requirements
         source  @plan.Machines.O1; @plan.Machines.O5; @plan.Rules.O3.
         must    Wherever Flow holds the name, a misspelt one is a type error: a state, event, field, operation,
                 schedule, key field, pause reason, rule or slot, in the body and at every reader (a snapshot, a
-                handle, a Story step, evidence). An unknown structural key in a body (`gaurd`, `pausd`) or in a rules
-                builder (`terminalz`) is not a type error: the strict decode refuses it at construction and `flow
-                check` reports it (Q19). No body type is captured.
-                [decided: user 2026-11-22] Why: no capture-free type check leaves user code unchanged. Reverse: exact
-                by type, through a sealed `body(...)` helper or a capture.
-                Superseded by the user's 2026-11-22 decision (Q19, @proposal.external-rules): "the body is checked
-                exactly, at every depth and in every union member" by type. A misspelt name stays a type error.
+                handle, a Story step, evidence). An unknown structural key in a body (`gaurd`, `pausd`) is a type error 
+                too: `machine`
+                captures the body's type as `B` and checks `B & Exact<B, MachineBody<D>>`
+                (code:packages/flow-state-v3/src/machine.ts#BodyOf), so a typo in a target, `updateMemory` (and its
+                returned keys), guard, actions, state or schedule gets a red line at its key. The strict decode at
+                construction and `flow check` stay as the runtime backstop (Q19).
+                [decided: user 2026-11-22] Why: Q5 A reversed the earlier capture-free answer once the spike showed
+                the capture costs little and changes no body. Reverse: drop the capture; the runtime refuses alone.
+                Open: a field named `pipe` turns the check off for its record (@task.V3.T121).
 
     R3  A type never promises what the runtime does not deliver
         source  @plan.Machines.O8.
@@ -255,27 +257,17 @@ open
         Why: the departure in Q5 is answered A. Reverse: reopen the rows.
         outcome  Each row follows its answer.
 
-    Q19  [decided: user 2026-11-22] Exactness is option C: the runtime's strict decode and `flow check` refuse an
-        unknown body key; no captured body type carries it. Why: a type spike found no capture-free check that leaves
-        user code unchanged (an arrow's return is not a fresh literal, so TypeScript runs no excess-key check on it);
-        the working shapes need a `body(...)` wrapper in every body or a capture. Reverse: a sealed `body(...)` helper
-        or a cheap capture.
-        Deletes: `const B`, `Exact`, `ExactBodyOf`, `RuleNames<B>`, `Machine`'s body-read parameter and G3. Rule names
-        are typed from the keys of the `.rules(build)` object alone (`RuleTyping`), nothing else is captured. Deny
-        codes stay inline in guards [decided: user 2026-11-22] (Why: a declared union needs the body's type, and no 
-            fixture
-        reads one; Reverse: declare decline reasons on the definition); no fixture reads a union of them, so `Denied`'s 
-            `why`
-        stays `string`, a stated debt of family D (Q16). An unknown key in a body or in a rules builder (`chek`,
-        `terminalz`) is refused by the strict decode at construction and by `flow check`; where TypeScript also
-        refuses one, it is by accident and not a promise.
-        Superseded by this answer and the user's 2026-11-22 external-rules decision (@proposal.external-rules): the
-        analysis that stood here, a narrow capture of the body with `RuleNames<B>` and G3's deny literals, and options
-        A (`Exact`), B (`Exact` to a fixed depth) and C, with its `machine<D, const I, const T>` snippet, which kept
-        the rules in the body. Its text and measurements are at commit 1c200671.
-        The superseded options, short: A keep `Exact` (I2 and R2 as written); B `Exact` to a fixed depth, states and
-        handlers only, measured; C drop it from the types and keep construction and `flow check` as the refusal. The
-        user took C, with the capture gone as well (the answer above).
+    Q19  [decided: user 2026-11-22] Exactness is by type: `machine` captures the body's type as `B` and checks `B &
+        Exact<B, MachineBody<D>>`, so an unknown key at any depth is a type error. The strict decode at construction
+        and `flow check` stay as the runtime backstop. Why: the user's Q5 A (`@proposal.body-key-typos`) reversed this
+        row's earlier option C, which kept no captured type; the spike measured the capture at a small check-time
+        cost and no change to any body. Reverse: option C, the runtime refusal alone.
+        The body's type is captured for exactness only: rule names are still typed from the keys of the
+        `.rules(build)` object (`RuleTyping`), and deny codes stay inline in guards [decided: user 2026-11-22] (Why: a
+        declared union needs the body's type read for its literals, and no fixture reads one; Reverse: declare decline
+        reasons on the definition), so `Denied`'s `why` stays `string`, a stated debt of family D (Q16).
+        History: the earlier analysis (a narrow capture with `RuleNames<B>`, options A `Exact`, B `Exact` to a fixed
+        depth, C no capture) is at commit 1c200671.
 
     Q20  One name per concept inside and outside: rename the declaration's `pausedBy` to `paused` and `key` to
         `keys`, so each declared field has the body field's name (`restartOn` already matches). [deferred: user
@@ -427,7 +419,7 @@ model
         `"~flow": "keyed"` wrapper are deleted.
 
         Placement. A body schedule must be declared (a construction finding, `ScheduleUndeclared`, which `flow check`
-        reports; not a type error, Q19).
+        reports; not a type error).
         A declared name may be placed in several states, never in a state and one of its descendants (a
         construction finding at the lower placement, since both would be active at once and their timers' issues
         could not be told apart; no type refuses the shape); all placements share the name, key, reasons and
@@ -477,7 +469,7 @@ model
         and its kept limits), superseded by the user's 2026-11-22 decision; its text is at commit 1c200671.
         Superseded, short: "BodyCapture = the body is captured exactly and gives the machine's type only its rule
         names" (`machine<D, const B>` with `ExactBodyOf<D, B>`, `RuleNames<B>` read from the body's `rules`, and a
-        `Machine<D, R>` whose `rules` carried `RuleToken<K>`); the user's Q19 option C removed the capture.
+        `Machine<D, R>` whose `rules` carried `RuleToken<K>`); the capture that stands is `B` for exactness only (Q19).
 
         ```ts
         // src/rules.ts (types). NEW: Build, RuleToken, rules; `.rules` on what `machine()`, `trait()` and

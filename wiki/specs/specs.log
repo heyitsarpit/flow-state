@@ -815,4 +815,8 @@ note 2026-11-22T10:22:41Z
 
 note 2026-11-22T11:00:21Z
     Types Q19 reversed by the user (2026-11-22, Q5 A): the body's type is captured and checked exactly
-    (@proposal.body-key-typos); construction's strict decode stays as the runtime backstop. Built by T144.
+    (`@proposal.body-key-typos`); construction's strict decode stays as the runtime backstop. Built by T144.
+
+note 2026-11-22T14:10:48Z
+    Types R2 and Q19 rewritten: the body's type is captured and checked exactly (Q5 A); Types.md's payBody gap now says
+    inline.
