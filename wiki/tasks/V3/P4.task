@@ -2678,6 +2678,12 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
+            **Also owns** (the orchestrator's ruling on @task.V3.T142's re-review, 2026-11-22):
+            `host/snapshot.ts#project`, which the publication's memo entry calls (@spec.Host, the publication algorithm)
+            and which absorbs `snapshot.ts#asOutside`; the exact list of crossings in `src/` (@spec.Types I4, T7), which
+            replaces the ratchet `MOST` in `tests/surface/derivation.test.ts`; and the planted fault
+            `project-second-cast` (@spec.Types R13).
+
             **Supersedes:** code:packages/flow-state-v3/src/host/driver.ts#drainInbox,
             code:packages/flow-state-v3/src/host/driver.ts#run, code:packages/flow-state-v3/src/host/driver.ts#stop;
             code:packages/flow-state-v3/src/host/runtime.ts#getSnapshot;
@@ -2701,14 +2707,17 @@ tasks
               (@plan.Persistence.O4), each shown in both browsers.
             - The hide handler is timed in real Chromium and Safari against Node's figure (about 6 us per changed actor)
               before any idle pre-encoding; a dev host work clock makes SlowWork fire outside tests.
+            - `host/snapshot.ts#project` holds the snapshot's one cast and `asOutside` is gone; the cast check in
+              `tests/surface/derivation.test.ts` is the exact list of crossings (@spec.Types I4, T7); the planted fault
+              `project-second-cast` is caught by `nub run faults --only` with its name (@spec.Types R13).
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host (R1–R4,
-              R6, I1–I10, I19, I20, I24); the Invariants its tests check after every step are @spec.Host (I1–I10, I19,
-              I20, I24; tests T1, T2, T4–T9).
+              R6, I1–I10, I19, I20, I24) and @spec.Types (R13, I4); the Invariants its tests check after every step are
+              @spec.Host (I1–I10, I19, I20, I24; tests T1, T2, T4–T9).
         comment     2026-11-21T18:31:21Z
             [proposed] Builds @proposal.algo-host 6.1 to 6.4 with the edge cells and the Out.hiddenRetried field of
             @proposal.algo-resolutions 1.6 (re-run in the model: no stuck ticket, stranded mark or hidden livelock).
@@ -2718,6 +2727,10 @@ tasks
         comment     2026-11-22T03:54:11Z
             Fix 11: publishes emits with the single call (C4); @task.V3.T127 owns the listener set, and the value that
             crosses is the delivered emit. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T10:59:33Z
+            Takes `host/snapshot.ts#project`, `asOutside`, the exact list of crossings and the fault
+            `project-second-cast` (the orchestrator's ruling on @task.V3.T142's re-review): it builds the publication
+            whose memo entry is `project`ed. Retracts Fix 9 of 03:54, which gave `asOutside` to @task.V3.T113.
     T112
         title       Fakes as hostile as the real thing: store, page and servers
         status      draft
@@ -3359,6 +3372,10 @@ tasks
             `Compiled.initial` go to @task.V3.T143). Flip A at the close confirms every inverted pin flipped, because an
             inverted pin passes any error. At the flip, drop the words that name symbols due for deletion. Rejected rows
             stay as the review logged them.
+        comment     2026-11-22T10:59:34Z
+            `snapshot.ts#asOutside` and `project` leave this Task for @task.V3.T111 (the orchestrator's ruling on
+            @task.V3.T142's re-review); Fix 9 of 03:54 is retracted. The carried snapshot type's name and one writer
+            stay here.
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
         status      draft
@@ -5828,17 +5845,22 @@ tasks
 
             **Build-time choice (`AnyBody`, @spec.Types Q12, second spike):** assign `AnyBody` from every
             `MachineBody<D>`, with `on` handlers at `never`. If it compiles on the real package, `machine()`'s body
-            decode returns the `AnyBody`, and the casts of `machine.ts`, `compile-body.ts#levelOf` and
-            `compile-schedules.ts` go. If it does not, those casts are handled at one point. Record the result as a
-            decision tag with Why and Reverse.
+            decode returns the `AnyBody`, and the casts of `machine.ts` and `compile-body.ts#levelOf` go
+            (`compile-schedules.ts` holds none). If it does not, those casts are handled at one point. Record the result
+            as a decision tag with Why and Reverse.
 
             **Approach:**
             - The crossings `entry.ts#door` (absorbs `registered`, `trustedTokens`, `codecOf`, `trusted` and
               `Flow.context`'s overload cast) and `handles.ts#slot` (absorbs `erase`, `erasedWhen`, `trustedAttempt`).
-            - The kind-brand casts in `definition.ts`, `machine.ts` and `send.ts` fold into the `made.ts` doors.
-            - The cast count is Types T7's ratchet: `MOST` in `tests/surface/derivation.test.ts` only falls. The exact
-              list of crossings is owed by the Task that builds `host/snapshot.ts#project`, with `snapshot.ts#asOutside`
-              (the orchestrator's ruling; see @task.V3.T114).
+            - The kind-brand casts in `definition.ts`, `machine.ts` and `send.ts`, and the same-class
+              `handles.ts#member` and `handles.ts#guard`, fold into the `made.ts` doors.
+            - The cast count is Types T7's ratchet, made exact (the orchestrator's ruling on the re-review,
+              @task.V3.T142): T7 asserts `toBe(MOST)`, so each deletion lowers `MOST`, and at the close `MOST` is pinned
+              to the measured count (at most 28: 39, less the 13 absorbed, plus `door` and `slot`). R13 counts each
+              crossing as exactly 1 (an array, not a Set), and the counter counts every disable form naming the rule,
+              not only `-next-line`. Beside `MOST`, the count in `src/host/testing/` (8 today) is pinned, since
+              production imports it. The exact list of crossings, `host/snapshot.ts#project` and `snapshot.ts#asOutside`
+              are @task.V3.T111's.
             - `indexOf` writes `Node.chain`, `depth` and `leaf`, and `Compiled.handledTags`, which replaces
               `machine.ts#handled` and is not a second computation. With `Node.leaf` written once, `Compiled.initial` is
               written once (today twice: `machine.ts:441` and `:481`).
@@ -5849,6 +5871,10 @@ tasks
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract. Where building shows it wrong, fix the Spec and log the change in `wiki/specs/specs.log`.
+
+            **Seams with @task.V3.T113:** `definition()`, whose face is T113's and whose kind-brand cast at its return
+            is this Task's; and `machine()`, which reads T113's private config copy and returns the `AnyBody` this
+            Task's spike decides.
 
             **Supersedes:** code:packages/flow-state-v3/src/machine.ts#erasedBody,
             code:packages/flow-state-v3/src/machine.ts#erasedWhen,
@@ -5868,20 +5894,24 @@ tasks
             May change: `src/`, `tests/`, `bench/`. Evidence: this Task's comments.
 
             False pass: a derived field equal to its scan only on small trees → caught by T5's slow-scan equality over
-            every fixture machine and the fault `index-chain-stale`. A crossing that renames a cast without removing its
-            class → caught by the absorbed list in `tests/surface/derivation.test.ts`.
+            every fixture machine and the fault `index-chain-stale`. A crossing that keeps a cast under a new name, or
+            moves one into `src/host/testing/` → caught by the exact `MOST` and the pinned `host/testing` count. An
+            inverted `Node` or `handledTags` pin left inverted after a wrong field lands → caught by Flip A at the
+            close, which confirms every pin flipped.
         acceptance
             - The `AnyBody` spike (@spec.Types Q12) is run, and its result is recorded as a decision tag with Why
               and Reverse.
             - `entry.ts#door` and `handles.ts#slot` each hold their crossing's one cast. The casts they absorb, and the
               kind-brand casts the `made.ts` doors absorb, are gone (@spec.Types R13), shown by the source check in
-              `tests/surface/derivation.test.ts`. The cast count is the ratchet `MOST`, lowered to the count at
-              the close.
+              `tests/surface/derivation.test.ts`. The cast count is exact: T7 asserts `toBe(MOST)`, `MOST` is pinned at
+              the close to the measured count (at most 28), each crossing counts as 1, every disable form is counted,
+              and the `src/host/testing/` count is pinned beside it.
             - `Node.chain`, `Node.depth`, `Node.leaf` and `Compiled.handledTags` exist, written only by `indexOf`
               (@spec.Types R14, I10). T5 recomputes each by its slow scan for every fixture machine and finds it equal.
               `Compiled.initial` is written once.
             - Planted faults `index-chain-stale` and `handled-tags-root-dropped` are caught by `nub run faults --only`
               with their names.
+            - Flip A at the close: every inverted `Node` and `handledTags` pin is flipped.
             - The bench rows `construct.small`, `construct.wide` and `construct.deep` exist (@spec.Types R7), and check
               time per step is recorded (Q15).
             - `nub run check` and the suite pass.
@@ -5916,6 +5946,14 @@ tasks
 
             Seam with (a): `definition()`'s face is (a)'s, and the kind-brand cast at its return is this Task's; build
             in order.
+        comment     2026-11-22T10:59:32Z
+            Re-review folded (builder, by the orchestrator's rulings on @task.V3.T142): the ratchet is exact
+            (`toBe(MOST)`, pinned at the close, each crossing counted once, every disable form counted,
+            `src/host/testing/` pinned at 8); `handles.ts#member` and `#guard` fold into the `made.ts` doors; Flip A
+            added; `machine()` named as a seam. Corrected done-checks, replacing the requirements comment's: item 4 is
+            `rg -n 'index-chain-stale|handled-tags-root-dropped' tests/faults.ts tests/*-faults.ts` (faults live in the
+            `*-faults.ts` modules). Item 2's guard becomes `toBe(MOST)`. `project`, `asOutside`, the exact list and
+            `project-second-cast` are @task.V3.T111's.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
         status      open
@@ -5946,6 +5984,8 @@ tasks
               - `Confirmed` at `fixtures/services/shop/operations/writes.ts:30`;
               - the `Configure` payload at `fixtures/command-palette/stories/usual.ts:43-46`;
               - `Omit<typeof Head.M.n, …>` at `tests/actors/follow-ups.test.ts:28`.
+              - the envelope `ReturnType<typeof Latest.E.Commit>` at `fixtures/lanes/stories/usual.ts:62`, and the five
+                K4 `Memory` copies (re-review, @task.V3.T142).
             - Out of class:
               - anything inside `loose(...)` (`schedule-sequences.test.ts:182-204`, `schedule-records.test.ts:116-130`);
               - a derived alias;
@@ -6020,3 +6060,16 @@ tasks
             handler passing its own key inline. Why: with `Reads` deferred there is no handler-input type, and swapping
             in derived parts would keep a generic no user would write. Reverse: keep the generic helpers, typed by
             derived parts.
+        comment     2026-11-22T10:59:32Z
+            Re-review folded (builder, by the orchestrator's rulings on @task.V3.T142). Corrected done-checks, replacing
+            items 1 and 3 of the requirements comment where they differ, run from `packages/flow-state-v3`:
+            - K4: `rg -n '^(export )?type
+              (Sensors|Email|Line|Lines|Held|Inputs|Seen|Outcome|TimerView|Confirmed|Policy|Tokens|Memory) =' fixtures
+              tests`. It adds `Memory` (five sites: `session.ts:79`, `cart.ts:66`, `pay.ts:153`,
+              `schedule-table.test.ts:67`, `schedule-sequences.test.ts:100`) and `export type Confirmed`. Out of class:
+              `stepper.ts:54` (a derived alias), `tests/rules/memory.ts:8` (`ReturnType` of a test helper),
+              `command-palette/stories/usual.ts:73` (a Story model type).
+            - K6: `rg -n 'Parameters<typeof (machine|Flow\.context)|ReturnType<typeof \w+\.E\.' fixtures tests` returns
+              only type-test lines. It adds `schedule-sequences.test.ts:319-322` and
+              `fixtures/lanes/stories/usual.ts:62`, both the envelope, so `EventOf<D>`, not `.Type`.
+            - Plants: `rg -n 'sync-repo-renamed|account-renamed|receipt-renamed' tests/faults.ts tests/*-faults.ts`.

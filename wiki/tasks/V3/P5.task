@@ -879,6 +879,10 @@ tasks
             `snapshot.ts#asOutside`. No Task names `project` yet. This one is its first named reader (`verdictOf` reads
             `project(incarnation)`, @spec.Host), so it holds the list until an earlier Task builds `project`. The
             ratchet `MOST` in `tests/surface/derivation.test.ts` stands until then.
+        comment     2026-11-22T10:59:34Z
+            The routing of 10:44 is superseded: `host/snapshot.ts#project`, `asOutside`, the exact list of crossings and
+            `project-second-cast` are @task.V3.T111's (the orchestrator's ruling on @task.V3.T142's re-review). This
+            Task no longer holds the list.
     T115
         title       Server data: dehydrate, hydrate and the merge table
         status      draft
