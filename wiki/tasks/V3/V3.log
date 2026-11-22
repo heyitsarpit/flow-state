@@ -788,3 +788,7 @@ note 2026-11-22T16:13:34Z
 note 2026-11-22T16:55:18Z
     T119 requirements in (c900c9d2). X3 moved to @task.V3.T109 (orchestrator ruling, T119 comment). Requirements review
     starts.
+
+note 2026-11-22T17:11:16Z
+    T119 requirements review: ISSUES (cc8e7d71), one blocker: @spec.Changes R22 (one readsOf builds every callback
+    input) has no check. Fix round and build go to the lead; T109 and T123 routings recorded; T119 text fixed.
