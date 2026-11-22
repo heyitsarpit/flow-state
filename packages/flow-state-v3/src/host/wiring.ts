@@ -3,6 +3,7 @@ import { type ActorId, actorKey, type Wiring } from "../core/world.ts";
 import type { Machine } from "../definition.ts";
 import { type Code, flowError, raise } from "../error.ts";
 import { actorIdOf, type ActorRef } from "./runtime.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 // A context graph admission refuses: thrown before any work.
 const refused = (code: Code, path: ReadonlyArray<string>, summary: string, help: string) =>
@@ -55,14 +56,14 @@ export const makeWiring = (
 
   // The identity a provider ref names, once its machine is one this app runs.
   const providerOf = (consumer: string, slot: string, ref: ActorRef) => {
-    if (!machines.has(ref.machine.compiled.id)) return raise(missing(consumer, slot));
+    if (!machines.has(compiledOf(ref.machine).id)) return raise(missing(consumer, slot));
 
-    if (machines.get(ref.machine.compiled.id) !== ref.machine)
+    if (machines.get(compiledOf(ref.machine).id) !== ref.machine)
       return raise(
         refused(
           "ForeignActorRef",
           [consumer, "context", slot],
-          `${slot} is wired to a ${ref.machine.compiled.id} that is not this Runtime's app's`,
+          `${slot} is wired to a ${compiledOf(ref.machine).id} that is not this Runtime's app's`,
           "Wire context to refs of the machines this Runtime's app lists.",
         ),
       );
@@ -71,7 +72,7 @@ export const makeWiring = (
   };
 
   const overridesOf = (ref: ActorRef) =>
-    overridesBy(ref, (slot, provider) => providerOf(ref.machine.compiled.id, slot, provider));
+    overridesBy(ref, (slot, provider) => providerOf(compiledOf(ref.machine).id, slot, provider));
 
   // The provider one slot binds to: the ref's override, else the entry's default, of the machine
   // the slot declares; with the overrides the default's ref gives.
@@ -103,7 +104,8 @@ export const makeWiring = (
 
   // RETURN_TYPE: recursive: each provider's own wiring is checked on the way up.
   const wiringOf = (actor: ActorId, overrides: Wiring, path: ReadonlyArray<string>): Wiring => {
-    const compiled = machines.get(actor.machine)?.compiled;
+    const machine = machines.get(actor.machine);
+    const compiled = machine === undefined ? undefined : compiledOf(machine);
 
     if (compiled === undefined) return new Map();
 

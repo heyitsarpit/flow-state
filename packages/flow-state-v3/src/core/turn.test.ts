@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { definition, machine } from "../index.ts";
 import { activation } from "./test/ids.ts";
 import { LaneView, runTurn, TurnResult } from "./turn.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 const Player = definition({
   id: "Turn/Player",
@@ -12,17 +13,19 @@ const Player = definition({
   schedules: { tick: {} },
 });
 
-const { compiled } = machine(Player, ({ S, E }) => ({
-  default: S.IDLE,
-  states: {
-    ON: {
-      default: S.ON.PLAYING,
-      states: {
-        PLAYING: { schedules: { tick: { schedule: 1000, send: E.Tick, armOn: [E.Saved] } } },
+const compiled = compiledOf(
+  machine(Player, ({ S, E }) => ({
+    default: S.IDLE,
+    states: {
+      ON: {
+        default: S.ON.PLAYING,
+        states: {
+          PLAYING: { schedules: { tick: { schedule: 1000, send: E.Tick, armOn: [E.Saved] } } },
+        },
       },
     },
-  },
-}));
+  })),
+);
 
 const turn = (late: boolean, from: number) =>
   runTurn({

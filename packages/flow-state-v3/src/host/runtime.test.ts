@@ -24,6 +24,7 @@ import { bootWith } from "./testing/seam.ts";
 import { Life } from "../core/life.ts";
 import { emptyWorld, Quarantine } from "../core/world.ts";
 import { loose } from "../test/loose.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 class Bell extends Context.Service<
   Bell,
@@ -520,10 +521,10 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
   });
 
   it("Actors R25: an identity with only a saved record, a quarantined one, or an ended actor reads stopped too", () => {
-    const machines = new Map([[TallyMachine.compiled.id, TallyMachine.compiled]]);
-    const saved = { machine: TallyMachine.compiled.id, name: "saved" };
-    const garbled = { machine: TallyMachine.compiled.id, name: "garbled" };
-    const gone = { machine: TallyMachine.compiled.id, name: "gone" };
+    const machines = new Map([[compiledOf(TallyMachine).id, compiledOf(TallyMachine)]]);
+    const saved = { machine: compiledOf(TallyMachine).id, name: "saved" };
+    const garbled = { machine: compiledOf(TallyMachine).id, name: "garbled" };
+    const gone = { machine: compiledOf(TallyMachine).id, name: "gone" };
 
     const world = {
       ...emptyWorld(true),

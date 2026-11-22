@@ -4,6 +4,7 @@ import type { Compiled, Values } from "./compiled.ts";
 import type { Machine } from "../definition.ts";
 import { checkName } from "../construction.ts";
 import { type Finding, invalid } from "../error.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 const APP_FIELDS = new Set(["id", "machines"]);
 
@@ -30,15 +31,15 @@ const entryFindings = (seen: Seen, key: string, entry: Machine) => {
 
   seen.byMachine.set(entry, key);
   const found: Array<Finding> = [];
-  const sameId = seen.byId.get(entry.compiled.id);
+  const sameId = seen.byId.get(compiledOf(entry).id);
 
-  if (sameId === undefined) seen.byId.set(entry.compiled.id, key);
+  if (sameId === undefined) seen.byId.set(compiledOf(entry).id, key);
   else
     found.push(
       invalid(
         at,
         "DuplicateMachineId",
-        `${key} and ${sameId} are both ${entry.compiled.id}`,
+        `${key} and ${sameId} are both ${compiledOf(entry).id}`,
         "Give every machine its own id.",
       ),
     );

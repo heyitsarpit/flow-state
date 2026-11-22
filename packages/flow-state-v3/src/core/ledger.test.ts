@@ -35,6 +35,7 @@ import {
   Quarantine,
   type World,
 } from "./world.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 const encodeOwedText = (...args: Parameters<typeof encodeOwed>) =>
   Result.getOrThrow(encodeOwed(...args)).text;
@@ -140,7 +141,7 @@ const Pay = definition({
 
 const PayMachine = machine(Pay, ({ S }) => ({ default: S.OPEN, on: { Paid: {}, PayUnsure: {} } }));
 
-const payMachines = new Map([[PayMachine.compiled.id, PayMachine.compiled]]);
+const payMachines = new Map([[compiledOf(PayMachine).id, compiledOf(PayMachine)]]);
 
 describe("an owed record keeps each row's channel (WriteLanes I39; Codec R5)", () => {
   it("a NotSent row and an unknown row with the same tag come back told apart by channel", () => {
@@ -373,7 +374,7 @@ describe("Flow's restored marker is not a reason (WriteLanes I15)", () => {
   // Whether owing a host unknown ending with this reason to a live, persisted identity marks its
   // owed record: a Queued row moves into no saved delivery, so it should not.
   const marksOwed = (reason: string) => {
-    const tx = makeTx(new Map([[actor.machine, PayMachine.compiled]]), live(emptyWorld(true)), {
+    const tx = makeTx(new Map([[actor.machine, compiledOf(PayMachine)]]), live(emptyWorld(true)), {
       now: 0,
       seed: "0",
       admit: makeFreezer(),

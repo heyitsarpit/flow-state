@@ -50,6 +50,7 @@ import {
   type Tab,
   WorldWord,
 } from "./steps.ts";
+import { compiledOf } from "../../compiled-of.ts";
 
 /**
  * What a run shows at one step's end, captured then: the time, the runtime cut, what
@@ -532,7 +533,7 @@ export const startRun = <Names extends string>(
   // step array may come from another app's Story.
   const own = (actor: ActorId) =>
     Object.values(subject.config.app.machines).some(
-      (e) => machineOf(e).compiled.id === actor.machine,
+      (e) => compiledOf(machineOf(e)).id === actor.machine,
     )
       ? actor
       : foreignActorRef([id, actor.machine], actor.machine, "Story");

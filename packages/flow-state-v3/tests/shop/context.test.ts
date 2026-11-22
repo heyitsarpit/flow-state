@@ -13,6 +13,7 @@ import { turnsOf } from "../../src/host/testing/index.ts";
 import { checked } from "../rules/rules.ts";
 import { played } from "../rules/played.ts";
 import { refusal } from "../refusals.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 const line = (variantId: string, quantity: number) => ({ variantId, quantity });
 
@@ -126,7 +127,7 @@ describe("construction refuses a slot of two providers and a reaction nothing ha
 
 describe("Compiled holds the field-level edges (Compile R19, I18)", () => {
   it("Compile R19, I18: each slot lists its provider and the fields it reads; each reaction names its slot", () => {
-    const view = dataView(CartPulseMachine.compiled);
+    const view = dataView(compiledOf(CartPulseMachine));
 
     expect(view).toEqual(
       expect.objectContaining({

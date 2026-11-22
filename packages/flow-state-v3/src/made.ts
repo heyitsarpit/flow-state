@@ -127,13 +127,22 @@ const sealOne = (value: Container) => {
 const heldBy = (root: Container, at: Readable): ReadonlyArray<Held> => {
   if (Schema.isSchema(at) || Effect.isEffect(at) || (at !== root && MadeTypeId in at)) return [];
 
+  const entries: Array<Held> = [];
+
+  if (at instanceof Map) entries.push(...at.keys(), ...at.values());
+
+  if (at instanceof Set) entries.push(...at);
+
   sealOne(at);
 
-  return Reflect.ownKeys(at).flatMap((key) => (key === InternalsId ? [] : [at[key]]));
+  return [
+    ...entries,
+    ...Reflect.ownKeys(at).flatMap((key) => (key === InternalsId ? [] : [at[key]])),
+  ];
 };
 
 // Freezes a made value's face deeply: every object, array and function reachable through its own
-// data properties, the internals key excepted. Schemas and Effects are Effect's own values, and a
+// data properties and through what its Maps and Sets hold, the internals key excepted. Schemas and Effects are Effect's own values, and a
 // made value it meets froze itself when it was made.
 const seal = (root: Container) => {
   const stack: Array<Held> = [root];

@@ -32,6 +32,7 @@ import type {
 } from "../definition.ts";
 import { type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 // A definition whose leaves are text is the erased one: its snapshot keeps text and Values.
 type Erased<D extends AnyDefinition> =
@@ -247,7 +248,7 @@ export const snapshotIn = (
 
 // An outside snapshot omits the machine's Flow.private fields; Stories and Inspection see them.
 export const outside = <D extends AnyDefinition>(machine: Machine<D>, snapshot: Snapshot) => {
-  const memory = publicMemory(machine.compiled, snapshot.memory);
+  const memory = publicMemory(compiledOf(machine), snapshot.memory);
 
   return asOutside<D>(memory === snapshot.memory ? snapshot : { ...snapshot, memory });
 };

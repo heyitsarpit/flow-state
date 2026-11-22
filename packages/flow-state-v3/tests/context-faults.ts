@@ -376,8 +376,8 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/wiring.ts",
-        find: "    if (machines.get(ref.machine.compiled.id) !== ref.machine)",
-        replace: "    if (machines.get(ref.machine.compiled.id) === undefined)",
+        find: "    if (machines.get(compiledOf(ref.machine).id) !== ref.machine)",
+        replace: "    if (machines.get(compiledOf(ref.machine).id) === undefined)",
       },
     ],
   },

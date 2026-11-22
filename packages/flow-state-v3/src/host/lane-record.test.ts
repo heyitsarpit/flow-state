@@ -4,6 +4,7 @@ import { decodeRecords, encodeLane, laneRecordKey } from "../core/record.ts";
 import { attempt } from "../core/test/ids.ts";
 import { type CallId, laneId, OwnedBy, Phase } from "../core/world.ts";
 import { definition, Flow, machine, transaction } from "../index.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 // A persisted keyed write under one policy; the call is never run here.
 const clientUnder = (concurrency: "serialize" | "cancel") => {
@@ -28,7 +29,9 @@ const clientUnder = (concurrency: "serialize" | "cancel") => {
     }),
   });
 
-  return machine(Client, ({ S }) => ({ default: S.READY, on: { Done: {}, Unsure: {} } })).compiled;
+  return compiledOf(
+    machine(Client, ({ S }) => ({ default: S.READY, on: { Done: {}, Unsure: {} } })),
+  );
 };
 
 const input = { repo: "flow" };

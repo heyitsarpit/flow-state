@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { definition, Flow, machine } from "../index.ts";
 import { Target } from "./compiled.ts";
 import { create, historyAfter, moveOf } from "./tree.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 // A tree with two levels below the root: OFF, ON { IDLE, MEDIA { PLAYING, PAUSED } }.
 const Deep = definition({
@@ -11,15 +12,17 @@ const Deep = definition({
   events: {},
 });
 
-const { compiled } = machine(Deep, ({ S }) => ({
-  default: S.OFF,
-  states: {
-    ON: {
-      default: S.ON.IDLE,
-      states: { MEDIA: { default: S.ON.MEDIA.PLAYING } },
+const compiled = compiledOf(
+  machine(Deep, ({ S }) => ({
+    default: S.OFF,
+    states: {
+      ON: {
+        default: S.ON.IDLE,
+        states: { MEDIA: { default: S.ON.MEDIA.PLAYING } },
+      },
     },
-  },
-}));
+  })),
+);
 
 const NONE = new Map<string, string>();
 
@@ -128,7 +131,7 @@ describe("creation (Compile R6, I7, T4)", () => {
     },
   });
 
-  const doc = machine(Doc, ({ S }) => ({ default: S.CLEAN })).compiled;
+  const doc = compiledOf(machine(Doc, ({ S }) => ({ default: S.CLEAN })));
 
   it("copies the input and the constants; an optional key with no default stays absent", () => {
     expect(create(doc, { docId: "d-1" })).toEqual({ docId: "d-1", body: "" });

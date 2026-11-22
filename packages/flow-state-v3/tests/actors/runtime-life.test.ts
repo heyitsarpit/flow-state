@@ -33,6 +33,7 @@ import type { Evidence } from "../../src/host/inspect.ts";
 import type { ActorRef } from "../../src/index.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { before } from "../checkout.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 // What `runtime.unsettledWrites()` said at a checkpoint.
 const unsettledAt = (cut: Cut) => cut.unsettled;
@@ -69,7 +70,7 @@ const undecodable = (records: ReadonlyArray<Evidence>, key: string) =>
 const finishedOrder = (records: ReadonlyArray<Evidence>) =>
   records.flatMap((e) => (e._tag === "Finished" ? [e.actor.machine] : []));
 
-const machineOf = (ref: ActorRef) => ref.machine.compiled.id;
+const machineOf = (ref: ActorRef) => compiledOf(ref.machine).id;
 
 // A held lane of a removed identity is reported UnboundLane once at each of two boots, never
 // before its removal, and not once an ensure adopts it.

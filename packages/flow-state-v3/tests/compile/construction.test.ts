@@ -421,23 +421,6 @@ describe("the machine adds nothing (Compile R1, R3, R4, T1, T11)", () => {
     ]);
   });
 
-  it("Types R8: one schedule placed in a state and in a state below it, both active at once, is refused DuplicateName at the second", () => {
-    expect(
-      refusal(() =>
-        machine(Lamp, ({ S, E }) => ({
-          default: S.OFF,
-          states: {
-            ON: {
-              default: S.ON.DIM,
-              schedules: { off: { schedule: "1 second", send: E.Flip } },
-              states: { DIM: { schedules: { off: { schedule: "2 seconds", send: E.Flip } } } },
-            },
-          },
-        })),
-      ),
-    ).toEqual([["InvalidConfiguration", "DuplicateName", "states.ON.states.DIM.schedules.off"]]);
-  });
-
   it("a schedule of exactly 2^31 - 1 ms compiles", () => {
     expect(
       refusal(() =>

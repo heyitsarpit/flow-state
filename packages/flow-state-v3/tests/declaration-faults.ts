@@ -4,8 +4,6 @@ const DECLARATIONS = "tests/compile/schedule-declarations.test.ts";
 
 const MIGRATION = "tests/compile/schedule-migration.test.ts";
 
-const CONSTRUCTION = "tests/compile/construction.test.ts";
-
 /**
  * Wrong checks of declared schedules: a placement its declaration refuses taken, and a key or
  * selection codec built wrong.
@@ -157,19 +155,6 @@ export const declarationFaults: ReadonlyArray<Fault> = [
         find: "  walk(body, []);\n\n  return found;",
         replace:
           '  walk(body, []);\n\n  const placed = JSON.stringify(body, (_, v: unknown) => (typeof v === "function" ? 0 : v));\n\n  for (const name of Object.keys(declared))\n    if (!placed.includes(`"${name}":`))\n      found.push(invalid(["schedules", name], "ScheduleUnplaced", name, name));\n\n  return found;',
-      },
-    ],
-  },
-  {
-    name: "nested-placement-accepted",
-    tests: [CONSTRUCTION],
-    says: "one schedule placed in a state and in a state below it is accepted, two timers of one name active at once",
-    rule: "Types R8",
-    edits: [
-      {
-        file: "src/compile-schedules.ts",
-        find: "  return placed.some((other) => atOrBelow(state, other) || atOrBelow(other, state))",
-        replace: "  return placed.some(() => false)",
       },
     ],
   },

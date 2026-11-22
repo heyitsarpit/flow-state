@@ -2,6 +2,7 @@ import { Option, Result } from "effect";
 import type { Story } from "../../src/host/testing/index.ts";
 import type { App } from "../../src/index.ts";
 import { InternalsId } from "../../src/host/inspect.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 type Walk = (typeof WALKS)[number];
 
@@ -24,7 +25,7 @@ const fieldsOf = (app: App) =>
     Object.values(app.machines).map((entry) => {
       const machine = "machine" in entry ? entry.machine : entry;
 
-      return [machine.compiled.id, machine.compiled[InternalsId].fields] as const;
+      return [compiledOf(machine).id, compiledOf(machine)[InternalsId].fields] as const;
     }),
   );
 

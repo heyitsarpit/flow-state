@@ -1,5 +1,5 @@
 import { Predicate, Result, Schema } from "effect";
-import type { Compiled, Values } from "./core/compiled.ts";
+import type { Values } from "./core/compiled.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
 import type { Bound, BoundInternals, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
@@ -601,11 +601,11 @@ export type AnyDefinition = Branded<"definition"> & {
 };
 
 /**
- * A compiled machine: its definition and its Compiled data.
+ * A compiled machine: its definition; its Compiled, which holds the body's callbacks, is kept for
+ * the core off its face.
  */
 export type Machine<D extends AnyDefinition = AnyDefinition> = Branded<"machine"> & {
   readonly definition: D;
-  readonly compiled: Compiled;
 };
 
 /**

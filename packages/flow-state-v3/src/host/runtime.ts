@@ -81,6 +81,7 @@ export { actorIdOf, actorRef, type ActorRef, type RefName } from "./refs.ts";
 export { app } from "./app.ts";
 
 import { app } from "./app.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 /**
  * A handle to an actor: it follows the identity, not the incarnation.
@@ -210,13 +211,16 @@ export const buildRuntime = <R = never, A extends App = App>(
 ) => {
   const entries = Object.values(config.app.machines);
 
-  refuse(entries.flatMap((e) => Option.toArray(verdictOf(machineOf(e).compiled))));
+  refuse(entries.flatMap((e) => Option.toArray(verdictOf(compiledOf(machineOf(e))))));
 
-  const machines = new Map(entries.map((e) => [machineOf(e).compiled.id, machineOf(e)]));
+  const machines = new Map(entries.map((e) => [compiledOf(machineOf(e)).id, machineOf(e)]));
 
   // Each machine entry's default wiring: the ref of each context slot's provider.
   const defaults = new Map(
-    entries.map((e) => [machineOf(e).compiled.id, ("machine" in e ? e.context : undefined) ?? {}]),
+    entries.map((e) => [
+      compiledOf(machineOf(e)).id,
+      ("machine" in e ? e.context : undefined) ?? {},
+    ]),
   );
 
   const { wiringOf, overridesOf, refused: contextRefused } = makeWiring(machines, defaults);
@@ -246,7 +250,7 @@ export const buildRuntime = <R = never, A extends App = App>(
       [...machines].map(([id, m]) => [
         id,
         {
-          ...m.compiled,
+          ...compiledOf(m),
           wiring: new Map(
             Object.entries(defaults.get(id) ?? {}).map(([slot, ref]) => [slot, actorIdOf(ref)]),
           ),
@@ -390,9 +394,9 @@ export const buildRuntime = <R = never, A extends App = App>(
 
   // A ref names an identity only of a machine this Runtime's app runs.
   const ownRef = (ref: ActorRef) => {
-    if (machines.get(ref.machine.compiled.id) === ref.machine) return actorIdOf(ref);
+    if (machines.get(compiledOf(ref.machine).id) === ref.machine) return actorIdOf(ref);
 
-    return foreignActorRef([ref.machine.compiled.id], ref.machine.compiled.id, "Runtime");
+    return foreignActorRef([compiledOf(ref.machine).id], compiledOf(ref.machine).id, "Runtime");
   };
 
   // A handle names its own Runtime's identity; another Runtime's handle is refused.
@@ -498,7 +502,7 @@ export const buildRuntime = <R = never, A extends App = App>(
         machine: Machine<D>,
         options: { readonly input: InputOf<D["memory"]> },
       ) => {
-        const compiled = machine.compiled;
+        const compiled = compiledOf(machine);
 
         // The input is checked by its Schemas before any work, as a value ref's is.
         if (inputFieldsOf(compiled).length > 0) actorIdOf(refOf(machine, options.input, {}));

@@ -6,6 +6,7 @@ import { machine } from "../machine.ts";
 import { encodeActor } from "./actor-record.ts";
 import { decodeRecords } from "./record.ts";
 import { FORMAT } from "./record-format.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 const Feed = definition({
   id: "Test/Feed",
@@ -72,9 +73,9 @@ const ShoutMachine = machine(Shout, ({ S, E, C }) => ({
 }));
 
 const machines = new Map([
-  [FeedMachine.compiled.id, FeedMachine.compiled],
-  [HeaderMachine.compiled.id, HeaderMachine.compiled],
-  [ShoutMachine.compiled.id, ShoutMachine.compiled],
+  [compiledOf(FeedMachine).id, compiledOf(FeedMachine)],
+  [compiledOf(HeaderMachine).id, compiledOf(HeaderMachine)],
+  [compiledOf(ShoutMachine).id, compiledOf(ShoutMachine)],
 ]);
 
 const shout = (seen: string, reactions: string) =>
@@ -192,7 +193,10 @@ const WatchMachine = machine(Watch, ({ S, E, C }) => ({
   on: { Heard: { updateMemory: ({ memory }) => ({ heard: memory.heard + 1 }) } },
 }));
 
-const watchMachines = new Map([...machines, [WatchMachine.compiled.id, WatchMachine.compiled]]);
+const watchMachines = new Map([
+  ...machines,
+  [compiledOf(WatchMachine).id, compiledOf(WatchMachine)],
+]);
 
 // A format-3 record of the watch: its one reaction's frame as given, its slot last seen at 2.
 const formatThree = (frame: string) =>
@@ -246,7 +250,7 @@ describe("format 4 saves a reaction's baseline only where it differs from its sl
 
       expect(valuesOf(restored.records)).toEqual([value]);
       expect(
-        record === undefined ? Result.fail("none") : encodeActor(WatchMachine.compiled, record),
+        record === undefined ? Result.fail("none") : encodeActor(compiledOf(WatchMachine), record),
       ).toEqual(Result.succeed(text.replace('"format":4', '"format":5')));
     }
   });

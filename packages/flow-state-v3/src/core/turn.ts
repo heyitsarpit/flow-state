@@ -17,6 +17,7 @@ import type { Part } from "./evidence.ts";
 import { sameValue } from "./same.ts";
 import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
 import type { RefusedCode } from "./vocabulary.ts";
+import { compiledOption } from "../compiled-of.ts";
 
 /**
  * What a guard or member sees of one lane: Idle, InFlight, or Held with its re-sends.
@@ -258,23 +259,15 @@ const firstDecline = (
   return PASSED;
 };
 
-// A ref as a send's callback returns it: its machine's Compiled and the value that names the actor.
-type SentRef = {
-  readonly machine: { readonly compiled: Compiled };
-  // FLOW_STATE_ALLOW_UNKNOWN: a ref's value is the caller's, named by refName.
-  readonly value: unknown;
-};
-
-// RETURN_TYPE: a type guard states the ref shape it narrows to.
-const isRef = (
+// A send's ref as the turn reads it: the Compiled of its machine, which Flow made, and its value.
+const sentRefOf = (
   // FLOW_STATE_ALLOW_UNKNOWN: a send's ref, as its callback returned it.
   ref: unknown,
-): ref is SentRef =>
-  Predicate.hasProperty(ref, "machine") &&
-  Predicate.hasProperty(ref.machine, "compiled") &&
-  Predicate.hasProperty(ref.machine.compiled, "events") &&
-  ref.machine.compiled.events instanceof Map &&
-  Predicate.hasProperty(ref, "value");
+) =>
+  Predicate.hasProperty(ref, "machine") && Predicate.hasProperty(ref, "value")
+    ? // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one ref per send, read once
+      Option.map(compiledOption(ref.machine), (compiled) => ({ compiled, value: ref.value }))
+    : Option.none();
 
 // The actor a send's ref names and the public event it sends, checked by the target's own Schemas
 // as a handle's send checks it; a ref with no name or an event the target refuses fails its slot.
@@ -285,10 +278,12 @@ const sendOf = (
   envelope: unknown,
   slots: { readonly to: string; readonly event: string },
 ) => {
-  if (!isRef(ref)) return Result.fail<Failed>({ slot: slots.to });
+  const sent = sentRefOf(ref);
 
-  const compiled = ref.machine.compiled;
-  const name = refName(compiled, ref.value);
+  if (Option.isNone(sent)) return Result.fail<Failed>({ slot: slots.to });
+
+  const { compiled, value } = sent.value;
+  const name = refName(compiled, value);
 
   if (Result.isFailure(name)) return Result.fail({ slot: slots.to });
 

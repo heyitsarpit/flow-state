@@ -160,8 +160,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/testing/run.ts",
-        find: "      (e) => machineOf(e).compiled.id === actor.machine,",
-        replace: '      (e) => machineOf(e).compiled.id !== "",',
+        find: "      (e) => compiledOf(machineOf(e)).id === actor.machine,",
+        replace: '      (e) => compiledOf(machineOf(e)).id !== "",',
       },
     ],
   },

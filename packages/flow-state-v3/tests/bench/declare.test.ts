@@ -9,6 +9,7 @@ import { selectBenches } from "../../bench/select.ts";
 import { appendRows, type Row, readRows } from "../../bench/history.ts";
 import { changeOf, madOf, slopeOf, spreadOf, verdictOf } from "../../bench/stats.ts";
 import { manifests } from "../../fixtures/index.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 describe("bench declarations", () => {
   it("every bench has one unique id, a declared concern and at most two headline numbers", () => {
@@ -87,7 +88,7 @@ describe("bench subjects", () => {
 
     for (const m of manifests) {
       const persists = Object.values(m.app.machines).some(
-        (entry) => ("machine" in entry ? entry.machine : entry).compiled.persist,
+        (entry) => compiledOf("machine" in entry ? entry.machine : entry).persist,
       );
 
       expect({ app: m.name, named: Option.isSome(m.bench.persist) }).toEqual({

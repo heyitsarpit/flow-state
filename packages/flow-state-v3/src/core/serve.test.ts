@@ -13,6 +13,7 @@ import { pendingOwners } from "./serve.ts";
 import { step } from "./step.ts";
 import { activation, attempt, chain } from "./test/ids.ts";
 import { actorKey, emptyWorld, type Lane, Mail, OwnedBy, Phase } from "./world.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 const actor = { machine: "Test/Shelf", name: "s" };
 
@@ -71,8 +72,8 @@ describe("a context update that waits for its providers (Actors R19)", () => {
   // No Story queues mail behind a waiting update in one step: the mailboxes are set by hand.
   it("Actors R19: a context update deferred while its provider has mail keeps its place, so the mail behind it stays behind it", () => {
     const machines = new Map([
-      [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],
-      [line.machine, { ...LineMachine.compiled, wiring: new Map([["name", lead]]) }],
+      [lead.machine, { ...compiledOf(LeadMachine), wiring: new Map() }],
+      [line.machine, { ...compiledOf(LineMachine), wiring: new Map([["name", lead]]) }],
     ]);
 
     const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };
@@ -150,8 +151,8 @@ const echo = { machine: "Serve/Echo", name: "echo" };
 // changes the name it reads; each count has sent as given. Returns the echo once served.
 const joined = (waiting: number, joining: number) => {
   const machines = new Map([
-    [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],
-    [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
+    [lead.machine, { ...compiledOf(LeadMachine), wiring: new Map() }],
+    [echo.machine, { ...compiledOf(EchoMachine), wiring: new Map([["name", lead]]) }],
   ]);
 
   const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };
@@ -224,8 +225,8 @@ describe("a second wave reaching a context update that waits (Actors R13, I20)",
   // event's chain a live chain's id and reset its count to zero.
   it("Actors R13: a partial clear of chains keeps every live chain's count, so the waiting update's send is still refused at the loop guard", () => {
     const machines = new Map([
-      [lead.machine, { ...LeadMachine.compiled, wiring: new Map() }],
-      [echo.machine, { ...EchoMachine.compiled, wiring: new Map([["name", lead]]) }],
+      [lead.machine, { ...compiledOf(LeadMachine), wiring: new Map() }],
+      [echo.machine, { ...compiledOf(EchoMachine), wiring: new Map([["name", lead]]) }],
     ]);
 
     const env = { now: 0, seed: "0", admit: makeFreezer(), step: () => Option.none() };

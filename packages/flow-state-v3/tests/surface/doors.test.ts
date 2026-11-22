@@ -249,11 +249,11 @@ const madeRoots: ReadonlyArray<readonly [string, unknown]> = [
 ];
 
 describe("made values (Operations R10, I19)", () => {
-  it.fails("Operations I19: every function on a made value's face, inert data included and inside its Maps and Sets, is a door's", () => {
+  it("Operations I19: every function on a made value's face, inert data included and inside its Maps and Sets, is a door's", () => {
     expect(facesOf(madeRoots).unregistered).toEqual([]);
   });
 
-  it.fails("Operations R10: a made value's face is deeply frozen data, its Maps and Sets included", () => {
+  it("Operations R10: a made value's face is deeply frozen data, its Maps and Sets included", () => {
     expect(facesOf(madeRoots).unfrozen).toEqual([]);
   });
 

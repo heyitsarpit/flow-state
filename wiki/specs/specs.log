@@ -761,3 +761,8 @@ note 2026-11-22T01:16:33Z
 note 2026-11-22T01:16:33Z
     A note of T89's requirements reconcile was hand-stamped 2026-11-22T23:30Z; it now carries its commit time
     (7069d46d). Logs are stamped only with wk log add.
+
+note 2026-11-22T01:49:33Z
+    Operations: a made function takes a second branded prototype that is a function; deep freezing reaches what a face's
+    Maps and Sets hold; a machine's Compiled sits under its internals key, read by compiledOf; slice T89's build and fix
+    round.

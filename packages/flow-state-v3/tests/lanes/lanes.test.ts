@@ -14,6 +14,7 @@ import { attachInspector } from "../../src/host/inspect.ts";
 import type { Cut, StoryRun } from "../../src/host/testing/index.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 const endings = (run: StoryRun) =>
   run.evidence.flatMap((e) => (e._tag === "Ended" ? [`${e.channel} ${e.reason}`] : []));
@@ -61,7 +62,7 @@ describe("the lane policies with deep queues (fixtures.md L2)", () => {
     expect(refused).toEqual([]);
     expect(turns).toBe(1 + BURST);
     expect(Option.isSome(client.getSnapshot())).toBe(true);
-    expect(SerializeMachine.compiled.id).toBe("Lanes/serialize");
+    expect(compiledOf(SerializeMachine).id).toBe("Lanes/serialize");
   });
 });
 

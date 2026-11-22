@@ -12,7 +12,6 @@ import {
 } from "./core/compiled.ts";
 import { is } from "./config.ts";
 import { type Finding, invalid } from "./error.ts";
-import { atOrBelow } from "./core/tree.ts";
 import { byCodeUnits } from "./core/world.ts";
 import type { ErasedPlacement, ScheduleDecl, ScheduleDecls } from "./tokens.ts";
 import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
@@ -126,37 +125,15 @@ const delayOf = (compile: Compile, delay: ErasedPlacement["schedule"], slot: str
   });
 };
 
-// A second placement of one schedule in a state and its ancestor: both are active at once, and a
-// schedule's timers are one per name.
-const nestedPlacement = (compile: Compile, name: string, state: string, at: Path) => {
-  const placed = compile.placements.get(name) ?? [];
-
-  compile.placements.set(name, [...placed, state]);
-
-  return placed.some((other) => atOrBelow(state, other) || atOrBelow(other, state))
-    ? [
-        invalid(
-          at,
-          "DuplicateName",
-          `the schedule ${name} is placed in ${state} and in a state above or below it`,
-          "Place a schedule in states that are never active together.",
-        ),
-      ]
-    : [];
-};
-
 // RETURN_TYPE: the Compiled shape this part builds.
 export const scheduleOf = (
   compile: Compile,
   name: string,
   config: ErasedPlacement,
-  state: string,
   at: Path,
 ): Schedule => {
   const declared = compile.definition.schedules[name] ?? {};
   const keyed = declared.key !== undefined;
-
-  compile.findings.push(...nestedPlacement(compile, name, state, at));
 
   const send = endingOf(config.send);
 

@@ -406,7 +406,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/runtime.ts",
-        find: "    if (machines.get(ref.machine.compiled.id) === ref.machine) return actorIdOf(ref);",
+        find: "    if (machines.get(compiledOf(ref.machine).id) === ref.machine) return actorIdOf(ref);",
         replace: "    if (ref.machine !== undefined) return actorIdOf(ref);",
       },
     ],

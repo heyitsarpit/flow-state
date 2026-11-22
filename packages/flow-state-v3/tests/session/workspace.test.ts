@@ -36,6 +36,7 @@ import {
 import { attachInspector } from "../../src/host/inspect.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 // The fields read off a stored avatar record; a change to its format fails the decode.
 const AvatarRecord = Schema.fromJsonString(
@@ -226,6 +227,6 @@ describe("one badge's mailbox (fixtures.md L2; Actors R14)", () => {
 
     expect(refused).toEqual([]);
     expect(Option.map(handle.getSnapshot(), (s) => s.memory.pings)).toEqual(Option.some(1 + BURST));
-    expect(BadgeMachine.compiled.id).toBe("Workspace/Badge");
+    expect(compiledOf(BadgeMachine).id).toBe("Workspace/Badge");
   });
 });

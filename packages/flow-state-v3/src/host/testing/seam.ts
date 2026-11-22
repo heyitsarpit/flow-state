@@ -10,6 +10,7 @@ import { Store, StoreRefused } from "../store.ts";
 import { attachInspector, type Evidence } from "../inspect.ts";
 import { buildRuntime, type RuntimeConfig, snapshotOf } from "../runtime.ts";
 import { tabClock } from "./clock.ts";
+import { compiledOf } from "../../compiled-of.ts";
 
 /**
  * A Runtime built for Flow's own tests, with its driver beside it.
@@ -49,7 +50,7 @@ export const testing = {
     driver.send(actor, tag, payload),
   snapshot: ({ driver }: TestRuntime, actor: ActorId) => snapshotOf(driver, actor),
   row: (machine: Machine, operations: Operations, operation: string, key: Values) =>
-    Option.flatMap(Option.fromUndefinedOr(machine.compiled.operations.get(operation)), (op) =>
+    Option.flatMap(Option.fromUndefinedOr(compiledOf(machine).operations.get(operation)), (op) =>
       Option.flatMap(op.walk.keyText(key), (text) =>
         Option.fromUndefinedOr(operations.get(operation)?.get(text)),
       ),

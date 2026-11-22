@@ -215,3 +215,5 @@ export const inspect: <R, A extends App>(runtime: Runtime<R, A>) => RuntimeCut<D
 export { dataView } from "../core/data-view.ts";
 
 export { InternalsId } from "../core/compiled.ts";
+
+export { compiledOf } from "../compiled-of.ts";

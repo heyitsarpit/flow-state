@@ -23,6 +23,7 @@ import {
   Timer,
   type World,
 } from "./world.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 // A written record's JSON object, read back from its text.
 const jsonOf = Schema.decodeUnknownSync(
@@ -54,7 +55,7 @@ const TillMachine = machine(Till, ({ S }) => ({ default: S.OPEN, states: { OPEN:
 
 const actor = { machine: "Persist/Till", name: "front" };
 
-const machines = new Map([[actor.machine, TillMachine.compiled]]);
+const machines = new Map([[actor.machine, compiledOf(TillMachine)]]);
 
 // The batch the edge would issue now: a Capture step over a copy of the World a step left.
 const captured = (world: World, tickets: ReadonlyArray<Ticket> = [], again: Marks = new Map()) => {

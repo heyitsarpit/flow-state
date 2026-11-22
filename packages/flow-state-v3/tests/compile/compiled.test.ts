@@ -11,6 +11,8 @@ import {
   runtimeSetup,
   transaction,
 } from "../../src/index.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
+import { loose } from "../../src/test/loose.ts";
 
 const save = transaction({
   id: "Compiled/save",
@@ -69,9 +71,7 @@ const refusalOf = (compiled: unknown) => {
     runtimeSetup({
       app: app({
         id: "lamps",
-        // SAFETY: the test hands a Runtime a malformed Compiled, which only a cast can build.
-        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a Compiled no machine() call emits
-        machines: { lamp: { ...lamp, compiled: compiled as typeof lamp.compiled } },
+        machines: { lamp: loose({ ...lamp, compiled }) },
       }),
     }).construct();
   } catch (error) {
@@ -84,15 +84,15 @@ const refusalOf = (compiled: unknown) => {
 
 describe("Compiled and its data view (Compile R16, R17, T8, T9)", () => {
   it("two compiles of one source give equal data views, with Slots as names and Schemas as JSON Schema documents", () => {
-    const first = dataView(build().compiled);
+    const first = dataView(compiledOf(build()));
 
-    expect(dataView(build().compiled)).toEqual(first);
+    expect(dataView(compiledOf(build()))).toEqual(first);
     expect(functionsIn(first)).toBe(0);
     expect(stringsIn(first)).toContain("on.Dim[0].guard[0]");
   });
 
   it("Operations R10: a machine carrying a hand-made Compiled (a bare function, a key field outside the input, no events table) is a copy, refused WrongKind before any Runtime", () => {
-    const { compiled } = build();
+    const compiled = compiledOf(build());
     const [first] = [...(compiled.root.get("Dim") ?? [])];
 
     expect(

@@ -1,9 +1,10 @@
 import { Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import { definition, Flow, machine } from "../../src/index.ts";
+import { definition, Flow, type Machine, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 import { refusal } from "../refusals.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 // Declared schedules, the runtime half: the declaration on the definition, the body's placement
 // checked against it at construction (the twin rule), and each schedule's key and selection codec
@@ -16,10 +17,7 @@ type Tokens = {
 
 const untyped: {
   readonly definition: (config: unknown) => Tokens;
-  readonly machine: (
-    definition: unknown,
-    body: (tokens: Tokens) => unknown,
-  ) => { readonly compiled: unknown };
+  readonly machine: (definition: unknown, body: (tokens: Tokens) => unknown) => Machine;
 } = loose({ definition, machine });
 
 // A lamp whose definition declares `schedules`, as an app author writes it.
@@ -275,7 +273,7 @@ const keyedLamp = () =>
 
 describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedules R16)", () => {
   it("Types I11: a keyed schedule's key codec round trips a key through its canonical text", () => {
-    const codec = codecOf(keyedLamp().compiled, "poll", "key");
+    const codec = codecOf(compiledOf(keyedLamp()), "poll", "key");
     const key = { id: "a", n: 1 };
 
     expect(
@@ -285,9 +283,11 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
 
   it("Types I11; Schedules I14: a key's text writes its fields in name order whatever the declaration's order, as a contract's keyText", () => {
     const codec = codecOf(
-      lampMachine({ poll: { key: { zone: Schema.String, id: Schema.String } } }, ({ E }) => ({
-        poll: { schedule: 1000, send: E["Tick"], keys: () => [{ zone: "eu", id: "a" }] },
-      })).compiled,
+      compiledOf(
+        lampMachine({ poll: { key: { zone: Schema.String, id: Schema.String } } }, ({ E }) => ({
+          poll: { schedule: 1000, send: E["Tick"], keys: () => [{ zone: "eu", id: "a" }] },
+        })),
+      ),
       "poll",
       "key",
     );
@@ -298,7 +298,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
   });
 
   it("Types I11; Schedules I14: the key codec gives NaN, Infinity and -Infinity three texts, so three keys are three timers", () => {
-    const codec = codecOf(keyedLamp().compiled, "poll", "key");
+    const codec = codecOf(compiledOf(keyedLamp()), "poll", "key");
 
     const texts = Option.map(
       codec,
@@ -314,7 +314,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
   });
 
   it("Schedules R14: a saved key's text holding a field its declaration no longer has does not decode, so two saved keys never merge into one", () => {
-    const codec = codecOf(keyedLamp().compiled, "poll", "key");
+    const codec = codecOf(compiledOf(keyedLamp()), "poll", "key");
 
     const decodes = (text: string) =>
       Option.map(codec, (c) => Option.isSome(Schema.decodeUnknownOption(c)(text)));
@@ -326,7 +326,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
   });
 
   it("Types I11: an unkeyed schedule has no key codec and a schedule with no restartOn no selection codec; a declared restartOn's codec round trips", () => {
-    const { compiled } = keyedLamp();
+    const compiled = compiledOf(keyedLamp());
     const selection = codecOf(compiled, "poll", "selection");
     const table = tableOf(compiled);
 
@@ -344,7 +344,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
       states: { ONLINE: { default: S.ONLINE.IDLE } },
     }));
 
-    const codec = codecOf(Rooms.compiled, "poll", "key");
+    const codec = codecOf(compiledOf(Rooms), "poll", "key");
 
     expect(
       Option.map(codec, (c) =>

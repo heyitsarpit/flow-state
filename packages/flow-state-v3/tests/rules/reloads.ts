@@ -14,6 +14,7 @@ import { Step, type Story, StoryFailed, type StoryRun } from "../../src/host/tes
 import { checked } from "./rules.ts";
 import { switchedOn } from "../switches.ts";
 import { heldSlotsAt, shardOf, skippable, slices } from "./sweep.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 const entries = manifests.flatMap((m) =>
   Object.values(m.app.machines).map((entry) => ("machine" in entry ? entry.machine : entry)),
@@ -21,14 +22,16 @@ const entries = manifests.flatMap((m) =>
 
 // Every onContext reaction's event, by machine: the events only a context wave enqueues.
 const reactionEvents = new Set(
-  entries.flatMap(({ compiled }) =>
-    compiled[InternalsId].reactions.map((r) => `${compiled.id} ${r.event.event}`),
-  ),
+  entries
+    .map(compiledOf)
+    .flatMap((compiled) =>
+      compiled[InternalsId].reactions.map((r) => `${compiled.id} ${r.event.event}`),
+    ),
 );
 
 // The machines that read context: a reload must restore what each of them has seen.
 const consumers = new Set(
-  entries.flatMap(({ compiled }) => (compiled.context.size > 0 ? [compiled.id] : [])),
+  entries.map(compiledOf).flatMap((compiled) => (compiled.context.size > 0 ? [compiled.id] : [])),
 );
 
 const reactionTurns = (run: StoryRun) =>
@@ -49,7 +52,7 @@ export const contextStories: ReadonlyArray<{
 }> = [
   ...manifests.flatMap((m) =>
     Object.values(m.app.machines).some((entry) =>
-      consumers.has(("machine" in entry ? entry.machine : entry).compiled.id),
+      consumers.has(compiledOf("machine" in entry ? entry.machine : entry).id),
     )
       ? Object.values(m.stories)
           .filter((s) => slices.rest.includes(s))

@@ -2,6 +2,7 @@ import { Effect, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { dataView } from "../../src/host/inspect.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 // A list nested `depth` deep, its innermost item a note.
 const nested = (depth: number) => {
@@ -42,6 +43,6 @@ describe("constants of any depth (Codec R1; Compile R15)", () => {
   });
 
   it("Codec R1, Inspection: the machine's data view, which tools read, shows the 100,000-deep constant with no thrown error", () => {
-    expect(() => dataView(TemplateMachine.compiled)).not.toThrow();
+    expect(() => dataView(compiledOf(TemplateMachine))).not.toThrow();
   });
 });

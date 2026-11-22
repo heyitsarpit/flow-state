@@ -1286,6 +1286,10 @@ tasks
             - Spec ids in fixture Stories: existing practice;
             - `T8.1` read as a Task id: it is Types' test T8.1;
             - `made` freezing caller objects: a face is immutable by contract.
+        comment     2026-11-22T01:53:28Z
+            Fix round done; T131, T120, T140 back to review. Compiled moved under the machine's internals key and faces
+            freeze through collections (T131); the nested-placement refusal reverted to an inverted Schedules R8 test
+            for T118 (T120). The Operations specs.log note is written; the Types note is moot, its edit reverted.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -3438,6 +3442,10 @@ tasks
             Specs, helped or misled: Types R8's twin list and Schedules I14 helped. Each refusal became one test and one
             fault, and the requirements review caught the field-order key text from I14. Types misled on placement: it
             left nesting to Schedules, and the build settled it from the runtime instead.
+        comment     2026-11-22T01:53:27Z
+            Fix round: the DuplicateName refusal for one schedule placed in a state and a state below it is reverted
+            with its Types edit; the case is an inverted test titled by Schedules R8, owned by @task.V3.T118
+            (tests/turn/nested-placement.test.ts: the inner placement's timer is lost today, inner 0 for 1).
     T121
         title       Operation endings and the retry guards
         status      draft
@@ -3930,6 +3938,13 @@ tasks
             before any code, and every row flipped for its own reason. It misled in one place: "deeply frozen" never
             says what a Map holds. The build's Spec edit then said Compiled's callables were off the face when they are
             not. The made-function prototype is sound but serves no current caller.
+        comment     2026-11-22T01:53:27Z
+            Fix round: a machine's face is its definition; its Compiled sits under the machine's internals key, read
+            past the door by compiledOf (src/compiled-of.ts), so no body callback is on any face; made() freezes what a
+            face's Maps and Sets hold. The face walk now walks Map and Set entries and calls a Map with its native
+            writer unfrozen (landed red first, then flipped). raw-in-face replanted on the machine's face; nine door and
+            ref faults caught. Operations' text corrected and logged. Left: a Map the app froze itself keeps its
+            writers, and a typed array cannot be frozen (both outside every fixture's face).
     T133
         title       Slice: Fragments
         status      draft

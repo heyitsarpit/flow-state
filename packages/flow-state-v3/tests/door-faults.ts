@@ -57,13 +57,13 @@ export const doorFaults: ReadonlyArray<Fault> = [
   {
     name: "raw-in-face",
     tests: [DOORS],
-    says: "a machine's Compiled carries the memory walker on its face, a function no door registered",
+    says: "a machine carries its Compiled on its face, with the body's callbacks and the walkers no door registered",
     rule: "Operations I19",
     edits: [
       {
         file: "src/machine.ts",
-        find: "      [InternalsId]: {",
-        replace: "      walk: walkerOf(memoryJson),\n      [InternalsId]: {",
+        find: "    const face: Omit<Machine<D>, typeof KindOf> = { definition };",
+        replace: "    const face: Omit<Machine<D>, typeof KindOf> = { definition, compiled };",
       },
     ],
   },

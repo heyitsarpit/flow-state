@@ -6,6 +6,7 @@ import type { ContextRefs } from "./context-refs.ts";
 import { entry } from "../entry.ts";
 import { flowError, raise, refuse } from "../error.ts";
 import { type KindOf, made, madeOf } from "../made.ts";
+import { compiledOf } from "../compiled-of.ts";
 
 export type { ActorRef } from "../definition.ts";
 
@@ -90,7 +91,7 @@ const slotRefs = <Cx>(refs: ContextRefs<Cx>) =>
 export const actorIdOf = (ref: ActorRef): ActorId => {
   refuse(Result.match(madeOf("ref")(ref, ["ref"]), { onFailure: (f) => [f], onSuccess: () => [] }));
 
-  const compiled = ref.machine.compiled;
+  const compiled = compiledOf(ref.machine);
 
   return Result.match(refName(compiled, ref.value), {
     onSuccess: (name) => ({ machine: compiled.id, name }),

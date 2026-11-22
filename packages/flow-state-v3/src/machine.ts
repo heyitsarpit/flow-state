@@ -35,6 +35,7 @@ import type { Change, ContextTokens, ErasedPlacement } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
 import { nodesOf, tokenMaps } from "./compile-body.ts";
 import type { Compile } from "./compile-names.ts";
+import type { MachineInternals } from "./compiled-of.ts";
 import { placementFindings, scheduleCodecsOf } from "./compile-schedules.ts";
 
 type Parts<D> =
@@ -389,7 +390,6 @@ export const machine = entry(
       events: new Set(Object.keys(definition.E)),
       sends: new Set(Object.values(definition.E)),
       findings: [],
-      placements: new Map(),
     };
 
     const compiledTree = nodesOf(compile, config, Option.none(), []);
@@ -473,13 +473,12 @@ export const machine = entry(
       },
     };
 
-    const face: Omit<Machine<D>, typeof KindOf> = {
-      definition,
-      compiled: { ...compiled, initial: leafOf(compiled, compiledTree.initial) },
-    };
+    const face: Omit<Machine<D>, typeof KindOf> = { definition };
 
     // SAFETY: the face is every field of the machine but its kind, a phantom key the brand carries.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-    return made("machine", owner, face, {}) as Machine<D>;
+    return made("machine", owner, face, {
+      compiled: { ...compiled, initial: leafOf(compiled, compiledTree.initial) },
+    } satisfies MachineInternals) as Machine<D>;
   },
 );

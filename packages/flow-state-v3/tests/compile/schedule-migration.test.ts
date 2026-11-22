@@ -5,6 +5,7 @@ import { manifests } from "../../fixtures/index.ts";
 import { definition, Flow, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 import { refusal } from "../refusals.ts";
+import { compiledOf } from "../../src/host/inspect.ts";
 
 // Every user of schedules migrated to the declared form, and the old form deleted. Each check is
 // inverted until the last user moves.
@@ -33,7 +34,7 @@ describe("every fixture declares the schedules it places (Types R8, I11, T2)", (
   it("Types I11: each schedule a fixture machine places has its Compiled.schedules entry", () => {
     const placed = manifests.flatMap((manifest) =>
       Object.values(manifest.app.machines).flatMap((entry) => {
-        const { compiled } = "machine" in entry ? entry.machine : entry;
+        const compiled = compiledOf("machine" in entry ? entry.machine : entry);
         const table = tableOf(compiled);
 
         return [...compiled.states.values()].flatMap((node) =>

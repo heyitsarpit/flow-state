@@ -24,6 +24,7 @@ import {
 import { Step, StepData, type WorldWord } from "./steps.ts";
 import { overridesBy } from "../wiring.ts";
 import { entry } from "../../entry.ts";
+import { compiledOf } from "../../compiled-of.ts";
 
 /**
  * A fixture: a Layer of the app's own services that may require only the run's fake servers.
@@ -131,7 +132,7 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
     if (Object.values(subject.config.app.machines).some((e) => machineOf(e) === ref.machine))
       return actorOf(ref);
 
-    return foreignActorRef([id, ref.machine.compiled.id], ref.machine.compiled.id, "Story");
+    return foreignActorRef([id, compiledOf(ref.machine).id], compiledOf(ref.machine).id, "Story");
   };
 
   // RETURN_TYPE: each step returns the Story contract with its names so far.

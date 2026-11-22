@@ -5,6 +5,7 @@ import type { StoryRun, Subject } from "./run.ts";
 import type { Samples } from "./samples.ts";
 import { scriptFault } from "./steps.ts";
 import { storyOf, SubjectId } from "./story.ts";
+import { compiledOf } from "../../compiled-of.ts";
 
 const repeated = (values: ReadonlyArray<string>) =>
   values.filter((v, n) => values.indexOf(v) !== n);
@@ -17,7 +18,7 @@ const once = (what: string, values: ReadonlyArray<string>) => {
 };
 
 const machinesOf = (part: Samples) =>
-  Object.values(part.story[SubjectId].config.app.machines).map((m) => machineOf(m).compiled.id);
+  Object.values(part.story[SubjectId].config.app.machines).map((m) => compiledOf(machineOf(m)).id);
 
 // The persistence every part that has one sets: a mix runs one Runtime, so they must agree.
 const persistenceOf = (configs: ReadonlyArray<RuntimeConfig>) => {
