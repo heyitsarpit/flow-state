@@ -260,12 +260,14 @@ instructions
     - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults --only
       <names>` must catch it; a Task plants only its own faults, by name, never the whole list. Plants go in a scratch
       copy, never the live tree.
-    - Lint-driven refactors (the user, 2026-11-22): to find an old pattern to migrate or delete, search with `rg` first;
-      when the pattern is structural (a shape, not a name), spans many sites, or must stay gone, write a temporary lint
-      rule in `tools/flow-state-lint/rules/` with its own test of the patterns it must and must not flag, so the hits
-      are trusted. It runs on demand, outside `nub run check`, as the mechanical pass beside any agent inventory. At
-      zero hits it is deleted, or promoted into `nub run check` when the pattern must never return. A sidecar may draft
-      one in the scratchpad as a finder; a committed rule is written by the lead.
+    - Lint-driven refactors (the user, 2026-11-22): to find an old pattern to migrate or delete, plain search (`rg`) and
+      search-and-replace are the first choice and suit most cases: names, imports, strings, small changes. A temporary
+      lint rule is used only when the lead names why it is the right tool for this job: the pattern is structural (a
+      shape, not a name) that search can't match reliably, spans many sites, or must stay gone. Such a rule goes in
+      `tools/flow-state-lint/rules/` with its own test of the patterns it must and must not flag, so the hits are
+      trusted. It runs on demand, outside `nub run check`, as the mechanical pass beside any agent inventory. At zero
+      hits it is deleted, or promoted into `nub run check` when the pattern must never return. A sidecar may draft one
+      in the scratchpad as a finder; a committed rule is written by the lead.
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
       review routes to a later Task lands as an inverted test, or as a comment on its owner Task when no fixture can
       express it yet (the user, 2026-11-12).
