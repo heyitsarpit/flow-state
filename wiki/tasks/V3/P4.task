@@ -2827,7 +2827,7 @@ tasks
             gives this Task's applier.
     T113
         title       The typed machine (a): the face, derived types and no config echo
-        status      review
+        status      done
         priority    high
         parent      [@T142]
 
@@ -5915,7 +5915,7 @@ tasks
 
     T143
         title       The typed machine (b): named crossings and Compiled's derived fields
-        status      open
+        status      in_progress
         priority    high
         parent      [@T142]
 
@@ -6043,6 +6043,9 @@ tasks
             `rg -n 'index-chain-stale|handled-tags-root-dropped' tests/faults.ts tests/*-faults.ts` (faults live in the
             `*-faults.ts` modules). Item 2's guard becomes `toBe(MOST)`. `project`, `asOutside`, the exact list and
             `project-second-cast` are @task.V3.T111's.
+        comment     2026-11-22T11:43:42Z
+            Routed (orchestrator) from T113's close review: ScheduleMetadata still carries a name field against Types
+            Q10 (predates T113); this Task owns Compiled's derived fields, so it removes or justifies it.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
         status      open

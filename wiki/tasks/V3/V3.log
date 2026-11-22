@@ -716,3 +716,9 @@ note 2026-11-22T10:56:53Z
 note 2026-11-22T11:00:21Z
     [decided: user 2026-11-22] Q5 A: machine captures the body's type (B & Exact<B, MachineBody<D>>) so misspelled body
     keys show in the editor; reverses Types Q19 option C (@proposal.body-key-typos, +14% check time). Scope: T144.
+
+note 2026-11-22T11:30:32Z
+    T113 built and in review (8a50ec08); close review started.
+
+note 2026-11-22T11:43:46Z
+    T113 done (close review PASS, 3b164cf6). Slice T142 continues: T143 build starts.
