@@ -6673,3 +6673,42 @@ tasks
             Second-fix gates (builder): every plant compiles (sweep); `--only` 32 rewritten (31 caught, then
             `forget-before-boot` re-aimed and caught), 11 touched and 20 sampled others: 31 of 31 caught by targets;
             `nub run check` 0; suite 25150 passed, 0 failed. Set to review.
+        comment     2026-11-22T15:53:10Z
+            Second fix-round review (reviewing lead, 2026-11-22): ISSUES. The compile check holds; `forget-before-boot`
+            is still caught by another rule's test, and the R21 Story misses half of R21. Gates: `nub run check` 0;
+            runtime-life.test.ts 18 passed; `--only` the 4 crash-caught and `forget-before-boot`: 5 of 5 caught
+            by targets.
+
+              1. **`forget-before-boot` plants Restore I18, not R10.** Origin: its edit
+                 (code:packages/flow-state-v3/tests/restore-faults.ts) drops `!opened` and `!driver.stored()` but keeps
+                 `Option.isNone(store)`, and `store` stays none until boot
+                 (code:packages/flow-state-v3/src/host/runtime.ts, `let store`), so a never-booted forget still refuses.
+                 Scratch: under the plant only the I18 case fails (6 of 7 pass, the R10 before-boot case included), the
+                 same catch as `forget-over-pending-write`; removing only `!opened` passes src/host/restore.test.ts and
+                 tests/restore (91 passed), so the guard for a boot that never opened has no test. Fix: a Story that
+                 forgets while boot has the store but has not opened (load held), aimed by the fault, or delete the
+                 guard if traced redundant. Why tests missed it: a verdict credits any failing target, not one citing
+                 the fault's `rule`; third time (sent-without-persistence, rows-dropped `tx.set`, this), past the local
+                 threshold of 2. Proposed guard: credit a catch only when a failing test's name cites the fault's rule.
+              2. **`transfers/owed-forgotten` asserts no delivery, not the closing.** Origin: its test
+                 (code:packages/flow-state-v3/tests/actors/runtime-life.test.ts, "forget closes every owed row") checks
+                 `memory.notice` and the bank's status; R21 says each row is closed "recorded as evidence, or as letGo
+                 for a Kept row". Scratch: `forgotten` closing rows as `Closed.Delivered()` (no Recorded evidence,
+                 code:packages/flow-state-v3/src/core/ledger.ts#forgotten) passes all 4 R21 tests. Fix: assert the
+                 Recorded evidence and its `why` for the owed attempt. The Story itself extends transfers rightly
+                 (`owedToClosed`, forget, ensure, in the manifest).
+              3. Minor: `worker-takes-any-flag`'s new second edit filters to strings, so a valueless numeric flag is
+                 dropped, not refused (code:packages/flow-state-v3/bench/worker-args.ts); a cast keeps it
+                 runtime-neutral. `rows-dropped-outside-ledger` name and `says` still disagree (dropped vs left open).
+                 `resend-new-id` now mints on every `retryCount > 0` invoke, wider than the capture flush, but
+                 matches `says`.
+
+              Held: `judge` returns NOT JUDGED before any run; removing that line fails verdict.test.ts (scratch). The
+              runner's own effect-tsgo command rejects the old `resend-new-id` plant (TS2304 `resend`) and passes a
+              clean copy in 1.8 s. Sampled six rewrites (`resend-new-id`, `absent-send-silent`, the context chain
+              `Option.none()`, entry.ts's FlowError guard, `worker-takes-any-flag`, `forget-before-boot`): four plant
+              their `says` as before.
+
+              Sidecar (1 Haiku, high, blind to comments): accepted the forget-before-boot trace (re-run in scratch), the
+              worker-args change (read the source) and the name mismatch; changed resend's wider scope to a note; its
+              equivalence list for the other rewrites matched my sample. Item 2 and the guard proposal are mine.
