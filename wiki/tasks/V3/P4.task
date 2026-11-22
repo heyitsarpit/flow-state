@@ -2606,6 +2606,10 @@ tasks
             [decided: user 2026-11-22] The excess-key comment of 2026-11-20 is superseded: no body capture (@spec.Types
             Q19). Fragment rules are `.rules(build)` on a trait or subroutine (@proposal.external-rules); this Task
             proves their types and `Story.fragment`'s `runRules`. Why: Story-only judging. Reverse: see T106's comment.
+        comment     2026-11-22T16:55:17Z
+            Routed from @task.V3.T119 (orchestrator, 2026-11-22): own the X3 acceptance item, an ended scope's schedule
+            callbacks do not run in the turn that ended it, with a planted fault. The red case is T119's trace B: copy
+            k's own event removes k and enters a state with a computed after; the delay must not run on the ended scope.
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -4666,8 +4670,6 @@ tasks
         acceptance
             - A package sequence test checks I5, I7, I9, I12, I13 and I15 to I17 of @spec.Changes, red first.
             - `tick` dispatches the six alarm kinds by a total match; a planted seventh kind does not compile.
-            - An ended scope's schedule callbacks do not run in the turn that ended it (the X3 trace), with a
-              planted fault.
             - An actor-to-actor send into a refused schedule start has a Story that checks its resendable flag, with a
               planted fault on that flag (routed from @task.V3.T118).
             - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
@@ -4856,6 +4858,11 @@ tasks
             [decided: agent builder 2026-11-22] I9's life-held and subject-held halves and R15, R17 are @task.V3.T109's;
             here I9 is the root form (a row in a mailbox has a live actor). Why: both halves need instances. Reverse:
             judge them here on root rows held by life or subject.
+        comment     2026-11-22T16:55:16Z
+            [decided: agent orchestrator 2026-11-22] Acceptance item X3 (an ended scope's schedule callbacks do not run
+            in the turn that ended it) moves to @task.V3.T109. Why: at the root no scope ends inside its own turn, so
+            only the .each trace (B, above) can be red, and it needs T109's instances; delegated as a small acceptance
+            amendment (Epic Authority). Reverse: restore the item here once instances exist.
 
     T120
         title       Declared schedules: the runtime half

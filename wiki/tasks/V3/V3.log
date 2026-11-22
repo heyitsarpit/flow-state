@@ -784,3 +784,7 @@ note 2026-11-22T16:13:34Z
     Run resumed at 0ee8d57a, workflow@4f316bf. T119 opened (own slice; fault wording updated, T118's routed Story and a
     False pass line added) and in progress; its requirements lead starts now. No live agents; cron 7 * * * * re-created.
     Weekly 82%, 5-hour 19%. Unread: @page.T142-typed-machine (holds T119's close).
+
+note 2026-11-22T16:55:18Z
+    T119 requirements in (c900c9d2). X3 moved to @task.V3.T109 (orchestrator ruling, T119 comment). Requirements review
+    starts.
