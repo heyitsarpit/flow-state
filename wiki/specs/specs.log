@@ -807,3 +807,8 @@ note 2026-11-22T08:26:13Z
 note 2026-11-22T08:34:44Z
     Turn R14 reworded: the raw non-finite refusal is the range check, not a kept NaN guard; the user's 2026-11-22
     ruling credits only following Effect's Duration (a NaN part as zero).
+
+note 2026-11-22T10:22:41Z
+    [deferred: agent orchestrator 2026-11-22] @spec.Types G1, exporting Reads: outside-body callbacks name per-part
+    derived types (@task.V3.T113). Reopen if: the Changes Tasks settle View, or the wrappers prove a source of wrong
+    types.

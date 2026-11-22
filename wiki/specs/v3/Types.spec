@@ -344,6 +344,8 @@ model
         `Reads<D, Scope, View>` is the one callback-input type: `{ memory, context, props, key, item, operations }`
         picked by `View`; the six literals in `tokens.ts` become picks of it. Its schedule instance is
         `ScheduleInput`. Exported as the author-facing name, with `E.X.Type`; a copied shape is a lint finding.
+        Exporting `Reads` (G1) is deferred; outside-body callbacks name the per-part derived types
+        (`wiki/specs/specs.log`, 2026-11-22).
 
         Rows other Specs need (each follows its answer):
         G1 `Reads<D, Scope, View>`: no new row, exported.

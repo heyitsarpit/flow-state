@@ -703,6 +703,9 @@ tasks
         comment     2026-11-22T03:54:08Z
             Fix 6: now ordered before @task.V3.T100, which reads its `CHECKS` (C9 of @proposal.algo-resolutions). R48
             breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T10:21:25Z
+            Routed (orchestrator) from T113's requirements: construction returns a value instead of throwing (Types R11,
+            I5, I7); no other Task owns it, and this Task already replaces refuse and construction.ts.
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -2825,8 +2828,8 @@ tasks
             widened this Task to remove it everywhere (2026-11-20).
 
             **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
-            @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R9, R10,
-            R13–R15, I1–I4, I10, I12, Q19), companion `wiki/specs/v3/Types.md`.
+            @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R10, R13–R15,
+            I1–I4, I10, Q19), companion `wiki/specs/v3/Types.md`.
 
             **Build-time choice (definition findings and tokens, @spec.Types Q12):** the first spike walks today's
             definition findings. For each finding, A: `definition()` still hands out every token (`S`, `E`, `O`) and the
@@ -2837,7 +2840,6 @@ tasks
             well-defined, take A and assert the module imports; otherwise B, listed in the Spec's construction rows. Q13
             to Q16 are this Task's build rows: compile each `Changes` row as its code lands, record check time per step
             with the construction benches (Q15), and inventory Family D against `derive.ts` (Q16).
-
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -2872,8 +2874,10 @@ tasks
             - no captured body type and no excess-key type check: an unknown key is refused by construction and `flow
               check` (@spec.Types Q19, decided by the user 2026-11-22, superseding the earlier "carry the body type"
               bullet); only misspelt names stay type errors;
-            - a phantom, type-only `Type` on event tokens (`E.X.Type`, the envelope with its payload) and on memory
-              tokens (`Def.M.field.Type`), mirroring Schema's `.Type`;
+            - a phantom, type-only `Type` on event tokens (`E.X.Type`, the payload, what a handler's `event` is) and on
+              memory tokens (`Def.M.field.Type`), mirroring Schema's `.Type`; a callback written outside a body names
+              these per-part derived types (`typeof D.Memory.Type`, `E.X.Type`, `D.M.x.Type`) inside a hand-written
+              wrapper, and `Reads<D, View>` is deferred (ruling, the orchestrator, 2026-11-22);
             - an ending mapper's parameter inferred from the operation's contract where `E.X.from` sits inside
               `outcomes(...)`; if the spike shows that needs a new word, the fallback is one exported ending-value type
               per contract, so `{ why: string }` copies become one name. This Task owns the carried type's shape:
@@ -2887,37 +2891,36 @@ tasks
             body such as `PayBody`, and an unknown key (a runtime refusal, not a type test).
         acceptance
             - A Snapshot is typed by the definition: `pausedBy` is a literal union of the declared pause reasons
-              (@spec.Schedules R16, @plan.Machines.O8), shown by a type test that replaces the inverted pin
+              (@spec.Schedules R16, @plan.Machines.O8), shown by the exact type test
               in `tests/types/schedules.test-d.ts`.
             - A keyed schedule's send mapper receives the typed key (@spec.Schedules R16), shown by a type test.
             - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
-            - An unknown key in a body is refused by construction and by `flow check` (runtime tests, @spec.Types Q19),
-              and shared bodies still compile.
+            - An unknown key in a body is refused by construction (runtime tests, @spec.Types Q19), and shared bodies
+              still compile through an exported `BodyTokens<D>`; the `flow check` refusal is @task.V3.T22's.
             - `E.X.Type` and `Def.M.field.Type` exist as phantom types, each shown by two-sided type tests (the derived
               type equals the payload or field exactly; a wrong field fails to compile).
-            - An ending mapper's parameter is the contract's value or error type, shown by two-sided type tests (a wrong
-              field fails to compile); or, if the spike rules inference out, each contract exports its ending types and
-              the tests assert those.
+            - An ending mapper's parameter is the contract's value or error type, inferred with no annotation (a guard,
+              two-sided type tests); the `{ input, key }` row (`MapperContext`) is this Task's, and @task.V3.T121 makes
+              the mapper read it.
             - Every site the survey found is refactored to the derived types: the fixtures' and tests' fragments,
               helpers, ending mappers and local `type` copies, with the duplicated helpers moved to one place; `nub run
               check` shows each site still compiles, and a changed payload in a fixture definition breaks every site
               that reads it (one planted type change per kind).
             - A lint rule refuses a hand-written event, memory or ending-value annotation where a derived type exists
               (`{ readonly event: {...} }`, `{ readonly memory: {...} }`, a typed `.from` mapper parameter), with plants
-              in its test.
+              in its test; a wrapper whose inner types are derived is allowed.
             - `nub run check` and the suite pass.
-            - Fixtures first (@convention.fixtures): no new matrix cell of of @convention.fixture-catalog: the manifest
-              apps (`pay`, `cells`, `lanes`, `sync`, `transfers`, `sign-in`, `session`, `command-palette`,
-              `number-input`, `player`, `wizard`, `home`, `kanban`) compile unchanged against the derived types, each
-              type scenario red before the build.
+            - Fixtures first (@convention.fixtures): no new matrix cell of @convention.fixture-catalog: the 12 manifest
+              apps (`fixtures/index.ts#manifests`) compile unchanged against the derived types, each type scenario red
+              before the build.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
-              (R1–R3, R7 by the `construct.*` bench rows, R8's type side, R9, R10, R13–R15, I1–I4, I10, I12); the
-              Invariants its tests check after every step are @spec.Types (I1–I4, I10–I12; tests T1–T3, T5, T7–T10).
+              (R1–R3, R7 by the `construct.*` bench rows, R8's type side, R10, R13–R15, I1–I4, I10); the Invariants its
+              tests check after every step are @spec.Types (I1–I4, I10, I11; tests T1–T3, T5, T7–T10).
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task: carries the machine body type into the snapshot.
             Takes T57's two routed type pins (pausedBy as a literal union, Turn R27 and Machines O8; the typed key in a
@@ -3180,6 +3183,14 @@ tasks
             `handledTags`, the ones its Supersedes replaces. The other `DerivedFields` (`declared`, `armedBy`,
             `entryArmed`, the field indexes, `shape`, `slotsAt`) go to their readers' Tasks. Why: nothing in T113's
             acceptance reads them. Reverse: build all of `indexOf` here.
+        comment     2026-11-22T10:21:24Z
+            Rulings (orchestrator) on the requirements: amendments 1 to 6 accepted as proposed (small acceptance
+            corrections, delegated authority). Ruling 1: construction returning a value instead of throwing (Types R11,
+            I5, I7) goes to T22, which already replaces refuse and construction.ts. Ruling 2: [decided: agent
+            orchestrator 2026-11-22] a callback written outside a body types its parameter with the per-part derived
+            types (typeof D.Memory.Type, E.X.Type); Reads<D, View> is deferred. Why: correctness first: Reads as
+            specified lacks event, now and state; the per-part types are exact and already derived. Reverse: add Reads
+            with every field a body callback receives.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
