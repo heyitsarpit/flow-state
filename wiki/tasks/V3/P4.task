@@ -1812,6 +1812,37 @@ tasks
             2026-11-22 ruling that forged-but-valid records are out of scope, which corrects my opening comment. The
             Epic's no-model-of-the-core constraint (the user's) overrides the Spec's executable model Q2. The IndexedDB
             whole-load refusal routed to T28 stands.
+        comment     2026-11-22T21:24:13Z
+            Requirements review: ISSUES at d87d6af7. Format 6 closes the identity and link classes by structure
+            (identity only in the key; head, rows and displaced of one Attempt in one work record, so row 8 covers what
+            the earlier attempt chased across records), but the generic check does not close field domains, so another
+            field-by-field round can still happen. Three blockers, all tests (no Flow code yet):
+            1. corrupt.test.ts#judge passes any unreported mutant whose endings match the control: an extra member, an
+               out-of-domain number (retryCount -1, a timer's left 0.5) or a silently dropped part (a lost owed ending)
+               passes, and shape-not-strict has no target test. Missed because the oracle checks only invented endings
+               and other identities. Fix: classify each mutant with the format 6 recordKinds Shape (I2, strict); a
+               non-writer mutant must be reported for its key, and none of its identity's owed endings is lost
+               unreported; a writer-form mutant owes nothing (R20).
+            2. No check for Records R17 and I14 (install fires nothing; both in acceptance 13) or I17 (steps read no
+               definition), so install-fires-event and step-reads-definition have no target tests (acceptance 11). No
+               test in the package cites them.
+            3. restore.test.ts bindings test (acceptance 1 and 5) is not red for its stated reason: flipped, no local
+               actor starts today and only the FieldDropped count fails, and any FieldDropped (the graph or seen leaf)
+               satisfies it, so binding-unchecked can pass. Fix: name the shopper slot in the report and exercise the
+               slot after the reload. Notes for the builder: saved-records.test.ts R14, LaneShape, rest and read-lane
+               tests fail first on the R16 control and record-shapes.test.ts on missing work paths, so confirm each
+               stated assertion bites once R16 and the layout land; definition-edits.test.ts:187 has a dated decision
+               tag in a test title (house rule); record.ts has seven no-id-text lines, not six; the store-writer
+               inventory misses incarnations.ts#forgetRetired (saveLane) and close.ts#makeForget, and the key builders
+               (record.ts owedRecordKey, actorRecordKey, laneRecordKey; importers snapshot.ts, lanes.ts, ids.test-d.ts)
+               are not in Supersedes; the incarnations.ts:446-456 cite is stale (the file has 379 lines); restore after
+               an edit omits SlotShape (rename or remove a slot); an Attempt-form check must accept any session seed.
+               Accepted: two apps for restore after an edit (states, fields, events and operations); the deleted
+               inverted Restore R8 test (Carried, never delivered); canonicalText exported and samples taking a variant;
+               the rulings (R20 carries the user's 2026-11-22 ruling; Epic line 55 forbids a model of the core).
+               Rejected: 'it.fails is green today' (the committed red form); the definition-edits removed-operation
+               expectation (item 12 describes today's red). Routed: claims against entity records to T125 and T126;
+               ordering and bit rot are out of scope (R20).
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
