@@ -3883,6 +3883,139 @@ tasks
             [decided: user 2026-11-22] Go with Effect's Duration behaviour and remove Flow's NaN mitigations (the
             raw-NaN and { millis: NaN } refusals and their plants); R11's NaN text changes to match, with a specs.log
             note. Supersedes the orchestrator's NaN ruling above. Reverse: restore the guards.
+        comment     2026-11-22T08:18:13Z
+            Follow-up close review (Opus lead, 6 Haiku sidecars at effort high), revision `4774212b` (code at
+            `2532e3e9`): PASS. Nothing blocks: no check is red, and acceptance 1 holds. Every routed item names its
+            origin and why the tests missed it.
+
+            Acceptance and the six checks:
+
+            - 1. `rg "it\.fails" packages/flow-state-v3/tests` finds no hit in a schedule test.
+            - 2. Q1 B is consistent. One branch decides it (code:packages/flow-state-v3/src/core/turn.ts#accept). Every
+              ending reaches it with `outcome` set (`serve.ts` `routeOf`, `serveEnding`). Creation, keys, restarts and
+              wakes refuse no turn. Events refuse; firings become firing failures. The shop re-route is partly
+              faithful (R2).
+            - 3. N3 is built, and `resting-record-hides-issues` is caught. Its output differs from a wake's (R4).
+            - 4. `creation-delay-drops-all` is true at the old site only (R5).
+            - 5. `nub run faults --only` caught 9 of 9: `outcome-turn-refused-again`, `resting-record-hides-issues`,
+              `refusal-window-never-closes`, `delay-nan-part-as-zero`, `disarm-on-ignored`, `entry-arms-while-disarmed`,
+              `last-issue-wins`, `issues-without-key`, `firing-not-yet-due`.
+            - 6. No outside imports and no temporary names. Two Effect re-creations (R6).
+            - Suite: `nub run test:coverage` fails only on time limits. No assertion fails. My first run passed
+              `--coverage.reportOnFailure` behind a literal `--`, so no report was written and 5 limits fired. The rerun
+              had 3: home 64 rooms, the shop 1,000-line cart, and another seed, as at `e83eecea`. Origin: the tooling's
+              `LIMITS` under instrumentation. N7 stays with @task.V3.T117.
+
+            Routed, non-blocking:
+
+            - R1, NaN removal (the user's ruling): the files and plants it touches.
+              - Origin: Flow's guards in code:packages/flow-state-v3/src/compile-schedules.ts:
+                - `partsOf` and `hasNonFinitePart`;
+                - `msOf`'s NaN return at line 38;
+                - the `!Number.isFinite` clause in `fixedDelay`.
+              - Effect 4.1.4, from `node_modules/effect/src/Duration.ts`:
+                - `make` maps a NaN number to zero (line 465);
+                - a pair with NaN gives zero (line 326);
+                - an object's NaN part is skipped by its truthy checks.
+              - Remove the plant `delay-nan-part-as-zero` (`tests/construction-faults.ts`).
+              - Change these tests:
+                - `tests/compile/schedules.test.ts:122`. Its `{ millis: NaN }` assertion is refused by the excess-key
+                  check (`config.ts` `findingsAgainst`, `onExcessProperty: "error"`), not by a NaN guard, because
+                  `millis` is no Duration key. It stays green after the removal, and its title is wrong today.
+                - `tests/compile/construction.test.ts:532` and `:950` to `:955`.
+                - `tests/sign-in/trusted-device.test.ts:226`, with its fixture
+                  `deviceRemindingNaNDays` (`fixtures/sign-in/stories/structure.ts:209`).
+              - Spec: the NaN text is in Turn R14 (`Turn.spec:105`) and its T6 (`:558`). Schedules R11 has none.
+              - Risk: a raw NaN number and a computed NaN delay are Flow's own branches, not Effect's:
+                - `msOf`'s raw branch;
+                - `plannedOf` in `src/core/compiled.ts`;
+                - `inRange` in `schedule-plan.ts`.
+              - If the removal reaches those branches, these change:
+                - `src/host/runtime.test.ts:212`, the kettle's NaN delay refusing its turn;
+                - the plants `negative-delay-refused` and `computed-delay-unbounded` lose their find text.
+              - The Infinity and 2^31 guards stay.
+            - R2, the shop re-route. The ledger rules keep their checks: a mapper throw goes through `serve.ts`
+              `serveEnding` to `tx.refuse`, and the ledger gives it one redelivery and then keeps it, as before.
+              - What was lost: no test now refuses an ending's own turn. The shop Stories refuse before `runTurn`, so
+                "leaves Pay as it was" holds trivially, and `refusal()`'s ending branch has no Story of its own.
+              - Origin: the fixture change (`pay.ts` `retryHintOf`, `edges.ts`, `usual.ts`, `ending-delivery.test.ts`).
+              - Fix: keep the -1 Stories, and add one in which an ending's update or guard throws.
+              - Stale text:
+                - `refusal.test.ts:28`;
+                - `ending-delivery.test.ts:18`;
+                - `usual.ts:222`;
+                - `serve.ts:373` and `:387`, and `firings.ts:28`: "a mapper that throws refuses the turn";
+                - `runTurn`'s doc: "an invalid delay refuses the whole turn".
+              - Missed because coverage cannot tell an event's refusal from an ending's, and no rule checks which
+                path refused.
+            - R3, Q1 B's edge, for the orchestrator as two traces. An onContext reaction (`context.ts`) and an
+              actor-to-actor send both run as event turns with `outcome` false, so a bad delay on their own arm refuses
+              them. The reason R11 gives for events, "the sender can resend", does not hold for either: the reaction
+              fires again only on the next change, and the sender has already committed.
+              - X (today): refused, and the reaction is lost until the next change.
+              - Y: commits, with the start Refused.
+              - Origin: Flow's turn input and R11's wording.
+              - Missed because no Story drives a reaction or a send into a bad delay.
+              - Found by reading, not run.
+            - R4, N3 diverges from a wake. Origin:
+              code:packages/flow-state-v3/src/core/schedule-issues.ts#savedScheduleIssues
+              against code:packages/flow-state-v3/src/core/schedule-restore.ts#restore.
+              - (a) A made-up issue. It reads every saved path and name, while the restore keeps only the schedules
+                declared on the chain whose shape matches. After a definition edit, a resting snapshot therefore shows
+                an issue the wake drops.
+              - (b) Order. Live issues come in declared order; the saved record is decoded canonically, so name order.
+              - (c) Reasons failures and a Broken cursor are left out, though a wake shows them. The Spec saves neither,
+                so that part is by design, but the test title and the doc's "as at a wake" overclaim.
+              - (d) Key text comes from `encodeCanonical`, not from the key codec, so it differs for nested keys. The
+                `value: {}` it passes is made up.
+              - (e) Only the unkeyed refused branch is tested. The plant swaps the whole call, so dropping the firing or
+                selection branch passes. The keyed branch is uncovered.
+              - (f) R5 says nothing of resting records, and no `specs.log` note records the ruling.
+              - Missed because there is one unkeyed Story and no definition edit before a resting read.
+            - R5, `creation-delay-drops-all`.
+              - The claim holds at the old site. Changing `arms:` is inert, because `decide` starts new entry timers
+                itself (`startsNew`).
+              - The wrong runtime is still one edit away: set `disarms` to every name when any arm failed, and every
+                schedule goes idle with no issue. `tests/turn/creation.test.ts` (RANG, `InvalidTurn`) would catch it. I
+                traced this from the code and did not run it.
+              - Origin: the tooling's plant list. Re-add the plant against `disarms`.
+            - R6, cohesion. Origin: Flow's code.
+              - `firingRun` re-implements `dueRunOf`.
+              - `trackedAt` splits the track with `slice`, a second owner of `trackOf`'s format. Its single-timer branch
+                ignores the track, against its doc.
+              - An orphaned comment sits above `trackedAt`.
+              - `turn.ts#accept`'s lookup is `Array.findFirst`.
+              - The `timers-decided` message still names `schedule-decision.ts` as the issue builder, and the new
+                `schedule-issues.ts` exemption has no quiet test case.
+              - Missed because lint plants cover only casts and constructors.
+            - R7, delay inputs.
+              - At a turn and at creation, a delay reads no lane rows (`turn-arms.ts`). At other occasions `reads.first`
+                passes rows (`schedules.ts` `readOf`).
+              - This round moved creation's refusals onto the first path, which matches R10's input list.
+              - It has the same root as N2 (`now` and `readOf`), so it goes to R10's own Task.
+              - Missed because no delay reads rows.
+            - R8, coverage of the changed hunks.
+              - `schedules.ts:444`, `firingRun`'s none arm: a disarm while a firing is queued.
+              - `schedule-issues.ts:86` to `:90`: a keyed resting issue.
+              - `turn-arms.ts:40` and `:61`: `?? NO_SCHEDULES` looks dead, because `chainOf` yields compiled paths. I
+                traced this from the code and did not run it.
+              - `pay.ts`'s default 1,000 ms hint: fixtures are not measured.
+
+            Rejected:
+
+            - A refused start raising evidence on every occasion: `tx.ts` is outside the range, and the issue is
+              derived once.
+            - `outcome` missing a Restored or late ending: every ending goes through `serveEnding`
+              with `Trigger.Ending`.
+            - `trackedAt` missing a run: the restore mints fresh armings, and no alarm finds a different run.
+            - `retryHintOf` as a Schema check: the fixture plants a mapper throw on purpose.
+            - Sidecar results:
+              - Flip A was accepted; its `{ millis: NaN }` point became part of R1.
+              - Q1 B was accepted as R2 and R3.
+              - N3 was accepted as R4.
+              - Blind was accepted as R4 (a) and R7, and rejected on lookups.
+              - Cohesion was accepted as R6 and R1.
+              - The coverage reader was accepted as R8 and R2.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
