@@ -4,6 +4,13 @@ import {
   armedAndDisarmed,
   armOnBesideRestart,
   armOnKeyed,
+  keysMissing,
+  keysUnexpected,
+  misspeltReason,
+  reasonMissing,
+  restartOnMissing,
+  restartOnUndeclared,
+  undeclaredSchedule,
 } from "../../fixtures/home/stories/structure.ts";
 import { definition, FlowError, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
@@ -131,5 +138,43 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
         ),
       ),
     ).toEqual([["InvalidConfiguration", "states.ON.schedules.ring.send"]]);
+  });
+});
+
+// Each refusal as [reason, path].
+const reasonsOf = (construct: () => unknown) => {
+  try {
+    construct();
+  } catch (error) {
+    if (error instanceof FlowError)
+      return error.diagnostics.map((d) => [d.details.reason ?? d.code, d.path.join(".")] as const);
+  }
+
+  return [];
+};
+
+describe("home's refused shapes of declared schedules: each twin row (Types R8, I13, T8.1)", () => {
+  const at = "states.ONLINE.schedules";
+
+  it("Types I13: each refused builder is refused with its own reason, at its placement", () => {
+    expect(
+      [
+        undeclaredSchedule,
+        misspeltReason,
+        reasonMissing,
+        keysMissing,
+        keysUnexpected,
+        restartOnUndeclared,
+        restartOnMissing,
+      ].map(reasonsOf),
+    ).toEqual([
+      [["ScheduleUndeclared", `${at}.nudge`]],
+      [["ReasonUndeclared", `${at}.check.paused.Vacaton`]],
+      [["ReasonMissing", `${at}.check`]],
+      [["KeysMissing", `${at}.poll`]],
+      [["KeysUnexpected", `${at}.boost.keys`]],
+      [["RestartOnUndeclared", `${at}.boost.restartOn`]],
+      [["RestartOnMissing", `${at}.check`]],
+    ]);
   });
 });

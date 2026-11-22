@@ -423,7 +423,11 @@ model
         reports; not a type error, Q19).
         A declared name may be placed in several states; all placements share the name, key, reasons and selection
         type; `Schedules` decides what an active placement inherits. A declared schedule placed nowhere is the
-        warning `ScheduleUnplaced`. Every declared reason has its callback in every placement (Q4).
+        warning `ScheduleUnplaced`. Every declared reason has its callback in every placement (Q4). One name placed in
+        a state and in a state at or below it, both active at once, is refused `DuplicateName` at the second.
+        [decided: agent builder 2026-11-22] Why: the runtime keeps one timer per name (`world.ts#trackOf`), so the
+        two placements would overwrite each other and an exit of the inner one drops the outer one's timer. Reverse:
+        a placement inherits its ancestor's timer, designed in `Schedules`.
 
         Twin rule. Every refusal the types make has a construction row of the same meaning, for a body that reaches
         `machine()` through a cast or plain JavaScript: `ScheduleUndeclared`, `ReasonUndeclared`, `ReasonMissing`,

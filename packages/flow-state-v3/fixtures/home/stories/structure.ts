@@ -172,3 +172,145 @@ export const armOnBesideRestart = () =>
       },
     },
   }));
+
+/**
+ * Refused shape: a schedule the room's definition does not declare, a construction error.
+ */
+export const undeclaredSchedule = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        // oxlint-disable-next-line flow-state/no-undeclared-schedule -- the undeclared schedule this builder shows refused
+        schedules: {
+          // @ts-expect-error Types R8: nudge is not declared on Room
+          nudge: { schedule: Duration.minutes(1), send: E.BoostEnded },
+        },
+      },
+    },
+  }));
+
+/**
+ * Refused shape, the wrong ending of a misspelt reason: `Vacaton` is no declared pause reason of
+ * `check`, so it would hold nothing; a construction error.
+ */
+export const misspeltReason = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        schedules: {
+          check: {
+            schedule: Duration.minutes(5),
+            send: E.BoostEnded,
+            restartOn: () => 20,
+            paused: { Vacation: () => false, Vacaton: () => true },
+          },
+        },
+      },
+    },
+  }));
+
+/**
+ * Refused shape: `check` placed without a callback for its declared reason `Vacation`.
+ */
+export const reasonMissing = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        schedules: {
+          // @ts-expect-error Types R8: check declares the reason Vacation
+          check: { schedule: Duration.minutes(5), send: E.BoostEnded, restartOn: () => 20 },
+        },
+      },
+    },
+  }));
+
+/**
+ * Refused shape: the keyed `poll` placed without keys.
+ */
+export const keysMissing = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        schedules: {
+          // @ts-expect-error Types R8: poll is keyed, so it has keys
+          poll: {
+            schedule: Duration.minutes(1),
+            send: E.BoostEnded,
+            restartOn: () => "motion",
+            paused: { Vacation: () => false, Saving: () => false },
+          },
+        },
+      },
+    },
+  }));
+
+/**
+ * Refused shape: keys on `boost`, declared without a key.
+ */
+export const keysUnexpected = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        schedules: {
+          boost: {
+            // @ts-expect-error Types R8: boost is declared without a key
+            keys: () => [{ id: "a" }],
+            schedule: Duration.minutes(30),
+            send: E.BoostEnded,
+          },
+        },
+      },
+    },
+  }));
+
+/**
+ * Refused shape: restartOn on `boost`, declared without one.
+ */
+export const restartOnUndeclared = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        schedules: {
+          boost: {
+            schedule: Duration.minutes(30),
+            send: E.BoostEnded,
+            // @ts-expect-error Types R8: boost declares no restartOn
+            restartOn: () => 1,
+          },
+        },
+      },
+    },
+  }));
+
+/**
+ * Refused shape: `check`, which declares restartOn, placed without one.
+ */
+export const restartOnMissing = () =>
+  machine(Room, ({ S, E }) => ({
+    default: S.OFFLINE,
+    states: {
+      ONLINE: {
+        default: S.ONLINE.IDLE,
+        schedules: {
+          // @ts-expect-error Types R8: check declares restartOn
+          check: {
+            schedule: Duration.minutes(5),
+            send: E.BoostEnded,
+            paused: { Vacation: () => false },
+          },
+        },
+      },
+    },
+  }));

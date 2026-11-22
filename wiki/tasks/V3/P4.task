@@ -730,7 +730,8 @@ tasks
 
             **Risk:** the toaster's timer uses `paused` and per-key durations (@task.V3.T57), not stored clock stamps.
             Its pause reasons are `Hovered`, `Hidden` and `Pressing`, with `Hidden` reading `context.maxVisible` (the
-            toaster is shared, so no props). `restartOn` selects a toast's `{ title, type }`, `keys` leave out loading
+            toaster is shared, so no props). The schedule, its key, those reasons and its `restartOn` Schema are
+            declared on `Toaster` (Types R8); `restartOn` selects a toast's `{ title, type }`, `keys` leave out loading
             toasts, `maxVisible` is context (the toaster is shared, R1), and `focusRequest` becomes an emit
             (@task.V3.T77). The menu's short-lived fields live in a trait placed on OPEN (Q4a). Behaviour is ported,
             never code or test text.
@@ -1240,6 +1241,13 @@ tasks
             grep (session's memory fields match) and `keyedSchedule` (a derived local); keyedness from the body is the
             builder's call, kept in agreement by the twin rows. All 24 touched inverted reds flipped: each fails its
             own assertion.
+        comment     2026-11-22T01:15:16Z
+            Slice built; its three Tasks to review. Seams as designed: Compiled stays on the machine's face with what
+            the core calls under the internals key, so T120's codec checks read machine.compiled; the definition owns
+            the schedule declaration and the body's keys agree with it by the twin rows. Two specs.log notes wait (wk
+            log add refuses: the last note is stamped 2026-11-22T23:30Z, ahead of the clock): Operations' made-function
+            prototype, sealed Maps and Compiled internals; Types' DuplicateName for a schedule placed in a state and a
+            state below it.
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
@@ -2682,8 +2690,7 @@ tasks
 
             **Supersedes:** code:packages/flow-state-v3/src/machine.ts#Parts,
             code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody,
-            code:packages/flow-state-v3/src/machine.ts#machine,
-            code:packages/flow-state-v3/src/machine.ts#erasedBody,
+            code:packages/flow-state-v3/src/machine.ts#machine, code:packages/flow-state-v3/src/machine.ts#erasedBody,
             code:packages/flow-state-v3/src/machine.ts#erasedWhen,
             code:packages/flow-state-v3/src/machine.ts#trustedTokens,
             code:packages/flow-state-v3/src/machine.ts#handled;
@@ -3222,7 +3229,7 @@ tasks
 
     T120
         title       Declared schedules: the runtime half
-        status      in_progress
+        status      review
         priority    high
         parent      [@T89]
 
@@ -3242,8 +3249,8 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
-            **Supersedes:** `ScheduleKey`, `ScheduleParts`, `KeyedConfig` and `KeyedSchedule` in `src/tokens.ts`
-            and `Flow.keyed` in `src/flow.ts` (deleted by the slice's build);
+            **Supersedes:** `ScheduleKey`, `ScheduleParts`, `KeyedConfig` and `KeyedSchedule` in `src/tokens.ts` and
+            `Flow.keyed` in `src/flow.ts` (deleted by the slice's build);
             code:packages/flow-state-v3/src/config.ts#findingsAgainst;
             code:packages/flow-state-v3/src/compile-schedules.ts#scheduleOf;
             code:packages/flow-state-v3/src/core/compiled.ts#Schedule; the two metadata types in `src/tokens.ts` and
@@ -3358,6 +3365,15 @@ tasks
             Moved (requirements lead): the reds for Flow.keyed's removal and every fixture declaring what it places now
             sit in tests/compile/schedule-migration.test.ts under @task.V3.T140, which migrates the users; this Task
             keeps the declaration, the twin rows and the codecs.
+        comment     2026-11-22T01:15:08Z
+            Build done; to review. A definition declares schedules { name: { key?, pausedBy?, restartOn? } }; one pass
+            over the body gives each twin row (ScheduleUndeclared, ReasonUndeclared, ReasonMissing, KeysMissing,
+            KeysUnexpected, RestartOnUndeclared, RestartOnMissing); Compiled.schedules holds every declared schedule's
+            key codec (fields in name order, exact decode by a refused rest) and selection codec. One name placed in a
+            state and a state below it is refused DuplicateName (the runtime keeps one timer per name; Types Placement
+            edited, specs.log note waiting as on T131). All T120 reds pass; twelve planted faults
+            (tests/declaration-faults.ts) are caught. home's refused builders show each twin row
+            (fixtures/home/stories/structure.ts). ScheduleUnplaced is not reported until T22's Built.warnings.
     T121
         title       Operation endings and the retry guards
         status      draft
@@ -3691,7 +3707,7 @@ tasks
               T1, T6).
     T131
         title       Construction trust: the doors
-        status      in_progress
+        status      review
         priority    high
         parent      [@T89]
 
@@ -3797,6 +3813,19 @@ tasks
             only Symbol.for("flow-state/Internals"); the mark check adds ~payload, ~walk, ~names. The builder also
             deletes tools/flow-state-lint/rules/no-mark-probe.ts and its FLOW-STATE.md row (no package test can
             read them).
+        comment     2026-11-22T01:14:54Z
+            [decided: agent builder 2026-11-22] The door table was built by order A: every row of the hostile table
+            stood as a red test before the code, and each flipped as the doors landed. Why: each row was red or named
+            why it held, so no row was shaped to the code. Reverse: order B, build from the table and attack after.
+        comment     2026-11-22T01:15:07Z
+            Build done; to review. Every made value comes from made() (src/made.ts) on one branded frozen prototype, a
+            made function on a second one that is itself a function; madeOf refuses a copy WrongKind, another owner
+            ForeignToken, a throwing read one Defect at its path; the marks and no-mark-probe are gone; the testing
+            route's exports are doors. All 22 T131 reds pass as normal checks; six planted faults (tests/door-faults.ts)
+            are caught. Extra files: src/host/app.ts (app moved out of runtime.ts), core/compiled.ts InternalsId and
+            Compiled's internals, T113's Supersedes text (decodedOf and endingValue deleted). Spec: Operations
+            construction trust edited; its specs.log note waits, since the log's last note is stamped 23:30Z, ahead of
+            the clock, so wk log add refuses.
     T133
         title       Slice: Fragments
         status      draft
@@ -3839,7 +3868,7 @@ tasks
 
     T140
         title       Declared schedules: every user migrated, old form deleted
-        status      in_progress
+        status      review
         priority    high
         parent      [@T89]
         blocked_by  [@T120]
@@ -3948,3 +3977,13 @@ tasks
             tests/types/schedule-readers.test-d.ts and the casts-gone red in tests/compile/schedule-migration.test.ts.
             Item 1: the builder adds the rule test to lint:rules and wires an oxlint run of the rule over the reference
             apps into nub run check; that run fails on today's apps.
+        comment     2026-11-22T01:15:08Z
+            Build done; to review. Flow.keyed and the old form's types are deleted; every fixture, test and both
+            reference apps (22 sites) declare what they place; snapshot timers (TimersOf) and Paused and Resumed
+            evidence (EvidenceIn) are typed from the declaration, and compile-schedules.ts holds no erase or cast.
+            no-undeclared-schedule (tools/flow-state-lint) covers literal, shorthand, spread, whole-map and helper-built
+            maps, sibling-file definitions, traits and subroutines, Flow.keyed and the old types; nub run check runs it
+            over checkout and dispatch-desk. The four old-shape faults are caught on the declared form. The Plans
+            already show the declared form; the catalog, T72 and the T57 page say it. Close runs: stress and 20 fresh
+            seeds fail only on known gaps present at dd451cf2: home-rooms Turn I9 (the context-wave gap routed to T112)
+            and the stress sweep shard timeouts (T97, T112).

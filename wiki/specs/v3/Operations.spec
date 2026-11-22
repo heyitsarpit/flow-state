@@ -768,7 +768,15 @@ algorithm
         `call`, `make`) is off the face, under a second registered symbol that no enumeration shows. `made`, `madeOf`
         and `intake` are internal; `render` and `renderAll` are T100's.
         The brand: `Symbol.for("flow-state/Made")` on one shared frozen prototype. A spread or a JSON round trip drops
-        the prototype. `madeOf(kind, owner)(value)`, called on a lifted value, by whether `MadeTypeId in value`:
+        the prototype. A made function (an event token, a keyless member) takes a second frozen prototype, itself a
+        function, carrying the same brand, so it keeps a function's methods. A Map, Set or Date on a face takes a
+        frozen prototype of its kind whose writing methods throw, so it holds no function of its own. A machine's
+        Compiled is data on its face; what the core calls of it (the memory and identity walkers, the fields with
+        theirs, the reactions) sits under the internals key, which a data view still shows.
+        [decided: agent builder 2026-11-22] Why: a prototype that is not a function strips an event token of its
+        methods, and a Map's replaced writers would be functions on the face. Reverse: one prototype for every made
+        value, functions included. `madeOf(kind, owner)(value)`, called on a lifted value, by whether `MadeTypeId in 
+            value`:
         the read throws: one `Defect` finding at the path.
         false: `WrongKind`. true, another kind: `WrongKind`.
         true, this kind, another definition's owner: `ForeignToken` (today's owner compare).

@@ -7,6 +7,9 @@ page T57-schedules
 reloads and definition edits; every same-turn combination of their inputs is decided in one place, so arm, disarm,
 restart, pause and firing never disagree.
 
+Superseded in part by the user's 2026-11-22 decision: a schedule's name, key, pause reasons and `restartOn` Schema
+are declared on the definition, and `Flow.keyed` below is deleted (slice @task.V3.T89).
+
 ```ts
 schedules: {
   check: {
