@@ -3873,6 +3873,12 @@ tasks
             wake's read and shows only once loaded); plant `resting-record-hides-issues`. Plant
             `creation-delay-drops-all` deleted: each timer is decided alone, so the wrong runtime cannot be written at
             the creation call. Not done: R10's test (`now` still reaches the checks), left for its own Task.
+        comment     2026-11-22T07:59:45Z
+            Rulings (orchestrator): the NaN guards are accepted. [decided: agent orchestrator 2026-11-22]
+            Duration.millis(NaN) builds as 0 ms because Effect normalises it before Flow sees it (checked: equal to
+            Duration.millis(0)); a raw NaN number or { millis: NaN } is refused. Why: Flow follows Effect's Duration,
+            and the value cannot be told apart. Reverse: decode durations from raw input only. The Turn I9 breach is
+            owned by T97 (routed at e83eecea).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

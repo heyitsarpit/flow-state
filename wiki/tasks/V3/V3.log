@@ -636,3 +636,11 @@ note 2026-11-22T06:45:15Z
 note 2026-11-22T07:11:34Z
     T118 built and in review (a9791f65); close review started. Routed: Turn I9 home-rooms breach to T97, stress shard
     timeouts to T141; the sign-in LOADING case and the sweep slowdown go to the review.
+
+note 2026-11-22T07:40:28Z
+    [decided: user 2026-11-22] "will take your recommendations, use the rubric of correctness, consistency from a user
+    using the library": T118 Q1 B (a refused operation-outcome turn commits, the timer Refused with its issue). Rulings
+    are judged by correctness, then consistency as a library user sees it. Scope: the whole run.
+
+note 2026-11-22T07:59:47Z
+    T118 fix round in review (2532e3e9); follow-up close review started. NaN guards accepted (Effect normalises NaN).
