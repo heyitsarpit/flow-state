@@ -270,12 +270,15 @@ instructions
       small or internal one itself, keeping the reading that loses no ending. Running code overrides a Spec, guarantees
       included, once the change is weighed across the whole system (the user, 2026-11-15): two traces of the same Story,
       every rule and reader that depends on it checked, and the next independent review confirms it was not shaped to
-      fit the code; the user reads it afterwards. The Spec is edited so the losing text is gone, with one note
-      in `wiki/specs/specs.log`.
+      fit the code; the user reads it afterwards. The Spec is guidance and need not be kept in step with the code (the
+      user, 2026-11-22): the lead records each deviation, and each call where a Spec is silent, as a `[decided: agent
+      builder <date>]` tag with Why and Reverse in a Task comment, so it can be reversed; editing the Spec is optional.
+      A silent Spec is never filled with the code's current behaviour as if it were the design.
     - A gap is never written into a Spec as a limit (the user, 2026-11-16): a lost, doubled or made-up ending the code
       can't yet meet lands as an inverted test titled by its rule, with an owner Task, and the Spec keeps the rule.
-    - Lessons from the 2026-11-15 run (the user, 2026-11-16): comments are stamped only with `--now`; a gate counts by
-      its exit code, never its summary line; a Task with its reviews costs about 2% of the weekly limit.
+    - Lessons from the 2026-11-15 run (the user, 2026-11-16): comments are stamped only with `--now`, and every `.log`
+      entry only with `wk log add`, never a hand-written time (the user, 2026-11-22); a gate counts by its exit code,
+      never its summary line; a Task with its reviews costs about 2% of the weekly limit.
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11),
       with the same whole-system check (the user, 2026-11-15).
     - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features that cover its
@@ -297,8 +300,9 @@ instructions
     - At a Task's close the builder runs the stress runs and the generated Stories over fresh seeds; every new failure
       lands as a fix or an inverted test before review.
     - Earlier surfacing of what close reviews kept finding (the user, 2026-11-20):
-      - a rule or Spec change the builder makes mid-build (skill:execute-task step 3) also gets two traces in a Task
-        comment and one blind Haiku sidecar on that rule before the build goes on;
+      - a design question found mid-build is validated before the build builds on it (the user, 2026-11-22): two traces
+        in a Task comment and one blind Haiku sidecar on that rule (skill:execute-task step 3), and the reds it touches
+        are reconciled and re-run;
       - every requirements list names each real resource the Task touches (store, page, network, clock) and what its
         fake does not yet do (close, refuse after close, hold, hide); a gap is hardened in the fake or checked for real;
       - a Task touching a persisted shape shows restore after the definition is edited: a reorder, an add, a remove and
