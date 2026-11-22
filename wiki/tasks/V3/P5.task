@@ -388,6 +388,10 @@ tasks
         comment     2026-11-21T18:31:25Z
             [proposed] Redaction and digests have no algorithm design; this Task runs skill:to-design before its Spec
             and reuses project with Flow.private dropped (@proposal.algo-resolutions section 4).
+        comment     2026-11-22T12:44:17Z
+            Routed (orchestrator) from T143's close review: src/host/inspect.ts re-exports rebuilt (reruns a body
+            outside the machine door) beside InternalsId, compiledOf and dataView; this Task exports the
+            flow-state/inspect route, so move test and bench reach off it first. (First routed to T23 by mistake.)
     T29
         title       The rest of Story and Fake, and `story describe`
         status      draft
