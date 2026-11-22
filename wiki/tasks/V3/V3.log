@@ -653,3 +653,7 @@ note 2026-11-22T08:08:50Z
     [decided: user 2026-11-22] Root cause first: reviewers and fixers trace each finding to where the behaviour
     originates (Flow, fixture, tooling, or a dependency like Effect) before proposing a fix or ruling. Scope: the whole
     run.
+
+note 2026-11-22T08:18:53Z
+    T118 follow-up close review: PASS (d33d24aa). One last round before close: the user's NaN removal, rulings R3 to R5
+    (T118 comments); a narrow review of that diff follows, then the slice closes.
