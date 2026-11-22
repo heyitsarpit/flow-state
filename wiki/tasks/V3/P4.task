@@ -5290,3 +5290,23 @@ tasks
                direct call).
             4. The T58 page shows `storeContract("my store", layerMyStore, { describe, it })`; `Package.plan`
                is untouched.
+        comment     2026-11-22T09:37:39Z
+            Fix-round review (reviewing lead) at 1f819c4c: PASS. No blocking findings; `nub run test:browser` stays with
+            the orchestrator.
+
+            1. Line separator, accepted: code:packages/flow-state-v3/src/host/testing/store-contract.ts `texts` holds
+               the escape `"a b"`; the touched code files are otherwise ASCII except `é` and `…`, and d8c06dbf added no
+               other invisible character.
+            2. Broken stores, accepted: each text flaw reaches only "text and keys are kept exactly" and fails at its
+               `loadsExactly`, asserted with `toEqual`; the planted fault turns them red. Nit: the dropped-record test
+               uses `toContain`, and that flaw also fails 5 other cases (same cause, so not incidental). Nit: `failedBy`
+               counts a defect as a failure, so a flaw that throws would pass for the wrong reason; none does.
+            3. Guard, accepted: `--benches` loads the planted module through `bench/list.ts` and again in a spawned
+               `bench/worker.ts`; `backfill.ts` with no commits imports no runner.
+            4. `LIMITS.benchLoad`, accepted: 3 timed runs of the worker case took 0.57 to 0.58 s; `limitFrom` gives the
+               5 s floor.
+            5. `differences` labels by `x.at`, accepted; no test covers it.
+            6. Record nit, from the tool decoding seen in d8c06dbf: P4.task holds a raw U+2028 in this round's comment
+               and in the close review's.
+            7. Runs: `nub run check` 0; both touched test files 23 of 23; `faults --only` caught
+               `store-contract-passes-any-records` and `testing-entry-imports-runner`.
