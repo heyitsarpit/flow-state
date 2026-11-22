@@ -115,8 +115,9 @@ export type TurnInput = {
   readonly tag: string;
   readonly payload: Values;
   readonly late: boolean;
-  // Whether the turn is an operation's outcome, which commits whatever its own arms do.
-  readonly outcome: boolean;
+  // Whether the turn's source cannot send it again (an operation's outcome, an actor's send, a
+  // context reaction): it commits whatever its own arms do.
+  readonly unrepeatable: boolean;
   readonly from: number;
   readonly now: number;
   readonly lane: (operation: string, key: Option.Option<Values>) => LaneView;
@@ -429,14 +430,15 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
     input.step,
   );
 
-  // A turn's own arm with a bad delay refuses the turn, but an operation's outcome, which has
-  // already happened, commits with that start refused (Schedules R11).
+  // A turn's own arm with a bad delay refuses the turn, but a turn its source cannot send again (an
+  // operation's outcome, an actor's send, a context reaction) commits with that start refused
+  // (Schedules R11).
   const first = Option.flatMap(
     Option.fromUndefinedOr(arm.find((a) => Result.isFailure(a.first))),
     (a) => Result.getFailure(a.first),
   );
 
-  if (Option.isSome(first) && !input.outcome)
+  if (Option.isSome(first) && !input.unrepeatable)
     return TurnResult.Refused({ code: "InvalidTurn", slot: first.value });
 
   return TurnResult.Accepted({

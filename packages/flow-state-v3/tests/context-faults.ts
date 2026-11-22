@@ -361,9 +361,9 @@ export const contextFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/context.ts",
-        find: "    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event, chain: tx.chainNow() })));",
+        find: "    tx.enqueueFirst(\n      events.map((event) =>\n        Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }),\n      ),\n    );",
         replace:
-          "    for (const event of events) tx.enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));",
+          "    for (const event of events)\n      tx.enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }));",
       },
     ],
   },

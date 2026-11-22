@@ -34,7 +34,7 @@ import { makeFirings } from "./firings.ts";
  * turn acts on its own lane.
  */
 export type Trigger = Data.TaggedEnum<{
-  Event: { tag: string };
+  Event: { tag: string; resendable: boolean };
   Firing: { firing: Firing };
   Ending: { row: Owed; late: Option.Option<ActivationId> };
 }>;
@@ -53,7 +53,8 @@ const endingSource = (row: Owed): StoredSource => IssueSource.Operation({ name: 
 // schedule's decision, so it names its firing instead.
 const routeOf = (trigger: Trigger) =>
   Trigger.$match(trigger, {
-    Event: ({ tag }) => ({
+    Event: ({ tag, resendable }) => ({
+      unrepeatable: !resendable,
       late: Option.none<ActivationId>(),
       own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
@@ -61,6 +62,7 @@ const routeOf = (trigger: Trigger) =>
       firing: Option.none<Firing>(),
     }),
     Firing: ({ firing }) => ({
+      unrepeatable: false,
       late: Option.none<ActivationId>(),
       own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
@@ -68,6 +70,7 @@ const routeOf = (trigger: Trigger) =>
       firing: Option.some(firing),
     }),
     Ending: ({ row, late }) => ({
+      unrepeatable: true,
       late,
       own: row.lane,
       ending: Option.some(row),
@@ -222,7 +225,7 @@ export const makeServe = (
       tag,
       payload: tx.env.admit(payload),
       late: Option.isSome(route.late),
-      outcome: Option.isSome(route.ending),
+      unrepeatable: route.unrepeatable,
       from: Option.match(route.late, {
         onNone: () => incarnation.activations.length,
         onSome: (owner) => depthBelow(incarnation, owner),
@@ -433,10 +436,11 @@ export const makeServe = (
 
   const serve = (mail: Mail) =>
     Mail.$match(mail, {
-      Event: ({ actor, tag, payload }) => {
+      Event: ({ actor, tag, payload, resendable }) => {
         const incarnation = incarnationOf(actor);
 
-        if (incarnation !== undefined) turn(incarnation, tag, payload, Trigger.Event({ tag }));
+        if (incarnation !== undefined)
+          turn(incarnation, tag, payload, Trigger.Event({ tag, resendable }));
       },
       Firing: firings.firing,
       Context: ({ actor }) => incarnations.context.update(actor),

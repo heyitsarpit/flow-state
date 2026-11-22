@@ -46,16 +46,16 @@ const typed = () => [
   7 satisfies Incarnation["activations"][number],
 
   // Actors R13: mail that follows no chain says so; a chain is minted.
-  Mail.Event({ actor, tag: "Noted", payload: {}, chain: Option.none() }),
-  Mail.Event({ actor, tag: "Noted", payload: {}, chain: Option.some(chain(1)) }),
+  Mail.Event({ actor, tag: "Noted", payload: {}, chain: Option.none(), resendable: true }),
+  Mail.Event({ actor, tag: "Noted", payload: {}, chain: Option.some(chain(1)), resendable: true }),
   // @ts-expect-error Actors R13: the number 0 is no chain
-  Mail.Event({ actor, tag: "Noted", payload: {}, chain: 0 }),
+  Mail.Event({ actor, tag: "Noted", payload: {}, chain: 0, resendable: true }),
 
   // Turn R25, R21: only an ending's turn has a row, an own lane and lateness.
   Trigger.Ending({ row, late: Option.none<ActivationId>() }),
-  Trigger.Event({ tag: "Noted" }),
+  Trigger.Event({ tag: "Noted", resendable: true }),
   // @ts-expect-error Turn R25: an event's turn carries no ending row
-  Trigger.Event({ tag: "Noted", row }),
+  Trigger.Event({ tag: "Noted", resendable: true, row }),
   // @ts-expect-error Turn R21: a schedule's turn is never late
   Trigger.Firing({ schedule: "tick", late: Option.some(activation(1)) }),
 ];

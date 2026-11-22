@@ -376,7 +376,11 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     // The reactions' events take the context update's place in the mailbox: they come before
     // the mail that was behind it.
-    tx.enqueueFirst(events.map((event) => Mail.Event({ actor, ...event, chain: tx.chainNow() })));
+    tx.enqueueFirst(
+      events.map((event) =>
+        Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }),
+      ),
+    );
   };
 
   /**

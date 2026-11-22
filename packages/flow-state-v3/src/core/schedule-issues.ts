@@ -1,5 +1,6 @@
-import { Option, Result } from "effect";
-import { encodeCanonical } from "./codec.ts";
+import { Option } from "effect";
+import { wakeEntries } from "./schedule-restore.ts";
+import type { Machines } from "./tx.ts";
 import {
   Arming,
   Cursor,
@@ -10,8 +11,8 @@ import {
   timersIn,
   type Tracked,
 } from "./timers.ts";
-import type { SavedSchedules, SavedTimer } from "./vocabulary.ts";
-import { type Issue, IssueSource } from "./world.ts";
+import type { SavedTimer } from "./vocabulary.ts";
+import { type ActorRecord, type Issue, IssueSource } from "./world.ts";
 
 // A schedule's issues, read from its timers' check outcomes, live or saved, and stored nowhere.
 
@@ -71,27 +72,18 @@ const savedFailureOf = (saved: SavedTimer) =>
   ]);
 
 /**
- * A resting record's schedule issues, read from its saved timers as a wake would read them, with
- * each keyed timer's key text from its saved key. Stores nothing.
+ * A resting record's schedule issues, read from the saved entries a wake keeps, in its declared
+ * order and with each key's text by the declared key codec. A reason's failure and a broken
+ * cursor are read only at the wake, so a resting record shows neither. Stores nothing.
  */
-export const savedScheduleIssues = (saved: SavedSchedules) =>
-  Object.values(saved)
-    .flatMap((byName) => Object.entries(byName))
-    .flatMap(([name, entry]) =>
-      (Array.isArray(entry) ? entry : [entry]).flatMap((timer: SavedTimer) =>
-        Option.toArray(
-          Option.map(savedFailureOf(timer), (failure) =>
-            issueOf(
-              name,
-              Option.flatMap(Option.fromUndefinedOr(timer.key), (key) =>
-                Option.map(Result.getSuccess(encodeCanonical(key)), (text) => ({
-                  text,
-                  value: {},
-                })),
-              ),
-              failure,
-            ),
-          ),
-        ),
+export const savedScheduleIssues = (machines: Machines, record: ActorRecord) =>
+  wakeEntries(machines, record.actor.machine, record.state, record.schedules).flatMap((entry) =>
+    (entry._tag === "Single"
+      ? [{ key: Option.none<TimerKey>(), saved: entry.saved }]
+      : entry.timers.map(({ key, saved }) => ({ key: Option.some<TimerKey>(key), saved }))
+    ).flatMap(({ key, saved }) =>
+      Option.toArray(
+        Option.map(savedFailureOf(saved), (failure) => issueOf(entry.schedule.name, key, failure)),
       ),
-    );
+    ),
+  );

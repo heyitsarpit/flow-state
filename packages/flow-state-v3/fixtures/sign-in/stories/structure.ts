@@ -206,7 +206,8 @@ export const deviceWithNullHandler = () =>
   machine(TrustedDevice, ({ S }) => ({ default: S.UNTRUSTED, on: { Revoke: null } }));
 
 /**
- * A device whose reminder reads its days from a setting that was never set: NaN days.
+ * A device whose reminder reads its days from a setting that was never set: NaN days, which
+ * Effect's Duration reads as zero, so the reminder builds as a 0 ms delay.
  */
 export const deviceRemindingNaNDays = () =>
   machine(TrustedDevice, ({ S, E }) => ({

@@ -218,9 +218,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: "      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));",
+        find: "      enqueue(\n        Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: Option.isNone(sender) }),\n      );",
         replace:
-          '      tx.putUses(actor, [...(tx.world().uses.get(key) ?? []), "host"]);\n      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));',
+          '      tx.putUses(actor, [...(tx.world().uses.get(key) ?? []), "host"]);\n      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: false }));',
       },
     ],
   },

@@ -51,7 +51,9 @@ requirements
         source  @plan.Machines.O8; the derived-issues rule.
         must    An issue shows while its check's last outcome is a failure, and goes when that check next reads clean
                 or its timer goes. Issues are read from state by `scheduleIssues` and stored nowhere. A key that
-                leaves, an exit and an actor's end take their timers' issues with them.
+                leaves, an exit and an actor's end take their timers' issues with them. A resting record shows the
+                issues of the saved entries its wake keeps (firing, selection, a refused start), read by the same
+                selection the wake uses.
 
     R6  Held time does not count; time asleep does
         source  @plan.Machines.O5.
@@ -99,8 +101,9 @@ requirements
         source  @plan.Machines.O5.
         must    A disarm wins over every start in the same turn, a new key and an entry included, and is an event,
                 not a state. A start wins over the firing's next step in the same turn. A turn's own arm (entry or
-                `armOn`) with a bad delay refuses the turn, unless the turn is an operation's outcome: that turn
-                commits, and its start is `Refused` with its issue, tried again on every occasion; every later
+                `armOn`) with a bad delay refuses the turn, unless the turn's source cannot send it again (an
+                operation's outcome, an actor's send, an onContext reaction): that turn commits, and its start is
+                `Refused` with its issue, tried again on every occasion; every later
                 start (a new key, a restart, creation, an instance's start, a wake) is `Refused` with an issue
                 and refuses no turn.
                 [decided: user 2026-11-22] answered "B" to the question of a refused own arm on an operation's

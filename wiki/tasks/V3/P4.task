@@ -4016,6 +4016,27 @@ tasks
               - Blind was accepted as R4 (a) and R7, and rejected on lookups.
               - Cohesion was accepted as R6 and R1.
               - The coverage reader was accepted as R8 and R2.
+        comment     2026-11-22T08:18:43Z
+            Rulings (orchestrator) on the follow-up review (PASS): last round before close: the user's NaN removal
+            (review R1's inventory). R3: [decided: agent orchestrator 2026-11-22] a turn whose source cannot resend (an
+            onContext reaction, an actor-to-actor send) follows Q1 B: it commits with the start Refused. Why: the user's
+            rubric of correctness, then consistency; refusing loses that turn for good. Reverse: refuse those turns. R4:
+            the resting snapshot's issues come from the same derivation the wake uses, so none can show that the wake
+            drops. R5: re-target creation-delay-drops-all at disarms.
+        comment     2026-11-22T08:26:13Z
+            Last round (builder), each change with its origin: (1) NaN, origin Effect 4.1.4 (`Duration.ts`: `make` maps
+            NaN to 0, a pair or object with a NaN part reads 0): Flow's NaN-part guards (`partsOf`, `hasNonFinitePart`,
+            `msOf`'s NaN return) are removed and the plant `delay-nan-part-as-zero` deleted; tests now pin Effect's
+            reading (a Duration input with a NaN part builds as 0 ms; NaN reminder days build); a raw NaN number and a
+            computed NaN delay are Flow's own branches and still refuse; Turn R14 edited, logged; the `{ millis: NaN }`
+            row now says it is refused as an unknown key. (2) R3, origin Flow (the turn input): an event mail carries
+            whether its source can resend it; an actor's send and an onContext reaction commit with the start Refused;
+            red first (tests/turn/unrepeatable-arm.test.ts), plant `unrepeatable-turn-refused`; R11 edited, logged. (3)
+            R4, origin Flow (`savedScheduleIssues` read every saved entry): it now reads `wakeEntries`, the one
+            selection the restore decodes (declared on the chain, same keying, keys the codec reads, declared order,
+            codec key text); red on the old reading by a temporary swap (a schedule the edited build dropped showed its
+            issue); R5 edited, logged. (4) R5, origin tooling: `creation-delay-drops-all` re-targeted at `disarms`
+            and caught.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

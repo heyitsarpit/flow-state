@@ -252,7 +252,7 @@ export const snapshotIn = (
       operations,
       lifecycle: restingLifecycleOf(world.life, "active"),
       context: {},
-      issues: savedScheduleIssues(record.schedules).map((issue) => issueOf(actor, issue)),
+      issues: savedScheduleIssues(machines, record).map((issue) => issueOf(actor, issue)),
       schedules: savedTimersOf(record.schedules),
     });
 

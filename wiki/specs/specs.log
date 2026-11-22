@@ -794,3 +794,12 @@ note 2026-11-22T07:49:32Z
 note 2026-11-22T07:49:33Z
     Records R12: step 5 to 6 reads the definition to file each saved timer under its state; the saved timer is spelled
     SavedTimer in code, lint refusing Shape (@task.V3.T118).
+
+note 2026-11-22T08:20:33Z
+    Turn R14: a fixed Duration input is read as Effect reads it, a NaN part as zero; Flow's NaN-part guards are removed
+    (the user, 2026-11-22). A raw NaN number and a computed NaN delay still refuse (@task.V3.T118).
+
+note 2026-11-22T08:26:13Z
+    Schedules R11: an actor's send and an onContext reaction also commit when their own arm's delay is bad, as an
+    outcome does (the orchestrator's ruling R3, 2026-11-22). R5: a resting record shows the issues of the entries its
+    wake keeps (@task.V3.T118).

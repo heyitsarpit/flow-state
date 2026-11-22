@@ -19,23 +19,11 @@ import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
 /**
  * Compiling a state's schedules.
  */
-// Whether a delay holds a NaN or infinite number: Duration reads a NaN part as 0, so each part
-// is checked as written.
-const partsOf = (delay: Duration.Input) => {
-  if (Array.isArray(delay)) return delay;
-
-  return Predicate.isObject(delay) && !Duration.isDuration(delay) ? Object.values(delay) : [];
-};
-
-const hasNonFinitePart = (delay: Duration.Input) =>
-  partsOf(delay).some((part) => Predicate.isNumber(part) && !Number.isFinite(part));
-
 // A fixed delay in ms, NaN when it has none: a number is read as written, since Duration clamps a
-// negative one and keeps Infinity.
+// negative one and keeps Infinity; any other input is read as Effect's Duration reads it, a NaN
+// part as zero.
 const msOf = (delay: Duration.Input) => {
   if (Predicate.isNumber(delay)) return delay;
-
-  if (hasNonFinitePart(delay)) return Number.NaN;
 
   return Option.getOrElse(
     Option.map(Duration.fromInput(delay), Duration.toMillis),

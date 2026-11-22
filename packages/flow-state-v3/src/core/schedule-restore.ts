@@ -6,6 +6,7 @@ import {
   type Schedule,
   type ScheduleCodecs,
   type Series,
+  type Values,
 } from "./compiled.ts";
 import { savedSchedule, savedTimer } from "./schedule-decision.ts";
 import { schedulesOf, seriesId } from "./schedule-plan.ts";
@@ -263,91 +264,55 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
     });
   };
 
-  // A saved key read by the declared key codec: its text again, or none when the codec no longer
-  // reads it.
-  const keyOf = (incarnation: Incarnation, schedule: Schedule, json: SavedTimer["key"]) =>
-    Option.flatMap(
-      Option.flatMap(
-        Option.fromUndefinedOr(
-          tx.machines.get(incarnation.actor.machine)?.schedules.get(schedule.name),
-        ),
-        (c) => c.key,
-      ),
-      (codec) =>
-        Option.flatMap(
-          Result.getSuccess(
-            Result.flatMap(jsonText(json), (text) => Schema.decodeUnknownResult(codec)(text)),
-          ),
-          (value) => Result.getSuccess(schedules.keyOf(incarnation, schedule.name, value)),
-        ),
-    );
-
-  // One schedule's saved entry: none when its keying changed; a keyed timer whose key no longer
-  // reads is dropped.
+  // One schedule's entry, as the wake keeps it: none when its keying changed.
   // RETURN_TYPE: an Option of the decided state, whichever branch builds it.
-  const scheduledOf = (
-    incarnation: Incarnation,
-    schedule: Schedule,
-    entry: SavedTimer | ReadonlyArray<SavedTimer>,
-  ): Option.Option<Scheduled> => {
-    if (Option.isNone(schedule.keys))
-      return isOneTimer(entry)
-        ? Option.some(
-            savedSchedule({
-              _tag: "Single",
-              timer: timerOf(incarnation, schedule, Option.none(), entry),
-            }),
-          )
-        : Option.none();
+  const scheduledOf = (incarnation: Incarnation, entry: WakeEntry): Option.Option<Scheduled> => {
+    const { schedule } = entry;
 
-    if (isOneTimer(entry)) return Option.none();
-
-    const timers = entry.flatMap((saved) =>
-      Option.toArray(
-        Option.map(keyOf(incarnation, schedule, saved.key), (key) =>
-          timerOf(incarnation, schedule, Option.some(key), saved),
-        ),
-      ),
-    );
+    if (entry._tag === "Single")
+      return Option.some(
+        savedSchedule({
+          _tag: "Single",
+          timer: timerOf(incarnation, schedule, Option.none(), entry.saved),
+        }),
+      );
 
     return Option.some(
       savedSchedule({
         _tag: "Keyed",
         timers: new Map(
-          timers
-            .map(
-              (t) =>
-                [
-                  Option.getOrElse(
-                    Option.map(t.key, (k) => k.text),
-                    () => "",
-                  ),
-                  t,
-                ] as const,
-            )
-            .toSorted(([a], [b]) => (a < b ? -1 : Number(a > b))),
+          entry.timers.map(
+            ({ key, saved }) =>
+              [
+                key.text,
+                timerOf(
+                  incarnation,
+                  schedule,
+                  Option.some({ text: key.text, value: tx.env.admit(key.value) }),
+                  saved,
+                ),
+              ] as const,
+          ),
         ),
       }),
     );
   };
 
   /**
-   * An incarnation's timers from its record: each saved entry of a schedule declared on its
-   * chain, by the state path that declares it, decoded, then every schedule woken.
+   * An incarnation's timers from its record: each saved entry the wake keeps, decoded, then
+   * every schedule woken.
    */
   const restore = (incarnation: Incarnation, saved: SavedSchedules) => {
     const decoded = new Map<string, Scheduled>();
-    const declared = schedulesOf(tx.machines, incarnation.actor.machine);
 
-    for (const path of chainOf(incarnation.state))
-      for (const schedule of declared(path)) {
-        const entry = saved[path]?.[schedule.name];
-
-        if (entry === undefined) continue;
-
-        for (const scheduled of Option.toArray(scheduledOf(incarnation, schedule, entry)))
-          decoded.set(schedule.name, scheduled);
-      }
+    for (const entry of wakeEntries(
+      tx.machines,
+      incarnation.actor.machine,
+      incarnation.state,
+      saved,
+    ))
+      for (const scheduled of Option.toArray(scheduledOf(incarnation, entry)))
+        decoded.set(entry.schedule.name, scheduled);
 
     return schedules.woke(incarnation, decoded);
   };
@@ -359,3 +324,87 @@ export const makeScheduleRestore = (tx: Tx, schedules: ScheduleSteps) => {
 // RETURN_TYPE: a type guard states the type it narrows to.
 const isOneTimer = (entry: unknown): entry is SavedTimer =>
   Predicate.isObject(entry) && !Array.isArray(entry);
+
+/**
+ * One saved schedule entry as a wake keeps it: an unkeyed schedule's timer, or a keyed one's
+ * timers whose keys the declared key codec still reads, in key-text order.
+ */
+export type WakeEntry =
+  | { readonly _tag: "Single"; readonly schedule: Schedule; readonly saved: SavedTimer }
+  | {
+      readonly _tag: "Keyed";
+      readonly schedule: Schedule;
+      readonly timers: ReadonlyArray<{
+        readonly key: { readonly text: string; readonly value: Values };
+        readonly saved: SavedTimer;
+      }>;
+    };
+
+// A saved key read by the declared key codec: its text again and its value, or none when the
+// codec no longer reads it.
+const savedKeyOf = (codec: Option.Option<Schema.Codec<Values, string>>, json: SavedTimer["key"]) =>
+  Option.flatMap(codec, (c) =>
+    Option.flatMap(
+      Result.getSuccess(
+        Result.flatMap(jsonText(json), (text) => Schema.decodeUnknownResult(c)(text)),
+      ),
+      (value) =>
+        Option.map(Result.getSuccess(Schema.encodeUnknownResult(c)(value)), (text) => ({
+          text,
+          value,
+        })),
+    ),
+  );
+
+// One saved entry as the wake keeps it: none when its keying changed.
+// RETURN_TYPE: an Option of the WakeEntry union, whichever branch builds it.
+const entryOf = (
+  machines: Machines,
+  machine: string,
+  schedule: Schedule,
+  entry: SavedTimer | ReadonlyArray<SavedTimer>,
+): Option.Option<WakeEntry> => {
+  if (Option.isNone(schedule.keys))
+    return isOneTimer(entry)
+      ? Option.some({ _tag: "Single", schedule, saved: entry })
+      : Option.none();
+
+  if (isOneTimer(entry)) return Option.none();
+
+  const codec = Option.flatMap(
+    Option.fromUndefinedOr(machines.get(machine)?.schedules.get(schedule.name)),
+    (c) => c.key,
+  );
+
+  const timers = entry
+    .flatMap((one) =>
+      Option.toArray(Option.map(savedKeyOf(codec, one.key), (key) => ({ key, saved: one }))),
+    )
+    .toSorted((a, b) => (a.key.text < b.key.text ? -1 : Number(a.key.text > b.key.text)));
+
+  return Option.some({ _tag: "Keyed", schedule, timers });
+};
+
+/**
+ * The saved entries a wake decodes, in the declared order of the record's chain: each schedule
+ * declared on the chain, from the state path that declares it, whose keying is unchanged; a keyed
+ * timer whose key no longer reads is dropped. The restore and a resting snapshot read the same
+ * entries.
+ */
+export const wakeEntries = (
+  machines: Machines,
+  machine: string,
+  state: string,
+  saved: SavedSchedules,
+) => {
+  const declared = schedulesOf(machines, machine);
+  const entries: Array<WakeEntry> = [];
+
+  for (const path of chainOf(state))
+    for (const schedule of declared(path))
+      for (const entry of Option.toArray(Option.fromUndefinedOr(saved[path]?.[schedule.name])))
+        for (const kept of Option.toArray(entryOf(machines, machine, schedule, entry)))
+          entries.push(kept);
+
+  return entries;
+};

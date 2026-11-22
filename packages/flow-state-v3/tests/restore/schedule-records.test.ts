@@ -621,3 +621,51 @@ describe("a resting record's issues (Schedules R5, R14)", () => {
     }).toEqual({ lifecycle: "active", issues: [`schedule t ${SLOTS.arming}`] });
   });
 });
+
+// A later build of the far lamp that no longer declares its schedule.
+const FarPlain = definition({
+  id: "Records/Far",
+  persist: true,
+  states: ["ON"],
+  events: { Set: { n: Schema.Number } },
+  internalEvents: { Tick: {} },
+  memory: { n: Flow.initial(Schema.Number, 0), ticks: Flow.initial(Schema.Number, 0) },
+});
+
+const FarPlainMachine = machine(FarPlain, ({ S }) => ({
+  default: S.ON,
+  on: { Set: { updateMemory: ({ event }) => event } },
+}));
+
+describe("a resting record read under an edited build (Schedules R5, R14, its decode table)", () => {
+  it("Schedules R5, R14: a resting record shows no issue of a schedule the build no longer declares, since the wake drops it", async () => {
+    const setupOf = (lamp: typeof FarMachine) =>
+      runtimeSetup({
+        app: app({ id: "records-far", machines: { far: lamp } }),
+        services: layerIndexedDb(),
+        scope: "records-far",
+        persistence: { captureMs: 0 },
+      });
+
+    const saved = await played(
+      Story.app(setupOf(FarMachine), { id: "records/far-saved", fixtures: [] })
+        .ensure(actorRef(FarMachine, "far"))
+        .checkpoint("saved"),
+    );
+
+    const plain: typeof FarMachine = loose(FarPlainMachine);
+
+    const run = await played(
+      Story.app(setupOf(plain), { id: "records/far-edited-resting", fixtures: [] })
+        .world(
+          ...[...saved.checkpoints.saved.records.stored].map(([key, text]) =>
+            Fake.storage.put(key, text),
+          ),
+        )
+        .reload({ reattach: false })
+        .checkpoint("resting"),
+    );
+
+    expect(run.checkpoints.resting.read(actorRef(plain, "far"))?.issues).toEqual([]);
+  });
+});

@@ -119,7 +119,7 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
     ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.boost"]]);
   });
 
-  it("Schedules R11: a fixed delay with a NaN part is refused at construction, as one past the limit is; Duration.millis(NaN) is already Effect's 0 ms and builds as Duration.millis(0)", () => {
+  it("Schedules R11: a raw NaN delay is refused at construction, as one past the limit is; a `millis` key is no Duration key and is refused as one; Duration.millis(NaN) is Effect's 0 ms and builds as Duration.millis(0)", () => {
     const placed = (schedule: unknown) =>
       refusal(() =>
         machine(Room, ({ S, E }) =>

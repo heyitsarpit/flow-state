@@ -379,7 +379,15 @@ export type Read = {
  * or context update carries the loop guard's chain it follows, if it follows one.
  */
 export type Mail = Data.TaggedEnum<{
-  Event: { actor: ActorId; tag: string; payload: Values; chain: Option.Option<ChainId> };
+  // `resendable`: the source can send the event again (a host's send); an actor's send and a
+  // context reaction cannot.
+  Event: {
+    actor: ActorId;
+    tag: string;
+    payload: Values;
+    chain: Option.Option<ChainId>;
+    resendable: boolean;
+  };
   Context: { actor: ActorId; chain: Option.Option<ChainId> };
   Ending: { actor: ActorId; id: OwedId };
   Firing: {

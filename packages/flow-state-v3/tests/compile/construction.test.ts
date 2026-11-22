@@ -945,30 +945,41 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
     ]);
   });
 
-  it("Turn R14: a fixed delay with a NaN or infinite part is refused DelayOutOfRange, never armed at 0 ms", () => {
+  // A fixed delay given as a Duration input is read as Effect's Duration reads it: a NaN part is
+  // zero, so it builds as a 0 ms delay; a raw number is Flow's own read, so NaN is refused.
+  const placedOff = (delay: unknown) =>
+    refusal(() =>
+      machine(Lamp, ({ S, E }) =>
+        loose({
+          default: S.OFF,
+          states: {
+            OFF: { schedules: { off: { schedule: delay, send: E.Flip } } },
+            ON: { default: S.ON.DIM },
+          },
+        }),
+      ),
+    );
+
+  it("Turn R14: a raw NaN, an infinite part or Infinity text is refused DelayOutOfRange", () => {
     for (const delay of [
       Number.NaN,
       Number.POSITIVE_INFINITY,
+      { days: Number.POSITIVE_INFINITY },
+      "Infinity",
+    ])
+      expect(placedOff(delay)).toEqual([
+        ["InvalidConfiguration", "DelayOutOfRange", "states.OFF.schedules.off.schedule"],
+      ]);
+  });
+
+  it("Turn R14: a Duration input with a NaN part builds as Effect reads it, a 0 ms delay", () => {
+    for (const delay of [
       [Number.NaN, 0],
       [0, Number.NaN],
       { seconds: Number.NaN },
       { milliseconds: Number.NaN },
-      { days: Number.POSITIVE_INFINITY },
-      "Infinity",
     ])
-      expect(
-        refusal(() =>
-          machine(Lamp, ({ S, E }) =>
-            loose({
-              default: S.OFF,
-              states: {
-                OFF: { schedules: { off: { schedule: delay, send: E.Flip } } },
-                ON: { default: S.ON.DIM },
-              },
-            }),
-          ),
-        ),
-      ).toEqual([["InvalidConfiguration", "DelayOutOfRange", "states.OFF.schedules.off.schedule"]]);
+      expect(placedOff(delay)).toEqual(placedOff(0));
   });
 
   it("Compile R14: E.X given null, a number or a string throws InvalidEvent, never a raw TypeError", () => {

@@ -102,7 +102,9 @@ requirements
                 stay disarmed. An event in both lists, any other `armOn` with `restartOn`, or `armOn` on a keyed
                 schedule is a construction error. A fixed delay outside 0 to the host timer's limit, 2^31 - 1 ms
                 (`TIMER_LIMIT_MS`, a platform limit; so a fixed negative one) is a construction error
-                (InvalidConfiguration, details.reason DelayOutOfRange). A computed finite negative delay counts as zero:
+                (InvalidConfiguration, details.reason DelayOutOfRange); a raw NaN number is refused so, while a
+                Duration input is read as Effect's Duration reads it, a NaN part as zero (the user, 2026-11-22). A
+                computed finite negative delay counts as zero:
                 due at once, fired once on the next turn, never in the arming turn. A computed delay that is NaN,
                 infinite or over 2^31 - 1 ms refuses the turn when the turn itself arms it (on entry or by `armOn`).
                 An arming decided after the turn commits, by a key that appears or a `restartOn` change, cannot

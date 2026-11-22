@@ -204,7 +204,7 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/turn.ts",
-        find: "  if (Option.isSome(first) && !input.outcome)",
+        find: "  if (Option.isSome(first) && !input.unrepeatable)",
         replace: "  if (Option.isSome(first))",
       },
     ],
@@ -217,8 +217,21 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: "      issues: savedScheduleIssues(record.schedules).map((issue) => issueOf(actor, issue)),",
+        find: "      issues: savedScheduleIssues(machines, record).map((issue) => issueOf(actor, issue)),",
         replace: "      issues: [],",
+      },
+    ],
+  },
+  {
+    name: "unrepeatable-turn-refused",
+    rule: "Schedules R11",
+    tests: ["tests/turn/unrepeatable-arm.test.ts"],
+    says: "a context reaction or an actor's send whose own schedule start is refused refuses its whole turn",
+    edits: [
+      {
+        file: "src/core/serve.ts",
+        find: "      unrepeatable: !resendable,",
+        replace: "      unrepeatable: resendable && !resendable,",
       },
     ],
   },

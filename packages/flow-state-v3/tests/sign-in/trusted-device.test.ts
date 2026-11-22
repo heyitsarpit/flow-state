@@ -223,15 +223,15 @@ describe("a trusted device written wrong is refused at construction (Compile R2,
     ]);
   });
 
-  it("Turn R14: a reminder of NaN or infinite days is refused DelayOutOfRange, never armed at 0 ms", () => {
-    for (const build of [deviceRemindingNaNDays, deviceRemindingNever])
-      expect(refusal(build)).toEqual([
-        [
-          "InvalidConfiguration",
-          "DelayOutOfRange",
-          "states.TRUSTED.states.FRESH.schedules.reverify.schedule",
-        ],
-      ]);
+  it("Turn R14: a reminder of infinite days is refused DelayOutOfRange; one of NaN days builds as Effect reads it, 0 ms", () => {
+    expect(refusal(deviceRemindingNever)).toEqual([
+      [
+        "InvalidConfiguration",
+        "DelayOutOfRange",
+        "states.TRUSTED.states.FRESH.schedules.reverify.schedule",
+      ],
+    ]);
+    expect(refusal(deviceRemindingNaNDays)).toEqual([]);
   });
 });
 

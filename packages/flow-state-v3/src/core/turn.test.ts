@@ -38,7 +38,7 @@ const turn = (late: boolean, from: number) =>
     tag: "Saved",
     payload: {},
     late,
-    outcome: false,
+    unrepeatable: false,
     from,
     now: 0,
     lane: () => LaneView.Idle(),

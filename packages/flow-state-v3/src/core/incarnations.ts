@@ -378,7 +378,9 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       ensure(actor, Option.none(), "wake", Option.none());
 
     if (incarnationOf(actor) !== undefined) {
-      enqueue(Mail.Event({ actor, ...event, chain: tx.chainNow() }));
+      enqueue(
+        Mail.Event({ actor, ...event, chain: tx.chainNow(), resendable: Option.isNone(sender) }),
+      );
 
       return;
     }

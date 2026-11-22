@@ -251,6 +251,20 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [{ file: "src/error.ts", find: "  code: Code,", replace: "  code: Schema.String," }],
   },
   {
+    name: "creation-delay-drops-all",
+    tests: ["tests/turn/creation.test.ts"],
+    says: "one refused delay at creation drops every schedule of the initial state, with no issue",
+    rule: "Turn R14, T6",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: "          disarms: [],",
+        replace:
+          '          disarms: arm.some((a) => a.first._tag === "Failure") ? arm.map((a) => a.name) : [],',
+      },
+    ],
+  },
+  {
     name: "creation-delay-silent",
     tests: ["tests/turn/creation.test.ts"],
     says: "a delay refused at creation reports no Issue evidence, though its snapshot keeps the issue",

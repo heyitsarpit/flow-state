@@ -211,19 +211,6 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "delay-nan-part-as-zero",
-    tests: [CONSTRUCTION, TRUSTED_DEVICE, "tests/compile/schedules.test.ts"],
-    says: "a delay with a NaN part compiles as 0 ms",
-    rule: "Turn R14",
-    edits: [
-      {
-        file: "src/compile-schedules.ts",
-        find: "  if (hasNonFinitePart(delay)) return Number.NaN;",
-        replace: "  if (hasNonFinitePart(delay) && delay === null) return Number.NaN;",
-      },
-    ],
-  },
-  {
     name: "event-payload-not-record-raw",
     tests: [CONSTRUCTION],
     says: "E.X given a payload that is no record throws a raw TypeError",
