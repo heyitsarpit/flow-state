@@ -361,7 +361,9 @@ instructions
       changes (with a pathspec where Tasks share commits) (the user, 2026-11-22).
     - Benchmarks follow @convention.bench (the user, 2026-11-18): no agent sits blocked on a bench; `--dev` while
       working, every longer run capped and in the background; a Task's close runs no bench by default, and a performance
-      Task records the quick tier once at its end, its review reading `--summary`.
+      Task records the quick tier once at its end, its review reading `--summary`. No full or tier-wide bench run, the
+      tooling bench included: only narrow `--only <ids>` cases a Task needs (the user, 2026-11-22; a full run takes
+      about 3 hours).
 
     **Records and commands**
 
@@ -372,18 +374,15 @@ instructions
     - No agent reads agent transcripts (the user, 2026-11-15).
 cadence
     A wake every 60 minutes (the user, 2026-11-17; was 30) checks for a Task in review, a stalled lead, the usage
-    reserve and the 5-hour window; wakes about every three hours also start the tooling bench in the background (the
-    user, 2026-11-18; was a hand timing). Reviews run on the events in instructions, not on the clock.
+    reserve and the 5-hour window; no wake starts a bench (the user, 2026-11-22; was the tooling bench every three
+    hours). Reviews run on the events in instructions, not on the clock.
 
     Session cron `7 * * * *`. One job only: the scheduler adds a different fixed delay to each job, so several jobs
     drift apart.
 
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage and the
     5-hour window from the harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it;
-    follow instructions' 5-hour pacing. Only when the local hour is a multiple of 3 and the minute is under 30: start
-    `nub run bench tooling --record` in the background and never wait on it; at the next wake read its rows, and if a
-    test command regressed beyond noise against the previous tooling row, note it and insert a Task to make the tests
-    fast again, taken before the lead's next Task. Never start `nub run faults` whole (the user's demand only). If a
+    follow instructions' 5-hour pacing. Never start a bench or `nub run faults` whole (the user's demand only). If a
     Task is in review, or a review event in instructions has no review covering it, and no lead is running, start one
     Opus lead at medium effort with its read-only Haiku sidecars, one of them blind; verify its findings, route the
     accepted ones, and note the review. If the lead has shown no activity for 100 minutes, resume it by message or

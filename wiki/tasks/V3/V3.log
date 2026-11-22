@@ -623,3 +623,12 @@ note 2026-11-22T06:07:49Z
 note 2026-11-22T06:20:01Z
     [decided: user 2026-11-22] Each slice's close includes hunk diff commands: the whole slice, broken down by
     requirements, build and fix rounds, and by Task. Scope: the whole run.
+
+note 2026-11-22T06:38:57Z
+    Tooling bench fails at load since T58 (testing entry imports vite-plus/test via storeContract); no bench row since
+    2026-11-19. Inserted @task.V3.T141, taken after T118 and before T113.
+
+note 2026-11-22T06:45:15Z
+    [decided: user 2026-11-22] "benches take 3 hours to run, i can't allow full runs, only narrow cases where needed":
+    no full or tier-wide bench, tooling included; only narrow --only cases. Scope: the whole run. Wake no longer
+    benches.
