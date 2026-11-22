@@ -56,3 +56,20 @@ snapshot.schedules.brown?.[0]?.pausedBy   // ReadonlyArray<"LidOpen">
 - One schedule placed in a state and again in a state below it: the inner placement's timer is lost today (an
   inverted test, owned by the timer rebuild in T118).
 - A Map the app froze itself, or a typed array, on a public value is not frozen by Flow (no fixture does this).
+
+## Review the diff
+
+The slice's commits interleave with design work in the wiki, so the code ranges carry a pathspec.
+
+- The whole slice:
+  `hunk diff 6e500bb4 c95c2f78 -- packages/flow-state-v3`
+- Requirements (the reds for T131, T120 and T140, and their review rounds):
+  `hunk diff 6e500bb4 dd451cf2 -- packages/flow-state-v3`
+- Build:
+  `hunk diff dd451cf2 bc0f0038 -- packages/flow-state-v3`
+- Close review fix round:
+  `hunk diff bc0f0038 3e6a2ae1 -- packages/flow-state-v3`
+- T131, construction trust's doors:
+  `hunk show baf442a4`
+- T120 and T140, declared schedules and the migration (one commit):
+  `hunk show d34cce3f`

@@ -356,9 +356,9 @@ instructions
       proposed; the user confirms them, confirmed items are merged into the Epic or a convention and removed from
       the record.
     - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
-      user, 2026-11-12); that is in stops. The page and the close report end with `hunk diff <from> <to>` commands for
-      the slice: the whole slice, then its requirements commits, its build, and each fix round, then each Task's own
-      changes (with a pathspec where Tasks share commits) (the user, 2026-11-22).
+      user, 2026-11-12); that is in stops. The user's page ends with a "Review the diff" section of `hunk diff <from>
+      <to>` commands for the slice: the whole slice, then its requirements commits, its build, and each fix round, then
+      each Task's own changes (with a pathspec where Tasks share commits) (the user, 2026-11-22).
     - Benchmarks follow @convention.bench (the user, 2026-11-18): no agent sits blocked on a bench; `--dev` while
       working, every longer run capped and in the background; a Task's close runs no bench by default, and a performance
       Task records the quick tier once at its end, its review reading `--summary`. No full or tier-wide bench run, the
