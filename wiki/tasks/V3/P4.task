@@ -2806,7 +2806,7 @@ tasks
             gives this Task's applier.
     T113
         title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T57, @T131, @T120]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
@@ -2960,6 +2960,226 @@ tasks
         comment     2026-11-22T03:54:02Z
             Fix 11: owns the derived row that carries the mapper's `{ input, key }`; @task.V3.T121 adds it through that
             row and Fix 9: owns `snapshot.ts#asOutside`. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T10:20:17Z
+            Requirements lead: the survey re-run, about 140 hand-typed sites in 45 files, where 2026-11-20 counted about
+            100. Re-run each `rg` from `packages/flow-state-v3`. Inventories: two Haiku sweeps (a pattern sweep, and a
+                 file-by-file sweep of all 190 fixture files) and my mechanical pass, which stripped every class-K1
+                 annotation and compiled.
+
+            - **K1, a typed mapper parameter** (`E.X.from((v: T) => …)`): 52 lines in 26 files, `rg -c -U --pcre2
+              '\.from\(\s*(loose\()?\(\s*(\{[^}]*\}|\w+)\s*:' fixtures tests bench` `-g
+              '!tests/types/endings.test-d.ts'`. The mechanical pass: with all 50 non-`loose` annotations stripped, the
+              package still compiles except for `tests/compile/corruption.test.ts:130`, a bare `.from` sample outside
+              any slot. So inference already reaches every ending, context and schedule-send mapper, and K1 is redundant
+              text. Out of class: the two inside `loose(...)` (`tests/restore/schedule-records.test.ts:120`,
+              `tests/turn/schedule-sequences.test.ts:186`, deliberately erased) and the deliberate refusals
+              at `tests/types/endings.test-d.ts:134,137`.
+            - **K2, a hand-typed event parameter** (`{ readonly event: {…} }` or a copied type): 25 sites, `rg -n -U
+              --pcre2 '\}\s*:\s*\{[^()]*?\bevent\??\s*:\s*(\{|[A-Z])' fixtures tests bench`. Fixtures: `pay.ts` 159,
+              171, 191, 207, 214; `sync.ts:53`; `mirror.ts:41`; `palette.ts:147`; `sign-in.ts:51,55`; `transfers.ts:37`;
+              `room.ts:118`; `clients.ts:9`; `paged.ts:45`; `cart.ts:79,87`; `checkout-flow.ts:53`. Tests:
+              `unencodable.test.ts:81,86`, `deep-inputs.test.ts:60`, `schedule-sequences.test.ts:114`,
+              `send.test-d.ts:28`, `edges.test.ts:43`, `schedule-table.test.ts:86,93`.
+            - **K3, a hand-typed memory parameter** (a literal or a copied local type): 38 annotations, 5 of which share
+              a parameter with K2. Command: `rg -n -U --pcre2 '\}\s*:\s*\{[^()]*?\bmemory\??\s*:' fixtures tests bench`
+              plus `rg -n '\(\s*memory\s*:\s*[A-Z{]' fixtures tests bench`. Out of class: a derived alias (`stepper.ts`
+              `Memory = typeof Stepper.Memory.Type`, `palette.ts` `PaletteMemory`) and the `loose` schedule
+              in `schedule-records.test.ts:116-130`.
+            - **K4, local copies of a declared shape**: `room.ts:8` `Sensors`, `sign-in.ts:49` `Email`,
+              `sign-in/session.ts:79` `Memory`, `cart.ts:11` `Line`, `cart.ts:66` `Memory`, `cart-pulse.ts:5` `Lines`,
+              `pay.ts:153` `Memory`, `schedule-table.test.ts:31,67` `Inputs` and `Memory`,
+              `schedule-sequences.test.ts:100` `Memory`, `Tokens = { S; E }` three times
+              (`tests/restore/schedule-declarations.test.ts:17`, `tests/compile/schedule-declarations.test.ts:13`,
+              `tests/compile/schedule-migration.test.ts:13`), and `Policy` twice (`clients.ts:5`,
+              `policy-cells.test.ts:25`). Out of class: a type test's expected type, written by hand on purpose
+              (`endings.test-d.ts:21-27`, `contract.test-d.ts:20-24`).
+            - **K5, duplicated helpers**: `byRepo` 3 times (`sync.ts:53`, `clients.ts:9`, `unencodable.test.ts:86`),
+              `fromAccount` twice (`standing-order.ts:54`, `transfer-form.ts:40`).
+            - **K6, a hand-derived Flow signature**: `pay.ts:182,188` (`Parameters<typeof machine<typeof Pay>>`, G2);
+              `shop/stories/structure.ts:110` and `actors/context-slots.test.ts:227` (`Parameters<typeof
+              Flow.context>[1]`); `schedule-sequences.test.ts:319-322` (`ReturnType<typeof Pair.E.X>`, the envelope, so
+              `EventOf<D>` and not `.Type`).
+
+            **Family**, every export of the touched entries (sidecar table, checked):
+
+            - `machine.ts`: `MachineBody`, `AnyBody`, `ChangeInternals`, `machine`; `Parts` and `BodyOf` are private.
+            - `definition.ts`: 32 exports, including `PayloadOf`, `MemoryOf`, `OutsideOf`, `WritableOf`, `InputOf`,
+              `Envelope`, `EventOf`, `Definition`, `AnyDefinition`, `Machine`, `ActorRef`, `treeOfDefinition`, and the
+              re-exports of `tokens.ts`.
+            - `event-tokens.ts`: `EventToken`, `MappedEvent`, `Tokens`.
+            - `tokens.ts`: 33 exports. Siblings of a changed type: `MemoryToken` (`:388`, gains `.Type`),
+              `StateNameToken`, `ReadToken`, `ScheduleMetadata`, `ScheduleBodyOf`, the private `ScheduleInput` (`:279`,
+              which differs from `core/compiled.ts:173`), `Change`, `ChangeSpec`, `ContextTokens`.
+            - `contract.ts`: `Ending`, `ErasedEnding`, `UnknownEnding`, `WriteEndings`, `ReadEndings`, `Bound`,
+              `BoundInput`, `BoundKey`, `KeyFields`, `KeyRecord` and 13 more.
+            - `events.ts`: `codecOf`, `trusted`, `selectionCodec`, `payloadOf`, `tokensOf`, `endingOf` and others.
+            - `handles.ts`: `SelectArg`, `SendArg`, `GuardArg`, `erase`.
+            - `host/snapshot.ts`: `Snapshot`, `TimerView`, `TimersOf`, `Timers`, `snapshotIn`, `outside`, `snapshotOf`.
+            - `core/tree.ts`: `chainOf`, `leafOf` (40 uses), `atOrBelow`, `moveOf`, `historyAfter`, `create`.
+            - Public: `index.ts` re-exports `Ending`, `ReadEndings`, `UnknownEnding`, `WriteEndings`, `Definition`,
+              `Machine`, `Snapshot`, `TimerView`, `Timers`, `TimersOf`. `BodyTokens` and `MapperContext` are not
+              exported yet.
+
+            **Casts**: there are 39 cast disables in `src/` production files, not 38 (I4). The `made.ts` doors from
+            T131, and the three `made(...) as X` kind-brand casts in `definition.ts`, `machine.ts` and `send.ts`, came
+            after the Spec. `tests/surface/derivation.test.ts` prints them by function.
+
+            **Sidecars** (5 Haiku: 3 sweeps at medium effort, 2 blind at high):
+            - Pattern sweep: K1 accepted (it matches `rg` and adds `pay.ts:110`). Its approximate (b) and (c) counts
+              were changed to K2 to K4: bench harness types, Story aliases and service signatures were dropped, since
+              none restates a definition. Of its (e) duplicates, `Tokens` and `Policy` were accepted; `idOf`, `Who` and
+              `Idem` were rejected as test or service types Flow does not hold.
+            - File sweep (190 files): its matches were accepted; primitive annotations were rejected as out of class.
+            - Family: accepted, with each line checked (`MemoryToken` is at `tokens.ts:388`; the two `ScheduleInput`
+              types are confirmed).
+            - Blind sidecar on `E.X.Type`: accepted after reading its cited answer.
+            - Blind sidecar on helper inputs: the `Reads` gaps were accepted (checked at Types.spec:344). Its reading
+              that the lint item refuses any hand-written wrapper was changed to an open ruling.
+        comment     2026-11-22T10:20:18Z
+            Build-time choice, first spike (definition findings and tokens, @spec.Types Q12): 7 findings must keep
+            raising at `definition()` (B); the other 25 can hand out every token and wait for construction's value (A).
+            Today every one raises. `refuse` runs at `definition.ts:428` and `:467`, before any token is built.
+
+            [decided: agent builder 2026-11-22] Rule: A where every token's name and kind are known without the failing
+            part; B where a token would be ambiguous or missing. Why: Q12's test. A module with `const Idle = X.S.IDLE`
+            at top level must import, and it can only import when that token is well defined. Reverse: take B for every
+            finding (Q1's B).
+
+            - **B, keeps raising**:
+              - the config decode's `MissingField` or `WrongKind` on `states`, `events` or `internalEvents`: no tokens
+                can be made;
+              - `DuplicateName` of sibling states: two tokens, one name;
+              - `DuplicateName` of a public and an internal event: `E.X` names two events;
+              - `ReservedStateName` (`is`, `child`, `history`, `self`, `__proto__`, a top-level `root`): the child token
+                collides with the token's own member;
+              - `InvalidName` for an empty state name or one with a dot: its path is the root's, or a sibling child's;
+              - the `operations` callback throwing (`Defect`): no `O` names exist;
+              - `operationsFindings`' `WrongKind`, an entry that is not a bound contract: its handle's kind, write or
+                read, is unknown. Today it also drops every other handle (`definition.ts:464`).
+            - **A, tokens handed out**:
+              - the config decode's `UnknownField`, and `WrongKind` inside a memory field or an event's fields;
+              - `InvalidName` of the id, an event, a memory field, a context slot, a schedule or a reason, or a state
+                name with a control character;
+              - `EmptyCompound`; `ReservedField` (`_tag`) in a payload or in memory;
+              - the memory-source rows `TwoDefaults`, `IdentityFieldOptional`, `ImpureDefault`, `NoSource`,
+                `ComputedStart`, and `WrongKind` for a start;
+              - `slotReadsOf`'s rows;
+              - the operation rows `UnknownEvent`, `KeyOutsideInput`, `KeyFieldOptional`,
+                `UnknownNotUncertain`, `SharedContract`;
+              - the schedule declaration's `DuplicateName` for a reason named twice. Schedules are not tokens.
+
+            **Trace A** (`TwoDefaults`): an app module holds `const Lamp = definition({ …, memory: { level:
+            Flow.initial(Schema.Number.pipe(Schema.withConstructorDefault(…)), 0) } })` and `const Off = Lamp.S.OFF`.
+            - Today: the import throws at `definition()`, and `flow check` prints only that throw. A second machine in
+              the same config, with an unreachable state, is never reported.
+            - Under A: `Lamp.S.OFF` is the one token of path `OFF`, so the module imports. `machine(Lamp, …)` is
+              `Blocked`, and `findingsOf(app)` lists `TwoDefaults` under `Lamp` beside the other machine's finding.
+
+            **Trace B** (`DuplicateName`): `states: ["IDLE", "IDLE"]` with `const Idle = Toaster.S.IDLE`.
+            - The tree holds two nodes with path `IDLE`. One `S.IDLE` would stand for both, and a body's `default:
+              S.IDLE` could not say which.
+            - So `definition()` keeps raising. The `FlowError` carries every finding of the definition, as a wrong-kind
+              argument's does (R4).
+
+            Not built here: the spike decides only the rows above. Building construction as a value (R11, I5, I7) is not
+            in T113's acceptance, and no Task's coverage line names it. A ruling is needed (see the
+            requirements comment).
+        comment     2026-11-22T10:20:28Z
+            Requirements list, one item per acceptance item. Status: items 1 to 3 and the construction half of 4 already
+            hold and become guards. The reds are committed: inverted type pins in `tests/types/derived.test-d.ts` and
+            `src/derive.test-d.ts`, `it.fails` source checks in `tests/surface/derivation.test.ts`, and `rg` checks for
+            each absence. Each red was replayed without its `@ts-expect-error` and fails for its stated reason (TS2339
+            or TS2694: the row is missing). Real resources: none; this Task touches only types, construction and the
+            source tree.
+
+            1. **`pausedBy` a literal union** (@spec.Schedules R16): holds, a guard. `schedules.test-d.ts` "Machines O8"
+               asserts `Snapshot<typeof Room>["schedules"]` exactly, and `schedule-readers.test-d.ts` refuses
+               `"Vacaton"`. T140 already turned the inverted pin.
+            2. **The typed key in a keyed send mapper** (@spec.Schedules R16): holds, a guard. New two-sided pin in
+               `derived.test-d.ts` on Room's `poll`: `key` equals `{ readonly id: string }`, and `key.kind` is refused.
+            3. **`key` undefined in an unkeyed send mapper**: holds, a guard. New two-sided pin on Room's `reconnect`.
+               At run time, `core/schedules.ts#metadataOf` gives `key: undefined`. The build adds the run read (I3).
+            4. **An unknown body key refused; shared bodies compile** (Q19): the construction half holds, a guard
+               (`tests/compile/construction.test.ts`, "refused UnknownField"). `payBody` compiles today, through the
+               hand-derived `Parameters<typeof machine<typeof Pay>>`. Red, inverted: `Flow.BodyTokens<typeof Pay>` (G2).
+               The `flow check` half cannot be checked here, because no `check` command exists; see amendment 1.
+            5. **`E.X.Type` and `D.M.field.Type`** (R10): red, inverted, on fixture definitions: `typeof
+               Sync.E.SyncRepo.Type` is to equal `{ readonly repo: string }`, and `typeof Room.M.sensors.Type` the
+               sensors list. Each sits beside today's route to the same type (`Parameters<typeof E.X>[0]`,
+               `M.x.schema.Type`) as its exact positive.
+            6. **An ending mapper's parameter is the contract's value or error type** (R10): the value half holds, a
+               guard (`endings.test-d.ts`, "an unannotated mapper reads the commit's success and failure values"; the K1
+               mechanical pass). Red, inverted: `contract.ts#MapperContext<BoundInput<B>, BoundKey<B>>` equals `{ input,
+               key }` with the picked key, the row @task.V3.T121 reads (fix 11). `BoundKey` already holds, pinned.
+            7. **Every survey site refactored**: red. K1 to K6 of the inventory comment are non-zero: 52, 25, 38, 15, 5
+               and 8. Done means each `rg` returns only its listed out-of-class lines. Plants, in a scratch copy at the
+               build, one per kind: rename `Sync`'s `SyncRepo.repo`, `StandingOrder`'s memory `account`, and
+               `transfer`'s commit `receipt`. Each must fail to compile at every helper that reads it, not only at the
+               call site.
+            8. **The lint rule**: red, an absence. `ls tools/flow-state-lint/rules/no-hand-typed-callback*` finds
+               nothing. The build adds the rule, its test of the K1 to K3 shapes and of out-of-class lines (`loose`, a
+               derived alias, an expected type in a type test), and a `lint:rules` entry.
+            9. **`nub run check` and the suite pass**: a gate. At this commit: 25064 passed, 19 expected fail, 0
+               type errors.
+            10. **Fixtures first**: the reds are written against the manifest apps' own definitions (`home/Room`,
+                `sync/Sync`, `shop` `Pay`). The rest of the list is item 7's sites. No new matrix cell. See amendment 2.
+            11. **Correctness**, red at each Spec row:
+                - I1: `derivation.test.ts` "Parts … declared in derive.ts alone" fails, since `Parts` is
+                  in `machine.ts:41`.
+                - I4, R13: "the cast disables … are exactly the named crossings" fails with 39 against the 17 listed.
+                - I10, R14: `Node.chain`, `depth` and `leaf`, and `Compiled.handledTags`, are inverted pins. The build
+                  adds T5's slow-scan equality over every fixture machine and the fault `index-chain-stale`.
+                - R7: `rg -n 'construct\.(small|wide|deep)' bench fixtures` is empty.
+                - R13: the fault `project-second-cast` is not in `tests/faults.ts`.
+                - R2, R3 and R15 hold through the existing two-sided pins.
+                - Q15: record check time per step (today 1.3 s wall for `tsc -p`).
+
+            **Amendments proposed** (the orchestrator's):
+            1. Item 4: drop "and by `flow check`". @task.V3.T22 owns that refusal in its acceptance, and the command
+               does not exist yet.
+            2. Item 10: the app list names `pay`, which is part of `shop`, and `kanban`, which is not built. Make it
+               "the 12 manifest apps (`fixtures/index.ts#manifests`)".
+            3. Item 1: drop "replaces the inverted pin"; T140 turned it.
+            4. Approach: change "`E.X.Type`, the envelope with its payload" to "the payload", per the user's Ask
+               2 answer.
+            5. Item 6: "the value is inferred (a guard); the `{ input, key }` row is T113's, and T121 makes the mapper
+               read it".
+            6. Correctness: drop R9 and I12, which are @task.V3.T106's `.rules(build)` (T106 is `blocked_by` T113).
+
+            **Rulings needed**:
+            1. Construction as a value (Types R11, I5, I7; Q1) is in no Task's acceptance or coverage. T113 holds only
+               its spike.
+               - Trace 1, it stays unowned: `definition()` keeps raising for every finding, so the spike's A rows change
+                 nothing, and `flow check` (T22) still prints one throw per config.
+               - Trace 2, it goes to @task.V3.T22, which supersedes `error.ts#refuse` and `construction.ts`: `machine()`
+                 returns `Built`, `Refused` or `Blocked`, `compiledOf` is the one raise, and the spike's table becomes
+                 T22's rows.
+               - Recommendation: T22.
+            2. A callback written outside a body (a shared handler record, a schedule built in a helper): what derived
+               type does its parameter name?
+               - Trace 1, B: `{ readonly memory: typeof D.Memory.Type; readonly now: number }`. The inner types are
+                 derived and the wrapper is written by hand. The lint rule refuses only a literal inner shape.
+               - Trace 2, A: export `Reads<D, View>` (G1) and write `(input: Reads<typeof Booking, "schedule">)`. As
+                 written, `Reads` has no `event`, `now` or `state` field, and its `View` is still
+                 open (@proposal.algo-resolutions).
+               - The blind sidecar favoured A composed with B.
+               - Recommendation: B in T113 (acceptance names only the phantoms), and `Reads` deferred to the Changes
+                 Tasks that settle `View`.
+        comment     2026-11-22T10:20:28Z
+            [decided: agent builder 2026-11-22] `E.X.Type` is the payload, not the envelope. Why: the user answered Ask
+            2 of @proposal.spec-typed-machine; a handler's `event` is the payload (`tokens.ts:184`, `handles.ts:24`),
+            and a helper typed by the envelope is refused there. Blind sidecar: accepted. Reverse: the envelope, with
+            helpers typed by `Omit<…, "_tag">`.
+        comment     2026-11-22T10:20:29Z
+            [decided: agent builder 2026-11-22] I4's expected list adds `made.ts#madeCallable` and `made.ts#madeOf`. The
+            three kind-brand casts in `definition.ts`, `machine.ts` and `send.ts` fold into them. Why: these are T131's
+            doors, which landed after the Spec; there is one point per class of cast (R13). Reverse: fold them
+            into `entry.ts#door`.
+        comment     2026-11-22T10:20:30Z
+            [decided: agent builder 2026-11-22] T113's derived fields are `Node.chain`, `depth`, `leaf` and
+            `handledTags`, the ones its Supersedes replaces. The other `DerivedFields` (`declared`, `armedBy`,
+            `entryArmed`, the field indexes, `shape`, `slotsAt`) go to their readers' Tasks. Why: nothing in T113's
+            acceptance reads them. Reverse: build all of `indexOf` here.
 
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
