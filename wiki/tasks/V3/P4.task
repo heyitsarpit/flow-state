@@ -6117,6 +6117,74 @@ tasks
             Open for the orchestrator: no fixture machine is deeper than 2 or wider than 9 states (probe of all 47), so
             `construct.wide` and `.deep` time the widest and deepest there are, and T5 guards depth 2, not 3. A
             real-shaped deep or wide machine would need a catalog row; proposed, not built.
+        comment     2026-11-22T12:22:13Z
+            Rulings (orchestrator) at T143's close: the service-free Schema requirement on Flow.uncertain fields and
+            ScheduleDecl.key and restartOn is accepted as a small public change consistent with every Flow field Schema.
+            The machine keeping its body for the construct benches goes to the close review: is rebuilt reachable from
+            user code, and is a bench reason enough to hold a body on every machine? Deep and wide fixtures: routed to
+            T144 to extend an existing machine where a real app would (a long wizard for width, nested House modes for
+            depth); if none fits, the construct.wide and construct.deep rows are renamed to what they measure.
+        comment     2026-11-22T12:43:18Z
+            Close review (reviewing lead, c5c3fe23): PASS. Every acceptance item holds on HEAD, and no finding meets the
+            Stopping rule. The kept body stands, but `rebuilt` should leave the inspection route (finding 1).
+
+            - Checks I re-ran. `faults --only` on the 16 faults: 16 of 16 caught. Flip A: every Node and handledTags pin
+              is flipped, and `rg 'it\.fails'` over the three test files is empty. `check:effect` is clean.
+            - Ratchet: two sidecars counted the disables independently and got 20 production and 8 in `host/testing`, so
+              the pins are measured, not fitted. `door` and `slot` count 1 each, through the array.
+            - Absences checked by `rg` (14 superseded names): the only hits are `selectionCodecOf`, the new typed codec,
+              and `core/boundary.ts#childrenOf`, an unrelated function. `initial` and the derived fields each have one
+              writer, `compile-index.ts`.
+            - Coverage run: 25133 passed. Three tests hit the time limit under coverage only (home 64 rooms, seeds, the
+              1000-line cart); run alone without coverage, all three files pass. `construct.small --dev`: 0.036 ms, and
+              its rebuild proof holds.
+            - Ruling on the kept body: it stays. It is not on `Machine`'s type (`definition.ts#Machine` is `Branded & {
+              definition }`). It costs one reference per machine, and Compiled's Slots already hold the body's
+              callbacks. Its only reach is `InternalsId`, which already exposes `compiled`. Rewriting the fixtures to
+              export their bodies would bend userland sources for a bench.
+
+            Accepted (non-blocking, routed to the orchestrator):
+
+            1. `src/host/inspect.ts:217` re-exports `rebuilt`. That module is the inspection route (Host.md; docs
+               `flow-state/inspect`), and `rebuilt` reruns a body outside the `machine` door, against "the body runs
+               exactly once". Origin: Flow code, this diff. Tests missed it because no surface test lists that route's
+               exports. It is the same class as the route's older `InternalsId`, `compiledOf` and `dataView`. Route:
+               move test and bench reach off the user route before it is published.
+            2. T5's `initial` oracle (`tests/compile/index.test.ts:92`) is computed from `compiled.initial` itself, so a
+               wrong root default passes T5. Stories still cover the start state. Origin: the test. Route: T144 compares
+               it with the authored root default.
+            3. Ratchet gaps (`tests/surface/derivation.test.ts:16-17`): `src/test/` and `src/**/*.test.ts` fall in
+               neither count, and two casts under one disable count once. Origin: test tooling. Route: @task.V3.T111,
+               with the exact list.
+            4. `derivation.test.ts:67-68` names "the Task that builds host/snapshot.ts#project", a temporary concept in
+               package code. Origin: this diff. Route: T111 drops the clause.
+            5. Dead fallbacks, from the coverage reader: `compile-index.ts` `?? []`, `?? [node.path]`, `?? node.path`
+               and `?? walked.initial` (every map entry is set first); the undeclared-name `defect` in
+               `compile-schedules.ts#scheduleOf` (`placementFindings` refuses first); `machine.ts:198` and `:271`.
+               Route: delete at the next touch (T119).
+            6. Older than this Task: `paused: { r: undefined }` passes `ReasonMissing` (`Object.hasOwn`) and never
+               pauses (`compile-schedules.ts:178`; the same at 068e35bd). Origin: Flow code. Route: @task.V3.T118.
+
+            Changed:
+
+            - `handled-tags-root-dropped` is caught by T5's module-build test, through `machine.ts:263`'s refusal, not
+              by the I10 equality. Both are real guards.
+            - `schedules: { x: undefined }` is now skipped where it used to be a raw TypeError. That is consistent with
+              `AnyBody`'s `| undefined`, so it is a note.
+            - The tree kept in `DefinitionInternals` is an immutable index built once (Construction cost), not a
+              second fact.
+
+            Rejected:
+
+            - `events.ts` uses the `Record` namespace as a type: `check:effect` is clean.
+            - "`index-chain-stale` survives at depth 2": the mutant drops `above`, and it was caught.
+            - Deleted `Node.children` and `Compiled.states` pins: they were controls for the inversions.
+            - Derived fields with no runtime reader yet: T119 reads them.
+            - `ABSORBED` holds deleted names: deletion is the goal, and the exact T7 catches a rename.
+            - Hand-built Slots in `compile-schedules.ts:111,155` and `compiled-parts.ts:45`: they are Flow's typed
+              adapters and hold no cast.
+            - No outside imports, no Effect re-creations; the tightened field types break no fixture, test or
+              doc sample.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
         status      open
@@ -6247,3 +6315,8 @@ tasks
             Sweep item (orchestrator, from the user's review): payBody is inlined into PayMachine (machine(Pay, ({ S, E,
             O }) => ({ ... }))), and Cells writes its own full body instead of calling payBody; derive.ts's BodyTokens
             doc example changes to a helper typed from the definition, not a whole shared body.
+        comment     2026-11-22T12:22:13Z
+            Routed (orchestrator) from T143: no fixture machine is deeper than 2 levels or wider than 9 states, so
+            construct.wide and construct.deep time small machines and T5 checks depth 2 only. Extend an existing machine
+            where a real app would (width: a long wizard; depth: nested House modes); if none fits, rename those bench
+            rows to what they measure.
