@@ -619,3 +619,7 @@ note 2026-11-22T05:52:00Z
 note 2026-11-22T06:07:49Z
     [decided: user 2026-11-22] "get rid of daily cadence, it will run only on my demand": the whole nub run faults runs
     only when the user asks; no wake, Task, review or phase close starts it. Scope: the whole run. Cron prompt updated.
+
+note 2026-11-22T06:20:01Z
+    [decided: user 2026-11-22] Each slice's close includes hunk diff commands: the whole slice, broken down by
+    requirements, build and fix rounds, and by Task. Scope: the whole run.
