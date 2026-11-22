@@ -289,21 +289,37 @@ const placementRows = (
   return checks.flatMap(([refused, finding]) => (refused ? [finding] : []));
 };
 
+// A schedule placed again below a state that places it: both are active at once, and an unkeyed
+// schedule shows one timer.
+const nestedPlacement = (above: ReadonlySet<string>, name: string, at: Path) =>
+  above.has(name)
+    ? [
+        invalid(
+          at,
+          "DuplicateName",
+          `the schedule ${name} is placed here and in a state above`,
+          "Place a schedule in states that are never active together, or declare a second name.",
+        ),
+      ]
+    : [];
+
 /**
  * Every placement of a machine body checked against its definition's declaration, state by state:
- * the construction twin of each refusal the types make for a schedule.
+ * the construction twin of each refusal the types make for a schedule, and a schedule placed again
+ * below a state that places it, which no type refuses.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a machine body as written, judged before it is decoded.
 export const placementFindings = (declared: ScheduleDecls, body: unknown) => {
   const found: Array<Finding> = [];
 
-  // FLOW_STATE_ALLOW_UNKNOWN: a state body as written.
-  const walk = (state: unknown, at: Path) => {
+  // FLOW_STATE_ALLOW_UNKNOWN: a state body; `above` names the schedules its ancestors place.
+  const walk = (state: unknown, at: Path, above: ReadonlySet<string>) => {
     const schedules: unknown = Predicate.hasProperty(state, "schedules")
       ? state.schedules
       : undefined;
 
     const states: unknown = Predicate.hasProperty(state, "states") ? state.states : undefined;
+    const here = Predicate.isObject(schedules) ? Object.keys(schedules) : [];
 
     if (Predicate.isObject(schedules))
       for (const [name, entry] of Object.entries(schedules))
@@ -316,13 +332,15 @@ export const placementFindings = (declared: ScheduleDecls, body: unknown) => {
             name,
             [...at, "schedules", name],
           ),
+          ...nestedPlacement(above, name, [...at, "schedules", name]),
         );
 
     if (Predicate.isObject(states))
-      for (const [name, child] of Object.entries(states)) walk(child, [...at, "states", name]);
+      for (const [name, child] of Object.entries(states))
+        walk(child, [...at, "states", name], new Set([...above, ...here]));
   };
 
-  walk(body, []);
+  walk(body, [], new Set());
 
   return found;
 };

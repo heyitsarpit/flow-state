@@ -2,7 +2,8 @@ import { actorRef } from "../../src/index.ts";
 import { TransfersMachine } from "./machines/transfers.ts";
 import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
-import { bankSwitching, bankSwitchingSetup } from "./app.ts";
+import { bankReminding, bankRemindingSetup } from "./app.ts";
+import { reminderSamples, reminderStories } from "./stories/reminders.ts";
 import {
   switcherEdges,
   switcherRecent,
@@ -51,8 +52,8 @@ import {
  */
 export const transfers = manifest({
   name: "transfers",
-  setup: bankSwitchingSetup,
-  app: bankSwitching,
+  setup: bankRemindingSetup,
+  app: bankReminding,
   stories: {
     ...stories,
     ...visibilityStories,
@@ -80,9 +81,17 @@ export const transfers = manifest({
     switcherRecent,
     switcherEdges,
     switcherReloaded,
+    ...reminderStories,
   },
-  samples: [samples, formSamples, orderSamples, plannedSamples, switcherSamples],
-  stressSamples: [stressSamples, formSamples, orderSamples, plannedStressSamples, switcherSamples],
+  samples: [samples, formSamples, orderSamples, plannedSamples, switcherSamples, reminderSamples],
+  stressSamples: [
+    stressSamples,
+    formSamples,
+    orderSamples,
+    plannedStressSamples,
+    switcherSamples,
+    reminderSamples,
+  ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },
   mix: Option.some({ usual: plannedSamples, stress: plannedStressSamples }),
@@ -97,6 +106,10 @@ export const transfers = manifest({
     },
     {
       samples: orderSamples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+    },
+    {
+      samples: reminderSamples,
       reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
     },
   ],

@@ -360,4 +360,13 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "    return !Option.exists(committed, (fired) => sourceKeyOf(fired.key) === source);",
     "    return true;",
   ),
+  fault(
+    "nested-placement-accepted",
+    "Schedules R8",
+    ["tests/turn/nested-placement.test.ts"],
+    "a schedule placed in a state and again in a state below it constructs, so two timers of one name are active at once",
+    "src/compile-schedules.ts",
+    "  above.has(name)\n",
+    "  above.has(`${name} below`)\n",
+  ),
 ];

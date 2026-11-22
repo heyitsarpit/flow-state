@@ -3002,7 +3002,7 @@ tasks
             (2026-11-22, P4 comment).
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
@@ -3433,6 +3433,66 @@ tasks
             [decided: agent orchestrator 2026-11-22] One schedule placed in a state and in its descendant is refused at
             construction; sibling placements stay. Why: the two timers' issues can't be told apart and no Spec says
             which the snapshot shows. Reverse: allow it and key the snapshot's issue by placement.
+        comment     2026-11-22T04:40:57Z
+            Routed (orchestrator): the daily faults' unchanged run failed three stress tests (generated home-rooms
+            rest-2, sweep-stress-abort-0, sweep-stress-land-0), under load at 1bbe48d7's parent. At this Task's close
+            stress run, replay each and name the wrong side (load timeout or a real breach).
+        comment     2026-11-22T04:54:10Z
+            Nested-placement ruling checked: `tests/turn/nested-placement.test.ts` refuses one schedule placed in a
+            state and in its child or grandchild (`DuplicateName` at the lower placement), and two sibling placements
+            construct and each fires in its own state. The child refusal was red on `1bbe48d7` (constructed, no
+            finding). The refusal is a construction finding in `placementFindings`
+            (code:packages/flow-state-v3/src/compile-schedules.ts), so the plant can run: `nested-placement-accepted` is
+            caught by `nub run faults --only`. Extra files: that source file, and `tests/declaration-faults.ts`, whose
+            `warning-blocks-machine` find text moved with it (still caught). Types' "A declared name may be placed in
+            several states" now excludes a state and its descendant; no Spec edit (the orchestrator's tag holds
+            the call).
+
+            Review (Haiku, high) of the diff: the walk refuses at any depth, once, and leaves siblings and cousins
+            alone; no fixture places one name twice in a line of states. Accepted: a grandchild case; the shared
+            `tests/refusals.ts` helper; cite R8 and R15 (R13 is the occasions table); the doc says no type refuses this
+            shape. Rejected: noise beside `ScheduleUndeclared` or a null placement (both already refused);
+            title lengths.
+        comment     2026-11-22T04:54:11Z
+            Fixtures proof, updated with variety (replaces the proof posted earlier today). Schedule issues read from
+            timer state, a refused start tried again and saved, a baseline saved (@spec.Schedules R1, R3, R5, R11, R14),
+            in three unrelated apps; each has a usual Story, the wrong-ending Story and load:
+
+            - home (changed), machine `Hub` (keyed, `pausedBy` Away from House's context, `restartOn` firmware, a
+              disarm), journey Pings: usual `home/hub-usual`; wrong ending `home/hub-firmware-reload`; refused
+              `home/hub-interval-refused`, `home/hub-refused-gone`; S2 × 64 under L1, L4 `home/hub-many-devices`; E5
+              `home/hub-interval-edges`; the format step `home/lounge-format-five`; samples `home-hub`, in the
+              pair sweep.
+            - sign-in (changed), machine `IdleSignOut` (unkeyed, armed on entry, `restartOn` the activity count,
+              `disarmOn` a video), journey Idle sign-out: usual `sign-in/idle-usual`; wrong ending
+              `sign-in/idle-never-returns` (the Spec's T4 Story); refused `sign-in/idle-policy-refused`,
+              `sign-in/idle-refused-sign-out` (an exit takes the issue); S3 × 16 under L1, L4
+              `sign-in/idle-many-sessions`; samples `auth-idle` (E5 −1, 0, 2^31 − 1, 2^31), in the pair sweep.
+            - transfers (changed), machine `BillReminders` (keyed, a computed delay from the due date, `pausedBy`
+              Snoozed), journey Bill reminders: usual `transfers/reminders-usual`; wrong ending
+              `transfers/reminders-old-date` (reminded a day late); refused `transfers/reminders-far-bill` (in range
+              after a week), `transfers/reminders-far-paid`; S2 × 64 under L1, L4 `transfers/reminders-many-bills`;
+              samples `bank-reminders` (E5 now, −1 ms, 2^31 − 1, 2^31; E1), in the pair sweep.
+            - Combos: persistence everywhere; context in home. Sources: none (catalog rows). Red today: the
+              wrong-ending, refused and gone Stories of each app, and `home/lounge-format-five`; each re-run uninverted
+              shows its stated diff. Left: the idle sign-out telling `AuthSession` (@task.V3.T96 or @task.V3.T77).
+            - Review of the two new apps (Haiku, high, two sidecars). Expected values: 32 checkpoints worked by hand, 32
+              match. Accepted: Story ids under each fixture's prefix; load Stories (S3 × 16, S2 × 64, two reloads); E5
+              −1 and 0 policies and −1 ms, 0 ms, 2^31 ms dates in samples; catalog rows; the reminders' doc said "first
+              change" where R1 says every occasion. Rejected: context for the idle sign-out and the reminders (neither
+              reads one; a sign-out the session hears needs T96 or T77); policy and bills from a server read (neither is
+              an ending); a reload sample step (the generator draws reloads); singleton or local variants (local actors
+              wait on @task.V3.T76); the mix (one set per app); a turn's own arm refused (covered
+              by `home/vacation-edges`).
+        comment     2026-11-22T04:54:11Z
+            [decided: agent builder 2026-11-22] R2's "a first clean `restartOn` read is a baseline ... (a read after a
+            throw)" means a throw before any baseline; after a baseline, a clean read compares with the last clean value
+            (ThrowingRead (3), table Selection, the 2026-11-20 ruling). The wrong-ending rows of all three apps and
+            `plsk` rest on it. Why: the other reading loses the restart R1 owes. Reverse: R2 literal, and those rows
+            expect no restart.
+        comment     2026-11-22T04:54:12Z
+            Extra files beyond May change: wiki/conventions/fixture-catalog.md (sign-in and transfers rows); the sign-in
+            and transfers fixtures (new machines IdleSignOut and BillReminders, their grown apps and manifests).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

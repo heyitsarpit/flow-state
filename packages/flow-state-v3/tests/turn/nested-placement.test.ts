@@ -2,22 +2,37 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Story } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { loose } from "../../src/test/loose.ts";
+import { refusal } from "../refusals.ts";
 import { played } from "../rules/played.ts";
 
-// One declared schedule placed in a compound and in its child: both states are active at once, and
-// each placement is its own activation's timer (Schedules R8, R13). Today the runtime keeps one
-// timer per name, so the inner placement's timer replaces the outer one's; the timers by
-// activation are @task.V3.T118's.
+// One declared schedule placed in a state and in a state below it: both are active at once, the
+// snapshot shows one timer per unkeyed name, and the two timers' issues could not be told apart,
+// so construction refuses the second placement. Placements in sibling states are never active
+// together and construct (Schedules R8, R15).
 const Nest = definition({
   id: "Nested/Lamp",
-  states: [{ ON: ["A"] }],
-  events: {},
+  states: [{ ON: ["A", "B"] }],
+  events: { Swap: {} },
   internalEvents: { Outer: {}, Inner: {} },
   memory: { outer: Flow.initial(Schema.Number, 0), inner: Flow.initial(Schema.Number, 0) },
   schedules: { tick: {} },
 });
 
-const NestMachine = machine(Nest, ({ S, E }) => ({
+// Each refusal as [reason, path], or none when construction did not refuse.
+const reasonsOf = (construct: () => unknown) =>
+  refusal(construct, (d) => [d.details.reason ?? d.code, d.path.join(".")]);
+
+// The lamp with a grandchild state, for a placement two levels below another.
+const Deep = definition({
+  id: "Nested/DeepLamp",
+  states: [{ ON: [{ A: ["X"] }] }],
+  events: {},
+  internalEvents: { Outer: {}, Inner: {} },
+  schedules: { tick: {} },
+});
+
+const SiblingMachine = machine(Nest, ({ S, E }) => ({
   default: S.ON,
   on: {
     Outer: { updateMemory: ({ memory }) => ({ outer: memory.outer + 1 }) },
@@ -26,26 +41,88 @@ const NestMachine = machine(Nest, ({ S, E }) => ({
   states: {
     ON: {
       default: S.ON.A,
-      schedules: { tick: { schedule: "1 second", send: E.Outer } },
-      states: { A: { schedules: { tick: { schedule: "2 seconds", send: E.Inner } } } },
+      states: {
+        A: {
+          on: { Swap: S.ON.B },
+          schedules: { tick: { schedule: "1 second", send: E.Outer } },
+        },
+        B: { schedules: { tick: { schedule: "2 seconds", send: E.Inner } } },
+      },
     },
   },
 }));
 
-const nest = actorRef(NestMachine, "nest");
+describe("one schedule placed in a state and in a state below it (Schedules R8, R15)", () => {
+  it("Schedules R8: a schedule placed in a state and again in its child is refused at the child's placement", () => {
+    expect(
+      reasonsOf(() =>
+        machine(Nest, ({ S, E }) =>
+          loose({
+            default: S.ON,
+            states: {
+              ON: {
+                default: S.ON.A,
+                schedules: { tick: { schedule: "1 second", send: E.Outer } },
+                states: {
+                  A: { schedules: { tick: { schedule: "2 seconds", send: E.Inner } } },
+                  B: {},
+                },
+              },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([["DuplicateName", "states.ON.states.A.schedules.tick"]]);
+  });
 
-describe("one schedule placed in a state and its child (Schedules R8, R13)", () => {
-  it.fails("Schedules R8: a schedule placed in a compound and in its child is two independent timers, one per activation, and both fire", async () => {
+  it("Schedules R8: a schedule placed in a state and again two levels below it is refused at the lower placement", () => {
+    expect(
+      reasonsOf(() =>
+        machine(Deep, ({ S, E }) =>
+          loose({
+            default: S.ON,
+            states: {
+              ON: {
+                default: S.ON.A,
+                schedules: { tick: { schedule: "1 second", send: E.Outer } },
+                states: {
+                  A: {
+                    default: S.ON.A.X,
+                    states: {
+                      X: { schedules: { tick: { schedule: "2 seconds", send: E.Inner } } },
+                    },
+                  },
+                },
+              },
+            },
+          }),
+        ),
+      ),
+    ).toEqual([["DuplicateName", "states.ON.states.A.states.X.schedules.tick"]]);
+  });
+
+  it("Schedules R8: a schedule placed in two sibling states constructs, and each fires in its own state", async () => {
+    const lamp = actorRef(SiblingMachine, "lamp");
+
     const run = await played(
-      Story.app(runtimeSetup({ app: app({ id: "nested", machines: { nest: NestMachine } }) }), {
-        id: "nested/two-placements",
+      Story.app(runtimeSetup({ app: app({ id: "nested", machines: { lamp: SiblingMachine } }) }), {
+        id: "nested/siblings",
         fixtures: [],
       })
-        .ensure(nest)
-        .advance("3 seconds")
-        .checkpoint("fired"),
+        .ensure(lamp)
+        .advance("1 second")
+        .checkpoint("in A")
+        .send(lamp, Nest.E.Swap())
+        .advance("2 seconds")
+        .checkpoint("in B"),
     );
 
-    expect(run.checkpoints.fired.read(nest)?.memory).toEqual({ outer: 1, inner: 1 });
+    expect([
+      run.checkpoints["in A"].read(lamp)?.memory,
+      run.checkpoints["in B"].read(lamp)?.memory,
+    ]).toEqual([
+      { outer: 1, inner: 0 },
+      { outer: 1, inner: 1 },
+    ]);
   });
 });

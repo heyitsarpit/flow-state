@@ -152,9 +152,9 @@ export const declarationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-schedules.ts",
-        find: "  walk(body, []);\n\n  return found;",
+        find: "  walk(body, [], new Set());\n\n  return found;",
         replace:
-          '  walk(body, []);\n\n  const placed = JSON.stringify(body, (_, v: unknown) => (typeof v === "function" ? 0 : v));\n\n  for (const name of Object.keys(declared))\n    if (!placed.includes(`"${name}":`))\n      found.push(invalid(["schedules", name], "ScheduleUnplaced", name, name));\n\n  return found;',
+          '  walk(body, [], new Set());\n\n  const placed = JSON.stringify(body, (_, v: unknown) => (typeof v === "function" ? 0 : v));\n\n  for (const name of Object.keys(declared))\n    if (!placed.includes(`"${name}":`))\n      found.push(invalid(["schedules", name], "ScheduleUnplaced", name, name));\n\n  return found;',
       },
     ],
   },

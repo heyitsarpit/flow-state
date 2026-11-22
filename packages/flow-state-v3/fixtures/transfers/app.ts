@@ -7,6 +7,7 @@ import { CustomerMachine } from "./machines/customer.ts";
 import { AccountSwitcherMachine } from "./machines/account-switcher.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
 import { StandingOrderMachine } from "./machines/standing-order.ts";
+import { BillRemindersMachine } from "./machines/bill-reminders.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
@@ -162,6 +163,33 @@ export const bankSwitching = app({
  */
 export const bankSwitchingSetup = runtimeSetup({
   app: bankSwitching,
+  services: Layer.mergeAll(
+    BankLive("https://bank.example"),
+    AccountsLive("https://accounts.example"),
+    layerIndexedDb(),
+  ),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The main customer's bill reminders.
+ */
+export const myBills = actorRef(BillRemindersMachine, { customer: "me" });
+
+/**
+ * The switching bank app grown with each customer's bill reminders.
+ */
+export const bankReminding = app({
+  id: "bank",
+  machines: { ...bankSwitching.machines, reminders: BillRemindersMachine },
+});
+
+/**
+ * The reminding bank app's real setup, as the switching app's.
+ */
+export const bankRemindingSetup = runtimeSetup({
+  app: bankReminding,
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),

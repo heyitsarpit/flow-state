@@ -1,6 +1,7 @@
 import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
-import { authBannered, authBanneredSetup, sessionOf } from "./app.ts";
+import { authIdle, authIdleSetup, sessionOf } from "./app.ts";
+import { idleSamples, idleStories } from "./stories/idle.ts";
 import {
   bannerLoadFails,
   bannerNewAccount,
@@ -51,8 +52,8 @@ import {
  */
 export const signIn = manifest({
   name: "sign-in",
-  setup: authBanneredSetup,
-  app: authBannered,
+  setup: authIdleSetup,
+  app: authIdle,
   stories: {
     ...stories,
     bannerSignsIn,
@@ -85,9 +86,17 @@ export const signIn = manifest({
     deviceFirst,
     deviceChain,
     signOutRetiredLink,
+    ...idleStories,
   },
-  samples: [samples, sessionSamples, emailEdgeSamples, deviceSamples, bannerSamples],
-  stressSamples: [samples, sessionSamples, emailEdgeSamples, deviceSamples, bannerSamples],
+  samples: [samples, sessionSamples, emailEdgeSamples, deviceSamples, bannerSamples, idleSamples],
+  stressSamples: [
+    samples,
+    sessionSamples,
+    emailEdgeSamples,
+    deviceSamples,
+    bannerSamples,
+    idleSamples,
+  ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.none(),
@@ -102,6 +111,10 @@ export const signIn = manifest({
     },
     {
       samples: deviceSamples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+    },
+    {
+      samples: idleSamples,
       reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
     },
   ],

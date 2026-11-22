@@ -520,6 +520,8 @@ kamp.us for rows restored after a failure.
   - `Statement` (step 12), local, ⇠ `customer`.
   - `StandingOrder` (@task.V3.T81), shared, persisted, named by order, ⇠ `customer`, reading R `balance`; its
     `Plan.first` and `Pause.until` are `DateFromString` fields.
+  - `BillReminders` (@task.V3.T118), shared, persisted, named by customer: reminds each listed bill at its due date
+    (`remind`, keyed by payee, `pausedBy` Snoozed, `restartOn` the due date read from the bank's text).
 - **Operations:**
   - T: `transfer` (have, `reject`; from step 4 it declares `idempotency` by transfer id, the one edit to an old
     contract, since a money write must name the server's key); `depositCheque` (step 4, `progress`).
@@ -533,6 +535,8 @@ kamp.us for rows restored after a failure.
   4. Deposit: photograph a cheque → T `depositCheque` with `progress`, aborted and resumed.
   5. Catch-up: notifications after the app was closed.
   6. Standing order: plan the rent from a date, pause it until one or with no end, resume.
+  7. Bill reminders: bills listed, snoozed, moved and paid; a bill due further out than the longest timer, or a
+     due date the app cannot read, is that bill's issue until it is in range or listed again.
 - **Features by step:**
   - **used today:** `Flow.input` value-named actors (`Bank/Transfers`, named by account); `schedules` with `armOn` (the
     deadline); `forget`, `unsettledWrites` (`forgotten`); `reject`, `NotSent { Rejected }` (T `transfer`); `O.x.cancel`,
@@ -560,6 +564,17 @@ kamp.us for rows restored after a failure.
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
     refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
+  - **BillReminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
+    `tests/transfers/reminders.test.ts`):
+    - [ ] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. A guard.
+      Story: `transfers/reminders-usual`.
+    - [ ] Wrong ending: the reminder at the old date (unreadable date, reload, an earlier date). red today. Story:
+      `transfers/reminders-old-date`.
+    - [ ] A bill past the longest timer refused with an issue, kept across a reload, started at the first change
+      once in range; paid, its issue goes. red today. Stories: `transfers/reminders-far-bill`,
+      `transfers/reminders-far-paid`.
+    - [ ] S2 × 64 bills under L1 and L4 (two reloads in a snooze). Story: `transfers/reminders-many-bills`. Samples
+      `bank-reminders`: E5 dates now, −1 ms, 2^31 − 1 ms, 2^31 ms; E1 no bills; an unreadable date.
   - **Context forms** (@task.V3.T107; tests in `tests/transfers/context.test.ts`):
     - [x] Usual: `when(current, previous, { memory })`. built: `transfers/switcher-recent`. No source.
     - [x] E1, E3, E4 (five, then seven accounts): built: `transfers/switcher-edges`. Reload: `transfers/switcher-reloaded`.
@@ -676,6 +691,9 @@ not checked here).
   - `PasswordSignIn` (step 7), shared, release 2.
   - `TrustedDevice` (@task.V3.T81), shared, persisted, named by device, ⇠ `session`; its `Trust.until` and
     `Seen.at` are `DateFromString` fields, the second nullable.
+  - `IdleSignOut` (@task.V3.T118), shared, persisted, named by session: signs a session out once idle for the
+    organisation's policy (`idle`, unkeyed, armed on entry, `restartOn` the tabs' activity count, `disarmOn`
+    VideoStarted).
 - **Operations:** T `begin`, `verify` (have, `reject`); T `setUsername` (step 1); R `me` (step 1).
 - **Journeys:**
   1. Sign in: email → T `begin` → code → T `verify` → `SignedIn` → R `me`.
@@ -684,6 +702,8 @@ not checked here).
   4. Handle: T `setUsername`, the redirect held until it succeeds.
   5. Sign out: `forget` `AuthSession`.
   6. Trust a device: trust the laptop until a date while signed in, confirm it again after a week, revoke it.
+  7. Idle sign-out: activity restarts the wait, a video stops it, idle time signs out; a policy past the longest
+     timer or an unreadable activity report is the session's issue until the next one.
 - **Features by step:**
   - **used today:** guards, `deny`, `check` (`Auth/SignIn`); `schedules` with `armOn` (cooldown and lockout); `reject`,
     `NotSent { Rejected }` (T `begin`, `verify`); `O.x.cancel`, `NotSent { Cancelled }`, `CancelMissed` (`Auth/SignIn`);
@@ -700,6 +720,17 @@ not checked here).
   - **@task.V3.T81:** an event field whose Schema transforms (`TrustedDevice`'s `DateFromString` dates);
     construction refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
+  - **IdleSignOut (@task.V3.T118),** no source (Schedules R1, R3, R5, R11, R14; tests in `tests/sign-in/idle.test.ts`):
+    - [ ] Usual: activity restarts the wait, idle time signs out, signing in again starts a new wait. A guard.
+      Story: `sign-in/idle-usual`.
+    - [ ] Wrong ending: the sign-out that never comes back (video, unreadable report, reload, activity). red today.
+      Story: `sign-in/idle-never-returns`.
+    - [ ] A policy past the longest timer refuses the next wait with an issue, kept across a reload, started by the
+      next policy; signing out takes the issue. red today. Stories: `sign-in/idle-policy-refused`,
+      `sign-in/idle-refused-sign-out`.
+    - [ ] S3 × 16 sessions under L1 and L4 (two reloads). Story: `sign-in/idle-many-sessions`. Samples
+      `auth-idle`: E5 policies −1, 0, 2^31 − 1, 2^31; unreadable and empty reports.
+    - [ ] Telling `AuthSession` to sign out: left: @task.V3.T96 or @task.V3.T77, needs `send(ref, event)` or emits.
   - **Context forms** (@task.V3.T107; tests in `tests/sign-in/context.test.ts`):
     - [x] Usual: state token and `X.state` reads. built: `sign-in/banner-signs-in`, `sign-in/banner-new-account`, a lost
       read `sign-in/banner-load-fails`; silent after a reload `sign-in/banner-reloaded` (a guard). No source.
@@ -1167,9 +1198,8 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     - [ ] S2 × 64 devices under L1 and L4 (two reloads in a hold). Story: `home/hub-many-devices`.
     - [ ] The step from format 5: the lounge's format-5 record restores, frees a hold and saves as the current
       format. red today. Story: `home/lounge-format-five`.
-    - [ ] Variety: `restartOn` and a keyed `pausedBy` are used only in `home`. A device-reported delay refused and
-      retried in a second and third app (a sign-in lockout from the server's retry-after; a transfer's schedule)
-      is not built yet.
+    - [ ] Variety: the same feature in `sign-in` (`IdleSignOut`, unkeyed, a disarm, the Spec's sign-out Story) and
+      `transfers` (`BillReminders`, keyed with a computed delay, a snooze reason).
   - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
     - [x] Pause reasons hold separately (`home/pause-reasons`). Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one

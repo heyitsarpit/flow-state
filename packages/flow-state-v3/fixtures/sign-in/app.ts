@@ -7,6 +7,7 @@ import { ReturnToMachine } from "./machines/return-to.ts";
 import { AuthSessionMachine } from "./machines/session.ts";
 import { TrustedDeviceMachine } from "./machines/trusted-device.ts";
 import { SessionBannerMachine } from "./machines/session-banner.ts";
+import { IdleSignOutMachine } from "./machines/idle-sign-out.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
@@ -148,6 +149,39 @@ export const authBannered = app({
  */
 export const authBanneredSetup = runtimeSetup({
   app: authBannered,
+  services: Layer.mergeAll(
+    AuthLive("https://auth.example"),
+    ProfileLive("https://profile.example"),
+    layerIndexedDb(),
+  ),
+  scope: "auth",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The main session's idle sign-out.
+ */
+export const mainIdle = actorRef(IdleSignOutMachine, { session: "elif" });
+
+/**
+ * The `n`th of many sessions' idle sign-outs.
+ */
+export const idleOf = (n: number) =>
+  actorRef(IdleSignOutMachine, { session: `session-${String(n)}` });
+
+/**
+ * The sign-in app grown with each session's idle sign-out.
+ */
+export const authIdle = app({
+  id: "auth",
+  machines: { ...authBannered.machines, idle: IdleSignOutMachine },
+});
+
+/**
+ * The idle sign-in app's real setup, as the bannered app's.
+ */
+export const authIdleSetup = runtimeSetup({
+  app: authIdle,
   services: Layer.mergeAll(
     AuthLive("https://auth.example"),
     ProfileLive("https://profile.example"),
