@@ -683,7 +683,7 @@ composition
             key and
             reasons, the one typed erasure; `Compiled` builds `schedulesAt`, `byName`, `rank`, `armedBy`, `disarmedBy`.
         - `Host`. The host stepper by series id (actor, timer, arming time), which names one arming; the alarm heap; 
-            the memo for the snapshot; a reporter 
+            the memo for the snapshot; a reporter
             that
             records broken ids for inverted rows.
 
@@ -901,7 +901,7 @@ tests
                 tables
             held as data, one row per cell: no second implementation. Built instead: the ledger, one function per
             table, each citing its table; the class counts came from a one-off classification. 
-                `tests/turn/schedule-ledger.ts` is amended before 
+                `tests/turn/schedule-ledger.ts` is amended before
                 any
             code: restore keeps the selection, value and failure (today it drops every baseline); a new timer's reasons
             start at `[]` (today it inherits its key's last reasons across a re-entry); restore keeps `firingFailed` and
