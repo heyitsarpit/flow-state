@@ -5078,6 +5078,10 @@ tasks
             missing raises, instances and props (routed to T109 and T76 by design); flip's `wake-not-moved` survives
             (caught) and harness-thrown catches (I13's intended check); coverage's single-part dead arms
             (fragments, T109).
+        comment     2026-11-22T19:42:44Z
+            Failure (2026-11-23): root cause: one wake sent only on an earliest-deadline change (tx.ts#wake), and a
+            local actor's use not applied as a change (createLocal). Count: 1 each. Revision: f3dda0f9. Review: close
+            review 5e7b27c4.
 
     T120
         title       Declared schedules: the runtime half
