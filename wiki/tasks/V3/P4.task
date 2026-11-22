@@ -3697,6 +3697,143 @@ tasks
             seed 15, landed inverted in tests/generated/generated.test.ts with no owner yet. Every schedule plant of
             this Task (48, re-pointed and new) is caught by `nub run faults --only`. The wrong list is deleted and no
             `it.fails` is left in the schedule tests.
+        comment     2026-11-22T07:35:53Z
+            Close review (Opus lead, 7 Haiku sidecars at effort high), revision `e83eecea` (code at `a9791f65`): ISSUES.
+            One finding blocks: an `it.fails` routed to this Task is still in the schedule tests, and the row it pins is
+            a made-up firing. Everything else holds or is routed. One fix round; the next review checks it.
+
+            Acceptance on the final revision:
+
+            1. ISSUES (B1). The wrong list is deleted and every sequence row passes, but
+               `tests/compile/schedules.test.ts:122` is still `it.fails`.
+            2. PASS. B1 (`tests/restore/schedule-edits.test.ts:275`) and B2
+               (`tests/turn/schedule-keys-table.test.ts:479`) are green.
+            3. PASS. `StoredSource` excludes a schedule's issues, pinned two-sided in
+               `src/core/schedule-state.test-d.ts`. `flow-state/timers-decided` plants pass. Flip A with `nub run faults
+               --only` caught 8 of 8 by their target tests: the four named faults, plus `refused-start-goes-idle`,
+               `first-read-restarts`, `no-wave-after-wake` and `last-issue-wins`.
+            4. PASS with routed notes (N1, N2). The R5 order in `scheduleIssues` matches the Spec, and so does the
+               R14 decode.
+            5. PASS. Format 6, the step's schedule row and `home/lounge-format-five`.
+            6. Coverage was the only suite run. `nub run test:coverage` exits 1: under instrumentation three tests pass
+               their `LIMITS` (the home 64 rooms test at 6.7 to 7.8 s against 5 s; the shop 1,000-line cart; Stories
+               under another world at 16.2 s against 15.2 s), and with `reportOnFailure` off no report is written. A
+               rerun with `--coverage.reportOnFailure` wrote it. This Task's Stories and Room's pings grew two of those
+               tests, and `LIMITS` was not re-measured. No stress run: the builder's abort-0 times (188 s against 249 s)
+               already compare identical pre-build `src` (`df9c9ff6` equals `1aa8eb89` there) with HEAD.
+            7. PASS. The fold kept every Story; expected values changed only by state and slot renames. Six checkpoints
+               worked by hand all match. The catalog items are marked.
+
+            Blocking:
+
+            - B1, a made-up firing. `Duration.millis(NaN)` builds as a fixed 0 ms delay and fires at once: `partsOf`
+              (code:packages/flow-state-v3/src/compile-schedules.ts) skips a Duration, and Effect reads NaN as 0.
+              Schedules R11 refuses it at construction. The red row was routed here at slice T89's close and listed in
+              requirement 6. The Task's own grep counted inversions only in the sequence and table files; `it.fails`
+              passes on any failure, and nothing counts inversions in `tests/compile`. Cause: local. Fix: refuse a
+              non-finite Duration, give it a twin row, and drop the inversion.
+
+            The builder's three items:
+
+            - (a) Correct by R11 as the user decided it, and not a runtime hang. It is still a stuck ending that no test
+              pins. A probe Story (policy 2^31 while SIGNED_OUT, then SignedIn) leaves the session in LOADING with the
+              issue `operation me` refused `InvalidTurn` at `states.SIGNED_IN.schedules.idle.schedule`. It stays there:
+              ten minutes and a valid policy later it has not moved, and no redelivery exists, so the builder's "waits
+              for a redelivery" is wrong. Nothing is red, so it does not block. The tests missed it because no Story
+              loads a policy before sign-in; `auth-idle` samples reach the path, but run rules accept a refused
+              turn. Routed:
+              - the fix round adds a Story that pins this ending;
+              - the orchestrator asks the user, as two traces of that Story, about R11 when the refused turn is an
+                operation's outcome. X, today: the turn is refused and LOADING lasts for good, with the issue. Y: the
+                turn commits with `idle` Refused and its issue, so the session is SIGNED_IN until a valid
+                policy arrives.
+            - (b) Mostly the design, plus some waste in this Task's code; neither part was measured. The design costs
+              are every timer saved, idle ones included (R14), and reads on every occasion (gate B). The waste:
+              - `dueOf` (code:packages/flow-state-v3/src/core/schedule-plan.ts#dueIn) rebuilds every due run of the
+                incarnation for each live host timer on each `dueNow`, where it used one `schedules.get(track)` before.
+                A burst of k due keys costs k² run builds.
+              - Restore decodes and re-encodes each key and baseline (`keyOf`, `selectionRead`).
+              - `firingRun` scans a schedule's timers on each firing.
+
+              No wrong ending, so it does not block. Routed to the fix round: look the due run up by the alarm's
+              schedule and key, then re-measure abort-0 once.
+            - (c) Confirmed before the build. `git archive 1aa8eb89` was run in a scratch directory with the same probe.
+              On home-rooms, usual seed 15 and stress seed 5 break Turn I9 there exactly as at HEAD; usual seed 5 is
+              clean at both.
+
+            Routed, non-blocking; each names why the tests missed it:
+
+            - N1, Spec text the build contradicts, with no Spec edit or `specs.log` note (acceptance 4 asks for one per
+              change). The tags have a Why and a Reverse, but none edits the Spec. Fix round: edit each sentence, or the
+              code, with a note. Missed because no check reads Spec text against tags.
+              - (i) SavedForm and R14, "one Schema is the source of both": `Tracked` is written by hand
+                (code:packages/flow-state-v3/src/core/timers.ts#Tracked), and so are the encode and decode
+                in `schedule-restore.ts`.
+              - (ii) Records R12, "A step reads no definition": the step reads it (tag of 06:30:01).
+              - (iii) Records names the saved timer `TimerShape`; the code keeps `SavedTimer`.
+              - (iv) Schedules: "the host stepper by arming id"; the code keys it by series id (tag of 06:30:00).
+              - (v) T5: "held as data ... no second implementation"; the oracle is the ledger (tag of 05:40:18).
+              - (vi) Q1 is still `[proposed]`; gate B was decided. The Task's `turn.schedules.keyed-50` row was not
+                added. B is the safe default, so this is noted only.
+            - N2. `now` still reaches `keys`, the reasons and `restartOn` through `readOf`, which this Task supersedes.
+              That is against R10 and its orchestrator tag. No test cites Schedules R10, although acceptance 7 says R1
+              to R17. Missed because the public types hide `now`, so no Story reads it. Fix round.
+            - N3. A snapshot of a resting record shows `issues: []`, although format 6 saves the refused, selection and
+              firing failures. The Spec is silent, and the builder's tag adopts the current behaviour. For the
+              orchestrator: a ruling as two traces. Missed because no Story reads a record before its wake.
+            - N4. The run-rule change in `tests/rules/deliveries.ts` widens which schedule issues do not count as a
+              turn's refusal. Any `Issue` or `Incarnated` opens the window, and a refused turn publishes nothing, so the
+              window stays open until the next commit. A run-rule change needs a planted rule fault, and
+              `rule-faults.ts` is unchanged. Fix round: add one. A later delivery's own arm refusal, after an earlier
+              refusal, must still count as that delivery's outcome.
+            - N5, coverage, changed hunks only.
+              - Reach with a Story:
+                - `schedule-restore.ts:301` and `:303`: R14's "a change of keying starts its keys again", unkeyed to
+                  keyed and back; this row is untested;
+                - `actor-record.ts:413`: a format-5 timer with an undeclared name;
+                - `schedules.ts:108` and `:114`: a key the codec refuses; `:159`: a selection the codec refuses;
+                - `snapshot.ts:119`: a resting record's held view.
+              - Dead code to delete:
+                - `schedule-decision.ts:254` and `:255`: `Again` comes only from `Stepping`;
+                - `schedule-decision.ts:244`;
+                - `schedule-decision.ts:330`: the decoder already drops undeclared reasons;
+                - the `""` fallbacks of `textOf`;
+                - `schedules.ts:113`, `:157` and `:192`.
+              - Defect-only: `schedule-restore.ts:200` to `:204`, a replay that diverges from a deterministic stepper.
+            - N6, cohesion. Missed because the lint plants cover only casts and `Brand.nominal`.
+              - `savedTimer` and `savedSchedule` re-export the brand constructor, so any `src` file can build a
+                `Tracked`. The restore also mints arming ids outside `decide` (R9). Lint should refuse those calls
+                outside `schedule-restore.ts`.
+              - Three key-text comparators.
+              - Three copies of the codec lookup.
+              - `sameOutcome` is hand-written where `Equal.equals` would do.
+              - An orphaned comment at `incarnations.ts:40`.
+              - Dead `IssueSource.Creation` and `withIssues`.
+              - A scope with no schedule still runs `declaredOn` before its early return (R17).
+              - No outside imports or temporary names in `src` (checked).
+            - N7, for @task.V3.T117. Re-measure `LIMITS` for run rules, other world and home load under coverage; see
+              item 6.
+            - N8, fixtures.
+              - The fold into persisted machines means a record saved before the new memory fields is quarantined on
+                upgrade. That is Records R12's gap, already landed inverted for @task.V3.T92
+                (`tests/home/records.test.ts`); the catalog rows should say so.
+              - `sign-in/idle-many-sessions` and `transfers/reminders-many-bills` have no bench row: @task.V3.T141.
+
+            Rejected:
+
+            - "The format-5 record was rewritten to pass." The schedule decode it tests is unchanged. The original shape
+              hits the missing-field rule, kept as `home/lounge-before-devices` for T92.
+            - "The LOADING hang is silent." The probe shows the issue.
+            - "A catalog item is reshaped without a reason." The row gives it.
+            - "The samples lack a reload." The generator draws reloads.
+            - Events in place of server reads: settled in earlier reviews.
+            - `schedule-issue-stored` "fails typecheck." The runner strips types, and the sequence rows catch it on
+              behaviour. The missing `Issue` import is cosmetic.
+            - Rule ids missing from the sequence test's titles: the plants are judged by their target file.
+            - The ledger ordering firings by key text: no row has unequal deadlines, and `keys-due-together-reversed`
+              covers due order.
+            - `TimerSix.reasons` being `NonEmptyArray`: it is the record's normal form (absent means clean), and the
+              writer omits an empty list.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
