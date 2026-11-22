@@ -197,6 +197,17 @@ export const waitingIn = (
     .toSorted(byDue(machines));
 
 // The due run a live host alarm stands for, while it is still that run's.
+/**
+ * The timer a host alarm or a firing names, by its schedule and its timer's track (the schedule's
+ * name, then a keyed timer's key text): one lookup, never a scan of the schedule's timers.
+ */
+export const trackedAt = (incarnation: Incarnation, name: string, track: string) =>
+  Option.flatMap(Option.fromUndefinedOr(incarnation.schedules.get(name)), (scheduled) =>
+    scheduled._tag === "Single"
+      ? Option.some(scheduled.timer)
+      : Option.fromUndefinedOr(scheduled.timers.get(track.slice(name.length + 1))),
+  );
+
 const dueOf = (world: World, id: TimerId, timer: Timer) => {
   if (!Timer.$is("Schedule")(timer)) return Option.none();
 
@@ -204,11 +215,12 @@ const dueOf = (world: World, id: TimerId, timer: Timer) => {
     Option.fromUndefinedOr(world.incarnations.get(actorKey(timer.actor))),
     (incarnation) =>
       Option.map(
-        Option.fromUndefinedOr(
-          dueRunsOf(incarnation).find(
-            (d) =>
-              d.run.arming === timer.arming && incarnation.alarms.get(timer.arming)?.timer === id,
+        Option.filter(
+          Option.flatMap(trackedAt(incarnation, timer.schedule, timer.track), (tracked) =>
+            dueRunOf(incarnation, tracked),
           ),
+          (d) =>
+            d.run.arming === timer.arming && incarnation.alarms.get(timer.arming)?.timer === id,
         ),
         (d) => ({ ...d, id, fired: timer }),
       ),

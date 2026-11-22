@@ -315,7 +315,7 @@ describe("start order (Actors R28): dependents, a wave's consumers and graces go
 });
 
 describe("the checkout's retry delay at its edges (Turn R14)", () => {
-  it("Turn R14: a retry after 0 ms fires on the next turn; 2^31 - 1 ms arms; 2^31 ms refuses the turn that would arm it", async () => {
+  it("Turn R14, Schedules R11: a retry after 0 ms fires on the next turn; 2^31 - 1 ms arms; 2^31 ms is the outcome's refused start: Pay waits with that issue", async () => {
     const run = await played(busyEdges);
     const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name].read(checkout);
 
@@ -326,7 +326,7 @@ describe("the checkout's retry delay at its edges (Turn R14)", () => {
         .flat()
         .map((s) => ("dueAt" in s ? s.dueAt : Number.NaN) - run.checkpoints.longest.now),
     ).toEqual([2 ** 31 - 1]);
-    expect(at("past")?.state).toBe("PAYING");
+    expect(at("past")?.state).toBe("WAITING");
     expect(at("past")?.issues).toHaveLength(1);
   });
 });

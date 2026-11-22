@@ -196,4 +196,30 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "outcome-turn-refused-again",
+    rule: "Schedules R11",
+    tests: ["tests/sign-in/idle.test.ts", "tests/turn/refusal.test.ts"],
+    says: "an operation's outcome whose own schedule start is refused refuses its whole turn again",
+    edits: [
+      {
+        file: "src/core/turn.ts",
+        find: "  if (Option.isSome(first) && !input.outcome)",
+        replace: "  if (Option.isSome(first))",
+      },
+    ],
+  },
+  {
+    name: "resting-record-hides-issues",
+    rule: "Schedules R5",
+    tests: ["tests/restore/schedule-records.test.ts"],
+    says: "a resting record's snapshot shows none of the issues its saved outcomes imply",
+    edits: [
+      {
+        file: "src/host/snapshot.ts",
+        find: "      issues: savedScheduleIssues(record.schedules).map((issue) => issueOf(actor, issue)),",
+        replace: "      issues: [],",
+      },
+    ],
+  },
 ];

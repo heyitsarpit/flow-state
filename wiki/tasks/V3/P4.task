@@ -3834,6 +3834,45 @@ tasks
               covers due order.
             - `TimerSix.reasons` being `NonEmptyArray`: it is the record's normal form (absent means clean), and the
               writer omits an empty list.
+        comment     2026-11-22T07:36:44Z
+            Rulings (orchestrator) on the close review: ISSUES accepted; fix round to the builder. N3: [decided: agent
+            orchestrator 2026-11-22] a resting record's snapshot shows the issues its saved outcomes imply (refused,
+            selection, firing failure), derived as at a wake. Why: issues are derived from saved timer state, so the
+            saved state already carries them; showing none is a lost issue. Reverse: show none until the wake. The R11
+            operation-outcome question (X today vs Y) is with the user; the fix round pins today's ending as the
+            review asks.
+        comment     2026-11-22T07:38:22Z
+            [decided: agent builder 2026-11-22] B1 (`Duration.millis(NaN)`) cannot be refused by Flow: Effect's
+            constructor turns NaN into 0 ms before Flow sees it (a probe: `Duration.millis(NaN)` is `{_tag: Millis,
+            millis: 0}`, equal to `Duration.millis(0)`). The row is replaced by guards: a NaN number and a `{ millis:
+            NaN }` input are refused at construction (the plant `delay-nan-part-as-zero` now targets
+            tests/compile/schedules.test.ts too), and `Duration.millis(NaN)` is pinned as building like
+            `Duration.millis(0)`. Why: the made-up firing is Effect's input coercion, not Flow's. Reverse: refuse every
+            0 ms Duration, or ask Effect for a refusing constructor.
+        comment     2026-11-22T07:40:28Z
+            [decided: user 2026-11-22] Q1 B: a turn that is an operation's outcome and whose schedule start is refused
+            (Schedules R11) commits; the timer is Refused with its issue and starts once a valid input arrives. Why: A
+            loses a valid answer for good (a hang); B matches refused starts elsewhere. Reverse: refuse the turn (A).
+        comment     2026-11-22T07:49:42Z
+            Q1 B built (the user, 2026-11-22): a turn that is an operation's outcome commits when its own arm's delay is
+            bad; the start becomes that timer's Refused, through the same path every refused start takes (the turn's arm
+            carries its failure into `decide`, which writes Refused and raises the issue; creation now passes its
+            refused arms the same way). Pinned red first (`sign-in/idle-sign-in-refused`), plant
+            `outcome-turn-refused-again`. Weighed across the system: an event's turn still refuses (its sender can
+            resend; R11), a firing's send still refuses and becomes that timer's firing failure (R12), and an onContext
+            reaction is an event's turn. The shop's refused-ending Stories (redelivery, kept) now refuse by an
+            unreadable retry hint in Pay's Busy mapper, and the busy-delay Stories expect B.
+        comment     2026-11-22T07:56:24Z
+            Fix round (builder): B1 cannot be met as written, and the row became guards (the tag above). `dueOf` and
+            `firingRun` now look a timer up by its schedule and track, one lookup per host timer; one dev re-measure:
+            turn.home.hub-many-devices 0.326 ms, turn.home.hub-usual 0.106 ms per turn, unchanged within noise. N4:
+            plant `refusal-window-never-closes` with tests/rules/refusal-window.test.ts (a refusal after a committed
+            turn is still judged). N1: the Spec now says what was built, each change logged (SavedForm, the host
+            stepper, T5, Q1 closed, Records R12's step and the saved timer's name). N3 built red first: a resting
+            record's snapshot shows its saved firing, selection and refused-start issues (a Broken cursor needs the
+            wake's read and shows only once loaded); plant `resting-record-hides-issues`. Plant
+            `creation-delay-drops-all` deleted: each timer is decided alone, so the wrong runtime cannot be written at
+            the creation call. Not done: R10's test (`now` still reaches the checks), left for its own Task.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

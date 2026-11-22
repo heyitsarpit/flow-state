@@ -21,7 +21,7 @@ const refusedCharge = (id: string) =>
   shopStory(id)
     .ensure(checkout)
     .send(checkout, cart("pi1"))
-    .world(Shop.busy({ retryAfterMs: 2 ** 31 }))
+    .world(Shop.busy({ retryAfterMs: -1 }))
     .send(checkout, VISA);
 
 it("DLV-01: two charges of one shopper on the wire are each restored once (WriteLanes R10, I15; Restore I6)", async () => {

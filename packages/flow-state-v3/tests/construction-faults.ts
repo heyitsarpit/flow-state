@@ -212,7 +212,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
   },
   {
     name: "delay-nan-part-as-zero",
-    tests: [CONSTRUCTION, TRUSTED_DEVICE],
+    tests: [CONSTRUCTION, TRUSTED_DEVICE, "tests/compile/schedules.test.ts"],
     says: "a delay with a NaN part compiles as 0 ms",
     rule: "Turn R14",
     edits: [

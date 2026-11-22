@@ -74,7 +74,7 @@ describe("a repository's end during a backoff (fixtures.md S6)", () => {
 });
 
 describe("the client's retry-after at its edges (fixtures.md E5; Turn R14)", () => {
-  it("Turn R14: a retry after 0 ms cools for no time; 2^31 - 1 ms arms; 2^31 ms refuses the turn that would arm it", async () => {
+  it("Turn R14, Schedules R11: a retry after 0 ms cools for no time; 2^31 - 1 ms arms; 2^31 ms is the outcome's refused start: the client cools with that issue", async () => {
     const run = await played(retryEdges);
     const at = (name: keyof typeof run.checkpoints) => run.checkpoints[name].read(client);
 
@@ -85,7 +85,7 @@ describe("the client's retry-after at its edges (fixtures.md E5; Turn R14)", () 
         .flat()
         .map((s) => ("dueAt" in s ? s.dueAt : Number.NaN) - run.checkpoints.longest.now),
     ).toEqual([2 ** 31 - 1]);
-    expect(at("past")?.state).toBe("READY");
+    expect(at("past")?.state).toBe("COOLING");
     expect(at("past")?.issues).toHaveLength(1);
   });
 });

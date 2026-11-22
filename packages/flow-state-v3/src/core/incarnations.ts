@@ -3,7 +3,7 @@ import type { Values } from "./compiled.ts";
 import { inputOfName } from "./identity.ts";
 import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
-import { armingsOf } from "./turn.ts";
+import { armingsOf } from "./turn-arms.ts";
 import { Occasion } from "./schedule-decision.ts";
 import { makeSchedules } from "./schedules.ts";
 import { makeScheduleRestore } from "./schedule-restore.ts";
@@ -181,7 +181,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
         // its issue, and the rest arm.
         return schedules.turned(bound, bound.schedules, {
           exits: [],
-          arms: arm.armed,
+          arms: arm,
           disarms: [],
           fired: Option.none(),
         });

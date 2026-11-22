@@ -75,7 +75,7 @@ export const makeFirings = (
 
     if (incarnation === undefined || incarnation.id !== mail.incarnation) return;
 
-    const live = schedules.firingRun(incarnation, mail.schedule, mail.arming);
+    const live = schedules.firingRun(incarnation, mail.schedule, mail.track, mail.arming);
     const declared = schedules.scheduleNamed(incarnation, mail.schedule);
 
     if (Option.isSome(live) && Option.isSome(declared))

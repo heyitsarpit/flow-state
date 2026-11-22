@@ -591,3 +591,33 @@ describe("a series whose delay throws at a wake (Schedules R4, R14, its decode t
     ]);
   });
 });
+
+describe("a resting record's issues (Schedules R5, R14)", () => {
+  it("Schedules R5: a resting record's snapshot shows the issues its saved outcomes imply, as at a wake", async () => {
+    const far = actorRef(FarMachine, "far");
+
+    const run = await played(
+      Story.app(
+        runtimeSetup({
+          app: app({ id: "records-far", machines: { far: FarMachine } }),
+          services: layerIndexedDb(),
+          scope: "records-far",
+          persistence: { captureMs: 0 },
+        }),
+        { id: "records/resting-issues", fixtures: [] },
+      )
+        .ensure(far)
+        .reload({ reattach: false })
+        .checkpoint("resting"),
+    );
+
+    const snapshot = run.checkpoints.resting.read(far);
+
+    expect({
+      lifecycle: snapshot?.lifecycle,
+      issues: (snapshot?.issues ?? []).map(
+        (i) => `${String(i.path.at(-1))} ${String(i.details["slot"])}`,
+      ),
+    }).toEqual({ lifecycle: "active", issues: [`schedule t ${SLOTS.arming}`] });
+  });
+});

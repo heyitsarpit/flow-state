@@ -12,7 +12,8 @@ import {
   type Series,
   type Values,
 } from "./compiled.ts";
-import { firstStep, type Step } from "./schedule-plan.ts";
+import type { Step } from "./schedule-plan.ts";
+import { armingsOf, disarmedBy } from "./turn-arms.ts";
 import type { Part } from "./evidence.ts";
 import { sameValue } from "./same.ts";
 import { atOrBelow, chainOf, type Move, moveOf } from "./tree.ts";
@@ -52,9 +53,13 @@ export const Resolved = Data.taggedEnum<Resolved>();
 
 /**
  * A schedule a turn arms at its end: its name and its first step, read from the memory after the
- * turn (none when its Effect Schedule is complete before a first step).
+ * turn (none when its Effect Schedule is complete before a first step), or the slot whose delay
+ * refused it.
  */
-export type Arming = { readonly name: string; readonly first: Option.Option<Step> };
+export type Arming = {
+  readonly name: string;
+  readonly first: Result.Result<Option.Option<Step>, string>;
+};
 
 /**
  * What a turn decided.
@@ -110,6 +115,8 @@ export type TurnInput = {
   readonly tag: string;
   readonly payload: Values;
   readonly late: boolean;
+  // Whether the turn is an operation's outcome, which commits whatever its own arms do.
+  readonly outcome: boolean;
   readonly from: number;
   readonly now: number;
   readonly lane: (operation: string, key: Option.Option<Values>) => LaneView;
@@ -344,62 +351,6 @@ const resolve = (action: Action, read: { readonly memory: Values; readonly event
 
 const NO_SCHEDULES: ReadonlyArray<Schedule> = [];
 
-// FLOW_STATE_ALLOW_UNKNOWN: a turn's delay reads no rows; the map is typed as the callbacks see it.
-const NO_OPERATIONS: ReadonlyMap<string, ReadonlyMap<string, unknown>> = new Map();
-
-/**
- * The schedules a turn arms on the states active after it, outermost first: on each entered
- * state those armed on entry, and on every active state each one that lists the event, with its
- * first step from the after memory, the context and the turn's now; a delay out of range or a
- * throwing callback is its slot's failure. Keyed schedules arm by their keys, after the turn.
- */
-export const armingsOf = (
-  compiled: Compiled,
-  leaf: string,
-  entered: ReadonlySet<string>,
-  tag: string,
-  read: { readonly memory: Values; readonly context: Values; readonly now: number },
-  step: TurnInput["step"],
-) => {
-  const armed: Array<Arming> = [];
-  const refused: Array<string> = [];
-
-  // A schedule the event disarms is not armed, on entry either, so its delay is never computed and
-  // cannot refuse the turn; the decision stops it.
-  const arms = (path: string, schedule: Schedule) =>
-    Option.isNone(schedule.keys) &&
-    !schedule.disarmOn.includes(tag) &&
-    ((entered.has(path) && schedule.onEntry) || schedule.armOn.includes(tag));
-
-  const input = { key: undefined, operations: NO_OPERATIONS, ...read };
-
-  for (const path of chainOf(leaf))
-    for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
-      if (arms(path, schedule)) {
-        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one step callback per schedule armed: the turn's result
-        const first = firstStep(schedule, input, (series, attempt) =>
-          step(schedule.name, series, attempt),
-        );
-
-        if (Result.isFailure(first)) refused.push(first.failure);
-        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one arming per schedule armed: the turn's result
-        else armed.push({ name: schedule.name, first: first.success });
-      }
-
-  return { armed, refused };
-};
-
-// The schedules of the states active after a turn that list its event in `disarmOn`.
-const disarmedBy = (compiled: Compiled, leaf: string, tag: string) => {
-  const names: Array<string> = [];
-
-  for (const path of chainOf(leaf))
-    for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
-      if (schedule.disarmOn.includes(tag)) names.push(schedule.name);
-
-  return names;
-};
-
 // Whether a patch changes no field: each field it names is already there with an equal value,
 // the same object at once, else compared without the call stack.
 const unchanged = (patch: Values, memory: Values) =>
@@ -478,9 +429,15 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
     input.step,
   );
 
-  const [refused] = arm.refused;
+  // A turn's own arm with a bad delay refuses the turn, but an operation's outcome, which has
+  // already happened, commits with that start refused (Schedules R11).
+  const first = Option.flatMap(
+    Option.fromUndefinedOr(arm.find((a) => Result.isFailure(a.first))),
+    (a) => Result.getFailure(a.first),
+  );
 
-  if (refused !== undefined) return TurnResult.Refused({ code: "InvalidTurn", slot: refused });
+  if (Option.isSome(first) && !input.outcome)
+    return TurnResult.Refused({ code: "InvalidTurn", slot: first.value });
 
   return TurnResult.Accepted({
     part: {
@@ -492,7 +449,7 @@ const accept = (alternative: Alternative, handler: string, input: TurnInput): Tu
     move,
     memory,
     actions,
-    arm: arm.armed,
+    arm,
     disarm: disarmedBy(input.compiled, leaf, input.tag),
   });
 };

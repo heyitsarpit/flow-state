@@ -10,7 +10,6 @@ import { encodeCanonical } from "./codec.ts";
 import { Act } from "./evidence-of.ts";
 import {
   decide,
-  issueOf,
   type Firing,
   Next,
   Occasion,
@@ -26,8 +25,10 @@ import {
   inRange,
   operationsOf,
   seriesId,
+  trackedAt,
   waitingIn,
 } from "./schedule-plan.ts";
+import { issueOf } from "./schedule-issues.ts";
 import type { Arming as TurnArming } from "./turn.ts";
 import type { Tx } from "./tx.ts";
 import { type ActorId, type ArmingId, type Incarnation, Timer, trackOf } from "./world.ts";
@@ -39,7 +40,6 @@ import {
   type Run,
   type Scheduled,
   type TimerKey,
-  timersIn,
   Timing,
   type Tracked,
 } from "./timers.ts";
@@ -432,18 +432,18 @@ export const makeSchedules = (tx: Tx) => {
    * The timer a firing names, while its arming is still live and its deadline has passed: a
    * firing queued twice for one step finds the next step not yet due.
    */
-  const firingRun = (incarnation: Incarnation, schedule: string, arming: ArmingId) =>
-    Option.flatMap(Option.fromUndefinedOr(incarnation.schedules.get(schedule)), (scheduled) =>
-      Option.fromUndefinedOr(
-        timersIn(scheduled).flatMap((tracked) =>
-          Arming.$is("Armed")(tracked.arming) &&
-          tracked.arming.run.arming === arming &&
-          Timing.$is("Due")(tracked.arming.run.timing) &&
-          tracked.arming.run.timing.dueAt <= tx.env.now
-            ? [{ tracked, run: tracked.arming.run, dueAt: tracked.arming.run.timing.dueAt }]
-            : [],
-        )[0],
+  const firingRun = (incarnation: Incarnation, schedule: string, track: string, arming: ArmingId) =>
+    Option.filter(
+      Option.flatMap(trackedAt(incarnation, schedule, track), (tracked) =>
+        Arming.$is("Armed")(tracked.arming) && Timing.$is("Due")(tracked.arming.run.timing)
+          ? Option.some({
+              tracked,
+              run: tracked.arming.run,
+              dueAt: tracked.arming.run.timing.dueAt,
+            })
+          : Option.none(),
       ),
+      (due) => due.run.arming === arming && due.dueAt <= tx.env.now,
     );
 
   /**

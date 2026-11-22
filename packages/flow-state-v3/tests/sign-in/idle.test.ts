@@ -5,6 +5,7 @@ import {
   idleNeverReturns,
   idlePolicyRefused,
   idleRefusedSignOut,
+  idleSignInRefused,
   idleUsual,
   SESSIONS,
 } from "../../fixtures/sign-in/stories/idle.ts";
@@ -80,6 +81,15 @@ describe("the idle sign-out (Schedules R1, R3, R5, R11, R14)", () => {
     expect(["refused", "signed out"].map((n) => at(run, n))).toEqual([
       { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
       { state: "SIGNED_OUT", timers: {}, issues: [] },
+    ]);
+  });
+
+  it("Schedules R11: an account read that signs in under a policy past the longest timer commits: the session is signed in with its wait refused and its issue, and the next valid policy starts the wait", async () => {
+    const run = await played(idleSignInRefused);
+
+    expect(["refused", "later"].map((n) => at(run, n))).toEqual([
+      { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
+      { state: "SIGNED_IN", timers: { idle: { dueAt: 660_000 } }, issues: [] },
     ]);
   });
 

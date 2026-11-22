@@ -357,4 +357,13 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     '    Unsent: () => Move.EndUnsent({ why: "Cancelled" }),',
     "    Unsent: stay,",
   ),
+  fault(
+    "refusal-window-never-closes",
+    "Turn I14",
+    ["tests/rules/refusal-window.test.ts"],
+    "the rule's window for a schedule's refused start never closes, so a later turn's own arm refused is never judged as a refusal",
+    "tests/rules/deliveries.ts",
+    '  (open && e._tag !== "Published");',
+    "  open;",
+  ),
 ];

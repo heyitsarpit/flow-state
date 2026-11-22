@@ -20,6 +20,9 @@ const ISSUE_WRITER = "src/core/world.ts";
 
 const DECISION = "src/core/schedule-decision.ts";
 
+// Where a schedule's issues are read from state: the one place their source is built.
+const ISSUES = "src/core/schedule-issues.ts";
+
 // Fields only an incarnation has: a literal with one of them and `schedules` or `issues` builds
 // an incarnation.
 const INCARNATION_FIELDS = new Set(["activations"]);
@@ -197,7 +200,7 @@ export const timersDecidedRule = defineRule({
           callee.object.type === "Identifier" &&
           callee.object.name === "IssueSource" &&
           propertyName(callee) === "Schedule" &&
-          rel !== DECISION
+          rel !== ISSUES
         )
           context.report({
             node,

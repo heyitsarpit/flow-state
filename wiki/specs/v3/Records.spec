@@ -287,7 +287,8 @@ model
             baselines: { [reaction: string]: { value?: Json } };
         };
         // `Schedules`' saved timer, spelled once here. `selectionFailed`, `firing` and `Refused` are Flow's own
-        // shapes: stage 1 checks them. `TimerShape` is the one name of a saved timer.
+        // shapes: stage 1 checks them. `TimerShape` is the one name of a saved timer (`SavedTimer` in code:
+        // lint refuses "Shape" in a name).
         type TimerShape = {
             key?: Json;
             selection?: string;                                // canonical text by `selectionCodec`
@@ -547,7 +548,9 @@ algorithm
         type RawGroup = { position?: Json; work?: Json; lanes: ReadonlyMap<string, Json>; owed?: Json };
         type GroupStep = (g: RawGroup, owner: OwnerText) => Result.Result<RawGroup, "Position" | "Work">;
         const steps: { readonly [N in OlderFormat]: GroupStep };   // OlderFormat = 1 | 2 | 3 | 4 | 5
-        - A step reads no definition. What it cannot derive it leaves absent; the reference table's "the record lacks
+        - A step reads no definition, but for step 5 to 6's schedule row, which files each saved timer under the
+            state on the record's chain that declares it (a format-5 timer names no state), as step 4 to 5 already
+            reads it. What it cannot derive it leaves absent; the reference table's "the record lacks
             it" column then decides, as for a definition edit.
         - A step's failure names its side; the other side goes on.
         - Steps 1 to 4 keep today's actor steps and are the identity on lanes and owed rows, which is what the code

@@ -158,7 +158,7 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "Turn R14",
     [HOME, WIZARD],
     "an event a schedule lists in disarmOn leaves it running",
-    "src/core/turn.ts",
+    "src/core/turn-arms.ts",
     "if (schedule.disarmOn.includes(tag)) names.push(schedule.name);",
     'if (schedule.disarmOn.includes(tag) && tag === "") names.push(schedule.name);',
   ),
@@ -214,8 +214,8 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     [HOME],
     "a firing queued twice for one step fires again before the next step is due",
     "src/core/schedules.ts",
-    "          tracked.arming.run.timing.dueAt <= tx.env.now",
-    "          tracked.arming.run.timing.dueAt >= 0",
+    "      (due) => due.run.arming === arming && due.dueAt <= tx.env.now,",
+    "      (due) => due.run.arming === arming,",
   ),
   fault(
     "dying-step-silent",
@@ -276,7 +276,7 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "Turn R14",
     [TABLE],
     "a re-entry by an event the schedule lists in disarmOn computes its entry arming's delay, so an out-of-range one refuses the turn",
-    "src/core/turn.ts",
+    "src/core/turn-arms.ts",
     "    !schedule.disarmOn.includes(tag) &&\n",
     "",
   ),
@@ -296,13 +296,13 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     says: "a timer shows its reasons' issue ahead of its firing's, against the check order",
     edits: [
       {
-        file: DECISION,
+        file: "src/core/schedule-issues.ts",
         find: '    Outcome.$is("Failed")(timer.firing) ? Option.some(timer.firing.failure) : Option.none(),',
         replace:
           '    timer.reasons._tag === "Failed" ? Option.some(timer.reasons.failure) : Option.none(),',
       },
       {
-        file: DECISION,
+        file: "src/core/schedule-issues.ts",
         find: '    timer.reasons._tag === "Failed" ? Option.some(timer.reasons.failure) : Option.none(),\n  ]);',
         replace:
           '    Outcome.$is("Failed")(timer.firing) ? Option.some(timer.firing.failure) : Option.none(),\n  ]);',
@@ -350,7 +350,7 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "Turn R25",
     [KEYS],
     "a keyed schedule's issues carry no key, so one key's issue replaces or clears another's",
-    DECISION,
+    "src/core/schedule-issues.ts",
     "    source: IssueSource.Schedule({ name, key: Option.map(key, (k) => k.text) }),",
     "    source: IssueSource.Schedule({ name, key: Option.none() }),",
   ),

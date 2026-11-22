@@ -84,6 +84,24 @@ export const idleRefusedSignOut = idleStory("sign-in/idle-refused-sign-out")
   .checkpoint("signed out");
 
 /**
+ * A policy past the longest timer loaded before Elif signs in: the sign-in's account read is an
+ * operation's outcome, so its turn commits with the idle wait refused and its issue (Schedules
+ * R11); ten minutes later a valid policy starts the wait.
+ */
+export const idleSignInRefused = Story.app(authIdleSetup, {
+  id: "sign-in/idle-sign-in-refused",
+  fixtures: [AuthFake, ProfileFake],
+})
+  .world(Profiles.saved({ email: ELIF, handle: "elif" }))
+  .ensure(mainIdle)
+  .send(mainIdle, policy(2 ** 31))
+  .send(mainIdle, AuthSession.E.SignedIn())
+  .checkpoint("refused")
+  .advance("10 minutes")
+  .send(mainIdle, policy(60_000))
+  .checkpoint("later");
+
+/**
  * How many sessions the load Story idles: a first guess, to be measured on the bench.
  */
 export const SESSIONS = 16;
@@ -154,5 +172,6 @@ export const idleStories = {
   idleNeverReturns,
   idlePolicyRefused,
   idleRefusedSignOut,
+  idleSignInRefused,
   idleManySessions,
 };

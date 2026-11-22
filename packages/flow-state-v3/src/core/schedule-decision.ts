@@ -1,7 +1,7 @@
 import { Brand, Data, Option, Result } from "effect";
 import type { Schedule, Values } from "./compiled.ts";
 import type { Step } from "./schedule-plan.ts";
-import { type ArmingId, type Issue, IssueSource } from "./world.ts";
+import type { ArmingId } from "./world.ts";
 import {
   Arming,
   type Checked,
@@ -14,7 +14,6 @@ import {
   type TimerKey,
   Timing,
   type Tracked,
-  timersIn,
   valueOf,
 } from "./timers.ts";
 
@@ -49,7 +48,7 @@ export type Firing = { readonly name: string; readonly arming: ArmingId; readonl
 export type Occasion = Data.TaggedEnum<{
   Turn: {
     disarmed: boolean;
-    started: Option.Option<Option.Option<Step>>;
+    started: Option.Option<Result.Result<Option.Option<Step>, string>>;
     fired: Option.Option<Firing>;
   };
   Context: {};
@@ -207,7 +206,8 @@ const started = (pass: Pass, timer: Tracked) => {
 
   const first = Option.match(given, {
     onNone: () => pass.reads.first(timer.key),
-    onSome: (step) => Result.succeed(step),
+    onSome: (step) =>
+      Result.mapError(step, (slot) => ({ code: "InvalidTurn", slot }) satisfies Failure),
   });
 
   if (Result.isFailure(first)) {
@@ -537,47 +537,3 @@ export const savedSchedule = (
     | { readonly _tag: "Single"; readonly timer: Tracked }
     | { readonly _tag: "Keyed"; readonly timers: ReadonlyMap<string, Tracked> },
 ) => scheduledOf(shape._tag === "Single" ? shape : { ...shape, keys: CLEAN });
-
-// A timer's first failed outcome in check order: its last firing, its `restartOn`, its arming (a
-// refused start, or a broken cursor), its reasons.
-const failureOf = (timer: Tracked) =>
-  Option.firstSomeOf([
-    Outcome.$is("Failed")(timer.firing) ? Option.some(timer.firing.failure) : Option.none(),
-    timer.selection._tag === "Failed" ? Option.some(timer.selection.failure) : Option.none(),
-    Arming.$match(timer.arming, {
-      Idle: () => Option.none<Failure>(),
-      Refused: ({ failure }) => Option.some(failure),
-      Armed: ({ run }) =>
-        Cursor.$is("Broken")(run.cursor) ? Option.some(run.cursor.failure) : Option.none(),
-    }),
-    timer.reasons._tag === "Failed" ? Option.some(timer.reasons.failure) : Option.none(),
-  ]);
-
-/**
- * A schedule's issue: its source names the schedule and the timer's key (none for `keys` and an
- * unkeyed schedule).
- */
-export const issueOf = (name: string, key: Option.Option<TimerKey>, failure: Failure) =>
-  ({
-    source: IssueSource.Schedule({ name, key: Option.map(key, (k) => k.text) }),
-    code: failure.code,
-    slot: Option.some(failure.slot),
-  }) satisfies Issue;
-
-/**
- * A schedule's issues, read from its state and stored nowhere: its `keys` failure, then per timer
- * in key-text order the first failed outcome in check order.
- */
-export const scheduleIssues = (name: string, scheduled: Scheduled) => {
-  const keysIssue =
-    scheduled._tag === "Keyed" && Outcome.$is("Failed")(scheduled.keys)
-      ? [issueOf(name, Option.none(), scheduled.keys.failure)]
-      : [];
-
-  return [
-    ...keysIssue,
-    ...timersIn(scheduled).flatMap((timer) =>
-      Option.toArray(Option.map(failureOf(timer), (failure) => issueOf(name, timer.key, failure))),
-    ),
-  ];
-};

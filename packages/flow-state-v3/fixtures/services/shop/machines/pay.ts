@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema, Option } from "effect";
 import { definition, deny, Flow, machine } from "../../../../src/index.ts";
 import {
   type AlreadyCaptured,
@@ -31,6 +31,15 @@ const Receipt = Schema.Struct({
   afterUnsure: Schema.Boolean,
   alreadyPlaced: Schema.Boolean,
 });
+
+// A busy answer's retry hint, 1 s when it gives none; a negative hint is one the client cannot
+// read, so mapping it throws, as a parser does.
+const retryHintOf = (hint: Option.Option<number>) => {
+  if (Option.exists(hint, (ms) => ms < 0))
+    throw new Error(`unreadable retry hint ${String(Option.getOrUndefined(hint))}`);
+
+  return Option.getOrElse(hint, () => 1000);
+};
 
 /**
  * Checkout's Pay definition: the real Pay's signed-in subset, in the production API.
@@ -87,7 +96,9 @@ export const Pay = definition({
       success: E.Confirmed.from((v: Confirmed) => v),
       failure: {
         CardDeclined: E.Declined.from((e: CardDeclined) => ({ code: e.code })),
-        Busy: E.Busy.from((e: Busy) => ({ retryAfterMs: e.retryAfterMs ?? 1000 })),
+        Busy: E.Busy.from((e: Busy) => ({
+          retryAfterMs: retryHintOf(Option.fromUndefinedOr(e.retryAfterMs)),
+        })),
         IntentBusy: E.PayRefused.from(() => ({
           reason: "This payment changed elsewhere. Refresh to continue.",
         })),

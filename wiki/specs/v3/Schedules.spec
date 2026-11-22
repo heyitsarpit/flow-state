@@ -99,8 +99,13 @@ requirements
         source  @plan.Machines.O5.
         must    A disarm wins over every start in the same turn, a new key and an entry included, and is an event,
                 not a state. A start wins over the firing's next step in the same turn. A turn's own arm (entry or
-                `armOn`) with a bad delay refuses the turn; every later start (a new key, a restart, creation, an
-                instance's start, a wake) is `Refused` with an issue and refuses no turn.
+                `armOn`) with a bad delay refuses the turn, unless the turn is an operation's outcome: that turn
+                commits, and its start is `Refused` with its issue, tried again on every occasion; every later
+                start (a new key, a restart, creation, an instance's start, a wake) is `Refused` with an issue
+                and refuses no turn.
+                [decided: user 2026-11-22] answered "B" to the question of a refused own arm on an operation's
+                outcome: the outcome has happened, so refusing its turn would lose the ending (a sign-in left
+                loading for good).
                 [decided: user 2026-11-21] answered "A, as recommended" to the question of a start whose first step
                 fails: keep both rules.
                 A computed delay is read once per start; no later change is tracked.
@@ -169,9 +174,11 @@ open
     Q1  The input gate is proposed: `pass` keeps the identities of memory, context, props and lanes from its last run 
         and skips a schedule only when all are the same, the occasion carries nothing for it, it is not a `Wake` and no
         timer of the schedule is `Refused`. It is a cache and lands only when the bench shows the reads matter. This is
-        the gate's one home: `Changes` passes every scope that hears an occasion and builds no gate. [proposed]
-        outcome  A build-time choice in @task.V3.T118's description: land it with a bench row, or leave it out.
-                 Level 0 checks gated against ungated.
+        the gate's one home: `Changes` passes every scope that hears an occasion and builds no gate.
+        outcome  Left out: the hub's turns all write memory, so a gate on input identity skips none (bench rows
+                 `turn.home.hub-usual` and `turn.home.hub-many-devices`). [decided: agent builder 2026-11-22] Why:
+                 a cache that saves nothing adds a writer. Reverse: land it with its Level 0 check when a
+                 fixture's turns leave a scope's inputs unchanged.
 
     Q2  A hidden page is no use change in v1: no schedule row mentions it, timers keep their deadlines, and a throttled 
         wake fires each overdue timer once. [decided: user 2026-11-22] Why: an autosave keeps saving and no
@@ -297,6 +304,10 @@ model
         // its one spelling is `Records`' `TimerShape`. The decode rows below read it.
         ScheduleShape = TimerShape | ReadonlyArray<TimerShape>   // keyed: a list in key-text order
         ```
+
+        Built so far: the record's Schema (`Records`' saved timer, spelled `SavedTimer` in code, since lint refuses
+        "Shape" in a name) is the encoded side, and `Tracked` with its encode and decode is written beside it in
+        `schedule-restore.ts`, one pair, not yet derived from the Schema.
 
         Every timer of the scope is saved, idle ones included: an idle timer with a baseline is the debounce a reload
         must not forget, so `savedTimersOf`'s filter and its `armsOnEntry` scan go. Activation ids are not saved: the
@@ -671,7 +682,8 @@ composition
         - `Types`. The declaration's types, `TimersOf<D>`, the evidence `Paused` and `Resumed` typed by declared name, 
             key and
             reasons, the one typed erasure; `Compiled` builds `schedulesAt`, `byName`, `rank`, `armedBy`, `disarmedBy`.
-        - `Host`. The host stepper by arming id with a release; the alarm heap; the memo for the snapshot; a reporter 
+        - `Host`. The host stepper by series id (actor, timer, arming time), which names one arming; the alarm heap; 
+            the memo for the snapshot; a reporter 
             that
             records broken ids for inverted rows.
 
@@ -887,7 +899,9 @@ tests
         owed
             firings; I6 and I7 compare two runs of the runtime with each other. Expected views are looked up in the 
                 tables
-            held as data, one row per cell: no second implementation. `tests/turn/schedule-ledger.ts` is amended before 
+            held as data, one row per cell: no second implementation. Built instead: the ledger, one function per
+            table, each citing its table; the class counts came from a one-off classification. 
+                `tests/turn/schedule-ledger.ts` is amended before 
                 any
             code: restore keeps the selection, value and failure (today it drops every baseline); a new timer's reasons
             start at `[]` (today it inherits its key's last reasons across a re-entry); restore keeps `firingFailed` and

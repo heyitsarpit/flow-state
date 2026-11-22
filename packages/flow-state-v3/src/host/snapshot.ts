@@ -1,5 +1,5 @@
 import { Option, Predicate } from "effect";
-import { scheduleIssues } from "../core/schedule-decision.ts";
+import { savedScheduleIssues, scheduleIssues } from "../core/schedule-issues.ts";
 import { operationsOf } from "../core/schedule-plan.ts";
 import { publicMemory } from "../core/compiled.ts";
 import type { Compiled, Values } from "../core/compiled.ts";
@@ -252,7 +252,7 @@ export const snapshotIn = (
       operations,
       lifecycle: restingLifecycleOf(world.life, "active"),
       context: {},
-      issues: [],
+      issues: savedScheduleIssues(record.schedules).map((issue) => issueOf(actor, issue)),
       schedules: savedTimersOf(record.schedules),
     });
 

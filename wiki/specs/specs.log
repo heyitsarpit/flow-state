@@ -782,3 +782,15 @@ note 2026-11-22T05:41:03Z
 note 2026-11-22T05:41:04Z
     Records R12, step 5 to 6: deleted the line mapping a format-5 baseline and refused marker; SavedTimer never held
     either, so the step writes no selection and no Refused (@task.V3.T118).
+
+note 2026-11-22T07:49:31Z
+    Schedules R11: an operation's outcome whose own arm has a bad delay commits, its start Refused with its issue and
+    tried on every occasion (the user's answer B); events and firings still refuse their turn (@task.V3.T118).
+
+note 2026-11-22T07:49:32Z
+    Schedules: SavedForm says Tracked and its encode and decode sit beside the Schema, not derived; the host stepper is
+    keyed by series id; T5's oracle is the ledger; Q1 closed, no gate (@task.V3.T118).
+
+note 2026-11-22T07:49:33Z
+    Records R12: step 5 to 6 reads the definition to file each saved timer under its state; the saved timer is spelled
+    SavedTimer in code, lint refusing Shape (@task.V3.T118).

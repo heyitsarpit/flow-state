@@ -119,7 +119,7 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
     ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.boost"]]);
   });
 
-  it.fails("Schedules R11: a fixed delay of Duration.millis(NaN) is refused at construction, as a fixed delay past the limit is", () => {
+  it("Schedules R11: a fixed delay with a NaN part is refused at construction, as one past the limit is; Duration.millis(NaN) is already Effect's 0 ms and builds as Duration.millis(0)", () => {
     const placed = (schedule: unknown) =>
       refusal(() =>
         machine(Room, ({ S, E }) =>
@@ -133,8 +133,12 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
         ),
       );
 
-    expect(placed(Duration.millis(Number.NaN))).toEqual(placed(2 ** 31));
+    expect(placed({ millis: Number.NaN })).toEqual([
+      ["InvalidConfiguration", "states.OFFLINE.schedules.boost.schedule.millis"],
+    ]);
+    expect(placed(Number.NaN)).toEqual(placed(2 ** 31));
     expect(placed(2 ** 31)).not.toEqual([]);
+    expect(placed(Duration.millis(Number.NaN))).toEqual(placed(Duration.millis(0)));
   });
 
   it("Compile T11: a schedule's send mapped from this definition's own event (E.X.from) constructs", () => {

@@ -222,6 +222,7 @@ export const makeServe = (
       tag,
       payload: tx.env.admit(payload),
       late: Option.isSome(route.late),
+      outcome: Option.isSome(route.ending),
       from: Option.match(route.late, {
         onNone: () => incarnation.activations.length,
         onSome: (owner) => depthBelow(incarnation, owner),
