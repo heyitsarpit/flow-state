@@ -6472,7 +6472,7 @@ tasks
 
     T145
         title       Planted faults: runtime rules only, judged by their targets
-        status      open
+        status      in_progress
         priority    high
         description
             Planted faults cover runtime rules only and are judged by their own target tests, so `nub run faults --only`
@@ -6501,3 +6501,14 @@ tasks
             - Every remaining runtime fault is caught by its own targets, checked with `--only` in groups, never the
               whole run.
             - `nub run check` at zero and the package suite pass.
+        comment     2026-11-22T14:18:46Z
+            Requirements (builder), one per acceptance item; each fails today. Run from the repo root.
+            1. Targets only: `node --experimental-strip-types tools/faults/verdict.test.ts` passes; its `judge` case
+               shows a fault its targets let through is MISSED with only the target files run (red now: no `judge`).
+            2. No type-check, no type or lint fault: `rg -n typecheck tools/faults/run.ts` and `rg -n
+               '\.test-d\.ts|one-builder\.test|no-unsafe-type-assertion' packages/flow-state-v3/tests/*faults*.ts` are
+               empty (red now: 1 and 8 lines); each deleted fault is named in a comment with its covering
+               two-sided test.
+            3. Every remaining fault caught by targets: `nub run faults --only <group>` over groups covering every name
+               reports each group N of N caught by targets.
+            4. Gates: `nub run check` at 0, the package suite, `wk check`.

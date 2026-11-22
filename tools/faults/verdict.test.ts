@@ -3,7 +3,8 @@
 //
 //   node --experimental-strip-types tools/faults/verdict.test.ts
 import assert from "node:assert/strict";
-import { applyEdits, credited, failedTestsOf, parseArgs, redsKnown, verdictOf } from "./verdict.ts";
+import { applyEdits, credited, failedTestsOf, judge, parseArgs, verdictOf } from "./verdict.ts";
+import type { Run } from "./verdict.ts";
 
 const out = (tests: string, files: string) => ` Test Files  ${files}\n      Tests  ${tests}\n`;
 
@@ -80,12 +81,42 @@ assert.deepEqual(credited("caught (2 failed (9))", ["tests/y.test.ts > b", "test
   verdict: "caught (2 failed (9))",
   tests: ["tests/y.test.ts > b"],
 });
-// An unchanged run over some files knows their reds only: a whole-suite fallback needs the whole
-// unchanged suite first, so a red outside the targets is never credited.
-assert.equal(redsKnown(["tests/a.test.ts"], "whole"), false);
-assert.equal(redsKnown(["tests/a.test.ts"], ["tests/b.test.ts"]), false);
-assert.equal(redsKnown(["tests/a.test.ts", "tests/b.test.ts"], ["tests/b.test.ts"]), true);
-assert.equal(redsKnown("whole", "whole"), true);
-assert.equal(redsKnown("whole", ["tests/a.test.ts"]), true);
+// A fault is judged by its target files alone: a fault they let through is MISSED, and no other
+// file runs, so a wrong target shows as a miss and is re-aimed, never widened to the whole suite.
+const asked: Array<{ readonly files: ReadonlyArray<string>; readonly flags: ReadonlyArray<string> }> = [];
+const runs = (...results: ReadonlyArray<Run>) => {
+  const queue = [...results];
+
+  return (files: ReadonlyArray<string>, flags: ReadonlyArray<string>) => {
+    asked.push({ files, flags });
+
+    return Promise.resolve(queue.shift() ?? { kind: "broken", why: "asked for a run too many" });
+  };
+};
+const targets = { files: ["tests/a.test.ts"], pkg: "pkg", knownRed: new Set<string>(), everyCatch: false };
+
+assert.deepEqual(await judge(targets, runs({ kind: "ran", passed: true, out: out("3 passed (3)", "1 passed (1)") })), {
+  verdict: "MISSED",
+  tests: [],
+});
+assert.deepEqual(asked.splice(0), [{ files: ["tests/a.test.ts"], flags: ["--bail=1"] }]);
+// A stopped run that lost its failed test's report runs the same targets again, whole.
+assert.deepEqual(
+  await judge(
+    targets,
+    runs(
+      { kind: "ran", passed: false, out: out("3 passed (3)", "1 failed (1)") },
+      { kind: "ran", passed: false, out: ` FAIL  pkg/tests/a.test.ts > a > breaks\n${out("1 failed | 2 passed (3)", "1 failed (1)")}` },
+    ),
+  ),
+  { verdict: "caught (1 failed | 2 passed (3); test files 1 failed (1))", tests: ["pkg/tests/a.test.ts > a > breaks"] },
+);
+assert.deepEqual(asked.splice(0), [
+  { files: ["tests/a.test.ts"], flags: ["--bail=1"] },
+  { files: ["tests/a.test.ts"], flags: [] },
+]);
+// A target holding a test red in the unchanged run runs to the end, and that test is never the catch.
+await judge({ ...targets, knownRed: new Set(["pkg/tests/a.test.ts > a > red"]) }, runs({ kind: "ran", passed: true, out: out("3 passed (3)", "1 passed (1)") }));
+assert.deepEqual(asked.splice(0), [{ files: ["tests/a.test.ts"], flags: [] }]);
 
 console.log("arguments and judging: as expected");
