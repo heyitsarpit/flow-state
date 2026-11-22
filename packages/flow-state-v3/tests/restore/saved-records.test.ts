@@ -126,6 +126,28 @@ describe("a saved work record (Records Types WorkShape; R16)", () => {
   });
 });
 
+describe("a value the writer never emits in its place (Records R11)", () => {
+  it.fails("Records R11, R16: a Held head whose unknown slot holds a success is kept unread and reported, and no Done is heard", async () => {
+    const lane = {
+      displaced: [],
+      head: {
+        ...head("Held", { cents: 500 }),
+        unknown: {
+          ending: { channel: "success", reason: "success", value: { receipt: "r1" } },
+          kept: false,
+        },
+      },
+      queue: [],
+    };
+
+    const forged = transferWork(lane);
+    const run = await bootAccount("records/success-in-unknown-slot", ACCOUNT_WORK, forged);
+
+    expect(keptUnread(run, ACCOUNT_WORK, forged)).toEqual({ reported: true, bytes: true });
+    expect(heard(run, 2, "transfer")).toEqual([]);
+  });
+});
+
 describe("a lane holds a head, or a queue behind one, or displaced Attempts (Records Types LaneShape)", () => {
   const SERIALIZE_WORK = "work/Lanes/serialize/serialize-1";
   const FLOW = '{"repo":"flow"}';
