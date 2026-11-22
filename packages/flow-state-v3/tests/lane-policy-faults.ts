@@ -56,7 +56,8 @@ export const lanePolicyFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/lane-moves.ts",
         find: "    if (next === undefined) {\n      dropLane(at.id, lane);",
-        replace: "    if (next !== null) {\n      dropLane(at.id, lane);",
+        replace:
+          "    if (next === undefined || lane.queue.length >= 0) {\n      dropLane(at.id, lane);",
       },
     ],
   },

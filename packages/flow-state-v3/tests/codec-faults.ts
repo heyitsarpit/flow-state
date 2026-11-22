@@ -176,7 +176,8 @@ export const codecFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/boundary.ts",
         find: '  if (context === undefined || !Predicate.hasProperty(SchemaAST, "replaceContext")) return built;',
-        replace: "  return built;",
+        replace:
+          '  if (context === undefined || !Predicate.hasProperty(SchemaAST, "replaceContext") || Number.isFinite(0)) return built;',
       },
     ],
   },
@@ -189,7 +190,8 @@ export const codecFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/boundary.ts",
         find: "      if (Option.isNone(current) || current.value.budget > 0) return transform(input, options);",
-        replace: "      return transform(input, options);",
+        replace:
+          "      if (Option.isNone(current) || current.value.budget > 0 || Number.isFinite(0)) return transform(input, options);",
       },
     ],
   },

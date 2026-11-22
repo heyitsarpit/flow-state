@@ -289,6 +289,18 @@ const owedToClosed = (id: string, count: number) =>
 const released = (count: number) => ids(count).map(() => Bank.transfer.release());
 
 /**
+ * A transfer is out when the customer closes the account, so the bank's answer is owed to the
+ * account's identity; the customer then removes the account from this device, so the app forgets
+ * it, and adds it back fresh. Wrong ending: the forgotten answer reaches the new account.
+ */
+export const owedForgotten = owedToClosed("transfers/owed-forgotten", 1)
+  .world(...released(1))
+  .checkpoint("owed")
+  .dispose(account, { how: "forget" })
+  .ensure(account)
+  .checkpoint("fresh");
+
+/**
  * Large receipts owed to an account closed while its transfers were out: one of 262,144
  * characters, five of 200,000, one of 262,145, six more of 200,000 (2.9 MB together) and one short;
  * then the tab reloads and the account hears every one, in the order they were owed. A stress

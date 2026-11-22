@@ -30,7 +30,7 @@ export const boundaryFaults: ReadonlyArray<Fault> = [
       {
         file: "src/entry.ts",
         find: "  cause instanceof FlowError\n    ? cause\n",
-        replace: "  cause instanceof FlowError || true\n    ? cause\n",
+        replace: "  cause instanceof FlowError || Number.isFinite(0)\n    ? (cause as FlowError)\n",
       },
     ],
   },

@@ -431,7 +431,7 @@ export const contextFaults: ReadonlyArray<Fault> = [
         file: "src/core/boundary.ts",
         find: '    : Result.fail<"schema">("schema");',
         replace:
-          '    : Result.fail<"schema">(Exit.hasDies(parsed) ? Effect.runSync(parsed) : "schema");',
+          '    : Exit.hasDies(parsed)\n      ? Result.fail<"schema">(Effect.runSync(parsed) as "schema")\n      : Result.fail<"schema">("schema");',
       },
     ],
   },

@@ -21,12 +21,14 @@ import {
   leaveWhileSyncing,
   signOutWhileSyncing,
 } from "../../fixtures/sync/stories/usual.ts";
+import { account } from "../../fixtures/transfers/app.ts";
 import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { forgottenRetiredWire, RETIRED_WIRE } from "../../fixtures/transfers/stories/edges.ts";
 import { owedAtBoot } from "../../fixtures/transfers/stories/load.ts";
 import {
   interruptCleanupFails,
   leaveWhileSending,
+  owedForgotten,
   unsureAccountRemoved,
 } from "../../fixtures/transfers/stories/usual.ts";
 import type { Evidence } from "../../src/host/inspect.ts";
@@ -254,6 +256,16 @@ describe("the disposal order (Actors R22, R23; Inspection O3)", () => {
 
     expect([mainBadge, mainCart, mainShopper].map(opened)).toEqual([true, true, true]);
     expect([mainFlow, checkout].map(opened)).toEqual([false, false]);
+  });
+});
+
+describe("forget closes every owed row of the identity (Actors R21)", () => {
+  it("Actors R21: an answer owed to a closed account is closed as evidence when the account is forgotten, so the account added back hears nothing", async () => {
+    const run = await owedForgotten.run();
+    const { owed, fresh } = run.checkpoints;
+
+    expect(owed.read(Bank.transfer).map((c) => c.status)).toEqual(["answered"]);
+    expect(fresh.read(account)?.memory.notice).toBe("");
   });
 });
 

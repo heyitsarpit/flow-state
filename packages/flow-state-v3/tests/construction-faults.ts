@@ -48,7 +48,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
         file: "src/definition.ts",
         find: '    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["operations"],',
         replace:
-          '    throw called.failure;\n  if (Result.isFailure(called))\n    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["operations"],',
+          '    if (Number.isFinite(0)) throw called.failure;\n  if (Result.isFailure(called))\n    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["operations"],',
       },
     ],
   },
@@ -62,7 +62,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
         file: "src/machine.ts",
         find: '    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["body"],',
         replace:
-          '    throw written.failure;\n  if (Result.isFailure(written))\n    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["body"],',
+          '    if (Number.isFinite(0)) throw written.failure;\n  if (Result.isFailure(written))\n    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["body"],',
       },
     ],
   },
@@ -219,7 +219,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
       {
         file: "src/events.ts",
         find: "!is(Predicate.hasProperty(given, name) ? given[name] : undefined)",
-        replace: "!is(given[name])",
+        replace: "!is((given as Record<string, unknown>)[name])",
       },
     ],
   },
@@ -232,7 +232,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/runtime.ts",
         find: '      if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))',
-        replace: "      if (event === event.constructor)",
+        replace: "      if (Object.is(event, event.constructor))",
       },
     ],
   },
@@ -245,7 +245,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/testing/run.ts",
         find: '        if (!Predicate.hasProperty(event, "_tag") || !Predicate.isString(event._tag))',
-        replace: "        if (event === event.constructor)",
+        replace: "        if (Object.is(event, event.constructor))",
       },
     ],
   },
@@ -297,7 +297,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
       {
         file: "src/flow.ts",
         find: "    else if (first !== undefined && reader.value.owner !== first.reader.owner)",
-        replace: "    else if (false)",
+        replace: "    else if (first !== undefined && Number.isNaN(0))",
       },
     ],
   },

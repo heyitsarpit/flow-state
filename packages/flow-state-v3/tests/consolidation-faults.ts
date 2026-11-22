@@ -63,14 +63,13 @@ export const consolidationFaults: ReadonlyArray<Fault> = [
   {
     name: "rows-dropped-outside-ledger",
     tests: ["tests/actors/runtime-life.test.ts"],
-    says: "a forget keeps the identity's owed rows itself instead of closing them in the ledger",
+    says: "a forget leaves the identity's owed rows open instead of closing them in the ledger",
     rule: "Actors R21",
     edits: [
       {
         file: "src/core/incarnations.ts",
         find: "    ledger.suspend(actor, forgetting);",
-        replace:
-          "    if (forgetting) tx.set({ ...tx.world(), owed: tx.world().owed });\n    else ledger.suspend(actor, false);",
+        replace: "    if (!forgetting) ledger.suspend(actor, false);",
       },
     ],
   },

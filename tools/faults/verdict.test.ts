@@ -4,7 +4,7 @@
 //   node --experimental-strip-types tools/faults/verdict.test.ts
 import assert from "node:assert/strict";
 import { applyEdits, credited, failedTestsOf, judge, parseArgs, verdictOf } from "./verdict.ts";
-import type { Run } from "./verdict.ts";
+import type { Compile, Run } from "./verdict.ts";
 
 const out = (tests: string, files: string) => ` Test Files  ${files}\n      Tests  ${tests}\n`;
 
@@ -87,10 +87,13 @@ const asked: Array<{ readonly files: ReadonlyArray<string>; readonly flags: Read
 const runs = (...results: ReadonlyArray<Run>) => {
   const queue = [...results];
 
-  return (files: ReadonlyArray<string>, flags: ReadonlyArray<string>) => {
-    asked.push({ files, flags });
+  return {
+    compile: () => Promise.resolve<Compile>({ kind: "compiles" }),
+    run: (files: ReadonlyArray<string>, flags: ReadonlyArray<string>) => {
+      asked.push({ files, flags });
 
-    return Promise.resolve(queue.shift() ?? { kind: "broken", why: "asked for a run too many" });
+      return Promise.resolve(queue.shift() ?? { kind: "broken", why: "asked for a run too many" });
+    },
   };
 };
 const targets = { files: ["tests/a.test.ts"], pkg: "pkg", knownRed: new Set<string>(), everyCatch: false };
@@ -124,5 +127,16 @@ assert.deepEqual(
   { verdict: "MISSED (only tests red in the unchanged run failed)", tests: [] },
 );
 assert.deepEqual(asked.splice(0), [{ files: ["tests/a.test.ts"], flags: [] }]);
+
+// A planted copy that does not type-check is NOT JUDGED and runs no test: a test failing on its
+// crash is never the catch.
+assert.deepEqual(
+  await judge(targets, {
+    ...runs({ kind: "ran", passed: false, out: ` FAIL  pkg/tests/a.test.ts > a > breaks\n${out("1 failed (1)", "1 failed (1)")}` }),
+    compile: () => Promise.resolve<Compile>({ kind: "fails", why: "src/a.ts(1,1): error TS2339" }),
+  }),
+  { verdict: "NOT JUDGED (the planted copy does not compile: src/a.ts(1,1): error TS2339)", tests: [] },
+);
+assert.deepEqual(asked.splice(0), []);
 
 console.log("arguments and judging: as expected");

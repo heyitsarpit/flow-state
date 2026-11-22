@@ -60,10 +60,15 @@ export const credited = (verdict: string, failed: ReadonlyArray<string>, knownRe
   };
 };
 
-// A fault's verdict over its target files alone. The run stops at its first failing test unless a
-// target holds a test red in the unchanged run (or every catch is asked for), and a stopped run
-// that lost its failed test's report runs the same targets again whole. A fault its targets let
-// through is MISSED: no other file runs, so a wrong target shows as a miss and is re-aimed.
+// Whether a planted copy type-checks, and the compiler's first error when it does not.
+export type Compile = { readonly kind: "compiles" } | { readonly kind: "fails"; readonly why: string };
+
+// A fault's verdict over its target files alone. The planted copy must type-check first: a plant
+// that does not compile is NOT JUDGED and runs no test, so a test that fails on its crash is never
+// its catch. The run stops at its first failing test unless a target holds a test red in the
+// unchanged run (or every catch is asked for), and a stopped run that lost its failed test's report
+// runs the same targets again whole. A fault its targets let through is MISSED: no other file runs,
+// so a wrong target shows as a miss and is re-aimed.
 export const judge = async (
   asked: {
     readonly files: ReadonlyArray<string>;
@@ -71,8 +76,15 @@ export const judge = async (
     readonly knownRed: ReadonlySet<string>;
     readonly everyCatch: boolean;
   },
-  run: (files: ReadonlyArray<string>, flags: ReadonlyArray<string>) => Promise<Run>,
+  steps: {
+    readonly compile: () => Promise<Compile>;
+    readonly run: (files: ReadonlyArray<string>, flags: ReadonlyArray<string>) => Promise<Run>;
+  },
 ) => {
+  const compiled = await steps.compile();
+
+  if (compiled.kind === "fails") return { verdict: `NOT JUDGED (the planted copy does not compile: ${compiled.why})`, tests: [] };
+  const { run } = steps;
   const paths = new Set(asked.files.map((file) => `${asked.pkg}/${file}`));
   const mayBail = !asked.everyCatch && ![...asked.knownRed].some((test) => paths.has(test.split(" > ")[0] ?? ""));
   const first = await run(asked.files, mayBail ? ["--bail=1"] : []);

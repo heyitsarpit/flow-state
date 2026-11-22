@@ -17,7 +17,7 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
         file: "src/core/schedules.ts",
         find: "    const after = new Map<string, Scheduled>();",
         replace:
-          "    const after = new Map<string, Scheduled>();\n    const stored: Array<Issue> = [];",
+          "    const after = new Map<string, Scheduled>();\n    const stored: Array<ReturnType<typeof issueOf>> = [];",
       },
       {
         file: "src/core/schedules.ts",
@@ -29,7 +29,7 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
         file: "src/core/schedules.ts",
         find: "    return changed ? reconciled({ ...incarnation, schedules: after }) : incarnation;",
         replace:
-          "    const issued = { ...incarnation, issues: [...incarnation.issues, ...stored] };\n\n    return changed || stored.length > 0 ? reconciled({ ...issued, schedules: after }) : incarnation;",
+          "    const issued = { ...incarnation, issues: [...incarnation.issues, ...stored] as typeof incarnation.issues };\n\n    return changed || stored.length > 0 ? reconciled({ ...issued, schedules: after }) : incarnation;",
       },
     ],
   },

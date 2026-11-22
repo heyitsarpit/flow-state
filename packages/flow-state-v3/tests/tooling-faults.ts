@@ -188,7 +188,8 @@ export const toolingFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/cli/main.ts",
         find: "          ...(run.checkpoints[record.step.name]?.inspection.actors ?? []).map(",
-        replace: "          ...[].map(",
+        replace:
+          "          ...(run.checkpoints[record.step.name]?.inspection.actors ?? []).slice(0, 0).map(",
       },
     ],
   },

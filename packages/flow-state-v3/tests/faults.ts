@@ -90,7 +90,8 @@ export const faults: ReadonlyArray<Fault> = [
       {
         file: "src/core/lane-moves.ts",
         find: "          id: head.id,\n          key: at.key,",
-        replace: '          id: resend ? tx.mint("att") : head.id,\n          key: at.key,',
+        replace:
+          "          id: retryCount > 0 ? tx.mintAttempt() : head.id,\n          key: at.key,",
       },
     ],
   },
@@ -182,7 +183,7 @@ export const faults: ReadonlyArray<Fault> = [
         file: "src/core/lane-moves.ts",
         find: "      Release: () => vacate(at, laneAt(at)),",
         replace:
-          '      Release: () => {\n        const lane = laneAt(at);\n        vacate(at, lane);\n        ledger.owe({ actor: at.actor, to: Audience.Identity(), operation: at.operation, attempt: Option.some(lane.head.id), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, owner: 0, current: true });\n      },',
+          '      Release: () => {\n        const lane = laneAt(at);\n        vacate(at, lane);\n        ledger.owe({ ...oweOf(at, Option.some(lane.head.id)), lane: Option.none(), channel: "unknown", reason: "Released", value: undefined, route: Route.Current() });\n      },',
       },
     ],
   },

@@ -209,7 +209,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/incarnations.ts",
         find: "    if (quarantined !== undefined)\n      tx.act(",
-        replace: "    if (quarantined === `never`)\n      tx.act(",
+        replace: "    if (quarantined !== undefined && Number.isNaN(0))\n      tx.act(",
       },
     ],
   },
@@ -222,7 +222,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/snapshot.ts",
         find: "  if (quarantined !== undefined && compiled !== undefined)",
-        replace: "  if (quarantined === `never` && compiled !== undefined)",
+        replace: "  if (quarantined !== undefined && Number.isNaN(0) && compiled !== undefined)",
       },
     ],
   },
@@ -261,7 +261,7 @@ export const restoreFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/close.ts",
         find: "    if (!opened || Option.isNone(store) || !driver.world().persistence || !driver.stored())",
-        replace: "    if (!driver.world().persistence || !driver.stored())",
+        replace: "    if (Option.isNone(store) || !driver.world().persistence)",
       },
     ],
   },

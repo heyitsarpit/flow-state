@@ -214,7 +214,7 @@ export const lifeFaults: ReadonlyArray<Fault> = [
         file: "src/core/life.ts",
         find: 'export const endedBy = (life: Life) => (Life.$is("Stopped")(life) ? "stop" : "dispose");',
         replace:
-          'export const endedBy = (life: Life) => (Life.$is("Stopped")(life) ? "dispose" : "dispose");',
+          'export const endedBy = (life: Life): "stop" | "dispose" => (Life.$is("Stopped")(life) ? "dispose" : "dispose");',
       },
     ],
   },

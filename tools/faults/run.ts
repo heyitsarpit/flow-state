@@ -4,7 +4,8 @@
 // of its target tests should fail). The unchanged run and the dead core run the whole suite, stress
 // files included. A fault is judged by its own target tests alone: one they let through is MISSED,
 // never handed to the whole suite, so a wrong target shows and is re-aimed. Faults cover runtime
-// rules only; a type or lint rule's own tests are two-sided, so the copies run no type-check. A
+// rules only; a type or lint rule's own tests are two-sided. A planted copy must type-check before
+// its targets run: one that does not compile is not judged, so a crash is never a catch. A
 // fault counts as caught only when its run fails and still prints its test summary with a failed
 // test: a timeout, output past the buffer, a run with no summary, or one whose summary shows no
 // failed test is reported as such and is never caught (tools/faults/verdict.ts, checked by
@@ -33,7 +34,7 @@ import { availableParallelism, setPriority, tmpdir, totalmem } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import { type Fault, faults as allFaults } from "../../packages/flow-state-v3/tests/faults.ts";
 import { runGrouped, stopAll, stopOnSignals } from "./group.ts";
-import { applyEdits, failedTestsOf, judge, parseArgs, type Run, summaryOf } from "./verdict.ts";
+import { applyEdits, type Compile, failedTestsOf, judge, parseArgs, type Run, summaryOf } from "./verdict.ts";
 
 const asked = parseArgs(allFaults, process.argv.slice(2));
 
@@ -171,6 +172,23 @@ const run = async (root: string, files: ReadonlyArray<string>, flags: ReadonlyAr
   return { kind: "ran", passed: usual.passed && stress.passed, out: `${usual.out}\n${stress.out}` };
 };
 
+// Whether a copy type-checks: the package's own check (`nub run check:effect`), about 2 s, so a plant
+// that would not compile is never credited with the test its crash fails. A name a plant leaves
+// unread is lint, not a type error, so unused names are allowed.
+const compiles = async (root: string): Promise<Compile> => {
+  const ended = await runGrouped(
+    resolve(repo, "node_modules/.bin/effect-tsgo"),
+    ["tsc", "-p", join(pkg, "tsconfig.json"), "--noUnusedLocals", "false", "--noUnusedParameters", "false"],
+    { cwd: root, timeoutMs: RUN_MS, maxBuffer: BUFFER, env: process.env },
+  );
+
+  if (ended.timedOut) return { kind: "fails", why: `the type-check timed out after ${RUN_MS} ms` };
+
+  if (ended.code === 0) return { kind: "compiles" };
+
+  return { kind: "fails", why: /error TS\d+.*/u.exec(ended.out)?.[0] ?? (ended.out.trim().split("\n")[0] ?? "no output") };
+};
+
 // The tests red in the unchanged run: a fault is caught only by a test outside them.
 let knownRed: ReadonlySet<string> = new Set();
 
@@ -289,7 +307,10 @@ const verdictFor = async (root: string, fault: Fault) => {
   let outcome = { verdict: "STALE", tests: [] as ReadonlyArray<string> };
 
   await planted(root, fault.edits, async () => {
-    outcome = await judge({ files: targetsOf(fault), pkg, knownRed, everyCatch: EVERY_CATCH }, (files, flags) => run(root, files, flags));
+    outcome = await judge(
+      { files: targetsOf(fault), pkg, knownRed, everyCatch: EVERY_CATCH },
+      { compile: () => compiles(root), run: (files, flags) => run(root, files, flags) },
+    );
   });
 
   return outcome;

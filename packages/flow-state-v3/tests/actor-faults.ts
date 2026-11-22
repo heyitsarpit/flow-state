@@ -188,7 +188,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/incarnations.ts",
         find: "    tx.act(\n      Act.SendTargetAbsent({",
-        replace: "    [].push(\n      Act.SendTargetAbsent({",
+        replace: "    ((_: unknown) => undefined)(\n      Act.SendTargetAbsent({",
       },
     ],
   },
@@ -299,7 +299,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/context.ts",
         find: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
-        replace: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: 0 }));",
+        replace:
+          "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: Option.none() }));",
       },
     ],
   },
@@ -313,7 +314,7 @@ export const actorFaults: ReadonlyArray<Fault> = [
         file: "src/core/context.ts",
         find: "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: tx.chainNow() }));",
         replace:
-          "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: (tx.world().chains.get(tx.chainNow())?.sent ?? 0) > 0 ? tx.chainNow() : 0 }));",
+          "if (!waiting) tx.enqueue(Mail.Context({ actor: consumer.actor, chain: Option.filter(tx.chainNow(), (id) => (tx.world().chains.get(id)?.sent ?? 0) > 0) }));",
       },
     ],
   },

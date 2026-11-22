@@ -68,7 +68,8 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/incarnations.ts",
         find: "        Unreadable: () => [],",
-        replace: '        Unreadable: () => [{ record, operation: "", lane: "" }],',
+        replace:
+          '        Unreadable: () => [{ _tag: "Retired" as const, actor, record, operation: "", lane: "" as never }],',
       },
     ],
   },
@@ -109,6 +110,12 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
         file: "bench/worker-args.ts",
         find: "          strict: true,",
         replace: "          strict: false,",
+      },
+      {
+        file: "bench/worker-args.ts",
+        find: "    const text = (flag: string) => Option.fromUndefinedOr(values[flag]);",
+        replace:
+          '    const text = (flag: string) =>\n      Option.filter(Option.fromUndefinedOr(values[flag]), (v): v is string => typeof v === "string");',
       },
     ],
   },

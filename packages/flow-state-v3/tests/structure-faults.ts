@@ -147,7 +147,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
       {
         file: "src/machine.ts",
         find: "    try: () => body(handed),",
-        replace: "    try: () => [body(handed), body(handed)][1],",
+        replace: "    try: () => {\n      body(handed);\n\n      return body(handed);\n    },",
       },
     ],
   },
@@ -248,7 +248,13 @@ export const structureFaults: ReadonlyArray<Fault> = [
     tests: [COMPILED],
     says: "the Diagnostic Schema decodes a code outside the closed list",
     rule: "Diagnostics R2, T1",
-    edits: [{ file: "src/error.ts", find: "  code: Code,", replace: "  code: Schema.String," }],
+    edits: [
+      {
+        file: "src/error.ts",
+        find: "  code: Code,",
+        replace: "  code: Schema.String as unknown as typeof Code,",
+      },
+    ],
   },
   {
     name: "creation-delay-drops-all",
@@ -434,7 +440,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/setup.ts",
         find: '        code: "Defect",\n        path: ["services"],',
-        replace: '        code: "ServiceFailed",\n        path: ["services"],',
+        replace: '        code: "ServiceFailed" as never,\n        path: ["services"],',
       },
     ],
   },

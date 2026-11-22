@@ -14,6 +14,11 @@ export const mixFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/edge.ts",
+        find: 'import { Clock, Context, Data, Effect, Schedule } from "effect";',
+        replace: 'import { Clock, Context, Data, Effect, Option, Schedule } from "effect";',
+      },
+      {
+        file: "src/host/edge.ts",
         find: "        if (!landed) again = new Map([...marks, ...again]);\n        settle(carried, landed);\n",
         replace: [
           "          if (!landed) again = new Map([...marks, ...again]);",

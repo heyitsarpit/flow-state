@@ -170,7 +170,7 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     "runPromise admits an Effect before ready and once disposal starts, so it runs on unready or released services",
     "src/host/run-promise.ts",
     "    const verdict = driver.verdict(Input.Run());",
-    "    const verdict = Verdict.Run();",
+    "    const verdict = Option.getOrElse(Option.some(Verdict.Run()), () => driver.verdict(Input.Run()));",
   ),
   fault(
     "run-promise-ignores-signal",

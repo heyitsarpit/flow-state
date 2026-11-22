@@ -90,7 +90,7 @@ export const doorFaults: ReadonlyArray<Fault> = [
       {
         file: "src/host/testing/config.ts",
         find: 'export const defineConfig = entry(\n  "defineConfig",',
-        replace: 'export const defineConfig = ((_: string, run: never) => run)(\n  "defineConfig",',
+        replace: 'export const defineConfig = (<F>(_: string, run: F) => run)(\n  "defineConfig",',
       },
     ],
   },

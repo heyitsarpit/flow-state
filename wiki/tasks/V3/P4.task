@@ -6643,3 +6643,33 @@ tasks
               Sidecar (1 Haiku, high, blind to comments): accepted the `tx.set` finding (re-run in scratch, plus the
               true-breach plant), the name/`says` mismatch and the path nit. Rejected none; its compiled.test and edges
               traces matched my runs.
+        comment     2026-11-22T15:15:22Z
+            Rulings (orchestrator) on the fix-round review (ISSUES, f835843c): accepted. [decided: agent orchestrator
+            2026-11-22] Scratch copies type-check again, and a planted fault whose copy does not compile is reported as
+            not judged, never caught. Why: without it a broken edit (tx.set) counts as a catch by crash; the user's Q7 B
+            removed faults for type and lint rules, not the compile check, and dropping it was the orchestrator's
+            mistake in this Task's description. Reverse: judge without compiling. rows-dropped-outside-ledger plants the
+            real breach and gets a Story where a forgotten identity's owed row is closed (Actors R21 has no public
+            test today).
+        comment     2026-11-22T15:42:06Z
+            Second fix round (builder). 1. `rows-dropped-outside-ledger` plants the real breach (`if (!forgetting)
+            ledger.suspend(actor, false);`). New Story `transfers/owed-forgotten` (fixtures/transfers/stories/usual.ts):
+            an answer is owed to a closed account, the account is forgotten and added back fresh. Its test in
+            runtime-life.test.ts (Actors R21) was green on the code and red on the breach (`--only`). Origin: the first
+            fix round restored the edit verbatim and took its crash as the catch. 2. Copies type-check again
+            (effect-tsgo over the package, about 2 s), and a plant that does not compile is NOT JUDGED (verdict.test.ts
+            case). Origin: the Task text said to drop the check, and I dropped it without asking what it guarded. 3. A
+            compile sweep of all 487 plants found 32 that did not compile. Each now compiles and still plants its
+            `says`; all 32 are caught by their targets. Two of them fell back to their real breach: `forget-before-boot`
+            now also drops the stored check, which had been masking it; `refusal-reaches-first-namespace-only` imports
+            Option (it called DOM Option before). Several had been caught only by a crash: `resend-new-id` (`resend`
+            undefined), `schedule-issue-stored`, `optional-key-context-dropped`, `rows-dropped-outside-ledger`. Origin:
+            plants were judged by a failing test alone, with no check that they compile.
+        comment     2026-11-22T15:42:07Z
+            [decided: agent builder 2026-11-22] The copies' type-check allows unused names (`--noUnusedLocals false
+            --noUnusedParameters false`). Why: an unread name is lint, not a type error, and 28 sound plants leave one
+            unread. Reverse: drop the two flags and give each plant a `void name`.
+        comment     2026-11-22T15:42:08Z
+            Second-fix gates (builder): every plant compiles (sweep); `--only` 32 rewritten (31 caught, then
+            `forget-before-boot` re-aimed and caught), 11 touched and 20 sampled others: 31 of 31 caught by targets;
+            `nub run check` 0; suite 25150 passed, 0 failed. Set to review.

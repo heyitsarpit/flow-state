@@ -265,7 +265,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     "an onContext event is enqueued for a wave whose selection did not change",
     "src/core/context.ts",
     "      if (Option.exists(previous, (p) => sameValue(p.value, current.value))) {",
-    "      if (Option.exists(previous, (p) => sameValue(p.value, current.value)) && false) {",
+    "      if (Option.exists(previous, (p) => sameValue(p.value, current.value)) && Number.isNaN(0)) {",
   ),
   fault(
     "success-clears-first-issue",

@@ -20,6 +20,7 @@ import {
   standingOrder,
   leaveWhileSending,
   interruptCleanupFails,
+  owedForgotten,
   unsureAccountRemoved,
 } from "./stories/usual.ts";
 import {
@@ -77,6 +78,7 @@ export const transfers = manifest({
     leaveWhileSending,
     interruptCleanupFails,
     unsureAccountRemoved,
+    owedForgotten,
     forgottenRetiredWire,
     switcherRecent,
     switcherEdges,
