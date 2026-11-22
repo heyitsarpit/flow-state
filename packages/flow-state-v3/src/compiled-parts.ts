@@ -1,8 +1,10 @@
 import { Option, Schema, SchemaAST } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import {
+  type Commit,
   type EventEntry,
   type Field,
+  type Lookup,
   type Mapping,
   Operation,
   type OperationWalk,
@@ -23,7 +25,8 @@ import {
 } from "./construction.ts";
 import { declarationOf } from "./declaration-of.ts";
 import type { AnyDefinition, EventFields } from "./definition.ts";
-import { admissionOf, codecOf, endingOf } from "./events.ts";
+import { admissionOf, endingOf, structOf } from "./events.ts";
+import { slot } from "./handles.ts";
 import type { Field as FieldMarker } from "./flow.ts";
 
 // RETURN_TYPE: the Compiled Mapping shape.
@@ -83,16 +86,16 @@ export const operationOf = (name: string, bound: Bound) => {
     failure,
   };
 
-  const slot = `operations.${name}.call`;
+  const place = `operations.${name}.call`;
   const internals = internalsOf<BoundInternals>("bound", bound);
 
   if (internals.kind === "read")
-    return Operation.Read({ ...shared, call: { slot, run: internals.call } });
+    return Operation.Read({ ...shared, call: slot<Lookup>(place, internals.call) });
 
   return bound.kind === "write"
     ? Operation.Write({
         ...shared,
-        call: { slot, run: internals.call },
+        call: slot<Commit>(place, internals.call),
         concurrency: bound.concurrency,
         notSent: Option.map(bound.notSent, (ending) =>
           mappingOf(ending, `operations.${name}.notSent`),
@@ -131,7 +134,7 @@ export const fieldOf = (name: string, raw: FieldMarker): Field => {
 };
 
 export const memoryCodec = (fields: ReadonlyArray<Field>) =>
-  codecOf<Values>(Schema.Struct(Object.fromEntries(fields.map((f) => [f.name, f.schema]))));
+  structOf(Object.fromEntries(fields.map((f) => [f.name, f.schema])));
 
 export const eventsOf = (definition: AnyDefinition) => {
   // RETURN_TYPE: the Compiled shape this part builds.

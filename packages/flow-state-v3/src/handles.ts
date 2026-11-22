@@ -1,5 +1,12 @@
 import { Option, Predicate } from "effect";
-import { Action, Guard, type GuardInput, type SelectInput, type Values } from "./core/compiled.ts";
+import {
+  Action,
+  Guard,
+  type GuardInput,
+  type SelectInput,
+  type Slot,
+  type Values,
+} from "./core/compiled.ts";
 import type { ActionToken, GuardToken, Operations } from "./definition.ts";
 import { builder, entry } from "./entry.ts";
 import { made, madeCallable } from "./made.ts";
@@ -25,10 +32,33 @@ export type GuardArg<M, P, L extends string = string, Cx = Values> = {
   readonly context: Cx;
 };
 
-export const erase = <I, R>(run: (input: never) => R) =>
-  // SAFETY: a callback written for its handler's event and memory; the turn passes exactly those.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's payload and memory types are erased in Compiled and restored by the turn
-  run as (input: I) => R;
+/**
+ * The one crossing of a typed callback into the erased core: the callback an author wrote, as the
+ * Slot Compiled holds at its place `name`.
+ *
+ * **When to use**
+ *
+ * For every closure a body, a contract or a context slot hands the core: a select, a guard, a
+ * memory update, a schedule's callback, a reaction's when, a commit or a lookup.
+ *
+ * **Gotchas**
+ *
+ * - `F` is the erased signature the core calls it with; what justifies it is that the public types
+ *   wrote the callback for its place, and the core builds its input with Compiled's own codecs for
+ *   that place.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: an author's callback, of any signature its place types.
+// RETURN_TYPE: the Slot of the erased signature the core calls it with.
+export const slot = <F extends (...args: ReadonlyArray<never>) => unknown>(
+  name: string,
+  // FLOW_STATE_ALLOW_UNKNOWN: an author's callback, of any signature its place types.
+  run: (...args: ReadonlyArray<never>) => unknown,
+): Slot<F> => ({
+  slot: name,
+  // SAFETY: a callback written for its place's input; the core passes exactly that input.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's payload and memory types are erased in Compiled and restored by the core
+  run: run as F,
+});
 
 /**
  * What an action token keeps for the core: how it compiles at its place in a body.
@@ -42,15 +72,11 @@ export type GuardInternals = { readonly make: (at: string) => Guard };
 
 // RETURN_TYPE: the ActionToken protocol every member returns.
 const member = (owner: symbol, operation: string, make: (at: string) => Action): ActionToken =>
-  // SAFETY: an action token's face is its operation; its kind brand is a phantom key.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-  made("action", owner, { operation }, { make } satisfies ActionInternals) as ActionToken;
+  made("action", owner, { operation }, { make } satisfies ActionInternals);
 
 // RETURN_TYPE: the GuardToken protocol every guard returns.
 const guard = (owner: symbol, operation: string, make: (at: string) => Guard): GuardToken =>
-  // SAFETY: a guard token's face is its operation; its kind brand is a phantom key.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-  made("guard", owner, { operation }, { make } satisfies GuardInternals) as GuardToken;
+  made("guard", owner, { operation }, { make } satisfies GuardInternals);
 
 const keyed =
   (kind: "Retry" | "Cancel", owner: symbol, operation: string) =>
@@ -58,10 +84,7 @@ const keyed =
     member(owner, operation, (at) =>
       Action[kind]({
         operation,
-        key: Option.map(key, (run) => ({
-          slot: `${at}.key`,
-          run: erase<SelectInput, Values>(run),
-        })),
+        key: Option.map(key, (run) => slot<(input: SelectInput) => Values>(`${at}.key`, run)),
       }),
     );
 
@@ -92,7 +115,7 @@ export const writeHandle = (
     member(owner, operation, (at) =>
       Action.Commit({
         operation,
-        select: { slot: `${at}.select`, run: erase<SelectInput, Values>(select) },
+        select: slot<(input: SelectInput) => Values>(`${at}.select`, select),
       }),
     ),
   ),
@@ -105,7 +128,7 @@ export const writeHandle = (
       guard(owner, operation, (at) =>
         Guard.Idle({
           operation,
-          key: { slot: `${at}.key`, run: erase<SelectInput, Values>(select) },
+          key: slot<(input: GuardInput) => Values>(`${at}.key`, select),
         }),
       ),
   ),
@@ -120,7 +143,7 @@ export const writeHandle = (
         Predicate.isFunction(first)
           ? Guard.Retryable({
               operation,
-              key: Option.some({ slot: `${at}.key`, run: erase<GuardInput, Values>(first) }),
+              key: Option.some(slot<(input: GuardInput) => Values>(`${at}.key`, first)),
               times: second.times,
             })
           : Guard.Retryable({ operation, key: Option.none(), times: first.times }),
@@ -138,7 +161,7 @@ export const readHandle = (operation: string, owner: symbol) => ({
     member(owner, operation, (at) =>
       Action.Lookup({
         operation,
-        select: { slot: `${at}.select`, run: erase<SelectInput, Values>(select) },
+        select: slot<(input: SelectInput) => Values>(`${at}.select`, select),
       }),
     ),
   ),

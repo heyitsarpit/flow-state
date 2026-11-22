@@ -17,14 +17,14 @@ export const doorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: 'import { internalsOf, type KindOf, made, madeOf } from "./made.ts";',
-        replace: 'import { internalsOf, type KindOf, made, madeOf, ownerOf } from "./made.ts";',
+        find: 'import { internalsOf, made, madeOf } from "./made.ts";',
+        replace: 'import { internalsOf, made, madeOf, ownerOf } from "./made.ts";',
       },
       {
         file: "src/machine.ts",
-        find: '    const read = madeOf("definition")(definition, ["definition"]);',
+        find: '  const read = madeOf("definition")(definition, ["definition"]);',
         replace:
-          '    const read =\n      Predicate.hasProperty(definition, "S") && Predicate.isObject(definition.S)\n        ? Result.succeed({ owner: ownerOf("state", Object.values(definition.S)[0] ?? {}) })\n        : madeOf("definition")(definition, ["definition"]);',
+          '  const read =\n    Predicate.hasProperty(definition, "S") && Predicate.isObject(definition.S)\n      ? Result.succeed({ owner: ownerOf("state", Object.values(definition.S)[0] ?? {}) })\n      : madeOf("definition")(definition, ["definition"]);',
       },
     ],
   },
@@ -62,8 +62,9 @@ export const doorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "    const face: Omit<Machine<D>, typeof KindOf> = { definition };",
-        replace: "    const face: Omit<Machine<D>, typeof KindOf> = { definition, compiled };",
+        find: '  return made("machine", owner, { definition }, { compiled, body } satisfies MachineInternals);',
+        replace:
+          '  return made("machine", owner, { definition, compiled }, { compiled, body } satisfies MachineInternals);',
       },
     ],
   },
@@ -101,8 +102,8 @@ export const doorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/definition.ts",
-        find: "      persist: config.persist ?? false,\n",
-        replace: "      persist: config.persist ?? false,\n      states: config.states,\n",
+        find: "    persist: config.persist ?? false,\n",
+        replace: "    persist: config.persist ?? false,\n    states: config.states,\n",
       },
     ],
   },
@@ -114,8 +115,8 @@ export const doorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/definition.ts",
-        find: '                    made("memory", owner, {}, {',
-        replace: '                    made("memory", owner, { schema: schemaOfField(field) }, {',
+        find: '                made("memory", owner, {}, {',
+        replace: '                made("memory", owner, { schema: schemaOfField(field) }, {',
       },
     ],
   },
@@ -127,8 +128,8 @@ export const doorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/definition.ts",
-        find: "    const declaration = frozen({",
-        replace: "    const declaration = ({",
+        find: "  const declaration = frozen({",
+        replace: "  const declaration = ({",
       },
     ],
   },

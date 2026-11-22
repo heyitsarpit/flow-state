@@ -146,8 +146,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "      try: () => body(handed),",
-        replace: "      try: () => [body(handed), body(handed)][1],",
+        find: "    try: () => body(handed),",
+        replace: "    try: () => [body(handed), body(handed)][1],",
       },
     ],
   },
@@ -198,7 +198,7 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-body.ts",
-        find: ".filter((k) => !children.some((c) => c.name === k))",
+        find: ".filter((k) => !names.has(k))",
         replace: ".filter(() => false)",
       },
     ],

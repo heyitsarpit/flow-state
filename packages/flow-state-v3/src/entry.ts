@@ -36,15 +36,81 @@ const refusalOf = (name: string, cause: unknown) =>
       );
 
 // FLOW_STATE_ALLOW_UNKNOWN: a public function of any signature.
-type Callable = (...args: ReadonlyArray<never>) => unknown;
+export type Callable = (...args: ReadonlyArray<never>) => unknown;
 
-const registered = <F extends Callable>(wrapped: Callable, kind: Kind, name: string, run: F) => {
+/**
+ * Marks Flow's own value as inert data: no caller runs anything it holds.
+ */
+// RETURN_TYPE: the value as given, so a builder returns it in place.
+export const inert = <A extends WeakKey>(value: A): A => {
+  registry.set(value, { kind: "inert", name: "", arity: 0 });
+
+  return value;
+};
+
+// How each kind of public function wraps its implementation: an entry refuses only with a
+// FlowError, an effect entry fails with one, and a builder's result is inert.
+const WRAPPERS: Record<Exclude<Kind, "inert">, (name: string, run: Callable) => Callable> = {
+  entry:
+    (name, run) =>
+    // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments, passed on as given.
+    (...args: ReadonlyArray<never>) =>
+      Result.getOrElse(
+        Result.try({ try: () => run(...args), catch: (cause) => refusalOf(name, cause) }),
+        raise,
+      ),
+  effect:
+    (name, run) =>
+    // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments, passed on as given.
+    (...args: ReadonlyArray<never>) =>
+      Result.match(
+        Result.try({ try: () => run(...args), catch: (cause) => refusalOf(name, cause) }),
+        { onSuccess: (effect) => effect, onFailure: (error) => Effect.fail(error) },
+      ),
+  builder:
+    (_name, run) =>
+    // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments, passed on as given.
+    (...args: ReadonlyArray<never>) => {
+      const made = run(...args);
+
+      return Predicate.isObjectOrArray(made) || Predicate.isFunction(made) ? inert(made) : made;
+    },
+};
+
+// A public function's wrapper, registered with its kind, name and arity.
+const registeredAs = (kind: Exclude<Kind, "inert">, name: string, run: Callable) => {
+  const wrapped = WRAPPERS[kind](name, run);
+
   registry.set(wrapped, { kind, name, arity: run.length });
 
-  // SAFETY: the wrapper takes the same arguments and returns what run returns, or refuses.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a wrapper keeps its function's own signature, generics and overloads included
-  return wrapped as F;
+  return wrapped;
 };
+
+/**
+ * The one crossing from a public signature onto its implementation: `run`, wrapped as a public
+ * function of its kind (`entry` by default), typed by `Public`.
+ *
+ * **When to use**
+ *
+ * Where a public function's signature carries a definition's literal types and its
+ * implementation is written on erased types only, such as `definition`, `machine` and
+ * `Flow.context`'s overloads. A function typed the same on both sides uses `entry`, `entryEffect`
+ * or `builder`.
+ *
+ * **Gotchas**
+ *
+ * - Nothing checks `run` against `Public`: what justifies it is that `Public` is declared from the
+ *   definition's derived types and `run` reads only what Flow made.
+ */
+// RETURN_TYPE: the public signature the caller names.
+export const door = <Public extends Callable>(
+  name: string,
+  run: Callable,
+  kind: Exclude<Kind, "inert"> = "entry",
+): Public =>
+  // SAFETY: the wrapper takes the public arguments and returns what run returns, or refuses.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a wrapper keeps its function's own signature, generics and overloads included
+  registeredAs(kind, name, run) as Public;
 
 /**
  * A public function that refuses only with a FlowError: a FlowError its body throws passes
@@ -55,18 +121,7 @@ const registered = <F extends Callable>(wrapped: Callable, kind: Kind, name: str
  * Around every synchronous public function Flow exports or hands out that reads its arguments.
  */
 // RETURN_TYPE: the wrapped function keeps its own signature.
-export const entry = <F extends Callable>(name: string, run: F): F =>
-  registered(
-    // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments, passed on as given.
-    (...args: ReadonlyArray<never>) =>
-      Result.getOrElse(
-        Result.try({ try: () => run(...args), catch: (cause) => refusalOf(name, cause) }),
-        raise,
-      ),
-    "entry",
-    name,
-    run,
-  );
+export const entry = <F extends Callable>(name: string, run: F): F => door<F>(name, run);
 
 /**
  * A public function that returns an Effect: whatever its body throws becomes the Effect's failure,
@@ -82,28 +137,7 @@ export const entryEffect = <
 >(
   name: string,
   run: F,
-): F =>
-  registered(
-    // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments, passed on as given.
-    (...args: ReadonlyArray<never>) =>
-      Result.match(
-        Result.try({ try: () => run(...args), catch: (cause) => refusalOf(name, cause) }),
-        { onSuccess: (effect) => effect, onFailure: (error) => Effect.fail(error) },
-      ),
-    "effect",
-    name,
-    run,
-  );
-
-/**
- * Marks Flow's own value as inert data: no caller runs anything it holds.
- */
-// RETURN_TYPE: the value as given, so a builder returns it in place.
-export const inert = <A extends WeakKey>(value: A): A => {
-  registry.set(value, { kind: "inert", name: "", arity: 0 });
-
-  return value;
-};
+): F => door<F>(name, run, "effect");
 
 /**
  * A public function that stores its arguments and reads none, so it never throws; what it makes
@@ -116,17 +150,7 @@ export const inert = <A extends WeakKey>(value: A): A => {
  */
 // RETURN_TYPE: the wrapped function keeps its own signature.
 export const builder = <F extends Callable>(name: string, run: F): F =>
-  registered(
-    // FLOW_STATE_ALLOW_UNKNOWN: a call's arguments, passed on as given.
-    (...args: ReadonlyArray<never>) => {
-      const made = run(...args);
-
-      return Predicate.isObjectOrArray(made) || Predicate.isFunction(made) ? inert(made) : made;
-    },
-    "builder",
-    name,
-    run,
-  );
+  door<F>(name, run, "builder");
 
 /**
  * How Flow registered a value it hands out, if it did.

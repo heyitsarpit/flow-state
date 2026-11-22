@@ -390,7 +390,6 @@ export const makeSchedules = (tx: Tx) => {
    */
   const metadataOf = (tracked: Tracked, run: Run, dueAt: number) =>
     ({
-      name: tracked.name,
       attempt: run.attempt + 1,
       armedAt: run.armedAt,
       dueAt,

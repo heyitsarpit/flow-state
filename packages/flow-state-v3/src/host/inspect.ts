@@ -213,3 +213,5 @@ export { dataView } from "../core/data-view.ts";
 export { InternalsId } from "../core/compiled.ts";
 
 export { compiledOf } from "../compiled-of.ts";
+
+export { rebuilt } from "../machine.ts";

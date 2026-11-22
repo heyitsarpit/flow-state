@@ -12,7 +12,7 @@ export type { ContractRunner } from "./store-contract.ts";
 
 export type { Config } from "./config.ts";
 
-export type { EventOf } from "../../definition.ts";
+export type { EventOf } from "../../derive.ts";
 
 export type { Covering, Fixture } from "./story.ts";
 

@@ -1,6 +1,7 @@
 import { Duration, Option, Predicate, Schema } from "effect";
-import { codecOf, endingOf, selectionCodec } from "./events.ts";
+import { endingOf } from "./events.ts";
 import { TIMER_LIMIT_MS } from "./core/defaults.ts";
+import { defect } from "./core/defect.ts";
 import {
   Delay,
   type FiringMetadata,
@@ -9,12 +10,17 @@ import {
   plannedOf,
   type Schedule,
   type ScheduleCodecs,
+  type ScheduleInput,
+  type Values,
 } from "./core/compiled.ts";
 import { is } from "./config.ts";
 import { type Finding, invalid } from "./error.ts";
 import { byCodeUnits } from "./core/world.ts";
 import type { ErasedPlacement, ScheduleDecl, ScheduleDecls } from "./tokens.ts";
+import type { Fields } from "./contract.ts";
+import type { Plain } from "./flow.ts";
 import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
+import { slot as handed } from "./handles.ts";
 
 /**
  * Compiling a state's schedules.
@@ -97,14 +103,14 @@ const armingOf = (
 // A schedule's delay: computed when it is a function, else an Effect Schedule to step or a fixed
 // Duration, checked at construction.
 const delayOf = (compile: Compile, delay: ErasedPlacement["schedule"], slot: string, at: Path) => {
-  if (Predicate.isFunction(delay))
+  if (Predicate.isFunction(delay)) {
+    // FLOW_STATE_ALLOW_UNKNOWN: a computed delay's value, checked by plannedOf.
+    const computed = handed<(input: ScheduleInput) => unknown>(slot, delay);
+
     return Delay.Computed({
-      plan: {
-        slot,
-        // FLOW_STATE_ALLOW_UNKNOWN: a computed delay's value, checked by plannedOf.
-        run: (input) => plannedOf(delay(input)),
-      },
+      plan: { slot, run: (input) => plannedOf(computed.run(input)) },
     });
+  }
 
   return Delay.Fixed({
     planned: isSeries(delay)
@@ -120,7 +126,11 @@ export const scheduleOf = (
   config: ErasedPlacement,
   at: Path,
 ): Schedule => {
-  const declared = compile.declaration.schedules[name] ?? {};
+  const declared = Option.getOrElse(
+    Option.fromUndefinedOr(compile.declaration.schedules[name]),
+    () => defect(`the schedule ${name} is placed without a declaration`),
+  );
+
   const keyed = declared.key !== undefined;
 
   const send = endingOf(config.send);
@@ -151,24 +161,22 @@ export const scheduleOf = (
     disarmOn: disarming,
     onEntry:
       !keyed && ((armOn.length === 0 && config.restartOn === undefined) || armOn.some(is.entry)),
-    restartOn: Option.map(Option.fromUndefinedOr(config.restartOn), (run) => ({
-      slot: slotOf([...at, "restartOn"]),
+    restartOn: Option.map(Option.fromUndefinedOr(config.restartOn), (run) =>
       // FLOW_STATE_ALLOW_UNKNOWN: a restart selection of any type, compared by Equal.equals.
-      run,
-    })),
-    keys: Option.map(Option.fromUndefinedOr(config.keys), (run) => ({
-      slot: slotOf([...at, "keys"]),
-      run,
-    })),
+      handed<(input: ScheduleInput) => unknown>(slotOf([...at, "restartOn"]), run),
+    ),
+    keys: Option.map(Option.fromUndefinedOr(config.keys), (run) =>
+      handed<(input: ScheduleInput) => ReadonlyArray<Values>>(slotOf([...at, "keys"]), run),
+    ),
     paused: (declared.pausedBy ?? []).flatMap((reason) =>
       Object.hasOwn(paused, reason)
         ? [
             {
               reason,
-              check: {
-                slot: slotOf([...at, "paused", reason]),
-                run: paused[reason] ?? (() => false),
-              },
+              check: handed<(input: ScheduleInput) => boolean>(
+                slotOf([...at, "paused", reason]),
+                paused[reason] ?? (() => false),
+              ),
             },
           ]
         : [],
@@ -359,27 +367,27 @@ const eventsOf = (
 
 // A key's codec to its canonical text: the declared fields in name order, as a contract's key text,
 // decoding exactly, so a saved key holding a field the declaration lost does not decode.
-const keyCodecOf = (fields: Schema.Struct.Fields) => {
+// RETURN_TYPE: Compiled's key codec, from a Struct of Flow field Schemas, which need no services.
+const keyCodecOf = (fields: Fields): Schema.Codec<Values, string> => {
   const names = Object.keys(fields);
   const other = Schema.String.check(Schema.makeFilter((key: string) => !names.includes(key)));
 
-  return codecOf<string>(
-    Schema.fromJsonString(
-      Schema.toCodecJson(
-        Schema.StructWithRest(
-          Schema.Struct(
-            Object.fromEntries(Object.entries(fields).toSorted(([a], [b]) => byCodeUnits(a, b))),
-          ),
-          [Schema.Record(other, Schema.Never)],
+  return Schema.fromJsonString(
+    Schema.toCodecJson(
+      Schema.StructWithRest(
+        Schema.Struct(
+          Object.fromEntries(Object.entries(fields).toSorted(([a], [b]) => byCodeUnits(a, b))),
         ),
+        [Schema.Record(other, Schema.Never)],
       ),
     ),
   );
 };
 
 // A selection's codec to its JSON text.
-const selectionCodecOf = (schema: Schema.Top) =>
-  selectionCodec(Schema.fromJsonString(Schema.toCodecJson(schema)));
+// RETURN_TYPE: Compiled's selection codec, from a declared Schema, which needs no services.
+const selectionCodecOf = (schema: Plain): Option.Option.Value<ScheduleCodecs["selection"]> =>
+  Schema.fromJsonString(Schema.toCodecJson(schema));
 
 /**
  * Each declared schedule's codecs and reasons, by name, as `Compiled.schedules` holds them: its

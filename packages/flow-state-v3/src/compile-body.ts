@@ -2,20 +2,17 @@ import { Option, Predicate } from "effect";
 import {
   Action,
   type Alternative,
+  type Denial,
   Guard,
+  type GuardInput,
   type Level,
   type Node,
   type SelectInput,
   Target,
+  type UpdateInput,
   type Values,
 } from "./core/compiled.ts";
-import type {
-  AlternativeConfig,
-  AnyDefinition,
-  GuardElement,
-  HistoryToken,
-  StateToken,
-} from "./definition.ts";
+import type { HistoryToken, StateToken } from "./definition.ts";
 import type { SendInternals, SendToken } from "./send.ts";
 import type { ActorRef } from "./definition.ts";
 import { is } from "./config.ts";
@@ -23,19 +20,60 @@ import { invalid } from "./error.ts";
 import type { TreeNode } from "./construction.ts";
 import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
 import { scheduleOf } from "./compile-schedules.ts";
-import { type ActionInternals, erase, type GuardInternals } from "./handles.ts";
+import { type ActionInternals, type GuardInternals, slot } from "./handles.ts";
 import { endingOf } from "./events.ts";
 import { internalsOf, ownerOf } from "./made.ts";
 import type { TokenInternals } from "./definition.ts";
-import type { AnyBody } from "./machine.ts";
+import type { ActionToken, Change, ErasedPlacement, GuardToken } from "./tokens.ts";
 
-type AnyAlternative = AlternativeConfig<Values, Values, string> | StateToken | HistoryToken;
+// One guard element as the compiler reads it: its callback takes `never`.
+type AnyGuard = StateToken | GuardToken<never> | ((input: never) => true | Denial);
+
+// One alternative as the compiler reads it, its callbacks taking `never`.
+type AnyConfig = {
+  readonly target?: StateToken | HistoryToken | "self";
+  readonly guard?: AnyGuard | ReadonlyArray<AnyGuard>;
+  readonly updateMemory?: (input: never) => Values;
+  readonly actions?: ReadonlyArray<ActionToken<never> | SendToken>;
+};
+
+type AnyAlternative = AnyConfig | StateToken | HistoryToken;
+
+/**
+ * A state's body as the compiler walks it, its literal types erased: every callback takes `never`
+ * and every optional record may be `undefined`, so each body a definition types assigns to it with
+ * no cast, inside a generic function too.
+ */
+export type AnyState = {
+  readonly default?: StateToken;
+  readonly on?:
+    | Readonly<Partial<Record<string, AnyAlternative | ReadonlyArray<AnyAlternative>>>>
+    | undefined;
+  readonly schedules?: Readonly<Partial<Record<string, ErasedPlacement>>> | undefined;
+  readonly states?: Readonly<Partial<Record<string, AnyState>>> | undefined;
+};
+
+/**
+ * A machine body as the compiler walks it: the root's state body and its `onContext` reactions.
+ */
+export type AnyBody = AnyState & { readonly onContext?: ReadonlyArray<Change> };
+
+/**
+ * A machine's body function as the compiler calls it: the definition's `S`, `E`, `O` and its
+ * `C` reactions in, the body out, their literal types erased.
+ */
+export type BodyFunction = (tokens: {
+  readonly S: Values;
+  readonly E: Values;
+  readonly O: Values;
+  readonly C: Values;
+}) => AnyBody;
 
 const unknownEvent = (at: Path, event: string, help: string) =>
   invalid(at, "UnknownEvent", `no event ${event}`, help);
 
 // RETURN_TYPE: the Compiled shape this part builds.
-const guardOf = (compile: Compile, element: GuardElement<Values, Values>, at: Path): Guard => {
+const guardOf = (compile: Compile, element: AnyGuard, at: Path): Guard => {
   if (is.state(element)) {
     const path = compile.tokens.get(element);
 
@@ -54,7 +92,7 @@ const guardOf = (compile: Compile, element: GuardElement<Values, Values>, at: Pa
   }
 
   return Guard.Check({
-    check: { slot: slotOf(at), run: element },
+    check: slot<(input: GuardInput) => true | Denial>(slotOf(at), element),
   });
 };
 
@@ -87,14 +125,17 @@ const isCallback = (x: unknown): x is (input: never) => unknown => Predicate.isF
 // FLOW_STATE_ALLOW_UNKNOWN: the event a send's callback returns is checked when the turn resolves it.
 type SendCallback = (input: SelectInput) => unknown;
 
+// FLOW_STATE_ALLOW_UNKNOWN: an authored send callback, whose event is checked when the turn resolves it.
+type AnyCallback = (input: never) => unknown;
+
 // A send's event in one form: a token's mapping adds its tag to the payload it computes, a constant
 // is returned as written, and a callback runs as it is.
 // RETURN_TYPE: every form compiles to the one callback the Send action holds.
 const sendEventOf = (
   // FLOW_STATE_ALLOW_UNKNOWN: a send's event in any of its three forms, told apart here.
   event: unknown,
-): Option.Option<SendCallback> => {
-  if (isCallback(event)) return Option.some(erase<SelectInput, ReturnType<SendCallback>>(event));
+): Option.Option<AnyCallback> => {
+  if (isCallback(event)) return Option.some(event);
 
   const mapped = Option.filter(endingOf(event), (ending) => Option.isSome(ending.from));
 
@@ -102,9 +143,7 @@ const sendEventOf = (
     const { event: tag, from } = mapped.value;
 
     return Option.map(from, (map) => (input: SelectInput) => {
-      const payload = erase<SelectInput, ReturnType<SendCallback>>((value: never) =>
-        map(value, {}),
-      )(input);
+      const payload = map(input, {});
 
       // A mapper that returns no record sends no event: the target's check refuses it.
       return Predicate.isReadonlyObject(payload) ? { ...payload, _tag: tag } : payload;
@@ -116,7 +155,7 @@ const sendEventOf = (
     : Option.none();
 };
 
-const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) => {
+const sendOf = (compile: Compile, token: SendToken, at: Path) => {
   const send = internalsOf<SendInternals>("send", token);
 
   return Option.match(sendEventOf(send.event), {
@@ -135,11 +174,8 @@ const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) =>
     onSome: (event) =>
       Option.some(
         Action.Send({
-          to: {
-            slot: slotOf([...at, "to"]),
-            run: erase<SelectInput, ActorRef>(send.to),
-          },
-          event: { slot: slotOf([...at, "event"]), run: event },
+          to: slot<(input: SelectInput) => ActorRef>(slotOf([...at, "to"]), send.to),
+          event: slot<SendCallback>(slotOf([...at, "event"]), event),
         }),
       ),
   });
@@ -147,8 +183,7 @@ const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) =>
 
 // RETURN_TYPE: the Compiled shape this part builds.
 const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alternative => {
-  const config: AlternativeConfig<Values, Values, string> =
-    is.state(raw) || is.history(raw) ? { target: raw } : raw;
+  const config: AnyConfig = is.state(raw) || is.history(raw) ? { target: raw } : raw;
 
   const target = targetOf(compile, Option.fromUndefinedOr(config.target), at);
 
@@ -174,16 +209,15 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
     at: slotOf(at),
     target,
     guards: guarded,
-    update: Option.map(Option.fromUndefinedOr(config.updateMemory), (run) => ({
-      slot: slotOf([...at, "updateMemory"]),
-      run,
-    })),
+    update: Option.map(Option.fromUndefinedOr(config.updateMemory), (run) =>
+      slot<(input: UpdateInput) => Values>(slotOf([...at, "updateMemory"]), run),
+    ),
     actions,
   };
 };
 
 // RETURN_TYPE: the Compiled shape this part builds.
-const levelOf = (compile: Compile, on: Values, at: Path): Level =>
+const levelOf = (compile: Compile, on: NonNullable<AnyState["on"]>, at: Path): Level =>
   new Map(
     Object.entries(on).flatMap(([event, handler]) => {
       if (handler === undefined) return [];
@@ -196,9 +230,7 @@ const levelOf = (compile: Compile, on: Values, at: Path): Level =>
         return [];
       }
 
-      // SAFETY: a decoded On record's values are handlers: one alternative, a state token, or a list of them.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the On record's per-event handler types are erased here
-      const list = (Array.isArray(handler) ? handler : [handler]) as ReadonlyArray<AnyAlternative>;
+      const list: ReadonlyArray<AnyAlternative> = Array.isArray(handler) ? handler : [handler];
 
       return [[event, list.map((raw, i) => alternativeOf(compile, raw, [...at, "on", event, i]))]];
     }),
@@ -218,7 +250,7 @@ const leafHasChildren = (here: string, at: Path) =>
 const defaultOf = (
   compile: Compile,
   given: StateToken,
-  children: ReadonlyArray<TreeNode>,
+  children: ReadonlySet<string>,
   here: string,
   at: Path,
 ) => {
@@ -230,7 +262,7 @@ const defaultOf = (
     return Option.none<string>();
   }
 
-  if (!children.some((c) => c.path === token)) {
+  if (!children.has(token)) {
     compile.findings.push(
       invalid(
         at,
@@ -246,49 +278,11 @@ const defaultOf = (
   return Option.some(token);
 };
 
-const childrenOf = (compile: Compile, node: Option.Option<TreeNode>) =>
-  Option.match(node, {
-    onNone: () => [...compile.nodes.values()].filter((n) => Option.isNone(n.parent)),
-    onSome: (n) =>
-      n.children.flatMap((c) => Option.toArray(Option.fromUndefinedOr(compile.nodes.get(c)))),
-  });
-
-type Compiled = {
-  readonly root: Level;
-  readonly initial: string;
-  readonly nodes: ReadonlyArray<Node>;
-};
-
-// The children's bodies, their names checked against the tree, compiled depth first.
-const childNodes = (
-  compile: Compile,
-  children: ReadonlyArray<TreeNode>,
-  here: string,
-  at: Path,
-  states: Readonly<Partial<Record<string, AnyBody>>>,
-) => {
-  for (const key of Object.keys(states).filter((k) => !children.some((c) => c.name === k)))
-    compile.findings.push(
-      invalid(
-        [...at, "states", key],
-        "UnknownState",
-        `${nameOf(here)} has no child ${key}`,
-        "Write bodies only for the definition's states.",
-      ),
-    );
-
-  return children.flatMap(
-    (child) =>
-      nodesOf(compile, states[child.name] ?? {}, Option.some(child), [...at, "states", child.name])
-        .nodes,
-  );
-};
-
 // A compound's default, or the refusal of a missing one; a leaf declares none.
 const chosenOf = (
   compile: Compile,
-  body: AnyBody,
-  children: ReadonlyArray<TreeNode>,
+  body: AnyState,
+  children: ReadonlySet<string>,
   here: string,
   at: Path,
 ) => {
@@ -306,71 +300,109 @@ const chosenOf = (
   return Option.none<string>();
 };
 
-// RETURN_TYPE: recursive: a body's nodes and its children's, depth first, with its handlers.
-export const nodesOf = (
-  compile: Compile,
-  body: AnyBody,
-  node: Option.Option<TreeNode>,
-  at: Path,
-): Compiled => {
-  const children = childrenOf(compile, node);
-  const here = Option.match(node, { onNone: () => "", onSome: (n) => n.path });
-  const isLeaf = Option.isSome(node) && children.length === 0;
+/**
+ * What one state compiles to before `indexOf` derives its fields: its node without `chain`,
+ * `depth` and `leaf`.
+ */
+export type NodeFacts = Omit<Node, "chain" | "depth" | "leaf">;
 
-  if (isLeaf && body.default !== undefined)
+/**
+ * A body compiled in one walk of the definition's tree: the root's handlers and default child, and
+ * every state's facts, depth first, each parent before its children.
+ */
+export type Walked = {
+  readonly root: Level;
+  readonly initial: string;
+  readonly nodes: ReadonlyArray<NodeFacts>;
+};
+
+/**
+ * Compiles a body in one walk of the definition's tree, each state's facts appended to one list:
+ * its handlers, schedules and default child, its body's names checked against the tree.
+ */
+export const walkOf = (compile: Compile, body: AnyBody) => {
+  const nodes: Array<NodeFacts> = [];
+
+  const visit = (state: AnyState, node: Option.Option<TreeNode>, at: Path) => {
+    const paths = Option.match(node, { onNone: () => compile.top, onSome: (n) => n.children });
+    const here = Option.match(node, { onNone: () => "", onSome: (n) => n.path });
+    const isLeaf = Option.isSome(node) && paths.length === 0;
+    const { on, initial, schedules } = levelFacts(compile, state, paths, here, isLeaf, at);
+    const written = isLeaf ? {} : (state.states ?? {});
+
+    const children = paths.flatMap((c) =>
+      Option.toArray(Option.fromUndefinedOr(compile.nodes.get(c))),
+    );
+
+    unknownStates(compile, written, children, here, at);
+
+    if (Option.isSome(node))
+      nodes.push({
+        path: node.value.path,
+        parent: node.value.parent,
+        children: node.value.children,
+        default: isLeaf ? Option.none() : initial,
+        on,
+        schedules,
+      });
+
+    for (const child of children)
+      visit(written[child.name] ?? {}, Option.some(child), [...at, "states", child.name]);
+
+    return { on, initial };
+  };
+
+  const root = visit(body, Option.none(), []);
+
+  return { root: root.on, initial: Option.getOrElse(root.initial, () => ""), nodes };
+};
+
+// One state's own facts, its findings in walk order: a leaf's default, a compound's default child,
+// its handlers and schedules, and a leaf's states.
+const levelFacts = (
+  compile: Compile,
+  state: AnyState,
+  paths: ReadonlyArray<string>,
+  here: string,
+  isLeaf: boolean,
+  at: Path,
+) => {
+  if (isLeaf && state.default !== undefined)
     compile.findings.push(leafHasChildren(here, [...at, "default"]));
 
   const chosen = isLeaf
     ? Option.none<string>()
-    : chosenOf(compile, body, children, here, [...at, "default"]);
+    : chosenOf(compile, state, new Set(paths), here, [...at, "default"]);
 
-  const level = levelOf(compile, body.on ?? {}, at);
+  const on = levelOf(compile, state.on ?? {}, at);
 
-  const schedules = Object.entries(body.schedules ?? {}).map(([name, entry]) =>
-    scheduleOf(compile, name, entry, [...at, "schedules", name]),
+  const schedules = Object.entries(state.schedules ?? {}).flatMap(([name, entry]) =>
+    entry === undefined ? [] : [scheduleOf(compile, name, entry, [...at, "schedules", name])],
   );
 
-  if (isLeaf && body.states !== undefined)
+  if (isLeaf && state.states !== undefined)
     compile.findings.push(leafHasChildren(here, [...at, "states"]));
 
-  const below = childNodes(compile, children, here, at, isLeaf ? {} : (body.states ?? {}));
-  const fallback = Option.fromUndefinedOr(children[0]?.path);
-  const initial = Option.orElse(chosen, () => fallback);
-
-  const self = Option.map(node, (n) => ({
-    path: n.path,
-    parent: n.parent,
-    children: n.children,
-    default: isLeaf ? Option.none() : initial,
-    on: level,
-    schedules,
-  }));
-
-  return {
-    root: level,
-    initial: Option.getOrElse(initial, () => ""),
-    nodes: [...Option.toArray(self), ...below],
-  };
+  return { on, schedules, initial: Option.orElse(chosen, () => Option.fromUndefinedOr(paths[0])) };
 };
 
-export const tokenMaps = (definition: AnyDefinition, nodes: ReadonlyArray<TreeNode>) => {
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  const tokens = new Map<unknown, string>();
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-  const histories = new Map<unknown, string>();
+// A body written for a state the tree does not hold below this one.
+const unknownStates = (
+  compile: Compile,
+  written: Readonly<Partial<Record<string, AnyState>>>,
+  children: ReadonlyArray<TreeNode>,
+  here: string,
+  at: Path,
+) => {
+  const names = new Set(children.map((c) => c.name));
 
-  for (const node of nodes) {
-    // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-    let at: unknown = definition.S;
-
-    for (const segment of node.path.split("."))
-      at = Predicate.hasProperty(at, segment) ? at[segment] : undefined;
-
-    tokens.set(at, node.path);
-
-    if (node.children.length > 0 && Predicate.hasProperty(at, "history"))
-      histories.set(at.history, node.path);
-  }
-
-  return { tokens, histories };
+  for (const key of Object.keys(written).filter((k) => !names.has(k)))
+    compile.findings.push(
+      invalid(
+        [...at, "states", key],
+        "UnknownState",
+        `${nameOf(here)} has no child ${key}`,
+        "Write bodies only for the definition's states.",
+      ),
+    );
 };

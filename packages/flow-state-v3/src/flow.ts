@@ -1,9 +1,10 @@
 import { Data, Effect, Option, Predicate, Result, Schema } from "effect";
 import type { Denial, Read, Values } from "./core/compiled.ts";
-import { builder } from "./entry.ts";
+import { builder, door } from "./entry.ts";
 import { type Branded, made, madeOf, type Container } from "./made.ts";
 import { type Finding, invalid } from "./error.ts";
 import type { ContextOfTokens } from "./tokens.ts";
+import type { Fields } from "./contract.ts";
 
 /**
  * A Schema that decodes and encodes with no services, as every Flow field does.
@@ -46,10 +47,9 @@ export type Field = Initial | Input | Private | OptionalField;
 /**
  * An internal event an operation may name as its unknown ending (`Flow.uncertain`).
  */
-export type Uncertain<F extends Schema.Struct.Fields = Schema.Struct.Fields> =
-  Branded<"uncertain"> & {
-    readonly fields: F;
-  };
+export type Uncertain<F extends Fields = Fields> = Branded<"uncertain"> & {
+  readonly fields: F;
+};
 
 /**
  * The entry of a schedule's owner state, as an `armOn` element (`Flow.entry`).
@@ -59,16 +59,16 @@ export type Entry = Branded<"entry">;
 // The owner of the markers no definition owns: none is ever compared by owner.
 const FREE = Symbol("flow-state/free");
 
-// RETURN_TYPE: the marker's face as its type states it.
-const marker = <T>(
-  kind: "initial" | "input" | "private" | "uncertain" | "entry",
-  face: Container,
-): T =>
-  // SAFETY: a made marker of this kind carries the face its type names; the kind is a phantom.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-  made(kind, FREE, face, {}) as T;
+// A marker: a made value of its kind holding what it was given, owned by no definition.
+const marker = <
+  K extends "initial" | "input" | "private" | "uncertain" | "entry",
+  A extends Container,
+>(
+  kind: K,
+  face: A,
+) => made(kind, FREE, face, {});
 
-const entry = marker<Entry>("entry", {});
+const entry: Entry = marker("entry", {});
 
 /**
  * How a token reads its provider: the definition that made it, by identity and by id, the read's
@@ -218,9 +218,9 @@ const derivedOf = (name: string, spec: unknown) => {
   const known = readsOf(at, reads, findings);
   const first = known[0];
 
-  return first === undefined || findings.length > 0 || !Predicate.isFunction(select)
+  return first === undefined || findings.length > 0 || !isSelect(select)
     ? Result.fail(findings)
-    : Result.succeed({ provider: first.reader, reads: known, select: selectOf(select) });
+    : Result.succeed({ provider: first.reader, reads: known, select });
 };
 
 // Each read of one provider by name, the first read's; a read that is not a Flow token, or names a
@@ -262,14 +262,12 @@ const secondProvider = (at: ReadonlyArray<string>, read: Reader, first: Reader) 
     "A slot binds one provider: give the other provider's values a slot of their own.",
   );
 
-// FLOW_STATE_ALLOW_UNKNOWN: a select's result, checked by the slot's Schema when selected.
-type Select = (values: Values) => unknown;
+// FLOW_STATE_ALLOW_UNKNOWN: an authored select, of the signature its slot's declaration types.
+type Select = (...args: ReadonlyArray<never>) => unknown;
 
-// FLOW_STATE_ALLOW_UNKNOWN: a function an author passed as select, checked callable by its caller.
-const selectOf = (given: unknown) =>
-  // SAFETY: the select an author wrote for these reads, called with exactly their values.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a select's argument type is erased here and restored at its declaration
-  given as Select;
+// FLOW_STATE_ALLOW_UNKNOWN: an authored select, read before it is trusted.
+// RETURN_TYPE: a type guard states the callback it narrows to.
+const isSelect = (given: unknown): given is Select => Predicate.isFunction(given);
 
 /**
  * Flow's markers for definitions and schedules.
@@ -313,16 +311,10 @@ export const Flow = {
   uncertain: builder(
     "Flow.uncertain",
     // RETURN_TYPE: the marker's fields type the event payload.
-    <const F extends Schema.Struct.Fields>(fields: F): Uncertain<F> =>
-      marker("uncertain", { fields }),
+    <const F extends Fields>(fields: F): Uncertain<F> => marker("uncertain", { fields }),
   ),
   entry,
-  context: builder(
-    "Flow.context",
-    // SAFETY: each overload returns the ContextSlot its arguments declare; definition decodes it.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the overloads are the public contract
-    contextSlot as ContextOfTokens,
-  ),
+  context: door<ContextOfTokens>("Flow.context", contextSlot, "builder"),
 };
 
 /**

@@ -8,10 +8,18 @@ const CAST = "typescript/no-unsafe-type-assertion";
 
 const DECLARED = /^(\s*)(?:export\s+)?(?:const|function)\s+(\w+)/u;
 
+const sources = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter(
+  (f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".test-d.ts"),
+);
+
 // Test tooling is not production: its casts are the test tooling's own restores (Types, Host).
-const production = readdirSync(SRC, { recursive: true, encoding: "utf8" })
-  .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".test-d.ts"))
-  .filter((f) => !f.startsWith("host/testing/") && !f.split("/").includes("test"));
+const production = sources.filter(
+  (f) => !f.startsWith("host/testing/") && !f.split("/").includes("test"),
+);
+
+// The test tooling production imports (the CLI, the trace), counted apart so a cast cannot move
+// there unseen.
+const testing = sources.filter((f) => f.startsWith("host/testing/"));
 
 // The declared parts a definition's face does not hold, and what it holds for them.
 const ECHO = ["states", "events", "internalEvents", "memory", "context", "operations", "schedules"];
@@ -45,33 +53,48 @@ const enclosing = (lines: ReadonlyArray<string>, at: number) => {
   return "(module)";
 };
 
+// Any disable comment that names the cast rule: next-line, same-line or block, oxlint or eslint.
+const DISABLE = new RegExp(`(?:oxlint|eslint)-disable(?:-next-line|-line)?\\b.*${CAST}`, "u");
+
 const castsOf = (file: string) => {
   const lines = readFileSync(new URL(file, SRC), "utf8").split("\n");
 
   return lines.flatMap((line, at) =>
-    line.includes(`oxlint-disable-next-line ${CAST}`) ? [`${file}#${enclosing(lines, at)}`] : [],
+    DISABLE.test(line) ? [`${file}#${enclosing(lines, at)}`] : [],
   );
 };
 
-// Types T7's ratchet: the count of cast disables only falls. Lower it with each deletion; the exact
-// list of crossings is owed by the Task that builds host/snapshot.ts#project.
-const MOST = 39;
+// Types T7's ratchet, exact: the count of cast disables in production, and apart in the test
+// tooling. A deletion lowers it; the exact list of crossings is owed by the Task that builds
+// host/snapshot.ts#project.
+const MOST = 20;
+
+const MOST_IN_TESTING = 8;
 
 // The casts the crossings door and slot absorb, and the kind-brand casts the made-value doors
 // absorb (Types R13, one point per class of cast).
 const ABSORBED = [
+  "compile-body.ts#levelOf",
+  "contract.ts#boundOf",
+  "contract.ts#trusted",
   "contract.ts#trustedAttempt",
   "definition.ts#definition",
   "entry.ts#registered",
   "events.ts#codecOf",
+  "events.ts#selectionCodec",
   "events.ts#trusted",
   "flow.ts#Flow",
+  "flow.ts#marker",
   "flow.ts#selectOf",
   "handles.ts#erase",
+  "handles.ts#guard",
+  "handles.ts#member",
+  "host/refs.ts#refOf",
   "machine.ts#erasedBody",
   "machine.ts#erasedWhen",
   "machine.ts#machine",
   "machine.ts#trustedTokens",
+  "made.ts#madeCallable",
   "send.ts#send",
 ];
 
@@ -99,16 +122,34 @@ describe("a definition's face holds tokens and codecs, not its declaration (Type
 });
 
 describe("a type crosses into the erased core at named functions only (Types R13, I4, T7)", () => {
-  it("Types T7: the cast disables in src/ outside test tooling never grow past the ratchet", () => {
-    expect(MOST).toBeGreaterThanOrEqual(production.flatMap(castsOf).length);
+  it("Types T7: the cast disables in src/ are exactly the ratchet, and the test tooling's apart", () => {
+    expect({
+      production: production.flatMap(castsOf).length,
+      testing: testing.flatMap(castsOf).length,
+    }).toEqual({ production: MOST, testing: MOST_IN_TESTING });
   });
 
-  it.fails("Types R13: door and slot hold their crossing's one cast, and the casts they absorb are gone", () => {
-    const casts = new Set(production.flatMap(castsOf));
+  it("Types R13: door and slot each hold their crossing's one cast, and the casts they absorb are gone", () => {
+    const casts = production.flatMap(castsOf);
 
     expect({
-      crossings: CROSSINGS.filter((c) => casts.has(c)),
-      absorbed: ABSORBED.filter((c) => casts.has(c)),
-    }).toEqual({ crossings: CROSSINGS, absorbed: [] });
+      crossings: CROSSINGS.map((c) => casts.filter((cast) => cast === c).length),
+      absorbed: ABSORBED.filter((c) => casts.includes(c)),
+    }).toEqual({ crossings: CROSSINGS.map(() => 1), absorbed: [] });
+  });
+
+  it("Types T7: every disable form is counted, not only the next-line one", () => {
+    const forms = [
+      `// oxlint-disable-next-line ${CAST} -- why`,
+      `const x = y as Z; // oxlint-disable-line ${CAST}`,
+      `/* oxlint-disable ${CAST} */`,
+      `// eslint-disable-next-line ${CAST}`,
+      `// oxlint-disable-next-line ${CAST}, lint-bomb/other -- why`,
+    ];
+
+    expect([...forms.map((line) => DISABLE.test(line)), DISABLE.test("// a cast")]).toEqual([
+      ...forms.map(() => true),
+      false,
+    ]);
   });
 });

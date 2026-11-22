@@ -17,8 +17,8 @@ import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { heldUntilReleased, makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
-import type { AnyDefinition, EventOf, Machine } from "../definition.ts";
-import type { Parts } from "../derive.ts";
+import type { AnyDefinition, Machine } from "../definition.ts";
+import type { EventOf, Parts } from "../derive.ts";
 import {
   type FlowError,
   flowError,

@@ -168,14 +168,18 @@ export const frozen = <A extends Container>(value: A) => {
   return value;
 };
 
-const describe = <A extends Container, I>(value: A, kind: Kind, owner: symbol, internals: I) => {
+// A made value, carded and frozen, typed as what it now is: its face and its kind's brand.
+// RETURN_TYPE: the made value's type, which its face and kind fix.
+const describe = <T, I>(value: Container, kind: Kind, owner: symbol, internals: I): T => {
   Object.defineProperty(value, InternalsId, {
     // oxlint-disable-next-line lint-bomb/no-object-freeze -- the card is read by every door and changed by none
     value: Object.freeze({ kind, owner, internals } satisfies Card<I>),
   });
   seal(value);
 
-  return value;
+  // SAFETY: the value now carries the face's fields and the card of its kind, which the brand names.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a made value's kind brand is a phantom key, and a function given fields has no static type of both until it is named
+  return value as T;
 };
 
 /**
@@ -187,7 +191,13 @@ const describe = <A extends Container, I>(value: A, kind: Kind, owner: symbol, i
  * For every object Flow hands out: a definition, machine, app, ref, contract, bound contract or
  * token. A face holds data and doors only; what the core calls goes in `internals`.
  */
-export const made = <A extends Container, I>(kind: Kind, owner: symbol, face: A, internals: I) =>
+// RETURN_TYPE: the face, branded with its kind.
+export const made = <K extends Kind, A extends Container, I>(
+  kind: K,
+  owner: symbol,
+  face: A,
+  internals: I,
+): A & Branded<K> =>
   describe(
     withPrototype(
       Object.defineProperties({ ...face }, Object.getOwnPropertyDescriptors(face)),
@@ -203,25 +213,25 @@ export const made = <A extends Container, I>(kind: Kind, owner: symbol, face: A,
  * face's fields beside it.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a door of any signature.
+// RETURN_TYPE: the door with the face's fields, branded with its kind.
 export const madeCallable = <
+  K extends Kind,
   F extends (...args: ReadonlyArray<never>) => unknown,
   A extends WeakKey,
   I,
 >(
-  kind: Kind,
+  kind: K,
   owner: symbol,
   call: F,
   face: A,
   internals: I,
-) => {
+): F & A & Branded<K> => {
   Object.defineProperties(
     withPrototype(call, madeFunction),
     Object.getOwnPropertyDescriptors(face),
   );
 
-  // SAFETY: the door now carries the face's fields, as F & A states.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a function given fields has no static type of both until it is named
-  return describe(call, kind, owner, internals) as F & A;
+  return describe(call, kind, owner, internals);
 };
 
 // The card a branded value holds, read before it is trusted.

@@ -4,6 +4,7 @@ import type { Story } from "../../src/host/testing/index.ts";
 import { bench } from "../declare.ts";
 import { LEAK_BYTES, MEASURES, measureSize, memorySubject } from "./memory.ts";
 import { persistSubject } from "./persist.ts";
+import { constructed, constructSubject } from "./construct.ts";
 import { bootSubject } from "./startup.ts";
 import { storySubject } from "./story.ts";
 import { toolingBenches } from "./tooling.ts";
@@ -126,6 +127,19 @@ const startupBenches = (m: Manifest) => {
   ];
 };
 
+// The construction of the smallest, the widest and the deepest fixture machine (Types R7).
+const constructBenches = constructed(manifests).flatMap(([size, machine]) =>
+  Option.toArray(machine).map((built) =>
+    bench({
+      id: `startup.construct.${size}.build-ms`,
+      concern: "startup",
+      tags: ["construct", size],
+      size: { n: 1, unit: "build" },
+      load: () => constructSubject(built),
+    }),
+  ),
+);
+
 // The app with the most machines; ties go to the first name.
 const largestApp = manifests.toSorted(
   (a, b) =>
@@ -165,8 +179,9 @@ const memoryBenches = (m: Manifest) =>
  * `turn` times each long Story, saved stress Story and Story a manifest marks; `scale` each sized
  * Story, grouped by series; `persist` the long Story of an app that persists; `values` each
  * machine's walkers over its long Story's published memories; `startup` the app's boot with
- * nothing saved, warm and cold, and its own Story's first run in a fresh process; `memory` the heap
- * of the actors the manifest's probe names.
+ * nothing saved, warm and cold, its own Story's first run in a fresh process, and the construction
+ * of the smallest, widest and deepest fixture machine; `memory` the heap of the actors the
+ * manifest's probe names.
  */
 export const benches = [
   ...manifests.flatMap(turnBenches),
@@ -174,6 +189,7 @@ export const benches = [
   ...manifests.flatMap(persistBenches),
   ...manifests.flatMap(valuesBenches),
   ...manifests.flatMap(startupBenches),
+  ...constructBenches,
   ...manifests.flatMap(memoryBenches),
   ...toolingBenches,
 ];

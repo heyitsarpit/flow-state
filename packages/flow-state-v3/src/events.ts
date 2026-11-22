@@ -1,8 +1,9 @@
-import { Option, Predicate, Result, Schema } from "effect";
+import { Option, Predicate, Record, Result, Schema } from "effect";
 import { admitted, walkerOf } from "./core/boundary.ts";
 import type { Values } from "./core/compiled.ts";
 import { isUncertain } from "./config.ts";
-import type { AnyDefinition, EventFields, Tokens } from "./definition.ts";
+import type { Fields } from "./contract.ts";
+import type { AnyDefinition, EventFields } from "./definition.ts";
 import { flowError, raise } from "./error.ts";
 import { builder, entry } from "./entry.ts";
 import { type Container, made, madeCallable, madeOf } from "./made.ts";
@@ -13,29 +14,19 @@ import { type Container, made, madeCallable, madeOf } from "./made.ts";
 export const fieldsOf = (x: EventFields) => (isUncertain(x) ? x.fields : x);
 
 /**
- * A Struct built over a runtime record of field Schemas, as the record codec Compiled holds: a
- * definition's memory, payload or name, or a contract's input or key.
+ * A record's codec over a runtime record of field Schemas, as Compiled holds it: a definition's
+ * memory, payload or name, or a contract's input or key.
  */
-export const codecOf = <E, S = Schema.Top>(schema: S) =>
-  // SAFETY: a Struct of a definition's or a contract's own field Schemas decodes to a record of those fields, and every Flow field Schema needs no services.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Schema.Struct over a runtime record has no static field types
-  schema as Schema.Codec<Values, E>;
+// RETURN_TYPE: a Struct of Flow field Schemas, which need no services, decodes to a record.
+export const structOf = (fields: Fields): Schema.Codec<Values, Values> => Schema.Struct(fields);
 
 /**
- * A schedule's `restartOn` selection codec, as Compiled holds it: its JSON text from a value of
- * the declaration's type.
+ * A record's JSON codec over a runtime record of field Schemas: the Struct of each field's JSON
+ * form, so a field's JSON form is built once, where the field is.
  */
-// FLOW_STATE_ALLOW_UNKNOWN: a selection is of any type its declaration names.
-export const selectionCodec = <S>(schema: S) =>
-  // SAFETY: a declared restartOn Schema needs no services, as every Flow field Schema, and its JSON text is a string.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the selection's type is the declaration's, erased in Compiled
-  schema as Schema.Codec<unknown, string>;
-
-// FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
-export const trusted = <A>(value: unknown) =>
-  // SAFETY: a value built from the definition's own keys, whose static type the caller names.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- records built at run time carry no static key types
-  value as A;
+// RETURN_TYPE: a Struct of JSON codecs encodes to a record of JSON values.
+export const jsonStructOf = (fields: Fields): Schema.Codec<Values, Values> =>
+  Schema.Struct(Record.map(fields, (field) => Schema.toCodecJson(field)));
 
 const invalidEvent = (tag: string, field: ReadonlyArray<string>) =>
   flowError([
@@ -51,8 +42,8 @@ const invalidEvent = (tag: string, field: ReadonlyArray<string>) =>
  * An event's payload as Flow admits it: the Struct of its fields, that Struct's type side, which
  * checks a payload without transforming it, and the names of its fields, the only keys kept.
  */
-export const payloadOf = (fields: Schema.Struct.Fields) => {
-  const payload = codecOf<Values>(Schema.Struct(fields));
+export const payloadOf = (fields: Fields) => {
+  const payload = structOf(fields);
 
   return {
     payload,
@@ -78,12 +69,7 @@ export type MappingInternals = {
   readonly token: Container;
 };
 
-const eventToken = (
-  definition: string,
-  owner: symbol,
-  tag: string,
-  fields: Schema.Struct.Fields,
-) => {
+const eventToken = (definition: string, owner: symbol, tag: string, fields: Fields) => {
   const admission = payloadOf(fields);
   const { walk, names } = admission;
 
@@ -136,18 +122,16 @@ const eventToken = (
 /**
  * A definition's event tokens, by tag: each built once with its payload Struct and walker.
  */
-export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>, Id extends string>(
-  definition: Id,
+export const tokensOf = (
+  definition: string,
   owner: symbol,
-  events: Ev,
+  events: Readonly<Record<string, EventFields>>,
 ) =>
-  trusted<Tokens<Ev, Id>>(
-    Object.fromEntries(
-      Object.entries(events).map(([tag, fields]) => [
-        tag,
-        eventToken(definition, owner, tag, fieldsOf(fields)),
-      ]),
-    ),
+  Object.fromEntries(
+    Object.entries(events).map(([tag, fields]) => [
+      tag,
+      eventToken(definition, owner, tag, fieldsOf(fields)),
+    ]),
   );
 
 /**

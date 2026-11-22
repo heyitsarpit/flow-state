@@ -219,7 +219,7 @@ implementer's, and Q2 is the user's, needed before T106.
 
 1. **breaks: a live send and a restored re-send of one Attempt carry different bodies.** The walker is a check; the
    commit gets the caller's own object through a cast (code:packages/flow-state-v3/src/core/lanes.ts, line 169;
-   code:packages/flow-state-v3/src/contract.ts#trusted), while the lane record saves the encoded text, which drops
+   `contract.ts#trusted`), while the lane record saves the encoded text, which drops
    extra fields (spike below). A select returning `{ intentId, note }` sends `note` live; after a reload,
    `O.pay.retry` re-sends the same `attempt.id` without it. An idempotency-keyed API (Stripe refuses a reused key with
    other parameters) answers a definite error for a request that may have applied. §4 extends the same check-and-cast

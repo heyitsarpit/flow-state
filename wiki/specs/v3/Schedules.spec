@@ -724,7 +724,7 @@ rules
 
 realization typescript
     Types and the single point of erasure. Today the erased core meets the typed edge in two steps, and neither is
-    typed: `machine` casts the whole body to `AnyBody` (code:packages/flow-state-v3/src/machine.ts#AnyBody); then
+    typed: `machine` casts the whole body to `AnyBody` (code:packages/flow-state-v3/src/compile-body.ts#AnyBody); then
     `scheduleOf` (code:packages/flow-state-v3/src/compile-schedules.ts) wraps each callback with `erase`, whose input
     type is `never` (code:packages/flow-state-v3/src/handles.ts#erase), so it checks nothing. The public types are
     written by hand on the other side (`ScheduleKey` in `src/tokens.ts`, since deleted).

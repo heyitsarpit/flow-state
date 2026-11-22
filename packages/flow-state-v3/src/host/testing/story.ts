@@ -1,5 +1,6 @@
 import { type Duration, Effect, type Layer, Option } from "effect";
-import type { AnyDefinition, EventOf } from "../../definition.ts";
+import type { AnyDefinition } from "../../definition.ts";
+import type { EventOf } from "../../derive.ts";
 import { foreignActorRef } from "../../error.ts";
 import {
   actorIdOf,

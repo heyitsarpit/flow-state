@@ -1,49 +1,29 @@
 import { Option, Predicate, Result, Schema } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import { nameSchemaOf } from "./core/identity.ts";
-import { InternalsId, type Level, type Node, type Values } from "./core/compiled.ts";
-import { leafOf } from "./core/tree.ts";
-import { declarationOf } from "./declaration-of.ts";
-import {
-  type AnyDefinition,
-  type Machine,
-  type StateToken,
-  treeOfDefinition,
-} from "./definition.ts";
+import { InternalsId, type Values } from "./core/compiled.ts";
+import { definitionInternalsOf } from "./declaration-of.ts";
+import type { AnyDefinition, Machine } from "./definition.ts";
 import type { BodyTokens, MachineBody } from "./derive.ts";
 import { bodyFindings, inDeclarationOrder } from "./config.ts";
-
-// A body's keys in the order its findings are reported.
-const BODY_KEYS = ["default", "on", "onContext", "states"];
-
 import { type Finding, flowErrorOf, invalid, raise, refuse } from "./error.ts";
-import { builder, entry } from "./entry.ts";
-import { internalsOf, type KindOf, made, madeOf } from "./made.ts";
-import { codecOf, endingOf } from "./events.ts";
+import { builder, door } from "./entry.ts";
+import { internalsOf, made, madeOf } from "./made.ts";
+import { endingOf, structOf } from "./events.ts";
 import { defect } from "./core/defect.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { ActorId } from "./core/world.ts";
-import type { Change, ErasedPlacement } from "./tokens.ts";
+import type { Change } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
-import { nodesOf, tokenMaps } from "./compile-body.ts";
+import { type BodyFunction, walkOf } from "./compile-body.ts";
+import { indexOf } from "./compile-index.ts";
 import type { Compile } from "./compile-names.ts";
 import type { MachineInternals } from "./compiled-of.ts";
 import { placementFindings, scheduleCodecsOf } from "./compile-schedules.ts";
+import { slot } from "./handles.ts";
 
-/**
- * A machine body as the compiler walks it, its literal types erased.
- */
-export type AnyBody = {
-  readonly default?: StateToken;
-  readonly on?: Values;
-  readonly onContext?: ReadonlyArray<Change>;
-  readonly schedules?: Readonly<Record<string, ErasedPlacement>>;
-  readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
-};
-
-// The body function. A conditional type, so a call that infers D instantiates it before checking
-// the body: the returned literal is then checked against the definition's own tree at every depth.
-type BodyOf<D> = [D] extends [AnyDefinition] ? (tokens: BodyTokens<D>) => MachineBody<D> : never;
+// A body's keys in the order its findings are reported.
+const BODY_KEYS = ["default", "on", "onContext", "states"];
 
 /**
  * What a reaction keeps for the core: when a change counts, and the event it sends.
@@ -56,10 +36,12 @@ export type ChangeInternals = {
 };
 
 // FLOW_STATE_ALLOW_UNKNOWN: a reaction's values, typed by its slot.
-const erasedWhen = (when: unknown) =>
-  // SAFETY: the reaction's findings checked when is a function written for its slot's values; the runtime passes exactly those.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a slot's value type is erased in Compiled
-  when as (current: unknown, previous: unknown, extra: { readonly memory: Values }) => boolean;
+type When = (current: unknown, previous: unknown, extra: { readonly memory: Values }) => boolean;
+
+// FLOW_STATE_ALLOW_UNKNOWN: an authored when, which the reaction's findings checked is a function.
+// RETURN_TYPE: a type guard states the callback it narrows to.
+const isCallback = (x: unknown): x is (...args: ReadonlyArray<never>) => unknown =>
+  Predicate.isFunction(x);
 
 // The `C` tokens of a definition's slots, one per slot with `.change`, each reaction owned by this
 // machine's own owner, so a body's reaction is known to be this machine's.
@@ -81,19 +63,9 @@ const changeTokens = (slots: ReadonlyArray<string>, owner: symbol) =>
     ]),
   );
 
-const trustedTokens = <T>(tokens: Values) =>
-  // SAFETY: one change token per declared slot, as ContextTokens types them.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the slots' value types are erased in the runtime tokens
-  tokens as T;
-
-const erasedBody = <B>(body: B) =>
-  // SAFETY: MachineBody's records are On records and bodies over the definition's own events and states.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's event and memory types are erased in Compiled
-  body as AnyBody;
-
-// Whether some state, or the root, has a handler for an event.
-const handled = (root: Level, nodes: ReadonlyArray<Node>, tag: string) =>
-  root.has(tag) || nodes.some((n) => n.on.has(tag));
+// The body function. A conditional type, so a call that infers D instantiates it before checking
+// the body: the returned literal is then checked against the definition's own tree at every depth.
+type BodyOf<D> = [D] extends [AnyDefinition] ? (tokens: BodyTokens<D>) => MachineBody<D> : never;
 
 // The kinds of a reaction this machine's C made: a when that is no function and an event that is
 // no event token, judged with the body's kinds.
@@ -200,6 +172,165 @@ const reactionFindings = (
   });
 };
 
+// The erased construction a machine's door and a rebuild share.
+const build = (definition: AnyDefinition, body: BodyFunction) => {
+  const read = madeOf("definition")(definition, ["definition"]);
+
+  const wrong: Array<Finding> = Result.match(read, {
+    onFailure: (finding) => [finding],
+    onSuccess: () => [],
+  });
+
+  if (!Predicate.isFunction(body))
+    wrong.push(
+      invalid(
+        ["body"],
+        "WrongKind",
+        "machine was given no body function",
+        "Pass machine a body: ({ S, E, O }) => ({ default, on, states }).",
+      ),
+    );
+
+  refuse(wrong);
+
+  const owner = Result.getOrElse(
+    Result.map(read, (card) => card.owner),
+    () => defect("a refused definition"),
+  );
+
+  const { declaration, tree, tokens, histories } = definitionInternalsOf(definition);
+  const reactor = Symbol(`${definition.id}/C`);
+
+  const handed: Parameters<BodyFunction>[0] = {
+    S: definition.S,
+    E: definition.E,
+    O: definition.O,
+    C: changeTokens(Object.keys(declaration.context), reactor),
+  };
+
+  const written = Result.try({
+    try: () => body(handed),
+    // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+    catch: (cause: unknown) => cause,
+  });
+
+  if (Result.isFailure(written))
+    return raise(
+      flowErrorOf(
+        [
+          {
+            code: "Defect",
+            path: ["body"],
+            summary: "the machine body threw",
+            help: "Fix the machine body; what it threw is this error's cause.",
+          },
+        ],
+        written.failure,
+      ),
+    );
+
+  const config = written.success;
+
+  refuse(
+    inDeclarationOrder(BODY_KEYS, [
+      ...bodyFindings(config),
+      ...reactionKinds(Array.isArray(config.onContext) ? config.onContext : [], reactor),
+      ...placementFindings(declaration.schedules, config),
+    ]),
+  );
+
+  const compile: Compile = {
+    declaration,
+    owner,
+    top: tree.top,
+    nodes: new Map(tree.nodes.map((n) => [n.path, n])),
+    tokens,
+    histories,
+    events: new Set(Object.keys(definition.E)),
+    sends: new Set(Object.values(definition.E)),
+    findings: [],
+  };
+
+  const walked = walkOf(compile, config);
+  const index = indexOf(walked);
+
+  const reactions = (config.onContext ?? []).map((change, i) => ({
+    change,
+    at: ["onContext", i],
+  }));
+
+  compile.findings.push(
+    ...reactionFindings(compile, reactions, reactor, (tag) => index.handledTags.has(tag)),
+  );
+
+  refuse(compile.findings);
+
+  // The definition refused every slot that does not read; each slot here reads one provider.
+  const context = Object.entries(declaration.context).flatMap(([name, declared]) =>
+    Result.match(slotReadsOf(name, declared), {
+      onFailure: () => [],
+      onSuccess: ({ provider, reads, select }) => {
+        const json = Schema.toCodecJson(declared.schema);
+
+        return [
+          [
+            name,
+            {
+              provider: provider.provider,
+              reads: reads.map(({ name: read, reader }) => ({ name: read, ...reader.read })),
+              json,
+              walk: walkerOf(json),
+              select: slot<(reads: Values) => unknown>(`context.${name}`, select),
+            },
+          ] as const,
+        ];
+      },
+    }),
+  );
+
+  const fields = Object.entries(declaration.memory).map(([name, raw]) => fieldOf(name, raw));
+  const memory = memoryCodec(fields);
+  const memoryJson = structOf(Object.fromEntries(fields.map((f) => [f.name, f.json])));
+
+  const compiled = {
+    id: definition.id,
+    persist: definition.persist,
+    initial: index.initial,
+    states: index.states,
+    root: walked.root,
+    handledTags: index.handledTags,
+    events: eventsOf(definition),
+    memory,
+    memoryJson,
+    operations: new Map(
+      Object.entries(declaration.operations).map(([name, bound]) => [
+        name,
+        operationOf(name, bound),
+      ]),
+    ),
+    context: new Map(context),
+    schedules: scheduleCodecsOf(declaration.schedules),
+    wiring: new Map<string, ActorId>(),
+    [InternalsId]: {
+      fields,
+      walk: walkerOf(memoryJson),
+      identity: walkerOf(nameSchemaOf(fields)),
+      reactions: reactions.map(({ change, at }) => {
+        const { when, event } = internalsOf<ChangeInternals>("change", change);
+        const place = at.join(".");
+
+        return {
+          slot: change.slot,
+          when: Option.map(Option.filter(when, isCallback), (w) => slot<When>(`${place}.when`, w)),
+          event: mappingOf(event, `${place}.event`),
+        };
+      }),
+    },
+  };
+
+  return made("machine", owner, { definition }, { compiled, body } satisfies MachineInternals);
+};
+
 /**
  * Compiles a definition and its handlers into a Machine.
  *
@@ -223,177 +354,14 @@ const reactionFindings = (
  * - An invalid body throws one FlowError listing every violation found, in walk order, each
  *   with its path.
  */
-export const machine = entry(
-  "machine",
+export const machine = door<
   // RETURN_TYPE: the exported Machine keeps the definition's literal types.
-  <D extends AnyDefinition>(definition: D, body: BodyOf<NoInfer<D>>): Machine<D> => {
-    const read = madeOf("definition")(definition, ["definition"]);
+  <D extends AnyDefinition>(definition: D, body: BodyOf<NoInfer<D>>) => Machine<D>
+>("machine", build);
 
-    const wrong: Array<Finding> = Result.match(read, {
-      onFailure: (finding) => [finding],
-      onSuccess: () => [],
-    });
-
-    if (!Predicate.isFunction(body))
-      wrong.push(
-        invalid(
-          ["body"],
-          "WrongKind",
-          "machine was given no body function",
-          "Pass machine a body: ({ S, E, O }) => ({ default, on, states }).",
-        ),
-      );
-
-    refuse(wrong);
-
-    const owner = Result.getOrElse(
-      Result.map(read, (card) => card.owner),
-      () => defect("a refused definition"),
-    );
-
-    const declaration = declarationOf(definition);
-    const reactor = Symbol(`${definition.id}/C`);
-
-    const handed = {
-      S: definition.S,
-      E: definition.E,
-      O: definition.O,
-      C: trustedTokens<BodyTokens<D>["C"]>(changeTokens(Object.keys(declaration.context), reactor)),
-    };
-
-    const written = Result.try({
-      try: () => body(handed),
-      // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
-      catch: (cause: unknown) => cause,
-    });
-
-    if (Result.isFailure(written))
-      return raise(
-        flowErrorOf(
-          [
-            {
-              code: "Defect",
-              path: ["body"],
-              summary: "the machine body threw",
-              help: "Fix the machine body; what it threw is this error's cause.",
-            },
-          ],
-          written.failure,
-        ),
-      );
-
-    const config = erasedBody(written.success);
-
-    refuse(
-      inDeclarationOrder(BODY_KEYS, [
-        ...bodyFindings(config),
-        ...reactionKinds(Array.isArray(config.onContext) ? config.onContext : [], reactor),
-        ...placementFindings(declaration.schedules, config),
-      ]),
-    );
-
-    const tree = treeOfDefinition(definition);
-    const { tokens, histories } = tokenMaps(definition, tree.nodes);
-
-    const compile: Compile = {
-      definition,
-      declaration,
-      owner,
-      nodes: new Map(tree.nodes.map((n) => [n.path, n])),
-      tokens,
-      histories,
-      events: new Set(Object.keys(definition.E)),
-      sends: new Set(Object.values(definition.E)),
-      findings: [],
-    };
-
-    const compiledTree = nodesOf(compile, config, Option.none(), []);
-
-    const reactions = (config.onContext ?? []).map((change, i) => ({
-      change,
-      at: ["onContext", i],
-    }));
-
-    compile.findings.push(
-      ...reactionFindings(compile, reactions, reactor, (tag) =>
-        handled(compiledTree.root, compiledTree.nodes, tag),
-      ),
-    );
-
-    refuse(compile.findings);
-
-    // The definition refused every slot that does not read; each slot here reads one provider.
-    const context = Object.entries(declaration.context).flatMap(([slot, declared]) =>
-      Result.match(slotReadsOf(slot, declared), {
-        onFailure: () => [],
-        onSuccess: ({ provider, reads, select }) => {
-          const json = Schema.toCodecJson(declared.schema);
-
-          return [
-            [
-              slot,
-              {
-                provider: provider.provider,
-                reads: reads.map(({ name, reader }) => ({ name, ...reader.read })),
-                json,
-                walk: walkerOf(json),
-                select: { slot: `context.${slot}`, run: select },
-              },
-            ] as const,
-          ];
-        },
-      }),
-    );
-
-    const fields = Object.entries(declaration.memory).map(([name, raw]) => fieldOf(name, raw));
-    const memory = memoryCodec(fields);
-    const memoryJson = codecOf<Values>(Schema.toCodecJson(memory));
-    const states = new Map(compiledTree.nodes.map((n) => [n.path, n]));
-
-    const compiled = {
-      id: definition.id,
-      persist: definition.persist,
-      initial: "",
-      states,
-      root: compiledTree.root,
-      events: eventsOf(definition),
-      memory,
-      memoryJson,
-      operations: new Map(
-        Object.entries(declaration.operations).map(([name, bound]) => [
-          name,
-          operationOf(name, bound),
-        ]),
-      ),
-      context: new Map(context),
-      schedules: scheduleCodecsOf(declaration.schedules),
-      wiring: new Map<string, ActorId>(),
-      [InternalsId]: {
-        fields,
-        walk: walkerOf(memoryJson),
-        identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
-        reactions: reactions.map(({ change, at }) => {
-          const { when, event } = internalsOf<ChangeInternals>("change", change);
-          const place = at.join(".");
-
-          return {
-            slot: change.slot,
-            when: Option.map(when, (w) => ({
-              slot: `${place}.when`,
-              run: erasedWhen(w),
-            })),
-            event: mappingOf(event, `${place}.event`),
-          };
-        }),
-      },
-    };
-
-    const face: Omit<Machine<D>, typeof KindOf> = { definition };
-
-    // SAFETY: the face is every field of the machine but its kind, a phantom key the brand carries.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-    return made("machine", owner, face, {
-      compiled: { ...compiled, initial: leafOf(compiled, compiledTree.initial) },
-    } satisfies MachineInternals) as Machine<D>;
-  },
-);
+/**
+ * A machine built again from the definition and body it was built from: what timing a
+ * construction, or comparing two constructions of one source, calls.
+ */
+export const rebuilt = (built: Machine) =>
+  build(built.definition, internalsOf<MachineInternals>("machine", built).body);

@@ -1,5 +1,5 @@
-import type { ActorRef, AnyDefinition, EventOf, MappedEvent, PayloadOf } from "./definition.ts";
-import type { Parts } from "./derive.ts";
+import type { ActorRef, AnyDefinition, MappedEvent } from "./definition.ts";
+import type { EventOf, Parts, PayloadOf } from "./derive.ts";
 import type { SendArg } from "./handles.ts";
 import { builder } from "./entry.ts";
 import { type Branded, made } from "./made.ts";
@@ -91,8 +91,5 @@ export const send = builder(
   <M, P, D extends AnyDefinition>(
     to: (input: NoInfer<SendArg<M, P>>) => ActorRef<D>,
     event: NoInfer<SendEvent<SendArg<M, P>, D>>,
-  ): SendToken<M, P> =>
-    // SAFETY: a send's face is empty; its kind brand and the callbacks' types are phantoms.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-    made("send", SENDS, {}, { to, event } satisfies SendInternals) as SendToken<M, P>,
+  ): SendToken<M, P> => made("send", SENDS, {}, { to, event } satisfies SendInternals),
 );

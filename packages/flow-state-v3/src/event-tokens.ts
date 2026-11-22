@@ -1,6 +1,7 @@
 import type { Ending } from "./contract.ts";
 import type { Branded } from "./made.ts";
-import type { Envelope, PayloadOf } from "./definition.ts";
+import type { Envelope } from "./definition.ts";
+import type { PayloadOf } from "./derive.ts";
 import type { Uncertain } from "./flow.ts";
 
 /**

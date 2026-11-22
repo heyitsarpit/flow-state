@@ -1,7 +1,6 @@
 import { Predicate } from "effect";
 import type { TreeNode } from "./construction.ts";
 import type { Declaration } from "./declaration-of.ts";
-import type { AnyDefinition } from "./definition.ts";
 import { type Finding, invalid } from "./error.ts";
 
 /**
@@ -22,13 +21,13 @@ export const slotOf = (at: Path) =>
   );
 
 /**
- * Everything one compile reads and collects: the definition's tokens by identity, the tree, and
- * the findings in walk order.
+ * Everything one compile reads and collects: the definition's declaration, tokens by identity and
+ * tree, and the findings in walk order.
  */
 export type Compile = {
-  readonly definition: AnyDefinition;
   readonly declaration: Declaration;
   readonly owner: symbol;
+  readonly top: ReadonlyArray<string>;
   readonly nodes: ReadonlyMap<string, TreeNode>;
   // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
   readonly tokens: ReadonlyMap<unknown, string>;

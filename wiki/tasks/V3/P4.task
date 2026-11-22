@@ -2887,8 +2887,7 @@ tasks
             code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody;
             code:packages/flow-state-v3/src/definition.ts#Definition,
             code:packages/flow-state-v3/src/definition.ts#AnyDefinition,
-            code:packages/flow-state-v3/src/definition.ts#Machine,
-            code:packages/flow-state-v3/src/definition.ts#treeOfDefinition;
+            code:packages/flow-state-v3/src/definition.ts#Machine, `definition.ts#treeOfDefinition`;
             code:packages/flow-state-v3/src/tokens.ts#MemoryToken;
             code:packages/flow-state-v3/src/event-tokens.ts#EventToken;
             code:packages/flow-state-v3/src/host/snapshot.ts#Timers,
@@ -5965,20 +5964,14 @@ tasks
             is this Task's; and `machine()`, which reads T113's private config copy and returns the `AnyBody` this
             Task's spike decides.
 
-            **Supersedes:** code:packages/flow-state-v3/src/machine.ts#erasedBody,
-            code:packages/flow-state-v3/src/machine.ts#erasedWhen,
-            code:packages/flow-state-v3/src/machine.ts#trustedTokens,
+            **Supersedes:** `machine.ts#erasedBody`, `machine.ts#erasedWhen`, `machine.ts#trustedTokens`,
             code:packages/flow-state-v3/src/machine.ts#handled; code:packages/flow-state-v3/src/core/tree.ts#chainOf,
             code:packages/flow-state-v3/src/core/tree.ts#leafOf (replaced by `Node.chain` and `Node.leaf`; their last
-            caller, the turn walk, moves in @task.V3.T119, which deletes them);
-            code:packages/flow-state-v3/src/events.ts#codecOf, code:packages/flow-state-v3/src/events.ts#trusted;
-            code:packages/flow-state-v3/src/contract.ts#trustedAttempt;
-            code:packages/flow-state-v3/src/compile-body.ts#childrenOf,
-            code:packages/flow-state-v3/src/compile-body.ts#childNodes,
-            code:packages/flow-state-v3/src/compile-body.ts#nodesOf,
-            code:packages/flow-state-v3/src/compile-body.ts#tokenMaps; code:packages/flow-state-v3/src/handles.ts#erase;
-            code:packages/flow-state-v3/src/flow.ts#selectOf. Do not delete it before its replacement lands and the
-            suite passes.
+            caller, the turn walk, moves in @task.V3.T119, which deletes them); `events.ts#codecOf`,
+            `events.ts#trusted`; `contract.ts#trustedAttempt`; `compile-body.ts#childrenOf`,
+            `compile-body.ts#childNodes`, `compile-body.ts#nodesOf`, `compile-body.ts#tokenMaps`;
+            code:packages/flow-state-v3/src/handles.ts#erase; `flow.ts#selectOf`. Do not delete it before its
+            replacement lands and the suite passes.
 
             May change: `src/`, `tests/`, `bench/`. Evidence: this Task's comments.
 
@@ -6046,6 +6039,58 @@ tasks
         comment     2026-11-22T11:43:42Z
             Routed (orchestrator) from T113's close review: ScheduleMetadata still carries a name field against Types
             Q10 (predates T113); this Task owns Compiled's derived fields, so it removes or justifies it.
+        comment     2026-11-22T11:51:50Z
+            [decided: agent builder 2026-11-22] AnyBody spike (Types Q12) passes: with every body callback at `never`
+            (handlers' guards, `updateMemory`, placements' `schedule`, `keys`, `restartOn`, `paused`) and `| undefined`
+            on the optional records under `exactOptionalPropertyTypes`, `MachineBody<D>` assigns to `AnyBody` for Room,
+            Pay, Sync and Cart and for a generic `D` (tsc on the real package; a wrong body still fails). So
+            `compile-body.ts#levelOf` and `machine.ts#erasedBody` lose their casts, and every body callback reaches
+            Compiled through `handles.ts#slot`. Why: Q12's stated deciding test. Reverse: `ErasedPlacement`'s typed
+            callbacks and one cast at the body.
+        comment     2026-11-22T12:16:44Z
+            [decided: agent builder 2026-11-22] `door` is `entry.ts#door<Public>(name, run, kind)`: `entry`,
+            `entryEffect`, `builder` and the erased `definition`, `machine` and `Flow.context` all go through it, so the
+            wrapper's one cast is the door's. `run` is not checked against `Public` (an erased implementation fails only
+            on its return, Types Crossings). Why: one point per class of cast (R13); the absorbed `registered`,
+            `trustedTokens`, `trusted`, the kind brand at `definition()`'s return and `Flow.context`'s overload cast
+            leave with it. Reverse: keep `definition` and `machine` generic and cast at their returns.
+        comment     2026-11-22T12:16:45Z
+            [decided: agent builder 2026-11-22] `handles.ts#slot(name, run)` makes the Slot Compiled holds (it absorbs
+            `erase`, `erasedWhen`, `trustedAttempt`, `contract.ts#trusted`, `flow.ts#selectOf`); `callSlot` stays the
+            caller. `run` is any callback (`(...never) => unknown`), so a reaction's `when` and a context select cross
+            without a second guard. Why: Types Crossings names `slot` the typed-callback crossing; making it the maker
+            puts every body, contract and slot callback through it. Reverse: `Slot.run` at `never` and `slot` as the
+            only caller.
+        comment     2026-11-22T12:16:46Z
+            [decided: agent builder 2026-11-22] The kind-brand class folds into `made.ts`: `made` and `madeCallable`
+            return `face & Branded<K>`, their one cast in `made.ts#describe` (it was `madeCallable`'s). The casts at
+            `send`, `handles.ts#member`, `#guard`, `contract.ts#boundOf`, `flow.ts#marker` and `host/refs.ts#refOf` go.
+            Why: a typed face plus the brand is the value's type, so no caller casts. Reverse: per-site casts.
+        comment     2026-11-22T12:16:47Z
+            [decided: agent builder 2026-11-22] Record codecs are typed, not cast: `events.ts#structOf` and
+            `#jsonStructOf` (a Struct of each field's JSON form, built once per field), the key and selection codecs
+            typed in `compile-schedules.ts`. Public field types tighten to need no services, as every Flow field already
+            did: `Flow.uncertain` takes `Fields`, `ScheduleDecl.key` is `Fields` and `restartOn` is `Plain`. Why:
+            deletes `codecOf` and `selectionCodec`; Schema services cannot run in the pure core. Reverse:
+            `Schema.Struct.Fields` and `Schema.Top` with one cast.
+        comment     2026-11-22T12:16:48Z
+            [decided: agent builder 2026-11-22] `ScheduleMetadata` and the runtime's `FiringMetadata` drop `name` (Types
+            Q10, decided by the user). Why: the routed item; the mapper takes the firing metadata without `name`.
+            Reverse: restore `name: N` and `ScheduleBodyOf`'s `N`.
+        comment     2026-11-22T12:16:48Z
+            [decided: agent builder 2026-11-22] The state tree and the S and history token maps are built once, by
+            `definition()`, and kept in its internals; `compile-body.ts#walkOf` is one accumulator walk with Set
+            lookups, and `compile-index.ts#indexOf` alone writes `Node.chain`, `depth`, `leaf`, `Compiled.handledTags`
+            and the one `initial`. Why: Types "Construction cost" and DerivedFields; `tokenMaps` re-split every path.
+            Reverse: rebuild the maps per machine.
+        comment     2026-11-22T12:16:49Z
+            [decided: agent builder 2026-11-22] The construction benches rebuild a fixture machine from the definition
+            and body it was built from: `MachineInternals.body` is kept and `machine.ts#rebuilt` reruns the one erased
+            construction; the bench picks the fixture machine with the fewest states, the most, and the deepest, by
+            shape (`bench/benches/construct.ts`), with a proof that the rebuild's data view equals the first build's;
+            not in the quick tier. Why: no body is reachable otherwise without writing a body twice or a factory; the
+            blind sidecar found no third way that keeps config in the machine. Reverse: manifests declare
+            construct entries.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
         status      open

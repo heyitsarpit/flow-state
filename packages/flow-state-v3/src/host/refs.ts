@@ -6,7 +6,7 @@ import type { Parts } from "../derive.ts";
 import type { ContextRefs } from "./context-refs.ts";
 import { entry } from "../entry.ts";
 import { flowError, raise, refuse } from "../error.ts";
-import { type KindOf, made, madeOf } from "../made.ts";
+import { made, madeOf } from "../made.ts";
 import { compiledOf } from "../compiled-of.ts";
 
 export type { ActorRef } from "../definition.ts";
@@ -69,13 +69,7 @@ export const refOf = <D extends AnyDefinition>(
   // FLOW_STATE_ALLOW_UNKNOWN: a ref's value is the caller's, checked where the ref is used.
   value: unknown,
   context: Readonly<Record<string, ActorRef>>,
-): ActorRef<D> => {
-  const face: Omit<ActorRef<D>, typeof KindOf> = { machine, value, context: { ...context } };
-
-  // SAFETY: the face is every field of the ref but its kind, a phantom key the brand carries.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-  return made("ref", REFS, face, {}) as ActorRef<D>;
-};
+): ActorRef<D> => made("ref", REFS, { machine, value, context: { ...context } }, {});
 
 // A ref's context refs as the runtime reads them: a ref by slot name. The typed form checks each
 // ref's provider.

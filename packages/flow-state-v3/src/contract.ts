@@ -5,8 +5,8 @@ import type { NotSentWhy } from "./core/cells.ts";
 import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
 import { entry } from "./entry.ts";
-import { type Branded, made, type Container } from "./made.ts";
-import { codecOf } from "./events.ts";
+import { type Branded, made } from "./made.ts";
+import { jsonStructOf } from "./events.ts";
 
 /**
  * The services a contract lists: the Context keys its function calls.
@@ -209,8 +209,8 @@ export type RequirementsOf<O> = Exclude<
  * What a bound contract keeps for the core: its call and its key's text from a value's key fields.
  */
 export type BoundInternals = (
-  | { readonly kind: "write"; readonly call: Commit }
-  | { readonly kind: "read"; readonly call: Lookup }
+  | { readonly kind: "write"; readonly call: (...args: ReadonlyArray<never>) => ReturnType<Commit> }
+  | { readonly kind: "read"; readonly call: (...args: ReadonlyArray<never>) => ReturnType<Lookup> }
 ) & { readonly textOfKey: (value: Values) => Option.Option<string> };
 
 /**
@@ -243,44 +243,18 @@ const keyTextBy =
  */
 const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & string>) => {
   const input = Schema.Struct(fields);
-  const keyJson = Schema.toCodecJson(Schema.Struct(Struct.pick(fields, [...key].toSorted())));
+  const keyJson = jsonStructOf(Struct.pick(fields, [...key].toSorted()));
 
   return {
     face: {
       input,
-      inputJson: codecOf<Values>(Schema.toCodecJson(input)),
+      inputJson: jsonStructOf(fields),
       keyText: Schema.fromJsonString(keyJson),
-      keyJson: codecOf<Values>(keyJson),
+      keyJson,
     },
     textOfKey: keyTextBy(walkerOf(keyJson), key),
   };
 };
-
-/**
- * A call's input as the contract's own type: a write's input is checked by its input walker, and a
- * read's is what its handle's `lookup` select returned, typed by the contract's input.
- */
-const trusted = <A>(input: Values) =>
-  // SAFETY: a write's input passed its operation's input walker at the commit (core/lanes.ts) or decoded from a lane record (core/record.ts); a read's input is checked by type only, at its `lookup` select.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the contract's input type is erased in Compiled and restored here, at the one call boundary
-  input as A;
-
-/**
- * A commit's Attempt as the contract's own types: its input and key are the call's input, which
- * the runtime checked, and that input's key fields.
- */
-const trustedAttempt = <I, K>(context: { readonly attempt: Attempt }) =>
-  // SAFETY: the host builds the Attempt's input and key from the call's input, checked as above, and the operation's key fields.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the Attempt's input and key types are erased in Compiled and restored here, at the one call boundary
-  context as { readonly attempt: Attempt<I, K> };
-
-// A bound contract as Flow hands it out: its endings and codecs on its face, its call and key text
-// for the core.
-// RETURN_TYPE: the bound contract its outcomes call states.
-const boundOf = <B>(identity: symbol, face: Container, internals: BoundInternals): B =>
-  // SAFETY: the face holds every field of the bound contract but its kind brand, a phantom key.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a bound contract's phantom types are its declarer's
-  made("bound", identity, face, internals) as B;
 
 /**
  * A server write, declared once: inert until a machine commits it.
@@ -380,8 +354,12 @@ export const transaction = entry(
         commit: entry(`${config.id}.commit`, config.commit),
         outcomes: entry(
           `${config.id}.outcomes`,
-          <Id extends string>(endings: WriteEndings<E, A, Id>) =>
-            boundOf<Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>>(
+          // RETURN_TYPE: the bound contract carries its declarer's phantom types.
+          <Id extends string>(
+            endings: WriteEndings<E, A, Id>,
+          ): Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id> =>
+            made(
+              "bound",
               identity,
               {
                 kind: "write",
@@ -397,13 +375,9 @@ export const transaction = entry(
               },
               {
                 kind: "write",
-                call: (input: Values, context: { readonly attempt: Attempt }) =>
-                  config.commit(
-                    trusted<StructType<F>>(input),
-                    trustedAttempt<StructType<F>, KeyRecord<F, Key>>(context),
-                  ),
+                call: config.commit,
                 textOfKey: codecs.textOfKey,
-              },
+              } satisfies BoundInternals,
             ),
         ),
       },
@@ -458,8 +432,12 @@ export const resource = entry(
         lookup: entry(`${config.id}.lookup`, config.lookup),
         outcomes: entry(
           `${config.id}.outcomes`,
-          <Id extends string>(endings: ReadEndings<E, A, Id>) =>
-            boundOf<Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>>(
+          // RETURN_TYPE: the bound contract carries its declarer's phantom types.
+          <Id extends string>(
+            endings: ReadEndings<E, A, Id>,
+          ): Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id> =>
+            made(
+              "bound",
               identity,
               {
                 kind: "read",
@@ -473,9 +451,9 @@ export const resource = entry(
               },
               {
                 kind: "read",
-                call: (input: Values) => config.lookup(trusted<StructType<F>>(input)),
+                call: config.lookup,
                 textOfKey: codecs.textOfKey,
-              },
+              } satisfies BoundInternals,
             ),
         ),
       },

@@ -126,8 +126,8 @@ export const declarationFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-schedules.ts",
-        find: "          [Schema.Record(other, Schema.Never)],",
-        replace: "          [],",
+        find: "        [Schema.Record(other, Schema.Never)],",
+        replace: "        [],",
       },
     ],
   },

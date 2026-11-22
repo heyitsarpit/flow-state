@@ -1079,8 +1079,8 @@ tasks
             in `wiki/specs/specs.log`.
 
             **Supersedes:** code:packages/flow-state-v3/src/core/boundary.ts#admitted (rewritten as `intake`'s lift) and
-            code:packages/flow-state-v3/src/contract.ts#trusted (deleted; Types and Operations companions, fit tables).
-            Do not delete it before its replacement lands and the suite passes.
+            `contract.ts#trusted` (deleted; Types and Operations companions, fit tables). Do not delete it before its
+            replacement lands and the suite passes.
         acceptance
             - `intake` returns `Result<..., NonEmptyReadonlyArray<Finding>>` and never throws for a user value.
             - A read of a user object's property that throws is one `Defect` finding at its path.

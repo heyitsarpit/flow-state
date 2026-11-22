@@ -251,7 +251,6 @@ export const Delay = Data.taggedEnum<Delay>();
  * What a schedule's send maps from: the firing's metadata.
  */
 export type FiringMetadata = {
-  readonly name: string;
   readonly attempt: number;
   readonly armedAt: number;
   readonly dueAt: number;
@@ -299,7 +298,9 @@ export type ScheduleCodecs = {
 
 /**
  * One state of the tree, by its path (`ON.PLAYING`): its parent, its children in declaration
- * order, its default child (compounds only), its handlers and its schedules.
+ * order, its default child (compounds only), its handlers and its schedules; and, derived once when
+ * the machine is built, the paths from the top level down to it (`chain`), its `depth` (the
+ * chain's length) and the `leaf` its defaults reach (itself for a leaf).
  */
 export type Node = {
   readonly path: string;
@@ -308,6 +309,9 @@ export type Node = {
   readonly default: Option.Option<string>;
   readonly on: Level;
   readonly schedules: ReadonlyArray<Schedule>;
+  readonly chain: ReadonlyArray<string>;
+  readonly depth: number;
+  readonly leaf: string;
 };
 
 /**
@@ -462,8 +466,9 @@ export const Operation = Data.taggedEnum<Operation>();
  * **Details**
  *
  * `states` holds every node of the tree by its path, compounds included, in declaration order;
- * `root` holds the root's handlers and `initial` the leaf the root's defaults reach; `memory` and
- * `memoryJson` are derived from the fields' Schemas. What the core calls sits under `InternalsId`.
+ * `root` holds the root's handlers and `initial` the leaf the root's defaults reach;
+ * `handledTags` the events the root or some state handles; `memory` and `memoryJson` are derived
+ * from the fields' Schemas. What the core calls sits under `InternalsId`.
  */
 export type Compiled = {
   readonly id: string;
@@ -471,6 +476,7 @@ export type Compiled = {
   readonly initial: string;
   readonly states: ReadonlyMap<string, Node>;
   readonly root: Level;
+  readonly handledTags: ReadonlySet<string>;
   readonly events: ReadonlyMap<string, EventEntry>;
   readonly memory: Schema.Codec<Values, Values>;
   readonly memoryJson: Schema.Codec<Values, Values>;

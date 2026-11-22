@@ -1,15 +1,15 @@
 import { Predicate, Result, Schema } from "effect";
 import type { Values } from "./core/compiled.ts";
-import { atOrBelow, chainOf } from "./core/tree.ts";
+import { atOrBelow } from "./core/tree.ts";
 import type { Bound, BoundInternals, Fields } from "./contract.ts";
-import { fieldsOf, tokensOf, trusted } from "./events.ts";
+import { fieldsOf, tokensOf } from "./events.ts";
 import { readHandle, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
-import { entry } from "./entry.ts";
-import { type Declaration, declarationOf, type DefinitionInternals } from "./declaration-of.ts";
+import { door, entry } from "./entry.ts";
+import type { Declaration, DefinitionInternals } from "./declaration-of.ts";
 import type { Declared, InputOf, MemoryOf, OutsideOf, PayloadOf } from "./derive.ts";
-import { type Branded, type Container, frozen, internalsOf, type KindOf, made } from "./made.ts";
+import { type Branded, type Container, frozen, internalsOf, made } from "./made.ts";
 import {
   definitionFindings,
   isInput,
@@ -23,8 +23,6 @@ import { type Field, type Reader, slotReadsOf, type Uncertain } from "./flow.ts"
 
 export type EventFields = Fields | Uncertain;
 
-export type { InputOf, MemoryOf, OutsideOf, PayloadOf, WritableOf } from "./derive.ts";
-
 /**
  * A definition's memory fields, each with its one source.
  */
@@ -34,8 +32,6 @@ export type MemoryConfig = Readonly<Record<string, Field>>;
  * A public event as `send` takes it: its tag and its payload.
  */
 export type Envelope<Name extends string = string, P = Values> = { readonly _tag: Name } & P;
-
-export type { EventOf } from "./derive.ts";
 
 export type { EventToken, MappedEvent, Tokens } from "./event-tokens.ts";
 
@@ -191,6 +187,19 @@ type DefinitionConfig<
   readonly schedules?: Sch;
 };
 
+// A definition's configuration as its implementation reads it, its literal types erased.
+type ErasedConfig = {
+  readonly id: string;
+  readonly persist?: boolean;
+  readonly states: StateTree;
+  readonly events: Readonly<Record<string, EventFields>>;
+  readonly internalEvents?: Readonly<Record<string, EventFields>>;
+  readonly memory?: MemoryConfig;
+  readonly context?: ContextConfig;
+  readonly operations?: (tokens: { readonly E: Values }) => Readonly<Record<string, Bound>>;
+  readonly schedules?: ScheduleDecls;
+};
+
 /**
  * A definition: a machine's structure, before its handlers.
  *
@@ -222,15 +231,7 @@ export type Definition<
   Id extends string = string,
   Sch extends ScheduleDecls = ScheduleDecls,
 > = Branded<"definition"> & {
-  readonly [Declared]: {
-    readonly states: States;
-    readonly events: Ev;
-    readonly internalEvents: In;
-    readonly memory: M;
-    readonly context: Cx;
-    readonly operations: O;
-    readonly schedules: Sch;
-  };
+  readonly [Declared]: Declaration<States, Ev, In, M, O, Cx, Sch>;
   readonly id: Id;
   readonly persist: boolean;
   readonly M: {
@@ -259,8 +260,8 @@ export type Definition<
   >;
 };
 
-const pick = <T>(tokens: Values, names: ReadonlyArray<string>) =>
-  trusted<T>(Object.fromEntries(names.map((name) => [name, tokens[name]])));
+const pick = (tokens: Values, names: ReadonlyArray<string>) =>
+  Object.fromEntries(names.map((name) => [name, tokens[name]]));
 
 // ── the state tree.
 
@@ -268,7 +269,7 @@ const readOf = (read: StateRead) => (Predicate.isString(read) ? read : read.stat
 
 const childUnder = (path: string, read: StateRead) => {
   const state = readOf(read);
-  const depth = path === "" ? 0 : chainOf(path).length;
+  const depth = path === "" ? 0 : path.split(".").length;
 
   return path === "" || atOrBelow(state, path) ? state.split(".")[depth] : undefined;
 };
@@ -296,12 +297,26 @@ const stateToken = (path: string, face: Container, origin: Origin) =>
     reader: { ...origin, schema: Schema.Boolean, read: { kind: "state", path } },
   } satisfies TokenInternals);
 
+// The S tokens of a tree, a compound's children under it, with the path of each state and history
+// token by identity, for the compile of the definition's machines.
 const tokenTree = (
   nodes: ReadonlyArray<TreeNode>,
   paths: ReadonlyArray<string>,
   origin: Origin,
 ) => {
   const byPath = new Map(nodes.map((n) => [n.path, n]));
+  // FLOW_STATE_ALLOW_UNKNOWN: a made token, recognised by identity.
+  const tokens = new Map<unknown, string>();
+  // FLOW_STATE_ALLOW_UNKNOWN: a made token, recognised by identity.
+  const histories = new Map<unknown, string>();
+
+  const historyOf = (path: string) => {
+    const history = made("history", origin.owner, {}, { path });
+
+    histories.set(history, path);
+
+    return history;
+  };
 
   // RETURN_TYPE: recursive: each state's token by name, a compound's children under it.
   const build = (list: ReadonlyArray<string>): Values =>
@@ -310,27 +325,26 @@ const tokenTree = (
         const node = byPath.get(path);
         const kids = node?.children ?? [];
 
-        return [
-          node?.name ?? path,
-          stateToken(
-            path,
-            kids.length === 0
-              ? stateReads(path)
-              : {
-                  ...build(kids),
-                  ...stateReads(path),
-                  history: made("history", origin.owner, {}, { path }),
-                },
-            origin,
-          ),
-        ];
+        const token = stateToken(
+          path,
+          kids.length === 0
+            ? stateReads(path)
+            : { ...build(kids), ...stateReads(path), history: historyOf(path) },
+          origin,
+        );
+
+        tokens.set(token, path);
+
+        return [node?.name ?? path, token];
       }),
     );
 
-  return {
+  const S = {
     ...build(paths),
     root: { child: entry("S.root.child", (read: StateRead) => childUnder("", read)) },
   };
+
+  return { S, tokens, histories };
 };
 
 /**
@@ -352,8 +366,7 @@ const tokenTree = (
  * - An invalid declaration throws one FlowError listing every violation found, in declaration
  *   order, each with its path.
  */
-export const definition = entry(
-  "definition",
+export const definition = door<
   // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
   <
     const States extends StateTree,
@@ -368,171 +381,160 @@ export const definition = entry(
     const Sch extends ScheduleDecls = Record<never, never>,
   >(
     config: DefinitionConfig<States, Ev, In, M, O, Cx, Id, Sch> & DefinitionCheck<States, Id>,
-  ): Definition<States, Ev, In, M, O, Cx, Id, Sch> => {
-    type Made = Definition<States, Ev, In, M, O, Cx, Id, Sch>;
+  ) => Definition<States, Ev, In, M, O, Cx, Id, Sch>
+>("definition", (config: ErasedConfig) => {
+  const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 
-    const keys = Predicate.isObject(config) ? Object.keys(config) : [];
+  refuse(inDeclarationOrder(keys, configFindings(config)));
 
-    refuse(inDeclarationOrder(keys, configFindings(config)));
+  const owner = Symbol(config.id);
+  const origin = { owner, provider: config.id };
+  const internal = config.internalEvents ?? {};
+  const context = config.context ?? {};
+  const memory = config.memory ?? {};
+  const schedules = config.schedules ?? {};
+  const E = tokensOf(config.id, owner, { ...config.events, ...internal });
+  const declare = config.operations;
 
-    const owner = Symbol(config.id);
-    const origin = { owner, provider: config.id };
-    const internal = config.internalEvents ?? trusted<In>({});
-    const context = config.context ?? trusted<Cx>({});
-    const memory = config.memory ?? trusted<M>({});
-    const schedules = config.schedules ?? trusted<Sch>({});
-    const E = tokensOf(config.id, owner, { ...config.events, ...internal });
-    const declare = config.operations;
+  const none: Readonly<Record<string, Bound>> = {};
 
-    const called =
-      declare === undefined
-        ? Result.succeed(trusted<O>({}))
-        : Result.try({
-            try: () => declare({ E: pick<Tokens<In, Id>>(E, Object.keys(internal)) }),
-            // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
-            catch: (cause: unknown) => cause,
-          });
+  const called =
+    declare === undefined
+      ? Result.succeed(none)
+      : Result.try({
+          try: () => declare({ E: pick(E, Object.keys(internal)) }),
+          // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+          catch: (cause: unknown) => cause,
+        });
 
-    if (Result.isFailure(called))
-      return raise(
-        flowErrorOf(
-          [
-            {
-              code: "Defect",
-              path: ["operations"],
-              summary: "the operations callback threw",
-              help: "Fix the operations callback; what it threw is this error's cause.",
-            },
-          ],
-          called.failure,
-        ),
-      );
-
-    const malformed = operationsFindings(called.success);
-    const operations = malformed.length === 0 ? called.success : trusted<O>({});
-    const tree = treeOf(config.states);
-
-    refuse(
-      inDeclarationOrder(keys, [
-        ...malformed,
-        ...definitionFindings(
+  if (Result.isFailure(called))
+    return raise(
+      flowErrorOf(
+        [
           {
-            id: config.id,
-            events: config.events,
-            internalEvents: internal,
-            memory,
-            context,
-            schedules,
+            code: "Defect",
+            path: ["operations"],
+            summary: "the operations callback threw",
+            help: "Fix the operations callback; what it threw is this error's cause.",
           },
-          tree.findings,
-          operations,
-          keys,
-        ),
-        ...Object.entries(context).flatMap(([name, slot]) =>
-          Result.match(slotReadsOf(name, slot), { onFailure: (f) => f, onSuccess: () => [] }),
-        ),
-      ]),
+        ],
+        called.failure,
+      ),
     );
 
-    const handles = Object.fromEntries(
-      Object.entries(operations).map(([name, bound]) => [
-        name,
-        bound.kind === "write"
-          ? writeHandle(name, internalsOf<BoundInternals>("bound", bound).textOfKey, owner)
-          : readHandle(name, owner),
-      ]),
-    );
+  const malformed = operationsFindings(called.success);
+  const operations = malformed.length === 0 ? called.success : none;
+  const tree = treeOf(config.states);
 
-    const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
+  refuse(
+    inDeclarationOrder(keys, [
+      ...malformed,
+      ...definitionFindings(
+        {
+          id: config.id,
+          events: config.events,
+          internalEvents: internal,
+          memory,
+          context,
+          schedules,
+        },
+        tree.findings,
+        operations,
+        keys,
+      ),
+      ...Object.entries(context).flatMap(([name, slot]) =>
+        Result.match(slotReadsOf(name, slot), { onFailure: (f) => f, onSuccess: () => [] }),
+      ),
+    ]),
+  );
 
-    const envelopes = Object.entries(config.events).map(([tag, fields]) =>
-      Schema.Struct({ ...fieldsOf(fields), _tag: Schema.Literal(tag) }),
-    );
+  const handles = Object.fromEntries(
+    Object.entries(operations).map(([name, bound]) => [
+      name,
+      bound.kind === "write"
+        ? writeHandle(name, internalsOf<BoundInternals>("bound", bound).textOfKey, owner)
+        : readHandle(name, owner),
+    ]),
+  );
 
-    const inputs = Object.fromEntries(
-      Object.entries(memory).flatMap(([name, raw]) => {
-        const field = unwrapPrivate(raw);
+  const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
 
-        return isInput(field) ? [[name, field.schema]] : [];
-      }),
-    );
+  const envelopes = Object.entries(config.events).map(([tag, fields]) =>
+    Schema.Struct({ ...fieldsOf(fields), _tag: Schema.Literal(tag) }),
+  );
 
-    const declaration = frozen({
-      states: config.states,
-      events: config.events,
-      internalEvents: internal,
-      memory,
-      context,
-      operations,
-      schedules,
-    } satisfies Declaration);
+  const inputs = Object.fromEntries(
+    Object.entries(memory).flatMap(([name, raw]) => {
+      const field = unwrapPrivate(raw);
 
-    const face: Omit<Made, typeof KindOf | typeof Declared> = {
-      id: config.id,
-      persist: config.persist ?? false,
-      M: trusted<Made["M"]>(
+      return isInput(field) ? [[name, field.schema]] : [];
+    }),
+  );
+
+  const declaration = frozen({
+    states: config.states,
+    events: config.events,
+    internalEvents: internal,
+    memory,
+    context,
+    operations,
+    schedules,
+  } satisfies Declaration);
+
+  const { S, tokens, histories } = tokenTree(tree.nodes, tree.top, origin);
+
+  const face = {
+    id: config.id,
+    persist: config.persist ?? false,
+    M: Object.fromEntries(
+      Object.entries(memory).flatMap(([name, field]) =>
+        isPrivate(field)
+          ? []
+          : [
+              [
+                name,
+                made("memory", owner, {}, {
+                  path: name,
+                  reader: {
+                    ...origin,
+                    schema: schemaOfField(field),
+                    read: { kind: "memory", field: name },
+                  },
+                } satisfies TokenInternals),
+              ],
+            ],
+      ),
+    ),
+    state: made("stateName", owner, { schema: Schema.Literals(leaves) }, {
+      path: "",
+      reader: { ...origin, schema: Schema.Literals(leaves), read: { kind: "stateName" } },
+    } satisfies TokenInternals),
+    S,
+    E,
+    O: handles,
+    Event: Schema.Union(envelopes),
+    State: Schema.Literals(leaves),
+    Input: Schema.Struct(inputs),
+    Memory: Schema.Struct(
+      Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
+    ),
+    Snapshot: Schema.Struct({
+      state: Schema.Literals(leaves),
+      memory: Schema.Struct(
         Object.fromEntries(
-          Object.entries(memory).flatMap(([name, field]) =>
-            isPrivate(field)
-              ? []
-              : [
-                  [
-                    name,
-                    made("memory", owner, {}, {
-                      path: name,
-                      reader: {
-                        ...origin,
-                        schema: schemaOfField(field),
-                        read: { kind: "memory", field: name },
-                      },
-                    } satisfies TokenInternals),
-                  ],
-                ],
-          ),
+          Object.entries(memory).flatMap(([k, f]) => (isPrivate(f) ? [] : [[k, schemaOfField(f)]])),
         ),
       ),
-      state: trusted<Made["state"]>(
-        made("stateName", owner, { schema: Schema.Literals(leaves) }, {
-          path: "",
-          reader: { ...origin, schema: Schema.Literals(leaves), read: { kind: "stateName" } },
-        } satisfies TokenInternals),
-      ),
-      S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top, origin)),
-      E,
-      O: trusted<Made["O"]>(handles),
-      Event: trusted<Made["Event"]>(Schema.Union(envelopes)),
-      State: trusted<Made["State"]>(Schema.Literals(leaves)),
-      Input: trusted<Made["Input"]>(Schema.Struct(inputs)),
-      Memory: trusted<Made["Memory"]>(
-        Schema.Struct(
-          Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
-        ),
-      ),
-      Snapshot: trusted<Made["Snapshot"]>(
-        Schema.Struct({
-          state: Schema.Literals(leaves),
-          memory: Schema.Struct(
-            Object.fromEntries(
-              Object.entries(memory).flatMap(([k, f]) =>
-                isPrivate(f) ? [] : [[k, schemaOfField(f)]],
-              ),
-            ),
-          ),
-        }),
-      ),
-    };
+    }),
+  };
 
-    // SAFETY: the face is every field of the definition but its kind, which the brand carries.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-    return made("definition", owner, face, { declaration } satisfies DefinitionInternals) as Made;
-  },
-);
-
-/**
- * The declared tree of a definition, in declaration order: what `machine` compiles.
- */
-export const treeOfDefinition = (definition: AnyDefinition) =>
-  treeOf(declarationOf(definition).states);
+  return made("definition", owner, face, {
+    declaration,
+    tree: { nodes: tree.nodes, top: tree.top },
+    tokens,
+    histories,
+  } satisfies DefinitionInternals);
+});
 
 /**
  * What every definition has, whatever its literal types: what `machine` and the Runtime read.

@@ -46,9 +46,9 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/definition.ts",
-        find: '      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["operations"],',
+        find: '    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["operations"],',
         replace:
-          '      throw called.failure;\n    if (Result.isFailure(called))\n      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["operations"],',
+          '    throw called.failure;\n  if (Result.isFailure(called))\n    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["operations"],',
       },
     ],
   },
@@ -60,9 +60,9 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: '      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["body"],',
+        find: '    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["body"],',
         replace:
-          '      throw written.failure;\n    if (Result.isFailure(written))\n      return raise(\n        flowErrorOf(\n          [\n            {\n              code: "Defect",\n              path: ["body"],',
+          '    throw written.failure;\n  if (Result.isFailure(written))\n    return raise(\n      flowErrorOf(\n        [\n          {\n            code: "Defect",\n            path: ["body"],',
       },
     ],
   },
@@ -74,8 +74,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: '    const read = madeOf("definition")(definition, ["definition"]);',
-        replace: '    const read = Result.succeed({ owner: Symbol("unchecked") });',
+        find: '  const read = madeOf("definition")(definition, ["definition"]);',
+        replace: '  const read = Result.succeed({ owner: Symbol("unchecked") });',
       },
     ],
   },
@@ -257,8 +257,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "    if (!Predicate.isFunction(body))",
-        replace: "    if (body === null)",
+        find: "  if (!Predicate.isFunction(body))",
+        replace: "  if (body === null)",
       },
     ],
   },

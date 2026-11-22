@@ -1,9 +1,10 @@
 import type { Duration, Option, Schedule, Schema } from "effect";
-import type { Denial, ScheduleInput as ScheduleInputOf, Values } from "./core/compiled.ts";
+import type { Denial, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
-import type { BoundInput, BoundKey, Ending } from "./contract.ts";
-import type { ChildrenOf, ContextOf, ContextSlot, NamesOf, PayloadOf } from "./definition.ts";
-import type { Entry } from "./flow.ts";
+import type { BoundInput, BoundKey, Ending, Fields } from "./contract.ts";
+import type { ChildrenOf, ContextOf, ContextSlot, NamesOf } from "./definition.ts";
+import type { PayloadOf } from "./derive.ts";
+import type { Entry, Plain } from "./flow.ts";
 import type { GuardArg, SelectArg } from "./handles.ts";
 import type { Branded } from "./made.ts";
 import type { SendToken } from "./send.ts";
@@ -221,9 +222,9 @@ export type On<
  * schedule.
  */
 export type ScheduleDecl = {
-  readonly key?: Schema.Struct.Fields;
+  readonly key?: Fields;
   readonly pausedBy?: ReadonlyArray<string>;
-  readonly restartOn?: Schema.Top;
+  readonly restartOn?: Plain;
 };
 
 /**
@@ -263,8 +264,7 @@ export type SelOfDecl<Dc> = Dc extends { readonly restartOn: infer S extends Sch
  * What a schedule's send maps from: the firing's metadata, times in Runtime Clock milliseconds,
  * its name and its key `K` as declared.
  */
-export type ScheduleMetadata<N extends string = string, K = unknown> = {
-  readonly name: N;
+export type ScheduleMetadata<K = unknown> = {
   readonly attempt: number;
   readonly armedAt: number;
   readonly dueAt: number;
@@ -298,11 +298,11 @@ type AnySchedule = Schedule.Schedule<unknown>;
 type In<M, Cx, Dc> = Omit<ScheduleInput<M, Cx, KeyOfDecl<Dc>>, "now">;
 
 /**
- * A placement of the declared schedule `N` in a state: its delay, the event it sends, what arms
+ * A placement of a declared schedule in a state: its delay, the event it sends, what arms
  * and disarms it, and, as its declaration `Dc` requires, its `keys`, its `restartOn` selection
  * and a callback for each of its pause reasons. Every callback reads the declared key.
  */
-export type ScheduleBodyOf<M, Ev, Id extends string, Cx, N extends string, Dc> = {
+export type ScheduleBodyOf<M, Ev, Id extends string, Cx, Dc> = {
   readonly schedule:
     | Duration.Input
     | AnySchedule
@@ -311,7 +311,7 @@ export type ScheduleBodyOf<M, Ev, Id extends string, Cx, N extends string, Dc> =
     | { readonly tag: keyof Ev & string }
     | { readonly ending: { readonly event: keyof Ev & string } }
   ) &
-    Ending<ScheduleMetadata<N, KeyOfDecl<Dc>>, Id>;
+    Ending<ScheduleMetadata<KeyOfDecl<Dc>>, Id>;
   readonly armOn?: ReadonlyArray<ScheduleEvent<Ev, Id> | Entry>;
   readonly disarmOn?: ReadonlyArray<ScheduleEvent<Ev, Id>>;
 } & ([KeyOfDecl<Dc>] extends [undefined]
@@ -339,24 +339,26 @@ export type ScheduleBodyOf<M, Ev, Id extends string, Cx, N extends string, Dc> =
  * A state's `schedules`: a placement of each declared schedule it arms, by name.
  */
 export type SchedulesOf<M, Ev, Id extends string, Cx, Sch> = {
-  readonly [N in keyof Sch & string]?: ScheduleBodyOf<M, Ev, Id, Cx, N, Sch[N]>;
+  readonly [N in keyof Sch & string]?: ScheduleBodyOf<M, Ev, Id, Cx, Sch[N]>;
 };
 
 /**
- * A placement as the compiler reads it, its literal types erased.
+ * A placement as the compiler reads it, its literal types erased: every callback takes `never`, so
+ * each placement a body writes assigns to it, and only `slot` hands one to the core.
  */
 export type ErasedPlacement = {
-  readonly schedule: Duration.Input | AnySchedule | ((input: ScheduleInputOf) => unknown);
+  // FLOW_STATE_ALLOW_UNKNOWN: a computed delay's value, checked when it is planned.
+  readonly schedule: Duration.Input | AnySchedule | ((input: never) => unknown);
   // FLOW_STATE_ALLOW_UNKNOWN: an ending, read as made when it compiles.
   readonly send: unknown;
   // FLOW_STATE_ALLOW_UNKNOWN: event tokens and Flow.entry, read as made when it compiles.
   readonly armOn?: ReadonlyArray<unknown>;
   // FLOW_STATE_ALLOW_UNKNOWN: event tokens, read as made when it compiles.
   readonly disarmOn?: ReadonlyArray<unknown>;
-  readonly keys?: (input: ScheduleInputOf) => ReadonlyArray<Values>;
+  readonly keys?: (input: never) => ReadonlyArray<Values>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selection of any type, compared by Equal.equals.
-  readonly restartOn?: (input: ScheduleInputOf) => unknown;
-  readonly paused?: Readonly<Record<string, (input: ScheduleInputOf) => boolean>>;
+  readonly restartOn?: (input: never) => unknown;
+  readonly paused?: Readonly<Record<string, (input: never) => boolean>>;
 };
 
 export type StateConfig<

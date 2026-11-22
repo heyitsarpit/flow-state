@@ -244,14 +244,15 @@ export default defineConfig({
       },
       {
         // Public option bags use `?:` under exactOptionalPropertyTypes, as Effect does
-        // (tools/lint-bomb/FLOW-STATE.md). The suite's machines are app code over those bags.
+        // (tools/lint-bomb/FLOW-STATE.md), and so does compile-body.ts's AnyBody, the erased bag
+        // every machine body assigns to. The suite's machines are app code over those bags.
         files: [
           `${productionSource}/contract.ts`,
           `${productionSource}/definition.ts`,
           `${productionSource}/derive.ts`,
           `${productionSource}/event-tokens.ts`,
           `${productionSource}/tokens.ts`,
-          `${productionSource}/machine.ts`,
+          `${productionSource}/compile-body.ts`,
           `${productionSource}/flow.ts`,
           `${productionSource}/error.ts`,
           `${productionSource}/host/runtime.ts`,

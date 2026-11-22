@@ -220,13 +220,9 @@ const issueOf = (actor: ActorId, issue: Issue) =>
 const freshStart = (compiled: Compiled, actor: ActorId) =>
   create(compiled, inputOfName(compiled, actor.name));
 
-// What one source of a snapshot supplies: a live incarnation, a saved record, a quarantined
-// record's fresh start, or an ended identity. A resting source has no context, issues or timers
-// unless it names them.
 type Shows = Pick<Snapshot, "state" | "memory" | "lifecycle"> &
   Partial<Pick<Snapshot, "context" | "issues" | "schedules">>;
 
-// The one writer of a snapshot: every field, from one source and the identity's write lanes.
 const shownAs = (operations: Operations, shows: Shows) =>
   ({
     state: shows.state,
