@@ -110,7 +110,7 @@ describe("phantom types of a definition's tokens (Types R1, R10)", () => {
   it("Types R10: D.M.field.Type is the public memory field's type", () => {
     type Sensor = { readonly id: string; readonly kind: "temperature" | "motion" };
 
-    expectTypeOf<typeof Room.M.sensors.schema.Type>().toEqualTypeOf<ReadonlyArray<Sensor>>();
+    expectTypeOf<(typeof Room.Memory.Type)["sensors"]>().toEqualTypeOf<ReadonlyArray<Sensor>>();
 
     // @ts-expect-error Types R10: inverted until D.M.field.Type lands; then it equals the sensors list and a wrong field fails
     expectTypeOf<typeof Room.M.sensors.Type>().toEqualTypeOf<ReadonlyArray<Sensor>>();
@@ -123,7 +123,51 @@ describe("a shared body is typed by an exported row (Types R1, G2)", () => {
 
     expectTypeOf<HandDerived["S"]>().toEqualTypeOf<typeof Pay.S>();
 
-    // @ts-expect-error Types R1: inverted until BodyTokens is exported; then pay.ts's payBody takes BodyTokens<typeof Pay>
-    expectTypeOf<Flow.BodyTokens<typeof Pay>["S"]>().toEqualTypeOf<typeof Pay.S>();
+    // @ts-expect-error Types R1: inverted until BodyTokens is exported; then it equals the whole token record and pay.ts's payBody takes it
+    expectTypeOf<Flow.BodyTokens<typeof Pay>>().toEqualTypeOf<HandDerived>();
+  });
+});
+
+describe("a definition's face holds tokens and codecs, not its config (Types R1; one way to reach each fact)", () => {
+  it("Types R1: the config echo leaves the face; the codecs for whole values stay", () => {
+    expectTypeOf<typeof Room.State.Type>().toEqualTypeOf<
+      "OFFLINE" | "ONLINE.IDLE" | "ONLINE.HEATING"
+    >();
+    expectTypeOf<typeof Room>().toHaveProperty("Event");
+    expectTypeOf<typeof Room>().toHaveProperty("Input");
+    expectTypeOf<typeof Room>().toHaveProperty("Memory");
+    expectTypeOf<typeof Room>().toHaveProperty("Snapshot");
+    expectTypeOf<typeof Room>().toHaveProperty("state");
+
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; states is read through S
+    expectTypeOf<Extract<keyof typeof Room, "states">>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; events is read through E
+    expectTypeOf<Extract<keyof typeof Room, "events">>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; internalEvents is read through E
+    expectTypeOf<Extract<keyof typeof Room, "internalEvents">>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; memory is read through M and Memory
+    expectTypeOf<Extract<keyof typeof Room, "memory">>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; context is Flow's private copy
+    expectTypeOf<Extract<keyof typeof Room, "context">>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; operations is read through O
+    expectTypeOf<Extract<keyof typeof Room, "operations">>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R1: inverted until the echo leaves the face; schedules is Flow's private copy
+    expectTypeOf<Extract<keyof typeof Room, "schedules">>().toEqualTypeOf<never>();
+  });
+
+  it("Types R1: a memory token's type is its .Type; its schema leaves the face", () => {
+    type Sensor = { readonly id: string; readonly kind: "temperature" | "motion" };
+
+    expectTypeOf<(typeof Room.Memory.Type)["sensors"]>().toEqualTypeOf<ReadonlyArray<Sensor>>();
+    // @ts-expect-error Types R1: inverted until M.field.schema leaves the face
+    expectTypeOf<Extract<keyof typeof Room.M.sensors, "schema">>().toEqualTypeOf<never>();
+  });
+
+  it("Types R1: an operation handle carries no Input or Key type; outside-body code names the contract's input Schema", () => {
+    expectTypeOf<keyof typeof Pay.O>().toEqualTypeOf<
+      "pay" | "place" | "void" | "intent" | "order"
+    >();
+    expectTypeOf<typeof Pay.O.pay>().not.toHaveProperty("Input");
+    expectTypeOf<typeof Pay.O.pay>().not.toHaveProperty("Key");
   });
 });

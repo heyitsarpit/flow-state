@@ -34,28 +34,29 @@ const castsOf = (file: string) => {
   );
 };
 
-// Types I4: the named crossings, then the boundaries to what lies outside Flow's types, one point
-// per class of cast (Types R13). The made-value doors of construction trust are one boundary: a
-// value's kind is a phantom brand no value holds.
-const NAMED = [
-  "entry.ts#door",
-  "handles.ts#slot",
-  "host/snapshot.ts#project",
-  "host/driver.ts#provided",
-  "core/tx.ts#branded",
-  "core/tx.ts#draft",
-  "core/codec.ts#parsed",
-  "core/boundary.ts#rebuildOf",
-  "core/boundary.ts#bodyOf",
-  "core/boundary.ts#withContextOf",
-  "core/boundary.ts#transformationOf",
-  "core/boundary.ts#kept",
-  "core/boundary.ts#kept",
-  "core/boundary.ts#typedOf",
-  "made.ts#madeCallable",
-  "made.ts#madeOf",
-  "host/refs.ts#slotRefs",
+// Types T7's ratchet: the count of cast disables only falls. Lower it with each deletion; the exact
+// list of crossings is owed by the Task that builds host/snapshot.ts#project.
+const MOST = 39;
+
+// The casts the crossings door and slot absorb, and the kind-brand casts the made-value doors
+// absorb (Types R13, one point per class of cast).
+const ABSORBED = [
+  "contract.ts#trustedAttempt",
+  "definition.ts#definition",
+  "entry.ts#registered",
+  "events.ts#codecOf",
+  "events.ts#trusted",
+  "flow.ts#Flow",
+  "flow.ts#selectOf",
+  "handles.ts#erase",
+  "machine.ts#erasedBody",
+  "machine.ts#erasedWhen",
+  "machine.ts#machine",
+  "machine.ts#trustedTokens",
+  "send.ts#send",
 ];
+
+const CROSSINGS = ["entry.ts#door", "handles.ts#slot"];
 
 // Types I1: the parts of a definition, which every derived type reads, are declared in one module.
 const PARTS = /^(?:export\s+)?type\s+Parts\b/mu;
@@ -69,7 +70,16 @@ describe("one derivation (Types R1, I1)", () => {
 });
 
 describe("a type crosses into the erased core at named functions only (Types R13, I4, T7)", () => {
-  it.fails("Types I4: the cast disables in src/ outside test tooling are exactly the named crossings and boundaries", () => {
-    expect(production.flatMap(castsOf).toSorted()).toEqual(NAMED.toSorted());
+  it("Types T7: the cast disables in src/ outside test tooling never grow past the ratchet", () => {
+    expect(MOST).toBeGreaterThanOrEqual(production.flatMap(castsOf).length);
+  });
+
+  it.fails("Types R13: door and slot hold their crossing's one cast, and the casts they absorb are gone", () => {
+    const casts = new Set(production.flatMap(castsOf));
+
+    expect({
+      crossings: CROSSINGS.filter((c) => casts.has(c)),
+      absorbed: ABSORBED.filter((c) => casts.has(c)),
+    }).toEqual({ crossings: CROSSINGS, absorbed: [] });
   });
 });

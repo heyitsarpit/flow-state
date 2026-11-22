@@ -57,15 +57,16 @@ description
     - skill:to-spec and skill:to-design per module; skill:execute-task and skill:check-task per Task;
     - skill:review at a Task's first commit and its close.
 
-    **Order:** @task.V3.T131, @task.V3.T120 (slice parent @task.V3.T89), @task.V3.T118, @task.V3.T113, @task.V3.T119,
-    @task.V3.T92, @task.V3.T21's children @task.V3.T121 to @task.V3.T124, @task.V3.T56, the Fragments slice
-    (@task.V3.T133: @task.V3.T109, @task.V3.T110), the channels slice (@task.V3.T77: @task.V3.T127, @task.V3.T76,
-    @task.V3.T128), the UI slice (@task.V3.T72: @task.V3.T129, @task.V3.T130, @task.V3.T78, @task.V3.T73), the Errors
-    and CLI slice (@task.V3.T134: @task.V3.T22, @task.V3.T100, @task.V3.T23); the host track after @task.V3.T119: Host A
-    (@task.V3.T135: @task.V3.T112, @task.V3.T111), Host B (@task.V3.T136: @task.V3.T97, @task.V3.T117). [decided: user
-    2026-11-22] Why: the algorithm designs put the typed machine, the turn walk and the records first, and every slice
-    after them. Reverse: the order of the breakdown review (the orchestrator, 2026-11-20). A `blocked_by` link is a real
-    dependency only; where several Tasks are ready, take the earliest in this order.
+    **Order:** @task.V3.T131, @task.V3.T120 (slice parent @task.V3.T89), @task.V3.T118, the typed-machine slice
+    (@task.V3.T142: @task.V3.T113, @task.V3.T143, @task.V3.T144), @task.V3.T119, @task.V3.T92, @task.V3.T21's children
+    @task.V3.T121 to @task.V3.T124, @task.V3.T56, the Fragments slice (@task.V3.T133: @task.V3.T109, @task.V3.T110), the
+    channels slice (@task.V3.T77: @task.V3.T127, @task.V3.T76, @task.V3.T128), the UI slice (@task.V3.T72:
+    @task.V3.T129, @task.V3.T130, @task.V3.T78, @task.V3.T73), the Errors and CLI slice (@task.V3.T134: @task.V3.T22,
+    @task.V3.T100, @task.V3.T23); the host track after @task.V3.T119: Host A (@task.V3.T135: @task.V3.T112,
+    @task.V3.T111), Host B (@task.V3.T136: @task.V3.T97, @task.V3.T117). [decided: user 2026-11-22] Why: the algorithm
+    designs put the typed machine, the turn walk and the records first, and every slice after them. Reverse: the order
+    of the breakdown review (the orchestrator, 2026-11-20). A `blocked_by` link is a real dependency only; where several
+    Tasks are ready, take the earliest in this order.
 
     Every Task below is a draft. Before starting its lead, the orchestrator writes its full text with skill:to-task. The
     earlier text of each, in `wiki/tasks/V3/` at commit `6b9fe478`, was written for the conformance suite: it is
@@ -2808,119 +2809,120 @@ tasks
             Readiness: Read first names the mutation alphabet it applies (@spec.Records.T2), which the Records Spec
             gives this Task's applier.
     T113
-        title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
+        title       The typed machine (a): the face, derived types and no config echo
         status      review
         priority    high
+        parent      [@T142]
+
         blocked_by  [@T57, @T131, @T120]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
         description
-            Every type user code needs from a definition, machine or contract is derived by Flow, so no handler,
-            fragment, helper, mapper or snapshot read types an event, memory, ending or key by hand.
+            A definition's face holds only tokens and codecs, and every type user code needs from a definition or
+            contract is derived: `E.X.Type`, `D.M.field.Type`, `BodyTokens<D>` and the mapper's `MapperContext`, all
+            from one module, `derive.ts`.
 
             **Why now:** a snapshot cannot type a schedule's `pausedBy` or a keyed schedule's send key until the
-            definition's declaration carries them (@spec.Schedules R16), and every later Task that adds a snapshot field
-            (props, emit summary, fragment summary) would otherwise add its own typing path (breakdown review, the
-            orchestrator, 2026-11-20). A survey (2026-11-20) found about 100 hand-typed parameters and 6 copied local
-            types that nothing checks against a definition: about 45 ending mappers (`E.X.from((v: {…}) => …)`, `{ why:
-            string }` about 25 times), 25 memory parameters and 18 event payloads in fragments and helpers outside the
-            `on` literal, and duplicated helpers (`byRepo` in `fixtures/sync` and `fixtures/lanes`, `fromAccount` in two
-            transfers machines). One class: a type Flow knows, written by hand where inference does not reach; the user
-            widened this Task to remove it everywhere (2026-11-20).
+            declaration carries them (@spec.Schedules R16). Every later Task that adds a snapshot field (props, emit
+            summary, fragment summary) would otherwise add its own typing path. The user's scope of 2026-11-22 (Q1 A, Q2
+            C, Q3 B; this Task's comments) gives each fact one way to reach it:
+            - the config echo (`states`, `events`, `internalEvents`, `memory`, `context`, `operations`, `schedules`)
+              leaves the face, and Flow reads a private copy, as T131 did for the machine's `Compiled`;
+            - a part's type is its token's `.Type`, and `M.field.schema` leaves the face;
+            - the codecs `Event`, `State`, `Input`, `Memory` and `Snapshot` stay;
+            - `state` keeps its name;
+            - an operation handle gets no `Input` or `Key` type. @task.V3.T144's sweep migrates the sites to these
+              types, so this Task lands them first.
 
-            **Read first:** code:packages/flow-state-v3/src/machine.ts, @questions.advisor-questions (question 1),
-            @plan.Machines.O1, @plan.Machines.O8, @spec.Schedules (R16). Spec: @spec.Types (R1–R3, R7, R8, R10, R13–R15,
-            I1–I4, I10, Q19), companion `wiki/specs/v3/Types.md`.
+            **Read first:** @spec.Types (R1–R3, R8, R10, R15, I1–I3), companion `wiki/specs/v3/Types.md`,
+            @spec.Schedules (R16), code:packages/flow-state-v3/src/definition.ts#definition, and this Task's comments
+            of 2026-11-22.
 
-            **Build-time choice (definition findings and tokens, @spec.Types Q12):** the first spike walks today's
-            definition findings. For each finding, A: `definition()` still hands out every token (`S`, `E`, `O`) and the
-            finding waits for construction's value (Types Q1); B: that finding keeps raising at `definition()`, as a
-            wrong-kind argument does. A is correct only if the token's name is known without the failing part (a
-            duplicate state name is not: two tokens would share one name). B is correct whenever a token would be
-            ambiguous. Test: per finding, a module with `const Idle = X.S.IDLE` at top level; if the token is
-            well-defined, take A and assert the module imports; otherwise B, listed in the Spec's construction rows. Q13
-            to Q16 are this Task's build rows: compile each `Changes` row as its code lands, record check time per step
-            with the construction benches (Q15), and inventory Family D against `derive.ts` (Q16).
+            **Build-time choice (definition findings and tokens, @spec.Types Q12):** done. Its table and two traces are
+            this Task's comments. Building construction as a value goes to @task.V3.T22 (the orchestrator's ruling).
+
+            **Approach:**
+            - `derive.ts` holds `Parts<D>` and every row; `machine.ts#Parts` moves there.
+            - The private copy of the config is read by `machine()`, `compile` and the runtime. The internal readers to
+              re-point: value reads in `definition.ts`, `machine.ts`, `compile-schedules.ts`, `compiled-parts.ts`,
+              `core/well-formed.ts` and `construction.ts`; `flow.ts#readerOf`'s `.schema` read, used by `Flow.context`;
+              and `D["events"|…]` type indexes in 13 `src` files (14 in `host/testing/select.ts`, 9 in
+              `host/snapshot.ts`), through `Parts`.
+            - Public callers migrate in the same pass:
+              - code:packages/flow-state-v3/fixtures/cells/machines/cells.ts builds a definition from `Pay`'s echo.
+                Export Pay's plain config object and call `definition` on it twice (the orchestrator's
+                ruling, 2026-11-22);
+              - `tests/compile/corruption.test.ts` (101–235), `tests/restore/schedule-declarations.test.ts` and
+                `schedule-edits.test.ts` (`Booking.events`);
+              - `tests/surface/doors.test.ts` (265, 290) and `tests/types/doors.test-d.ts` (26–29, `Lamp.operations`).
+            - Outside-body code that needs an operation's input names the contract's input Schema.
+            - A callback written outside a body names the per-part types inside a hand-written wrapper; `Reads<D, View>`
+              is deferred (the orchestrator's ruling; `wiki/specs/specs.log`, 2026-11-22).
+            - `E.X.Type` is the payload, what a handler's `event` is (the user's Ask 2 answer).
+            - The carried snapshot type gets a name and one writer. Today `host/snapshot.ts#snapshotIn` writes
+              `Snapshot` in four literals, and @task.V3.T76, @task.V3.T77 and @task.V3.T109 each add a field to it
+              through this type.
+            - The ending mapper's value is already inferred. This Task adds the `{ input, key }` row (`MapperContext`),
+              which @task.V3.T121 makes the mapper read.
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
-            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
-            in `wiki/specs/specs.log`.
+            contract. Where building shows it wrong, fix the Spec and log the change in `wiki/specs/specs.log`.
 
             **Supersedes:** code:packages/flow-state-v3/src/machine.ts#Parts,
-            code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody,
-            code:packages/flow-state-v3/src/machine.ts#machine, code:packages/flow-state-v3/src/machine.ts#erasedBody,
-            code:packages/flow-state-v3/src/machine.ts#erasedWhen,
-            code:packages/flow-state-v3/src/machine.ts#trustedTokens,
-            code:packages/flow-state-v3/src/machine.ts#handled;
+            code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody;
             code:packages/flow-state-v3/src/definition.ts#Definition,
             code:packages/flow-state-v3/src/definition.ts#AnyDefinition,
             code:packages/flow-state-v3/src/definition.ts#Machine,
             code:packages/flow-state-v3/src/definition.ts#treeOfDefinition;
-            code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#leafOf
-            (replaced by `Node.chain` and `Node.leaf`; the turn walk, their last caller, moves in @task.V3.T119, which
-            deletes them); code:packages/flow-state-v3/src/events.ts#codecOf,
-            code:packages/flow-state-v3/src/events.ts#trusted;
-            code:packages/flow-state-v3/src/contract.ts#trustedAttempt;
-            code:packages/flow-state-v3/src/compile-body.ts#childrenOf,
-            code:packages/flow-state-v3/src/compile-body.ts#childNodes,
-            code:packages/flow-state-v3/src/compile-body.ts#nodesOf,
-            code:packages/flow-state-v3/src/compile-body.ts#tokenMaps; code:packages/flow-state-v3/src/handles.ts#erase;
-            code:packages/flow-state-v3/src/flow.ts#selectOf, code:packages/flow-state-v3/src/flow.ts#contextSlot;
+            code:packages/flow-state-v3/src/tokens.ts#MemoryToken;
+            code:packages/flow-state-v3/src/event-tokens.ts#EventToken;
             code:packages/flow-state-v3/src/host/snapshot.ts#Timers,
             code:packages/flow-state-v3/src/host/snapshot.ts#TimerView,
-            code:packages/flow-state-v3/src/host/snapshot.ts#asOutside. Do not delete it before its replacement lands
-            and the suite passes.
+            code:packages/flow-state-v3/src/host/snapshot.ts#snapshotIn. Do not delete it before its replacement lands
+            and the suite passes. `definition()`'s face is this Task's; the kind-brand cast at its return is
+            @task.V3.T143's, so build them in order.
 
-            **Approach:** design the whole Task at once, a type spike first:
-            - no captured body type and no excess-key type check: an unknown key is refused by construction and `flow
-              check` (@spec.Types Q19, decided by the user 2026-11-22, superseding the earlier "carry the body type"
-              bullet); only misspelt names stay type errors;
-            - a phantom, type-only `Type` on event tokens (`E.X.Type`, the payload, what a handler's `event` is) and on
-              memory tokens (`Def.M.field.Type`), mirroring Schema's `.Type`; a callback written outside a body names
-              these per-part derived types (`typeof D.Memory.Type`, `E.X.Type`, `D.M.x.Type`) inside a hand-written
-              wrapper, and `Reads<D, View>` is deferred (ruling, the orchestrator, 2026-11-22);
-            - an ending mapper's parameter inferred from the operation's contract where `E.X.from` sits inside
-              `outcomes(...)`; if the spike shows that needs a new word, the fallback is one exported ending-value type
-              per contract, so `{ why: string }` copies become one name. This Task owns the carried type's shape:
-              @task.V3.T76 (props), @task.V3.T77 (emit summary), @task.V3.T109 (fragment summary) and @task.V3.T106
-              (rule tokens, now `.rules(build)`'s; it adds no field here) only add fields through it.
+            May change: `src/`, `tests/`, `fixtures/`. Evidence: this Task's comments.
 
-            May change: `src/`, `tests/types/`, `tests/`, `fixtures/`, `tools/flow-state-lint/`. Evidence: this
-            Task's comments.
-
-            False pass: a type that infers on the happy path only → caught by type tests with a mistyped key, a shared
-            body such as `PayBody`, and an unknown key (a runtime refusal, not a type test).
+            False pass: a type that infers on the happy path only → caught by type tests with a mistyped key, a
+            payload-less event, a shared body such as `PayBody`, and an unknown key (a runtime refusal, not a type
+            test). An inverted pin left inverted after a wrong `.Type` lands passes → caught by Flip A at the close,
+            which confirms every pin flipped.
         acceptance
             - A Snapshot is typed by the definition: `pausedBy` is a literal union of the declared pause reasons
               (@spec.Schedules R16, @plan.Machines.O8), shown by the exact type test
               in `tests/types/schedules.test-d.ts`.
-            - A keyed schedule's send mapper receives the typed key (@spec.Schedules R16), shown by a type test.
-            - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test).
-            - An unknown key in a body is refused by construction (runtime tests, @spec.Types Q19), and shared bodies
-              still compile through an exported `BodyTokens<D>`; the `flow check` refusal is @task.V3.T22's.
-            - `E.X.Type` and `Def.M.field.Type` exist as phantom types, each shown by two-sided type tests (the derived
-              type equals the payload or field exactly; a wrong field fails to compile).
+            - A keyed schedule's send mapper receives the typed key (@spec.Schedules R16), shown by a two-sided
+              type test.
+            - An unkeyed schedule's send mapper types `key` as `undefined` (two-sided type test), and a run
+              reads `undefined`.
+            - An unknown key in a body is refused by construction (runtime tests, @spec.Types Q19), and a shared body
+              compiles through an exported `BodyTokens<D>`, equal to the whole token record; the `flow check` refusal
+              is @task.V3.T22's.
+            - `E.X.Type` and `Def.M.field.Type` exist as phantom types, each shown by two-sided type tests: the derived
+              type equals the payload or field exactly, a wrong field fails to compile, and a payload-less event's
+              `.Type` is empty.
             - An ending mapper's parameter is the contract's value or error type, inferred with no annotation (a guard,
-              two-sided type tests); the `{ input, key }` row (`MapperContext`) is this Task's, and @task.V3.T121 makes
-              the mapper read it.
-            - Every site the survey found is refactored to the derived types: the fixtures' and tests' fragments,
-              helpers, ending mappers and local `type` copies, with the duplicated helpers moved to one place; `nub run
-              check` shows each site still compiles, and a changed payload in a fixture definition breaks every site
-              that reads it (one planted type change per kind).
-            - A lint rule refuses a hand-written event, memory or ending-value annotation where a derived type exists
-              (`{ readonly event: {...} }`, `{ readonly memory: {...} }`, a typed `.from` mapper parameter), with plants
-              in its test; a wrapper whose inner types are derived is allowed.
+              two-sided type tests). The `{ input, key }` row (`MapperContext`) is read from the contract and is this
+              Task's; @task.V3.T121 makes the mapper read it.
+            - A definition's face holds no config echo: `states`, `events`, `internalEvents`, `memory`, `context`,
+              `operations` and `schedules` are gone from the type and the value. `M.field.schema` is gone. `Event`,
+              `State`, `Input`, `Memory`, `Snapshot` and `state` stay. Each is shown by a type test. `machine()`,
+              `compile` and the runtime read Flow's private copy, `cells.ts` shares Pay's plain config object, and an
+              operation handle carries no `Input` or `Key` type.
+            - `Parts<D>` and every derived row live in `derive.ts` (@spec.Types I1), shown by the source check in
+              `tests/surface/derivation.test.ts`. The carried snapshot type has a name and one writer.
             - `nub run check` and the suite pass.
-            - Fixtures first (@convention.fixtures): no new matrix cell of @convention.fixture-catalog: the 12 manifest
-              apps (`fixtures/index.ts#manifests`) compile unchanged against the derived types, each type scenario red
-              before the build.
+            - Fixtures first (@convention.fixtures): no new matrix cell of @convention.fixture-catalog. The 12 manifest
+              apps (`fixtures/index.ts#manifests`) compile against the new face, and each type scenario is red before
+              the build.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
               would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
               (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types
-              (R1–R3, R7 by the `construct.*` bench rows, R8's type side, R10, R13–R15, I1–I4, I10); the Invariants its
-              tests check after every step are @spec.Types (I1–I4, I10, I11; tests T1–T3, T5, T7–T10).
+              (R1–R3, R8's type side, R10, R15, I1–I3); the Invariants its tests check after every step are @spec.Types
+              (I1–I3; tests T1–T3).
         comment     2026-11-20T13:01:52Z
             Breakdown review (orchestrator, 2026-11-20, R48): new Task: carries the machine body type into the snapshot.
             Takes T57's two routed type pins (pausedBy as a literal union, Turn R27 and Machines O8; the typed key in a
@@ -3311,7 +3313,52 @@ tasks
                 `handledTags`, T5, both faults and `construct.*` (I4, I10, R7, R13, R14);
               - (c) the sweep and the guard: K1 to K6 against (a)'s types, with each site touched once, the duplicated
                 helpers, the plants and the lint rule (items 7 and 8). (c) is blocked by (a); (b) is independent.
+        comment     2026-11-22T10:36:46Z
+            Rulings (orchestrator) on the requirements review (ISSUES): Blocker I4 accepted as proposed: the cast list
+            becomes the Spec's ratchet (T7, the count only falls), and the exact list moves to whichever Task builds
+            host/snapshot.ts#project. Split accepted within this one slice (the user's 2026-11-22 rule: split within a
+            slice, no new slice): a slice parent with three children, (a) the face, (b) crossings and derived fields,
+            (c) the sweep and lint rule, blocked by (a), built in that order with checkpoint commits. [decided: agent
+            orchestrator 2026-11-22] cells.ts's definition built from Pay's echo is replaced by sharing the plain config
+            object (export the config, call definition on it twice). Why: the echo leaves the face by the user's Q1 A; a
+            plain object is the user-land way to reuse config. Reverse: a public copy helper.
+        comment     2026-11-22T10:44:25Z
+            Split (requirements lead, by the orchestrator's ruling): this Task is child (a) of the slice @task.V3.T142,
+            the face. @task.V3.T143 (crossings, derived fields) and @task.V3.T144 (the sweep, the lint rule,
+            `blocked_by` this Task) took the other items. The requirements of each child are in its own comments.
+        comment     2026-11-22T10:44:25Z
+            Requirements (requirements lead), one item per acceptance item, reconciled with the review of bfdabd32 and
+            the rulings after it. Reds are committed in `tests/types/derived.test-d.ts`, `src/derive.test-d.ts` and
+            `tests/surface/derivation.test.ts`. Each inverted pin was replayed without its `@ts-expect-error`: it fails
+            on the missing row (TS2339 or TS2694), or with expect-type's mismatch signal (TS2554) where the echo key is
+            still present.
 
+            1. `pausedBy` literal union: a guard (`schedules.test-d.ts`, "Machines O8").
+            2. Keyed send key: a guard, a two-sided pin on Room's `poll`.
+            3. Unkeyed send key: a guard, a two-sided pin on Room's `reconnect`. The build adds the run read.
+            4. Unknown body key: construction's refusal is a guard (`construction.test.ts`, "refused UnknownField").
+               Red: the inverted pin `Flow.BodyTokens<typeof Pay>` now pins the whole record against the hand-derived
+               tokens, since a `["S"]`-only pin passes `{ S; E: any; O: any }`.
+            5. `.Type`: reds on `Sync.E.SyncRepo` and `Room.M.sensors`. At the flip, each adds a wrong-field refusal and
+               a payload-less event's `.Type`.
+            6. Mapper context: the value is a guard. Red: `MapperContext`, read from the contract (`ReturnType<typeof
+               send.outcomes>`), not from the echo.
+            7. The echo leaves the face:
+               - reds: `Extract<keyof typeof Room, "states" | …>` equals `never`, one inverted pin for each of the seven
+                 properties, and one for `M.field.schema`;
+               - guards: `State`'s exact type, plus `Event`, `Input`, `Memory`, `Snapshot` and `state` present, and
+                 `Pay.O.pay` with no `Input` or `Key`;
+               - done-check: `rg -n 'Pay\.(states|events|internalEvents|memory|operations|schedules)' fixtures` is
+                 empty. Today it lists `cells.ts:11-16`.
+            8. I1: `derivation.test.ts`, "Parts … declared in derive.ts alone" (`it.fails`). The carried snapshot type:
+               `snapshot.ts#snapshotIn` writes four `Snapshot` literals today; done is one writer.
+            9. Gates. 10. Fixtures first: the reds use `home/Room`, `sync/Sync` and `shop`'s `Pay`. 11. Correctness:
+               rows R1–R3, R8, R10, R15 and I1–I3, as above.
+
+            Folded findings: the multiple writers (`snapshotIn` takes one writer here; `handledTags` and
+            `Compiled.initial` go to @task.V3.T143). Flip A at the close confirms every inverted pin flipped, because an
+            inverted pin passes any error. At the flip, drop the words that name symbols due for deletion. Rejected rows
+            stay as the review logged them.
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
         status      draft
@@ -5665,3 +5712,243 @@ tasks
         comment     2026-11-22T10:06:47Z
             test:browser at 1f819c4c (orchestrator): Chrome 16 of 16, Safari 16 of 16, exit 0. All acceptance holds;
             both reviews PASS.
+
+    T142
+        title       Slice: The typed machine
+        status      in_progress
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review, in the order (a) @task.V3.T113, (b) @task.V3.T143, (c) @task.V3.T144, with a checkpoint commit
+            after each.
+
+            **Why now:** T113's requirements review found it larger than one builder run (about 160 sites, the
+            crossings, the derived fields and the lint rule), and the user widened its scope with the config echo
+            (T113's comments, 2026-11-22). The orchestrator split it within this one slice, without making a new slice.
+
+            **Read first:** @spec.Types, @task.V3.T113's comments (survey, spike, review, rulings).
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+        comment     2026-11-22T10:44:26Z
+            Slice state inventory (requirements lead): every state is made once at module load, and each has one owner.
+            - (a) @task.V3.T113: the definition's face and its private config copy (writer: `definition()`); the derived
+              type rows (`derive.ts`); the carried snapshot type (one writer, from `snapshotIn`'s four literals).
+            - (b) @task.V3.T143: `Compiled`'s derived fields (writer: `indexOf`) and the cast crossings
+              (`door`, `slot`).
+            - (c) @task.V3.T144: fixture and test source, and the lint rule.
+            - Seams:
+              - (a) to (c): the types (c) migrates to;
+              - (a) and (b): `definition()`, where (a) owns the face and (b) the cast at its return. Built in order.
+
+    T143
+        title       The typed machine (b): named crossings and Compiled's derived fields
+        status      review
+        priority    high
+        parent      [@T142]
+
+        description
+            Types cross into the erased core at named functions (`door`, `slot`). `Compiled` carries the derived fields
+            its hot paths read (`Node.chain`, `depth` and `leaf`, and `handledTags`), each written once by `indexOf` in
+            one construction walk.
+
+            **Why now:** split from @task.V3.T113 within the slice (the orchestrator's ruling, 2026-11-22). Its casts
+            and scans are state of their own, apart from the face. The turn walk (@task.V3.T119) reads `Node.chain` and
+            deletes `chainOf` and `leafOf`.
+
+            **Read first:** @spec.Types (R7, R13, R14, I4, I10, Crossings, DerivedFields, ErasedCompiled, Q12, Q15),
+            companion `wiki/specs/v3/Types.md`, and @task.V3.T113's comments (review blocker 1 and its ruling).
+
+            **Build-time choice (`AnyBody`, @spec.Types Q12, second spike):** assign `AnyBody` from every
+            `MachineBody<D>`, with `on` handlers at `never`. If it compiles on the real package, `machine()`'s body
+            decode returns the `AnyBody`, and the casts of `machine.ts`, `compile-body.ts#levelOf` and
+            `compile-schedules.ts` go. If it does not, those casts are handled at one point. Record the result as a
+            decision tag with Why and Reverse.
+
+            **Approach:**
+            - The crossings `entry.ts#door` (absorbs `registered`, `trustedTokens`, `codecOf`, `trusted` and
+              `Flow.context`'s overload cast) and `handles.ts#slot` (absorbs `erase`, `erasedWhen`, `trustedAttempt`).
+            - The kind-brand casts in `definition.ts`, `machine.ts` and `send.ts` fold into the `made.ts` doors.
+            - The cast count is Types T7's ratchet: `MOST` in `tests/surface/derivation.test.ts` only falls. The exact
+              list of crossings is owed by the Task that builds `host/snapshot.ts#project`, with `snapshot.ts#asOutside`
+              (the orchestrator's ruling; see @task.V3.T114).
+            - `indexOf` writes `Node.chain`, `depth` and `leaf`, and `Compiled.handledTags`, which replaces
+              `machine.ts#handled` and is not a second computation. With `Node.leaf` written once, `Compiled.initial` is
+              written once (today twice: `machine.ts:441` and `:481`).
+            - The other derived fields go to their readers' Tasks (decision tag in @task.V3.T113's comments).
+            - `compile-body.ts`: one accumulator walk with Map lookups.
+            - Add the bench rows `construct.small`, `.wide` and `.deep`, and record check time per step (Q15). Bench
+              runs are narrow `--only` runs.
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract. Where building shows it wrong, fix the Spec and log the change in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/machine.ts#erasedBody,
+            code:packages/flow-state-v3/src/machine.ts#erasedWhen,
+            code:packages/flow-state-v3/src/machine.ts#trustedTokens,
+            code:packages/flow-state-v3/src/machine.ts#handled; code:packages/flow-state-v3/src/core/tree.ts#chainOf,
+            code:packages/flow-state-v3/src/core/tree.ts#leafOf (replaced by `Node.chain` and `Node.leaf`; their last
+            caller, the turn walk, moves in @task.V3.T119, which deletes them);
+            code:packages/flow-state-v3/src/events.ts#codecOf, code:packages/flow-state-v3/src/events.ts#trusted;
+            code:packages/flow-state-v3/src/contract.ts#trustedAttempt;
+            code:packages/flow-state-v3/src/compile-body.ts#childrenOf,
+            code:packages/flow-state-v3/src/compile-body.ts#childNodes,
+            code:packages/flow-state-v3/src/compile-body.ts#nodesOf,
+            code:packages/flow-state-v3/src/compile-body.ts#tokenMaps; code:packages/flow-state-v3/src/handles.ts#erase;
+            code:packages/flow-state-v3/src/flow.ts#selectOf. Do not delete it before its replacement lands and the
+            suite passes.
+
+            May change: `src/`, `tests/`, `bench/`. Evidence: this Task's comments.
+
+            False pass: a derived field equal to its scan only on small trees → caught by T5's slow-scan equality over
+            every fixture machine and the fault `index-chain-stale`. A crossing that renames a cast without removing its
+            class → caught by the absorbed list in `tests/surface/derivation.test.ts`.
+        acceptance
+            - The `AnyBody` spike (@spec.Types Q12) is run, and its result is recorded as a decision tag with Why
+              and Reverse.
+            - `entry.ts#door` and `handles.ts#slot` each hold their crossing's one cast. The casts they absorb, and the
+              kind-brand casts the `made.ts` doors absorb, are gone (@spec.Types R13), shown by the source check in
+              `tests/surface/derivation.test.ts`. The cast count is the ratchet `MOST`, lowered to the count at
+              the close.
+            - `Node.chain`, `Node.depth`, `Node.leaf` and `Compiled.handledTags` exist, written only by `indexOf`
+              (@spec.Types R14, I10). T5 recomputes each by its slow scan for every fixture machine and finds it equal.
+              `Compiled.initial` is written once.
+            - Planted faults `index-chain-stale` and `handled-tags-root-dropped` are caught by `nub run faults --only`
+              with their names.
+            - The bench rows `construct.small`, `construct.wide` and `construct.deep` exist (@spec.Types R7), and check
+              time per step is recorded (Q15).
+            - `nub run check` and the suite pass.
+            - Fixtures first (@convention.fixtures): no new matrix cell. Every fixture machine is in T5's
+              equality check.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R7,
+              R13, R14, I4, I10); the Invariants its tests check after every step are @spec.Types (I4, I10; tests T5,
+              T7, T9, T10).
+        comment     2026-11-22T10:44:27Z
+            Requirements (requirements lead), one item per acceptance item, split from @task.V3.T113. The reds are in
+            `src/derive.test-d.ts` and `tests/surface/derivation.test.ts`.
+
+            1. `AnyBody` spike: no red; the build runs it first.
+            2. Crossings:
+               - `it.fails` "door and slot hold their crossing's one cast, and the casts they absorb are gone". Today
+                 `door` and `slot` hold none, and 13 absorbed casts are present;
+               - the guard "never grow past the ratchet" holds at `MOST = 39`. Blocker 1's ruling: the exact list leaves
+                 this Task.
+            3. Derived fields:
+               - inverted pins on `Node.chain`, `depth` and `leaf`, and `Compiled.handledTags`;
+               - done-check: `rg -n 'initial:' src/machine.ts` shows one write. Today there are two (`:441`, `:481`);
+               - the build adds T5's slow-scan equality.
+            4. Faults: `rg -n 'index-chain-stale|handled-tags-root-dropped' tests/faults.ts` is empty.
+            5. Benches: `rg -n 'construct\.(small|wide|deep)' bench fixtures` is empty.
+            6. Gates. 7. Fixtures first: every fixture machine in T5. 8. Correctness: R7, R13, R14, I4 and I10,
+               as above.
+
+            Seam with (a): `definition()`'s face is (a)'s, and the kind-brand cast at its return is this Task's; build
+            in order.
+    T144
+        title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
+        status      review
+        priority    high
+        parent      [@T142]
+        blocked_by  [@T113]
+        satisfies   [@plan.Machines.O1]
+        description
+            Every hand-typed site the survey found reads the derived types from @task.V3.T113 instead, each touched
+            once, and a lint rule keeps them gone.
+
+            **Why now:** split from @task.V3.T113 within the slice (the orchestrator's ruling, 2026-11-22). The sweep
+            needs (a)'s types: `.Type`, `BodyTokens`, the face without the echo. That is why it is
+            `blocked_by` @task.V3.T113.
+
+            **Read first:** @task.V3.T113's comments (the inventory K1 to K6, and the review's added sites), @spec.Types
+            (R1, I1, the lint rows), `tools/lint-bomb/FLOW-STATE.md`, and the Epic's "Lint-driven refactors" line.
+
+            **Approach:**
+            - The sites:
+              - K1 to K6 of the inventory, plus the review's additions: `src/host/*.test.ts` (14 K1 and 5 K2 sites:
+                `lanes.test.ts` 51, 80, 115, 159, 160, 199, 301, 307; `ledger.test.ts` 69, 83, 131, 142, 205, 211, 224;
+                `runtime.test.ts` 56, 68; `life.test.ts` 44; `close.test.ts` 54);
+              - K3 recounted (47 plus 22 lines);
+              - `Held` at `tests/restore/schedule-declarations.test.ts:27`;
+              - `TimerView`, `Outcome`, `Seen` and a second `Inputs` in `tests/turn/schedule-table.test.ts`
+                and `schedule-keys-table.test.ts`;
+              - `Confirmed` at `fixtures/services/shop/operations/writes.ts:30`;
+              - the `Configure` payload at `fixtures/command-palette/stories/usual.ts:43-46`;
+              - `Omit<typeof Head.M.n, …>` at `tests/actors/follow-ups.test.ts:28`.
+            - Out of class:
+              - anything inside `loose(...)` (`schedule-sequences.test.ts:182-204`, `schedule-records.test.ts:116-130`);
+              - a derived alias;
+              - an expected type in a type test;
+              - the user's service port interfaces.
+            - One place for each helper: one `byRepo` and one `fromAccount`.
+            - Helpers rewritten the way a user writes them (the orchestrator, 2026-11-22). `palette.ts`'s `Picked<P>`,
+              `Pick<P>` and the generic `known`, `enabled`, `hasPage` and `runs` exist only to share one handler body
+              between Run (`event.key`) and Enter (the highlight). With `Reads` deferred, no handler-input type exists.
+              So do not swap the hand-typed `{ memory; event }` for derived parts and keep the generics. Write plain
+              functions of plain values (`known(memory, key)`, `commandOf(memory, key)`), with each handler passing its
+              own key inline, so nothing is generic over the payload. Do the same for every fixture helper that is
+              generic over a handler's input only to share a body. The user reads the fixture diff closely.
+            - The lint rule `no-hand-typed-callback`, in `tools/flow-state-lint/rules/`, with its test of the shapes it
+              must flag (K1 to K3) and must not (out of class, and a wrapper whose inner types are derived).
+            - The plants: rename `Sync`'s `SyncRepo.repo`, `StandingOrder`'s memory `account` and the `transfer`
+              commit's `receipt`. Each must break every helper that reads it.
+
+            May change: `fixtures/`, `tests/`, `src/**/*.test.ts`, `tools/flow-state-lint/`, `vite.config.ts`,
+            `package.json`. Evidence: this Task's comments.
+
+            False pass: a lint rule that flags nothing and is never run → caught by its plants test and its registration
+            in `tools/flow-state-lint/index.ts`, `vite.config.ts` and `lint:rules`. A sweep that swaps one hand type for
+            another → caught by each kind's `rg` done-check.
+        acceptance
+            - Every site the survey and the review found reads the derived types (@spec.Types R1). Each kind's `rg`
+              done-check (in this Task's comments) returns only its listed out-of-class lines; exactly one `const
+              byRepo` and one `fromAccount` remain. `nub run check` shows each site compiles.
+            - No fixture helper is generic over a handler's input only to share a body. `palette.ts` has no `Picked`, no
+              `Pick`, and no generic `known`, `enabled`, `hasPage` or `runs`.
+            - Three planted type changes (`SyncRepo.repo`, `StandingOrder`'s `account`, `transfer`'s `receipt`) are
+              planted faults in `tests/faults.ts`, each caught by `nub run faults --only` with its name and breaking
+              every helper that reads the field.
+            - The lint rule `no-hand-typed-callback` refuses a hand-written event, memory or ending-value annotation
+              where a derived type exists (`{ readonly event: {...} }`, `{ readonly memory: {...} }`, a typed `.from`
+              mapper parameter). A wrapper whose inner types are derived is allowed. Its test plants each flagged and
+              each allowed shape, and the rule is registered in `tools/flow-state-lint/index.ts`, `vite.config.ts`
+              and `lint:rules`.
+            - `nub run check` and the suite pass.
+            - Fixtures first (@convention.fixtures): no new matrix cell. The 12 manifest apps
+              (`fixtures/index.ts#manifests`) compile unchanged in behaviour against the derived types.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types (R1,
+              I1); the Invariants its tests check after every step are @spec.Types (I1; tests T1, T3).
+        comment     2026-11-22T10:44:27Z
+            Requirements (requirements lead), one item per acceptance item, split from @task.V3.T113. Done-checks are
+            run from `packages/flow-state-v3`, and each must return only its listed out-of-class lines.
+
+            1. Sites:
+               - K1: `rg -c -U --pcre2 '\.from\(\s*(loose\()?\(\s*(\{[^}]*\}|\w+)\s*:' fixtures tests bench`, plus the
+                 same over `src -g '*.test.ts'`: 52 plus 14 lines today;
+               - K2: `rg -n -U --pcre2 '\}\s*:\s*\{[^()]*?\bevent\??\s*:\s*(\{|[A-Z])' fixtures tests`, plus the same
+                 over `src -g '*.test.ts'`: 25 plus 5 today;
+               - K3: the K3 pair of commands, 69 lines today;
+               - K4: `rg -n '^type (Sensors|Email|Line|Lines|Held|Inputs|Seen|Outcome|TimerView|Confirmed|Policy|Tokens)
+                 =' fixtures tests` returns no copy of a declared shape;
+               - K5: `rg -c 'const byRepo ='` is 1 and `rg -c 'const fromAccount ='` is 1 across `fixtures tests`. Today
+                 they are 3 and 2;
+               - K6: `rg -n 'Parameters<typeof (machine|Flow\.context)' fixtures tests` returns only type-test lines.
+            2. Generic helpers: `rg -n 'Picked<|type Pick<' fixtures/command-palette` is empty. It holds 10 lines today.
+            3. Plants: `rg -n 'sync-repo-renamed|account-renamed|receipt-renamed' tests/faults.ts` is empty.
+            4. Lint rule: `ls tools/flow-state-lint/rules/no-hand-typed-callback*` finds nothing, and `rg -n
+               no-hand-typed-callback tools/flow-state-lint/index.ts vite.config.ts package.json` is empty.
+            5. Gates. 6. Fixtures first: the manifest apps. 7. Correctness: R1 and I1 (T1, T3).
+        comment     2026-11-22T10:44:28Z
+            [decided: agent builder 2026-11-22] A fixture helper that is generic over a handler's input only to share
+            one body becomes plain functions of plain values (`known(memory, key)`, `commandOf(memory, key)`), with each
+            handler passing its own key inline. Why: with `Reads` deferred there is no handler-input type, and swapping
+            in derived parts would keep a generic no user would write. Reverse: keep the generic helpers, typed by
+            derived parts.

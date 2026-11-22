@@ -873,6 +873,12 @@ tasks
             [decided: agent requirements lead 2026-11-22] The judge reads the rules the run's values carry, after the
             run, not `Compiled.rules` or a live driver judge (@proposal.external-rules). Why: the user's Story-only
             judging. Reverse: a driver judge with `last`.
+        comment     2026-11-22T10:44:29Z
+            Routed (requirements lead, by the orchestrator's ruling on @task.V3.T113's review): the exact list of the
+            casts in `src/` (Types I4, T7) belongs to the Task that builds `host/snapshot.ts#project`, which absorbs
+            `snapshot.ts#asOutside`. No Task names `project` yet. This one is its first named reader (`verdictOf` reads
+            `project(incarnation)`, @spec.Host), so it holds the list until an earlier Task builds `project`. The
+            ratchet `MOST` in `tests/surface/derivation.test.ts` stands until then.
     T115
         title       Server data: dehydrate, hydrate and the merge table
         status      draft
