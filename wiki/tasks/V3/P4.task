@@ -6472,7 +6472,7 @@ tasks
 
     T145
         title       Planted faults: runtime rules only, judged by their targets
-        status      in_progress
+        status      done
         priority    high
         description
             Planted faults cover runtime rules only and are judged by their own target tests, so `nub run faults --only`

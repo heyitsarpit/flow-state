@@ -771,3 +771,6 @@ note 2026-11-22T15:53:44Z
 note 2026-11-22T15:57:00Z
     [decided: user 2026-11-22] "just disable the fault tests we don't want": T145's third round stopped; faults not
     cleanly caught are disabled, not fixed; no rule-cited guard. T145 closes on that. Scope: T145.
+
+note 2026-11-22T16:02:43Z
+    T145 done (5878de1c): two faults disabled, not fixed, by the user's order.
