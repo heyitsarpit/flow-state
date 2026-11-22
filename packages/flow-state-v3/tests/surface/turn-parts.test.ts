@@ -113,3 +113,43 @@ describe("the unions of the turn's parts (Changes model, realization)", () => {
     }).toEqual({ incarnation: true, why: true });
   });
 });
+
+// Today's builders of a callback's inputs, each a record literal in the code that calls the
+// callback; `readsOf` in `reads.ts` replaces every one (Changes R22, `model` CallbackInputs).
+const BUILDERS = [
+  { site: "turn.ts: a guard's and a patch's reads", file: "turn.ts", pattern: /const read = \{/gu },
+  {
+    site: "turn.ts: an action select's reads",
+    file: "turn.ts",
+    pattern: /const select = \{ memory/gu,
+  },
+  {
+    site: "turn-arms.ts: a first delay's reads",
+    file: "turn-arms.ts",
+    pattern: /const input = \{ key: undefined/gu,
+  },
+  {
+    site: "schedules.ts: a schedule function's reads",
+    file: "schedules.ts",
+    pattern: /const readOf = \(/gu,
+  },
+  {
+    site: "context.ts: a reaction's `when` reads",
+    file: "context.ts",
+    pattern: /\{\s*memory: read\.memory,?\s*\}/gu,
+  },
+];
+
+const found = BUILDERS.flatMap(({ site, file, pattern }) =>
+  existsSync(new URL(file, CORE)) ? [...text(file).matchAll(pattern)].map(() => site) : [],
+);
+
+describe("one builder of callback inputs (Changes R22)", () => {
+  it.fails("Changes R22: readsOf is declared once, in reads.ts", () => {
+    expect(filesWith(/(?:const|function)\s+readsOf\b/u)).toEqual(["reads.ts"]);
+  });
+
+  it.fails("Changes R22: no caller of a user callback builds its inputs itself", () => {
+    expect(found).toEqual([]);
+  });
+});

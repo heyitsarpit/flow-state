@@ -4925,6 +4925,32 @@ tasks
               - A zero-delay series: an interval the user wrote.
               - A joined wave near the guard: context updates never count toward it.
               - `TxPriorityQueue` as a heap: it is effectful, and the core is plain.
+        comment     2026-11-22T17:13:13Z
+            Requirements fix round: R22 added, red now. Root cause (the review's): Flow builds callback inputs in six
+            places today: `turn.ts` builds a guard's and a patch's reads twice and an action select's once,
+            `turn-arms.ts` a first delay's, `schedules.ts#readOf` a schedule function's, `context.ts` a reaction's
+            `when`. The list was drawn from the invariants, and no invariant carries R22.
+
+            - A7, Changes R22: `readsOf(incarnation, scope, view)` in `reads.ts` builds every callback input; `check`
+              builds the same record from a snapshot. Check: `tests/surface/turn-parts.test.ts`, "one builder of
+              callback inputs": `readsOf` is declared once, in `reads.ts` (red: only `schedules.ts` declares one), and
+              none of the six builders is left (red: all six found). The build adds T15 at the root as a behaviour check
+              (each root callback's record from `readsOf` equals `check`'s) with the plant `reads-built-twice`, and
+              replaces the source checks with a two-sided pin.
+
+            For the build (from the review, each needs a case or a fix; none blocks):
+
+            - An early `Tick` (a superseded `Wake`) takes nothing and loses no alarm.
+            - I17 is judged only where binding order matches machine kind, so ending by kind passes; add an order case
+              that separates them.
+            - The one-wake check names only `Arm`, `Disarm` and `Fired`, so a renamed per-timer command passes; check
+              that a step returns no command per alarm, whatever its name.
+            - Name clashes: the new `Alarm` with `timers.ts` `Alarm`, and `Change` with the public `Change` token
+              in `src/tokens.ts`.
+            - `src/host/inspect.ts` reads `Incarnation.alarms` and the `Timer` kinds and is in no file list; type
+              `alarmsMatch`'s `kind` and `tagOf` by the new unions.
+            - Spec question: mail queued for an actor disposed in the same step is dropped with no evidence
+              (`incarnations.ts#dispose`); R3 covers endings only.
 
     T120
         title       Declared schedules: the runtime half
