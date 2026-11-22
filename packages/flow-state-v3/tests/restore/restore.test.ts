@@ -93,8 +93,8 @@ describe("displaced Attempts still on the wire at a reload (WriteAhead I17; Writ
 });
 
 describe("a Held head across several reloads (Restore R3)", () => {
-  // Open, owned by release versions and record migration: a delivered unknown Restored is closed and leaves
-  // the owed record, while its lane stays Held, so every later start owes it again.
+  // Open, owned by the saved format's lanes and rows: a delivered unknown Restored is closed and
+  // leaves the owed record, while its lane stays Held, so every later start owes it again.
   it.fails("Restore R3: a Held head's unknown Restored is heard once, not again at each later start", async () => {
     const run = checked(
       await heldTransfer.reload().advance("1 second").reload().advance("1 second").run(),
@@ -207,21 +207,6 @@ describe("record formats (Restore R5, I10, I13)", () => {
   });
 });
 
-describe("a lane whose input no longer decodes (Restore R8)", () => {
-  // Open: such a record still reads, so R8 hears its Held head at a start; today the boot
-  // quarantines it unread, reported at each boot instead.
-  it.fails("Restore R8: a lane record whose input no longer decodes still has its Held head heard at a start", async () => {
-    const lane = await heldLane();
-    const text = lane.text.replace('"transferId":"t1"', '"transferId":1');
-
-    const run = checked(
-      await heldTransfer.world(Fake.storage.put(lane.key, text)).reload().checkpoint("after").run(),
-    );
-
-    expect(heard(run, 2, "transfer")).toEqual(["Unsure"]);
-  });
-});
-
 describe("an undecodable actor record (Restore R5, I11)", () => {
   const actorKey = "actor/Bank/Transfers/acct-1";
   const broken = '{"format":1}';
@@ -323,8 +308,9 @@ describe("records whose key and content disagree (Restore R5; Codec R5)", () => 
 
 describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () => {
   // Open: a record's context bindings are read without the identity check its own name gets, so a
-  // binding to a local actor starts one from the store.
-  it.fails("Restore R5: an actor record bound to a local actor is quarantined, and no local actor starts from it", async () => {
+  // binding to a local actor starts one from the store. A slot whose provider does not read is
+  // dropped alone and reported; the rest of the record restores (Records R7, reference table).
+  it.fails("Records R4, I9, reference table (slots): a slot bound to a local actor is dropped and reported, no local actor starts from it, and the rest of the record restores", async () => {
     const bound =
       '{"context":{"shopper":{"machine":"Shop/Shopper","name":"~9"}},"format":3,"graph":{"Shop/Shopper/~9":{}},"machine":"Shop/Cart","memories":[],"memory":{"adding":"","errors":{},"lines":{"l9":{"quantity":1,"variantId":"v1"}},"notice":"","owner":"main","wanted":{}},"name":"{\\"owner\\":\\"main\\"}","reactions":[],"schedules":[],"seen":{"shopper":""},"state":"OPEN"}';
 
@@ -344,7 +330,8 @@ describe("an actor record's context bindings (Restore R5; WriteAhead I3)", () =>
     expect(restored.inspection.actors.map((a) => a.actor).filter((a) => a.includes("/~"))).toEqual(
       [],
     );
-    expect(restored.read(mainCart)?.memory.lines).toEqual({});
+    expect(restored.read(mainCart)?.memory.lines).toEqual({ l9: { quantity: 1, variantId: "v1" } });
+    expect(reports(run, 2).filter((r) => r.startsWith("FieldDropped")).length).toBeGreaterThan(0);
   });
 });
 

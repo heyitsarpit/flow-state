@@ -1,4 +1,4 @@
-import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { Fake, samplesOf, Story, type WorldWord } from "../../../src/host/testing/index.ts";
 import { Git } from "../../services/git/server/git.ts";
 import { GitFake } from "../../services/git/server/layer.ts";
 import { cancelClient, lanesSetup, latestClient, serializeClient } from "../app.ts";
@@ -76,14 +76,22 @@ const latestLong = Latest.E.Commit(longRepo);
 const serializeLong = Serialize.E.Commit(longRepo);
 const cancelLong = Cancel.E.Commit(longRepo);
 
-const lanesSamples = (long: ReadonlyArray<Repo>) =>
+// The serialize client's work record as a damaged disk could leave it: a lane with nothing in it,
+// a queue with no head before it, and one Attempt both the head and displaced.
+const forgedLanes = [
+  String.raw`{"body":{"lanes":{"":{"Git/sync":{"{\"repo\":\"flow\"}":{"displaced":[],"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Git/sync":{"{\"repo\":\"flow\"}":{"displaced":[],"queue":[{}]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Git/sync":{"{\"repo\":\"flow\"}":{"displaced":[{"attempt":"att-000000000000000000006d61696e3a31-1","rest":{}}],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
+].map((text) => Fake.storage.put("work/Lanes/serialize/serialize-1", text));
+
+const lanesSamples = (id: string, long: ReadonlyArray<Repo>, records: ReadonlyArray<WorldWord>) =>
   samplesOf({
-    id: "lanes",
-    story: lanesStory("lanes/samples"),
+    id,
+    story: lanesStory(`${id}/samples`),
     names: { setup: "lanesSetup", fixtures: ["GitFake"] },
     actors: { latestClient, serializeClient, cancelClient },
     servers: { Git },
-    failures: [Git.rateLimit({ retryAfterMs: 2000 })],
+    failures: [Git.rateLimit({ retryAfterMs: 2000 }), ...records],
     landedFailures: [],
     values: Object.fromEntries(long.map((r) => ["longCommit", Latest.E.Commit(r)])),
     controls: [],
@@ -94,13 +102,18 @@ const lanesSamples = (long: ReadonlyArray<Repo>) =>
  * What the three clients and the Git host can do, for generated runs: every member sequence on one
  * repository's lane under each policy; the host rate-limits.
  */
-export const samples = lanesSamples([]);
+export const samples = lanesSamples("lanes", [], []);
+
+/**
+ * The samples with the serialize client's work record on disk forged, for every runner.
+ */
+export const recordSamples = lanesSamples("lanes-records", [], forgedLanes);
 
 /**
  * The samples with the repository names' edge values, for the stress runs: commits of a
  * million-character repository.
  */
-export const stressSamples = lanesSamples([longRepo]);
+export const stressSamples = lanesSamples("lanes", [longRepo], []);
 
 const commit = Cancel.E.Commit(flow);
 

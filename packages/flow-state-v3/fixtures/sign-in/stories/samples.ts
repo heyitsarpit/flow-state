@@ -80,44 +80,60 @@ const seenEarliest = TrustedDevice.E.Seen({ at: EARLIEST });
  */
 export const laptopRecord = 'actor/Auth/TrustedDevice/{"device":"laptop"}';
 
+const SESSION_WORK = 'work/Auth/Session/{"email":"elif@kamp.us"}';
+
+// Elif's session's work record holding a lane of the account read, which only a write may have.
+const readLane = String.raw`{"body":{"lanes":{"":{"Auth/me":{"{\"email\":\"elif@kamp.us\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`;
+
+const deviceSamplesOf = (records: boolean) =>
+  samplesOf({
+    id: records ? "auth-records" : "auth-devices",
+    story: trustedStory(records ? "auth-records/samples" : "auth-devices/samples"),
+    names: { setup: "authTrustedSetup", fixtures: ["AuthFake", "ProfileFake"] },
+    actors: { mainSession, laptop },
+    servers: { Profiles },
+    failures: records
+      ? [Fake.storage.put(laptopRecord, '{"format":1}'), Fake.storage.put(SESSION_WORK, readLane)]
+      : [Fake.storage.put(laptopRecord, '{"format":1}')],
+    landedFailures: [],
+    values: {
+      signedIn,
+      trustLaptop,
+      trustToEpoch,
+      trustToLatest,
+      trustToEarliest,
+      seenNow,
+      seenHidden,
+      seenLatest,
+      seenEpoch,
+      seenEarliest,
+    },
+    controls: [elifSaved],
+    steps: (story) =>
+      story
+        .send(mainSession, signedIn)
+        .send(laptop, trustLaptop)
+        .send(laptop, trustToEpoch)
+        .send(laptop, trustToLatest)
+        .send(laptop, trustToEarliest)
+        .send(laptop, seenNow)
+        .send(laptop, seenHidden)
+        .send(laptop, seenLatest)
+        .send(laptop, seenEpoch)
+        .send(laptop, seenEarliest)
+        .send(laptop, TrustedDevice.E.Revoke()),
+  });
+
 /**
  * What Elif and the profile service can do around a trusted device, for generated runs: sign in,
  * trust the laptop until a date, the epoch, or the earliest or latest date a `Date` holds, with a
  * label, none or `undefined`; see it at a time, at no time, the epoch or either end; revoke it;
  * the profile service holds her saved handle, and the laptop's record on disk may not decode.
  */
-export const deviceSamples = samplesOf({
-  id: "auth-devices",
-  story: trustedStory("auth-devices/samples"),
-  names: { setup: "authTrustedSetup", fixtures: ["AuthFake", "ProfileFake"] },
-  actors: { mainSession, laptop },
-  servers: { Profiles },
-  failures: [Fake.storage.put(laptopRecord, '{"format":1}')],
-  landedFailures: [],
-  values: {
-    signedIn,
-    trustLaptop,
-    trustToEpoch,
-    trustToLatest,
-    trustToEarliest,
-    seenNow,
-    seenHidden,
-    seenLatest,
-    seenEpoch,
-    seenEarliest,
-  },
-  controls: [elifSaved],
-  steps: (story) =>
-    story
-      .send(mainSession, signedIn)
-      .send(laptop, trustLaptop)
-      .send(laptop, trustToEpoch)
-      .send(laptop, trustToLatest)
-      .send(laptop, trustToEarliest)
-      .send(laptop, seenNow)
-      .send(laptop, seenHidden)
-      .send(laptop, seenLatest)
-      .send(laptop, seenEpoch)
-      .send(laptop, seenEarliest)
-      .send(laptop, TrustedDevice.E.Revoke()),
-});
+export const deviceSamples = deviceSamplesOf(false);
+
+/**
+ * The trusted-device samples with Elif's session's work record on disk holding a lane of a read,
+ * for every runner.
+ */
+export const recordSamples = deviceSamplesOf(true);

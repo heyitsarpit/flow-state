@@ -37,6 +37,7 @@ import {
   orderSamples,
   plannedSamples,
   plannedStressSamples,
+  recordSamples,
 } from "./stories/samples.ts";
 import {
   chain,
@@ -85,7 +86,15 @@ export const transfers = manifest({
     switcherReloaded,
     ...reminderStories,
   },
-  samples: [samples, formSamples, orderSamples, plannedSamples, switcherSamples, reminderSamples],
+  samples: [
+    samples,
+    formSamples,
+    orderSamples,
+    plannedSamples,
+    switcherSamples,
+    reminderSamples,
+    recordSamples,
+  ],
   stressSamples: [
     stressSamples,
     formSamples,
@@ -93,6 +102,7 @@ export const transfers = manifest({
     plannedStressSamples,
     switcherSamples,
     reminderSamples,
+    recordSamples,
   ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },

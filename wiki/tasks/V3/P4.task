@@ -1594,6 +1594,219 @@ tasks
             @spec.Records (re-pointed 2026-11-21); the deferred branch t92-format-4 (tip d92e802f) and its traps are
             prior art and requirements, not code to merge. Held for the user: Restore Q4 forged-but-valid records
             stay it.fails.
+        comment     2026-11-22T21:11:12Z
+            Requirements and state inventory (requirements lead, 2026-11-23): build @spec.Records' format 6, one `work`
+            record per identity, identity only in the key; that removes the freedom the earlier attempt chased one field
+            at a time (separate, linkable records, and identity in both key and content). Checks are committed red with
+            this comment's commit; mapping in the next comment.
+
+            State inventory (saved records; writer, reader, what each field's meaning depends on):
+
+            - S1 key text: `actor/<owner>`, `work/<owner>` (new), and the legacy `lane/<owner>|<op>|<keyText>` and
+              `owed/<owner>`, read only by step 5 to 6. Owner: one parser, `record-key.ts` (new); today six `no-id-text`
+              cuts in code:packages/flow-state-v3/src/core/record.ts and
+              code:packages/flow-state-v3/src/core/world.ts#actorKey. Depends on nothing; the name text then on the
+              machine's name codec.
+            - S2 position (`actor/`), body `state, memory, schedules, slots, graph, instances`. Writer
+              code:packages/flow-state-v3/src/core/persist.ts#actorWrite through encodeActor; reader decodeActor at the
+              boot. Depends on the key (the name gives the Flow.input fields), Compiled (states, memory codecs, each
+              slot's provider machine and its name codec, reactions, schedules) and the provider's own record (graph).
+            - S3 work (`work/`), body `lanes[subject][contract][keyText]` (head, queue, displaced) and `rows`. Writers
+              today: persist.ts#laneWrite and #owedWrite, plus the boot's saveOwed and saveLane, a second writer (R10).
+              Reader laneRecord and rowsRecord. Depends on the key (owner), the machine's write contracts (input codec,
+              key fields, ending) and the mint (the AttemptId form).
+            - S4 the restored World (records, lanes, owed rows, quarantined), written once per boot by
+              code:packages/flow-state-v3/src/core/incarnations.ts#boot, which becomes `admit` then `install`;
+              World.quarantined stays @task.V3.T56's (World.kept).
+            - S5 reports, derived: RecordUndecodable, FieldDropped (new), ObligationCarried (new), UnboundLane.
+
+            Stop storing what the key or another record determines: machine, name and operation in content; an owed
+            row's lane id; a head's key fields (saved as `rest`); Flow.input memory fields (saved today: home Room
+            `room`, shop Cart `owner`); graph entries of providers with a record of their own (saved today: home Room
+            for House, session Team for Session/main); a headless lane's queue and inFlight. Context bindings stay saved
+            (decision below).
+
+            Transition tables, one owner each:
+
+            - A key's fate: written by Stage 1's rows and the Reference table's cells; owner `admit` (pure), first
+              failing row wins. The tables are @spec.Records `algorithm` Stage 1 and Reference table, cited, not copied.
+            - A head's unknown: the boot's derivation is @spec.Records Lanes and rows, first table (owner `admit`); the
+              runtime side, its second table, is @task.V3.T121's ledger. Until T121 lands, the encoder folds "at most
+              one unknown row per head Attempt" into the head's slot (Records `composition`, Operations b).
+            - The store: one writer, capture through encodeStore; the boot's saveOwed and saveLane go (R10, I10).
+
+            Real resource, the store: `Fake.storage` has no remove word (the generator copies a renamed key's record
+            instead of moving it); it loads in insertion order where IndexedDB loads in code-unit order (structure
+            sorts, so harmless); code:packages/flow-state-v3/src/host/platform/indexeddb.ts#loadAll decodes every value
+            as a string and refuses the whole load on one non-string value, against R5's "stops another record from
+            loading": routed to @task.V3.T28, not hardened here.
+        comment     2026-11-22T21:11:14Z
+            Requirements list, one to one with the acceptance (files under packages/flow-state-v3/tests/restore/
+            unless named):
+
+            1. Bindings (acceptance 1; Records Identity, SlotShape; decision below): saved, each decoded as an ActorName
+               of its slot's provider machine; one that does not read drops its slot entry alone. Red: restore.test.ts
+               "a slot bound to a local actor…" (a local actor starts today); corrupt.test.ts.
+            2. Brands (acceptance 2; Records realization, R11, I9): MachineId, ActorName, StateName, ContractName,
+               KeyText, AttemptId, SubjectAddress, each made only by a decode built from Compiled or by the mint;
+               AttemptId takes only the mint's form. Red: corrupt.test.ts in cells, lanes, shop, sign-in, transfers (an
+               Attempt id "", "~att…" or "att… " is heard as an Attempt the mint never made, and trips WriteLanes I6,
+               I15 and WriteAhead I17). Review checks: no `Schema.String` identifier in the record codecs;
+               restoredLaneId and restoredAttemptId gone; no `Brand.nominal` for these ids. The two-sided type pins come
+               with the brands (a type test on missing types is red for a missing API).
+            3. Nothing the key determines (acceptance 3; R4, I8, R11, Identity): record-shapes.test.ts (envelope `body,
+               format`; body members; `rest`; no Flow.input field; one slot entry; graph). Red: no envelope, lane and
+               owed keys, `room` and `owner` saved, graph saved twice.
+            4. Corrupt one field (acceptance 4; R5, R6, R4, R11, FaultModel): corrupt.test.ts, one real record per kind
+               and machine from each persisting fixture's shortest Story, mutated from the JSON alone. Red: item 2's
+               five fixtures; green on home, session, wizard, command-palette.
+            5. Acceptance 5: item 1's test; saved-records.test.ts read-operation lane carried, and a lane with no head,
+               or a queue with no head, kept unread. Red: the control work record is not read today.
+            6. Acceptance 6 (reference table `rest` and key text; `state`): saved-records.test.ts carried lanes (rest
+               unread, rest holding a key field, key text unread; the key stays held); definition-edits.test.ts a
+               removed or renamed state resets the position. Red: work record unread; a removed state restores into it.
+               restore.test.ts's inverted "Restore R8 … still has its Held head heard" is deleted: the Reference table
+               and the companion's question 5 carry an unreadable obligation and never deliver it (its mapper needs
+               the input).
+            7. Positional frames (acceptance 7): guard, src/core/actor-record.test.ts "saved baselines that do not match
+               the machine's reactions in number"; format 6 saves baselines by slot and reaction, with no
+               positional frame.
+            8. The hook (acceptance 8): StateName and ActorName decode against the machine's paths from `Compiled.saved`
+               through one function; review check (no fragment yet).
+            9. Fixtures first (acceptance 9): the proof comment below.
+            10. One parser (acceptance 10): `record-key.ts`; the six `no-id-text` suppressions in record.ts gone and
+                lint enforcing.
+            11. Faults (acceptance 11), planted at the build with their target tests: binding-unchecked,
+                graph-stored-twice, attempt-form-unchecked, input-field-saved, headless-queue-accepted,
+                shape-not-strict, empty-lane-accepted, key-content-identity-restored, attempts-once-off,
+                unknown-slot-unsaved, carried-dropped-on-encode, carried-delivered, judge-writes, step-reads-definition,
+                legacy-keys-left, legacy-keys-removed-while-kept, position-failure-resets-work, name-not-encoded-back,
+                rest-key-field-wins, install-fires-event; T20's record-key-unchecked, lane-key-text-unread and
+                local-name-restored retargeted.
+            12. Restore after an edit (acceptance 12): definition-edits.test.ts, the wizard booking's states, memory
+                fields and events, and the transfers account's operations (reorder, add, remove, rename each). Red: a
+                removed or renamed state restores; an added or renamed field resets the record; a renamed operation over
+                the same contract retires its lane; a removed operation reports RecordUndecodable, not
+                ObligationCarried. Guards: reorders, event edits, a narrowed field, an added operation.
+            13. Correctness (acceptance 13): fixtures transfers, shop, lanes, sign-in, wizard, home, session; the Spec's
+                wrong endings T5 (restore.test.ts Restore R3 and tests/transfers/bank-app.test.ts:79, existing inverted
+                tests, now this Task's), T6, T7, T8, T9 and T12 in saved-records.test.ts and restore.test.ts. The run
+                rule code:packages/flow-state-v3/tests/rules/records.ts#recordKinds switches to format 6 with I2 at the
+                build (switched now, every Story would be red).
+
+            Spec rules in range with no acceptance line of their own: R12 (saved-records format 5 upgrade: told once,
+            legacy keys removed only by the work write; a bad row keeps both); R16 (an Out head heard once); R14 and I6
+            (head and row of one Attempt kept); R10 and I10 (the boot writes nothing; fault judge-writes); R11 normal
+            form (one tagged Schema per writer case: a row with or without an Attempt, the head's one unknown, reason
+            sets exactly the writers'; the `bank-records` success row with no Attempt); R21 (a records-boot bench row at
+            the build, `--only`).
+
+            Not this Task: Kept(Newer), NotPersisted, the stamp and RecordShapeChanged, capture's fate filter
+            (@task.V3.T56); Dormant, Waits and Spec T10 (@task.V3.T48); cache rows (@task.V3.T124); claims beyond `[]`
+            (@task.V3.T125, @task.V3.T126); hydrate (@task.V3.T115).
+        comment     2026-11-22T21:11:16Z
+            [decided: agent builder 2026-11-23] Context bindings are saved, each decoded as an ActorName of its slot's
+            provider machine; one that does not read drops its slot entry alone. Why: a boot-woken identity has no ref
+            (code:packages/flow-state-v3/src/core/incarnations.ts#boot ensures it with no wiring), so its bindings can
+            come only from its record; @spec.Records R7 drops a slots leaf alone. Reverse: derive bindings from the ref
+            and wake no consumer at boot.
+        comment     2026-11-22T21:11:17Z
+            [decided: agent builder 2026-11-23] `graph` takes choice A: it saves only providers with no record of their
+            own (@spec.Records companion H2). Why: incarnations.ts#boot replaces `records` before its first ensure, and
+            `graph` is read only at a consumer's Begin, through context.ts#bind into the provider's ensure, after
+            admission; a provider's own record already holds its wiring. Test: record-shapes.test.ts graph; fault
+            graph-stored-twice. Reverse: keep `graph` whole (B).
+        comment     2026-11-22T21:11:19Z
+            [decided: agent builder 2026-11-23] Today's saved memory holds Flow.input fields (home Room `room`, shop
+            Cart `owner`), so format 6 never writes them and stage 2 drops a saved one silently, since the key holds its
+            value (companion H11). Why: step 5 to 6 cannot tell an input field without the definition (I17), and a
+            report would tell the app a value was lost that was not. Reverse: report FieldDropped.
+        comment     2026-11-22T21:11:21Z
+            [decided: agent builder 2026-11-23] FORMAT stays 6 and this Task defines its shape; the interim format 6
+            layout @task.V3.T118 wrote was never released, so a text in it fails stage 1 (the position resets, the work
+            side is kept). Why: @spec.Records R12 (one number, one step) and this Task's Risk line (unreleased, nothing
+            migrates). Reverse: FORMAT 7 with a step 6 to 7.
+        comment     2026-11-22T21:11:23Z
+            [decided: agent builder 2026-11-23] A stepped work body's contract keys are format 5's operation names;
+            stage 2 resolves them through the machine's operation names to contracts, and a name the machine lacks is
+            Carried. Why: the user's question 9 answer tells a format 5 hold once after the upgrade, which needs its
+            contract, and a step reads no definition (I17). Reverse: carry every stepped lane.
+        comment     2026-11-22T21:11:24Z
+            [decided: agent builder 2026-11-23] A lane under a contract the machine declares as a read is Carried
+            (Retired) and reported ObligationCarried; the Reference table is silent on it. Why: lanes exist only for
+            writes, carrying loses nothing and keeps I18 (no work-side part Dropped); restoring it would derive an
+            unknown for a read. Reverse: keep the whole work side (Kept(Structure)).
+        comment     2026-11-22T21:11:26Z
+            [decided: agent builder 2026-11-23] A lane entry with no head and a non-empty queue fails stage 1 (the work
+            side is kept, RecordUndecodable). Why: no writer emits it, since a queue always sits behind a head
+            (lanes.ts, lane-moves.ts), and R11 accepts only what a writer emits; the LaneShape comment's "a head, or a
+            non-empty queue or displaced list", read as allowing it, loses to R11. Reverse: derive notSent Restored rows
+            from it.
+        comment     2026-11-22T21:11:28Z
+            [decided: agent builder 2026-11-23] Report codes: FieldDropped for every Dropped cell (memory, slot,
+            baseline, graph, schedule), naming the leaf; ObligationCarried for every Carried part; RecordUndecodable for
+            any stage 1 failure, the work side's Kept(Structure) included, and for a position reset while records carry
+            no stamp. RecordKept, RecordNotPersisted and RecordShapeChanged come with @task.V3.T56's fates and stamp.
+            Why: @spec.Records S10 lists the codes and the stamp is T56's. Reverse: RecordKept for Kept(Structure).
+        comment     2026-11-22T21:11:30Z
+            [decided: agent builder 2026-11-23] No executable model of the tables (@spec.Records Q2, T1 level 1): the
+            Epic's constraint "no model of the core" (the user, 2026-11-15) wins over the Spec; Q2's coverage of timers,
+            instances and steps comes from corrupt.test.ts over real fixture records and the named Stories through the
+            real Runtime. Why: a user constraint outranks a Spec. Reverse: an executable model kept beside the Spec,
+            which needs the user.
+        comment     2026-11-22T21:11:32Z
+            [decided: agent builder 2026-11-23] `admit` returns each key's fate as data (Live, Reset, Kept with
+            Structure, Foreign, Name or Orphan) and `install` maps it onto World.quarantined; the envelope's `shape`
+            stays optional. @task.V3.T56 owns World.kept, Newer, NotPersisted, the stamp and capture's fate filter (its
+            description). Why: one owner per state; this Task owns no state (Records `composition`, Tasks). Reverse:
+            this Task builds fate.ts whole.
+        comment     2026-11-22T21:11:33Z
+            Fixtures-first proof (@convention.fixtures): no public feature and no catalog step; the earlier attempt's
+            review findings land as edge values E7 (a record that fails to decode, or is forged) and E8 (a reload
+            mid-call, drawn by the generator's reload words).
+
+            Saved records (@spec.Records R4, R5, R6, R11, R12, R14, R16): fixtures transfers, shop, lanes, sign-in
+            (changed), each with a new samples set beside the old ones (saved stress seeds still replay), registered in
+            `samples` and `stressSamples`: `bank-records` (acct-1's work record: a head and a row of one Attempt; a rest
+            holding its key field; the identity in the body; a lane of an undeclared contract beside a held one; a
+            success row with no Attempt; a format 5 lane), `shop-records` (main cart's slot bound to `~9`; main's body
+            under the guest key), `lanes-records` (an empty lane; a queue with no head; one Attempt as head and
+            displaced), `auth-records` (a lane of the read `Auth/me`); saved-records.test.ts checks each is canonical
+            JSON. Usual: the named Stories in saved-records.test.ts, record-shapes.test.ts, definition-edits.test.ts and
+            restore.test.ts. Load: L4 (two reloads in the upgrade Story, three opens in Restore R3); the existing load
+            Stories cover many records (transfers load.ts S2×32 under L4, wizard load.ts, lane-bound.stress.test.ts with
+            4,200 displaced Attempts), and no new load path is added. Structure: S4 and a provider of a provider through
+            session's four-layer tree (record-shapes graph check, corrupt.test.ts over every session record); refused
+            shapes shown refused by the named kept-unread tests. Samples: E7, E8. Combos: lanes (serialize, reject,
+            latest), context bindings (shop, home, session), schedules (wizard, home records in the generator),
+            definition edits. Variety: seven unrelated apps; singleton and value-named identities. Sources: none outside
+            Flow; the shapes come from the earlier attempt's close reviews (git 3a84b878) and Records `tests`, Alphabet.
+            Red today: listed per check in the requirements list.
+
+            Sidecars (4 Haiku, effort high, one page part each), every finding checked by hand:
+
+            - Accepted: the transfers forged texts were unescaped JSON (fixed, plus the canonical-JSON check); the
+              retired-lane forgery duplicated the root subject key (rebuilt by a JSON edit); "exactly one FieldDropped"
+              for the bound slot (the Spec does not decide aggregation: at least one); the generator kept bytes only for
+              RecordUndecodable (RecordKept added); a local actor under the mutant's own key was exempt (explicit check
+              added); I11 cited for other identities (now R5); `bank-records` inherited unsent values (narrowed); the
+              draft's "20-machine chain", "S9", "all four policies" and "E8 in samples" claims (corrected above).
+            - Changed: "register the named Stories in manifests": item 7 allows samples or a Story, and each forged
+              class is in samples; the writer form becomes the recordKinds run rule over every Story at the build;
+              definition edits need a second build, which samples cannot hold.
+            - Rejected: RecordShapeChanged for edit resets (the stamp is T56's; with none, Records' stamp use (a)
+              reports RecordUndecodable); a queue with no head is valid (decision above); a read lane restores (decision
+              above); the oracle requires meaning of hand edits (it asks only R11: a decodable one-field change of a
+              written record owes nothing more; copies under a valid owner are not generated, R20); "a fixture never
+              injects an outcome" for forged rows (store texts, E7, not server answers); the missing `shape` (decision
+              above); pairs and mix per samples set (the convention asks it per app, which these fixtures meet); the
+              known-red fixture list in corrupt.test.ts (a known-bug marker, not a runner's list); new L1, L2, L3, L5 or
+              S2, S3, S6, S8 Stories (no new load or structure path).
+        comment     2026-11-22T21:11:35Z
+            Open for the orchestrator: the brief holds Restore Q4 (forged-but-valid records stay it.fails), but
+            @spec.Records R20 records the user's ruling of 2026-11-22 that they are out of scope; flow-rewrite holds no
+            such inverted test (branch t92-format-4's were never merged), and corrupt.test.ts generates no valid copy.
+            Also the decision above that overrides @spec.Records Q2's executable model with the Epic's constraint.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

@@ -3,7 +3,7 @@ import { SerializeMachine } from "./machines/clients.ts";
 import { Option } from "effect";
 import { benchPoint, benchSeries, manifest } from "../manifest.ts";
 import { lanesGrown, lanesGrownSetup } from "./app.ts";
-import { samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
+import { recordSamples, samples, seededStress, stories, stressSamples } from "./stories/usual.ts";
 import { negativeZero, twoSpellings } from "./stories/edges.ts";
 import { crowd4, crowdOf, serializeDeepOf } from "./stories/load.ts";
 import {
@@ -30,8 +30,8 @@ export const lanes = manifest({
     twoSpellings,
     negativeZero,
   },
-  samples: [samples],
-  stressSamples: [stressSamples],
+  samples: [samples, recordSamples],
+  stressSamples: [stressSamples, recordSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: stressSamples }),

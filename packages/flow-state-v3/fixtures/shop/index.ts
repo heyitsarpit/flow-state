@@ -32,7 +32,7 @@ import {
   waitsWhileBusy,
 } from "./stories/findings.ts";
 import { manyShoppers, pulseBurst, quantityClicks } from "./stories/load.ts";
-import { samples as storeSamples } from "./stories/samples.ts";
+import { recordSamples, samples as storeSamples } from "./stories/samples.ts";
 import {
   renewalBusyPay,
   renewalDamagedPay,
@@ -114,8 +114,22 @@ export const shop = manifest({
     pulseReloaded,
     pulseReloadMidAdd,
   },
-  samples: [samples, storeSamples, checkoutSendSamples, renewalSamples, pulseSamples],
-  stressSamples: [samples, storeSamples, checkoutSendSamples, renewalSamples, pulseSamples],
+  samples: [
+    samples,
+    storeSamples,
+    checkoutSendSamples,
+    renewalSamples,
+    pulseSamples,
+    recordSamples,
+  ],
+  stressSamples: [
+    samples,
+    storeSamples,
+    checkoutSendSamples,
+    renewalSamples,
+    pulseSamples,
+    recordSamples,
+  ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),

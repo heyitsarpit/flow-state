@@ -121,9 +121,11 @@ const byKey = (a: string, b: string) => {
 const primitiveText = (json: Schema.Json) =>
   Result.getOrElse(Schema.encodeUnknownResult(JsonText)(json), () => "");
 
-// The value as canonical text (Codec R2): every object's keys sorted, no whitespace. Written with
-// its own stack, so text of any depth is judged.
-const canonicalText = (root: Schema.Json) => {
+/**
+ * The value as canonical text (Codec R2): every object's keys sorted, no whitespace. Written with
+ * its own stack, so text of any depth is judged.
+ */
+export const canonicalText = (root: Schema.Json) => {
   const out: Array<string> = [];
   const stack: Array<() => void> = [];
   const text = (piece: string) => () => void out.push(piece);

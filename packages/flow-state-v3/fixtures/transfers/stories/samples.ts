@@ -135,53 +135,82 @@ const abandonT2 = Transfers.E.Abandon({ transferId: "t2" });
 const saveT1 = Transfers.E.Send({ transferId: "t1", cents: 300 });
 const abandonSaved = Transfers.E.Abandon({ transferId: "t1" });
 
-const plannedSamplesOf = (edges: boolean) =>
+const ACCOUNT_WORK = "work/Bank/Transfers/acct-1";
+
+// The account's work record as a damaged disk or a bad copy could leave it, each one field or one
+// relation away from what the Runtime writes: a head and a row of one Attempt, a head whose saved
+// input holds its key's field, the identity written into the body, a lane of a contract no machine
+// declares beside a held one, and a success row with no Attempt.
+const forgedWork = [
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","contract":"Bank/transfer","ending":{"channel":"success","reason":"success","value":{"receipt":"r1"}},"kept":false,"keyText":"{\"transferId\":\"t1\"}","rest":{"cents":500},"subject":""}]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{"cents":500,"transferId":"t1"},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"machine":"Bank/Transfers","name":"acct-1","rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Held","rest":{"cents":500},"retryCount":0},"queue":[]}},"Bank/wire":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a39-9","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Held","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[{"contract":"Bank/transfer","ending":{"channel":"success","reason":"success","value":{"receipt":"r1"}},"kept":false,"keyText":"{\"transferId\":\"t1\"}","rest":{"cents":500},"subject":""}]},"format":6}`,
+].map((text) => Fake.storage.put(ACCOUNT_WORK, text));
+
+// The account's held transfer as a format 5 build saved it, which the next build steps to its work
+// record.
+const laneFive = Fake.storage.put(
+  t1Lane,
+  String.raw`{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":5,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}`,
+);
+
+const plannedSamplesOf = (variant: "usual" | "edges" | "records") =>
   samplesOf({
-    id: edges ? "bank-planned-edges" : "bank-planned",
-    story: plannedStory(edges ? "bank-planned-edges/samples" : "bank-planned/samples"),
+    id: { usual: "bank-planned", edges: "bank-planned-edges", records: "bank-records" }[variant],
+    story: plannedStory(
+      `${{ usual: "bank-planned", edges: "bank-planned-edges", records: "bank-records" }[variant]}/samples`,
+    ),
     names: { setup: "bankPlannedSetup", fixtures: ["BankFake", "AccountsFake"] },
     actors: { account, savings, mainCustomer, rent },
     servers: { Bank, Accounts },
-    failures: edges
-      ? [
-          Bank.limit({ cents: 100 }),
-          Bank.receiptLength({ chars: 262_145 }),
-          Fake.storage.put(t1Lane, newerT1Lane),
-          Fake.storage.put(acct1Record, brokenRecord),
-          Fake.storage.put(rentRecord, brokenRecord),
-          ...oddOwed,
-          Accounts.setBalance({ account: "acct-1", cents: 0 }),
-        ]
-      : [
-          Bank.limit({ cents: 100 }),
-          Fake.storage.put(t1Lane, newerT1Lane),
-          Fake.storage.put(acct1Record, brokenRecord),
-          Fake.storage.put(rentRecord, brokenRecord),
-        ],
+    failures: {
+      edges: [
+        Bank.limit({ cents: 100 }),
+        Bank.receiptLength({ chars: 262_145 }),
+        Fake.storage.put(t1Lane, newerT1Lane),
+        Fake.storage.put(acct1Record, brokenRecord),
+        Fake.storage.put(rentRecord, brokenRecord),
+        ...oddOwed,
+        Accounts.setBalance({ account: "acct-1", cents: 0 }),
+      ],
+      usual: [
+        Bank.limit({ cents: 100 }),
+        Fake.storage.put(t1Lane, newerT1Lane),
+        Fake.storage.put(acct1Record, brokenRecord),
+        Fake.storage.put(rentRecord, brokenRecord),
+      ],
+      records: [Bank.limit({ cents: 100 }), ...forgedWork, laneFive],
+    }[variant],
     landedFailures: [],
-    values: {
-      sendT1,
-      resendT1,
-      sendT2,
-      abandonT2,
-      saveT1,
-      abandonSaved,
-      planRent,
-      planAtEpoch,
-      planAtLatest,
-      planAtEarliest,
-      pauseNoEnd,
-      pauseUntilLatest,
-    },
-    controls: edges
-      ? [
-          Bank.limit({ cents: 1000 }),
-          Bank.receiptLength({ chars: 0 }),
-          Bank.receiptLength({ chars: 200_000 }),
-          Bank.receiptLength({ chars: 262_144 }),
-          Accounts.setBalance({ account: "acct-1", cents: 10_000 }),
-        ]
-      : [Bank.limit({ cents: 1000 }), Bank.receiptLength({ chars: 0 })],
+    values:
+      variant === "records"
+        ? { sendT1, resendT1, saveT1, planAtEpoch, pauseNoEnd }
+        : {
+            sendT1,
+            resendT1,
+            sendT2,
+            abandonT2,
+            saveT1,
+            abandonSaved,
+            planRent,
+            planAtEpoch,
+            planAtLatest,
+            planAtEarliest,
+            pauseNoEnd,
+            pauseUntilLatest,
+          },
+    controls:
+      variant === "edges"
+        ? [
+            Bank.limit({ cents: 1000 }),
+            Bank.receiptLength({ chars: 0 }),
+            Bank.receiptLength({ chars: 200_000 }),
+            Bank.receiptLength({ chars: 262_144 }),
+            Accounts.setBalance({ account: "acct-1", cents: 10_000 }),
+          ]
+        : [Bank.limit({ cents: 1000 }), Bank.receiptLength({ chars: 0 })],
     steps: (story) => {
       const usual = story
         .send(account, sendT1)
@@ -191,7 +220,7 @@ const plannedSamplesOf = (edges: boolean) =>
         .send(rent, planAtEpoch)
         .send(rent, pauseNoEnd);
 
-      return edges
+      return variant === "edges"
         ? usual
             .send(account, sendT2)
             .send(account, abandonT2)
@@ -210,7 +239,7 @@ const plannedSamplesOf = (edges: boolean) =>
  * customer plans their rent from the epoch and pauses it with no end; the bank lowers its limit or
  * sends empty receipts, and a record on disk is in a newer format or does not decode.
  */
-export const plannedSamples = plannedSamplesOf(false);
+export const plannedSamples = plannedSamplesOf("usual");
 
 /**
  * The mix's bank with its edges, for the stress mix: a second transfer abandoned and a saved one
@@ -218,4 +247,10 @@ export const plannedSamples = plannedSamplesOf(false);
  * memo, none or `undefined`, paused until the latest date and resumed; the accounts service also
  * shows an empty balance.
  */
-export const plannedStressSamples = plannedSamplesOf(true);
+export const plannedStressSamples = plannedSamplesOf("edges");
+
+/**
+ * The bank's usual samples with the account's work record on disk forged or corrupt, one field or
+ * relation at a time, for every runner.
+ */
+export const recordSamples = plannedSamplesOf("records");

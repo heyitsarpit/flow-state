@@ -33,7 +33,12 @@ import {
   manySessions,
   reloadInLockout,
 } from "./stories/load.ts";
-import { deviceSamples, emailEdgeSamples, samples as sessionSamples } from "./stories/samples.ts";
+import {
+  deviceSamples,
+  emailEdgeSamples,
+  recordSamples,
+  samples as sessionSamples,
+} from "./stories/samples.ts";
 import {
   deviceChain,
   deviceFirst,
@@ -88,7 +93,15 @@ export const signIn = manifest({
     signOutRetiredLink,
     ...idleStories,
   },
-  samples: [samples, sessionSamples, emailEdgeSamples, deviceSamples, bannerSamples, idleSamples],
+  samples: [
+    samples,
+    sessionSamples,
+    emailEdgeSamples,
+    deviceSamples,
+    bannerSamples,
+    idleSamples,
+    recordSamples,
+  ],
   stressSamples: [
     samples,
     sessionSamples,
@@ -96,6 +109,7 @@ export const signIn = manifest({
     deviceSamples,
     bannerSamples,
     idleSamples,
+    recordSamples,
   ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
