@@ -792,3 +792,6 @@ note 2026-11-22T16:55:18Z
 note 2026-11-22T17:11:16Z
     T119 requirements review: ISSUES (cc8e7d71), one blocker: @spec.Changes R22 (one readsOf builds every callback
     input) has no check. Fix round and build go to the lead; T109 and T123 routings recorded; T119 text fixed.
+
+note 2026-11-22T17:15:15Z
+    T119 R22 check in (c578b229); fresh building lead (Opus, medium) started on the build.
