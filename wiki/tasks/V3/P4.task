@@ -1995,6 +1995,17 @@ tasks
             branches uncovered; Stage 1's rows split across readKey, positionSide and workSide; AttemptId branded twice
             (world.ts, record-shape.ts); world.ts Creation dead. @plan.Runtime.O1: record identity decodes against the
             closed app (delivered); branded actor ids through the World (missed).
+        comment     2026-11-22T23:44:28Z
+            Failure (2026-11-23): root cause: reader accepts what the writer never emits (R11's one Shape codec not
+            built; writer, reader and oracle are three copies). Count: 1 on this attempt; same class as the earlier
+            attempt's stop. Revision: b301d7d6. Review: close review b9d08ebc.
+        comment     2026-11-22T23:44:28Z
+            [decided: agent orchestrator 2026-11-23] Fix round converges by structure, as already decided on 2026-11-19:
+            one Shape codec per record kind (R11) that the writer encodes with, the boot decodes with and the corrupt
+            test's oracle is derived from. Acceptance 2 is read as written, so a record's own values keep their brands
+            after decode; World's runtime ActorId is not a record, and branding it is not this Task's. Why: no hand copy
+            can drift again, and the acceptance text is met, not relaxed. Reverse: hand checks plus an oracle kept in
+            step by review. The R16 Kept-unknown gap lands as an it.fails titled by R16, owned by @task.V3.T121.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

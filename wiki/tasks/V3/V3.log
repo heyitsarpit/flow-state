@@ -837,3 +837,7 @@ note 2026-11-22T21:36:29Z
 
 note 2026-11-22T23:10:31Z
     T92 built, in review (bf482f05..b301d7d6); close review starts at weekly 96%.
+
+note 2026-11-22T23:44:30Z
+    T92 close review: ISSUES (b9d08ebc), one blocker: a Held head's unknown slot accepts a success (R11's shared codec
+    unbuilt). Fix round by structure to the builder; rulings in a T92 comment.
