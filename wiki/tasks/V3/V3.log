@@ -704,3 +704,7 @@ note 2026-11-22T10:33:30Z
 note 2026-11-22T10:35:33Z
     [decided: user 2026-11-22] T113 Q2 C: Room.state keeps its name (no rename). Q3 B: no O.x.Input or O.x.Key; code
     outside a body uses the contract's own input Schema. Scope: T113.
+
+note 2026-11-22T10:43:34Z
+    [decided: user 2026-11-22] Q4 A: Reads stays deferred to when the Changes Tasks settle View (the UI slice, T72);
+    T113 builds the per-part types it will be composed from. Scope: T113, T72.
