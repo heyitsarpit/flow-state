@@ -770,3 +770,15 @@ note 2026-11-22T01:49:33Z
 note 2026-11-22T03:29:48Z
     Types Q20: renaming the declaration's pausedBy and key to the body's paused and keys is deferred by the user
     (2026-11-22), option B noted.
+
+note 2026-11-22T05:41:03Z
+    Schedules R2: the first clean read after a throw is a silent baseline only when the throw left none; after a
+    baseline it compares with the last clean value (ThrowingRead (3); the rows of @task.V3.T118 pin it).
+
+note 2026-11-22T05:41:03Z
+    Schedules R8: a send that writes a restartOn input restarts another timer through the turn it commits (A2); R8 now
+    says so. Types Placement: no state and its descendant place one name (@task.V3.T118).
+
+note 2026-11-22T05:41:04Z
+    Records R12, step 5 to 6: deleted the line mapping a format-5 baseline and refused marker; SavedTimer never held
+    either, so the step writes no selection and no Refused (@task.V3.T118).

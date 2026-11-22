@@ -21,7 +21,9 @@ requirements
     R2  Nothing is made up
         source  @plan.Machines.O5.
         must    A timer fires only when a start armed it and nothing since stopped it. A first clean `restartOn` read
-                is a baseline, never a change, whenever it comes (a new timer, a re-entry, a read after a throw).
+                is a baseline, never a change, whenever it comes (a new timer, a re-entry, the first clean read
+                after a throw that left no baseline); after a baseline, a clean read compares with the last clean
+                value (ThrowingRead (3)).
                 [decided: user 2026-11-21] answered "A, as recommended" to the question of a new timer whose first
                 `restartOn` read throws: its first clean read is the baseline, silently.
 
@@ -70,7 +72,8 @@ requirements
     R8  Timers are independent
         source  @plan.Machines.O5.
         must    One timer's failure, firing or key never changes another's state. A committed firing leaves another
-                key's send issue in place.
+                key's send issue in place. A send that writes a `restartOn` input restarts another timer through the
+                turn it commits (table Arming A2): that is the turn's work, not the firing's.
 
     R9  One decision per schedule per occasion
         source  Agreed by the user for the algorithm round: classes, not instances; one owner per state, one writer

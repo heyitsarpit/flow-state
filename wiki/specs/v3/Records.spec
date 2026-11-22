@@ -558,7 +558,6 @@ algorithm
             `context`, `seen`, `baselines`: `slots[slot]`; `graph` unchanged.
             `schedules: SavedTimer[]`: `TimerShape` by `Schedules`' decode table: `dueAt` to `Due`, `left` to `Held`,
                 neither to `Idle`; `key`, `armedAt`, `attempt` kept; `pausedBy` to `reasons`; no selection.
-            the baseline and `refused` of an earlier timer: `selection`, `arming: Refused` in the timer.
             `lane/<owner>|<op>|<keyText>` records and `owed/<owner>`: one `work` body: `lanes[""][op][keyText]`, `rows`.
             a lane record with no head, queue or displaced: no lane; a work side left with nothing is no work record,
                 and `install` marks its key so the capture removes the legacy keys (normal form).

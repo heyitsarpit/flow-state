@@ -3044,7 +3044,9 @@ tasks
             code:packages/flow-state-v3/src/core/schedules.ts#runningTimer,
             code:packages/flow-state-v3/src/core/schedules.ts#runningTo,
             code:packages/flow-state-v3/src/core/schedules.ts#trackedOf,
-            code:packages/flow-state-v3/src/core/schedules.ts#applied;
+            code:packages/flow-state-v3/src/core/schedules.ts#applied,
+            code:packages/flow-state-v3/src/core/schedules.ts#fired (its run write; the next step becomes data the
+            firing's occasion carries, and @task.V3.T119 only swaps `fired` for `tick`);
             code:packages/flow-state-v3/src/core/schedule-plan.ts#savedTimersOf,
             code:packages/flow-state-v3/src/core/schedule-plan.ts#declaredOn,
             code:packages/flow-state-v3/src/core/schedule-plan.ts#dueOf,
@@ -3610,6 +3612,18 @@ tasks
             turn caused in the same Story step (a context wave, a settled firing) for a turn's own refusal, and failed
             whole groups. Fixed in tests/rules/deliveries.ts by the Story step from the trace, for issues no ending owns
             (Schedules R1, R11). The ledger was wrong once: a#r assumed both keys due together; replaced by ak#r%.
+        comment     2026-11-22T05:41:15Z
+            [decided: agent builder 2026-11-22] Format 6's schedule row follows Records R12's layout: `schedules:
+            {[statePath]: {[name]: TimerShape | TimerShape[]}}`, keyed lists in key-text order, Records' TimerShape; it
+            replaces the tag of 04:33:30, whose "today's record layout" was the flat SavedTimer list. The record stays
+            flat until @task.V3.T92 moves it under `body`; the checks read either. Why: one step, two writers. Reverse:
+            pin one layout.
+        comment     2026-11-22T05:41:16Z
+            Requirement 3's lint plants restated for the v3 design (I8, T7): `flow-state/timers-decided` refuses the
+            `Decided` brand's constructor and a `Tracked` or `Scheduled` literal outside schedule-decision.ts, and an
+            `IssueSource.Schedule` value in `Incarnation.issues`; the 2026-11-20 targets (`Plan.Held`, `Timing.Held`,
+            `timed`, `issuesOf`) go with the code. Routed: the nested-placement refusal's own reason in @task.V3.T100's
+            closed set (it reuses DuplicateName).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

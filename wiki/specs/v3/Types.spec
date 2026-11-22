@@ -426,8 +426,10 @@ model
 
         Placement. A body schedule must be declared (a construction finding, `ScheduleUndeclared`, which `flow check`
         reports; not a type error, Q19).
-        A declared name may be placed in several states; all placements share the name, key, reasons and selection
-        type; `Schedules` decides what an active placement inherits. A declared schedule placed nowhere is the
+        A declared name may be placed in several states, never in a state and one of its descendants (a
+        construction finding at the lower placement, since both would be active at once and their timers' issues
+        could not be told apart; no type refuses the shape); all placements share the name, key, reasons and
+        selection type; `Schedules` decides what an active placement inherits. A declared schedule placed nowhere is the
         warning `ScheduleUnplaced`. Every declared reason has its callback in every placement (Q4).
 
         Twin rule. Every refusal the types make has a construction row of the same meaning, for a body that reaches
