@@ -4037,6 +4037,27 @@ tasks
             codec key text); red on the old reading by a temporary swap (a schedule the edited build dropped showed its
             issue); R5 edited, logged. (4) R5, origin tooling: `creation-delay-drops-all` re-targeted at `disarms`
             and caught.
+        comment     2026-11-22T08:33:48Z
+            Last-round review (Opus, 2 Haiku sidecars at effort high, one blind) of 7aa901f7: PASS. No finding meets the
+            Stopping rule. Gates: `nub run check` clean; the 8 touched test files pass (99); `faults --only` caught 3
+            of 3.
+            - (1) No NaN guard of Flow's remains. Origin: the raw NaN refusal is the range check. `msOf` reads a number
+              as written, and `fixedDelay`'s `!Number.isFinite` refuses it, as it refuses Infinity. A computed one fails
+              `inRange`'s `Number.isFinite`. Building a raw NaN as 0 would need a NaN-only branch, since a number skips
+              Duration so that a negative one is refused. Noted, routed to the orchestrator: the user's ruling named
+              "the raw-NaN ... refusals" for removal, yet Turn R14 credits "(the user, 2026-11-22)" for keeping one. The
+              user should confirm it.
+            - (2) Gap, routed. Origin: `code:packages/flow-state-v3/src/core/incarnations.ts#deliver`'s `resendable:
+              Option.isNone(sender)` decides the actor send's flag on its own. After that, `serve.ts` `routeOf` and
+              `turn.ts#accept` are the same branch. Its callers are `step.ts:147` (none) and `serve.ts:365` (some). No
+              Story drives an actor send into a bad own arm (a sidecar traced every send fixture), so flipping it to
+              `true` stays green. The tests missed it because `unrepeatable-arm.test.ts` drives only the reaction.
+            - (3) The R4 test reaches the case. The sibling test pins that FarMachine's resting record carries a refused
+              start (`schedule t`). A missing snapshot would fail `toEqual([])`. No standing plant guards the selection;
+              only the builder's temporary swap showed it red.
+            - (4) `creation-delay-drops-all` is caught by `tests/turn/creation.test.ts`. Rejected: the restore dropping
+              `schedules.keyOf`'s record check (the codec's typed output is trusted: decode once). Keyed timers minted
+              in key order (arming ids are internal and deterministic).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
