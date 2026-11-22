@@ -276,11 +276,7 @@ instructions
       express it yet (the user, 2026-11-12).
     - Which side is wrong (the user, 2026-11-12): before a red becomes a requirement or a fix, the lead replays it and
       names the wrong side with evidence: the runtime breaks a cited rule, or the test, the fake or the tooling does. An
-      unknown is never given a default. Root cause first (the user, 2026-11-22): every finding a reviewer raises and
-      every fix a builder makes names where the behaviour originates, traced to its source (Flow's code, a fixture, the
-      tooling, or a dependency such as Effect, checked against the installed source), before a fix or a ruling is
-      proposed; a finding without its origin goes back for one. Example: `Duration.millis(NaN)` became 0 ms inside
-      Effect, which settled the call at once.
+      unknown is never given a default.
     - Spec contradictions (the user, 2026-11-12): the lead writes one concrete case with both results and decides a
       small or internal one itself, keeping the reading that loses no ending. Running code overrides a Spec, guarantees
       included, once the change is weighed across the whole system (the user, 2026-11-15): two traces of the same Story,
@@ -324,6 +320,11 @@ instructions
 
     **Reviews and done**
 
+    - Root cause first (the user, 2026-11-22): every finding a reviewer raises, and every fix or ruling a builder or the
+      orchestrator makes, names where the behaviour originates, traced to its source (Flow's code, a fixture, the
+      tooling, or a dependency such as Effect, checked against the installed source), before a fix or a ruling is
+      proposed. A finding without its origin goes back for one. Example: `Duration.millis(NaN)` became 0 ms inside
+      Effect, which settled the call at once (follow Effect) and made Flow's guards needless.
     - Reviews run on events, not on the clock (overrides R22): a Task's first commit, a Task's close, a Spec change, and
       a change to the test tooling or the run rules. One review sidecar is blind to the Task's requirements list (the
       user, 2026-11-12).
