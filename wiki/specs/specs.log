@@ -766,3 +766,7 @@ note 2026-11-22T01:49:33Z
     Operations: a made function takes a second branded prototype that is a function; deep freezing reaches what a face's
     Maps and Sets hold; a machine's Compiled sits under its internals key, read by compiledOf; slice T89's build and fix
     round.
+
+note 2026-11-22T03:29:48Z
+    Types Q20: renaming the declaration's pausedBy and key to the body's paused and keys is deferred by the user
+    (2026-11-22), option B noted.

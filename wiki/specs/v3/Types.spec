@@ -277,6 +277,11 @@ open
         handlers only, measured; C drop it from the types and keep construction and `flow check` as the refusal. The
         user took C, with the capture gone as well (the answer above).
 
+    Q20  One name per concept inside and outside: rename the declaration's `pausedBy` to `paused` and `key` to
+        `keys`, so each declared field has the body field's name (`restartOn` already matches). [deferred: user
+        2026-11-22] Reopen if: the user revisits it; the user leans to the rename (option B).
+        outcome  Deferred; the declaration keeps `key` and `pausedBy` until then.
+
 model
     StateInventory = who owns and writes each state. The states are values made once at module load; none changes at
         run time.
