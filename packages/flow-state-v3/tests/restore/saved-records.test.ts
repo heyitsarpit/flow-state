@@ -15,6 +15,7 @@ import { mainSession } from "../../fixtures/sign-in/app.ts";
 import { sessionStory } from "../../fixtures/sign-in/stories/usual.ts";
 import { account } from "../../fixtures/transfers/app.ts";
 import { Transfers } from "../../fixtures/transfers/machines/transfers.ts";
+import { Bank } from "../../fixtures/transfers/server/bank.ts";
 import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { canonicalText } from "../rules/records.ts";
@@ -365,6 +366,69 @@ describe("a record read only as the identity its key names (Records R4, I8, I9)"
   });
 });
 
+describe("keys the boot reads no identity from (Records Stage 1 row 1, Fates Kept)", () => {
+  // The account's position as the Runtime wrote it.
+  const position = async () => {
+    const run = checked(
+      await bankStory("records/position").ensure(account).checkpoint("saved").run(),
+    );
+
+    return run.checkpoints.saved.records.stored.get("actor/Bank/Transfers/acct-1") ?? "";
+  };
+
+  it("Records Stage 1 row 1: a key that does not print back the same is kept byte for byte and reported, never read as the identity it parses to", async () => {
+    const key = "actor/Bank/Transfers/%%2F";
+    const text = await position();
+
+    const run = checked(
+      await bankStory("records/unprinted-key")
+        .world(Fake.storage.put(key, text))
+        .reload()
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(text).not.toBe("");
+    expect(reports(run, 2)).toContain(`RecordUndecodable ${key}`);
+    expect(run.checkpoints.after.records.stored.get(key)).toBe(text);
+  });
+
+  it("Records Fates Kept(Orphan): a record of a machine the app no longer declares is kept byte for byte and reported", async () => {
+    const key = "work/Gone/x";
+    const text = transferWork({ displaced: [], head: head("Out", { cents: 500 }), queue: [] });
+
+    const run = checked(
+      await bankStory("records/orphan")
+        .world(Fake.storage.put(key, text))
+        .reload()
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(reports(run, 2)).toContain(`RecordUndecodable ${key}`);
+    expect(run.checkpoints.after.records.stored.get(key)).toBe(text);
+  });
+});
+
+describe("a cancel of a Held head (Records Lanes and rows, second table)", () => {
+  it("Records Lanes and rows: a cancel removes a Held head from its work record, so the next boot restores no lane", async () => {
+    const run = checked(
+      await bankStory("records/held-cancelled")
+        .ensure(account)
+        .world(Bank.transfer.drop({ at: "response" }))
+        .send(account, send("t1"))
+        .send(account, Transfers.E.Abandon({ transferId: "t1" }))
+        .advance("10 seconds")
+        .reload()
+        .ensure(account)
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(run.checkpoints.after.inspection.lanes).toEqual([]);
+  });
+});
+
 describe("format 5 lane and owed records step to one work record (Records R12, Format plan)", () => {
   const LANE = `lane/Bank/Transfers/acct-1|transfer|${T1}`;
   const OWED = "owed/Bank/Transfers/acct-1";
@@ -401,6 +465,23 @@ describe("format 5 lane and owed records step to one work record (Records R12, F
     expect(heard(run, 3, "transfer")).toEqual([]);
     expect(keys).toContain(ACCOUNT_WORK);
     expect(keys.filter((k) => k.startsWith("lane/") || k.startsWith("owed/"))).toEqual([]);
+  });
+
+  it("Records R12, Format plan: a format 5 lane record naming another operation than its key fails the step, so its key is kept byte for byte and nothing of it is heard", async () => {
+    const key = `lane/Bank/Transfers/acct-1|wire|${T1}`;
+
+    const run = checked(
+      await bankStory("records/upgrade-other-operation")
+        .world(Fake.storage.put(key, laneFive))
+        .reload()
+        .ensure(account)
+        .checkpoint("after")
+        .run(),
+    );
+
+    expect(heard(run, 2, "transfer")).toEqual([]);
+    expect(reports(run, 2)).toContain(`RecordUndecodable ${key}`);
+    expect(run.checkpoints.after.records.stored.get(key)).toBe(laneFive);
   });
 
   it("Records R12, Format plan: an owed row that ends a format 5 head's Attempt fails the step, so both legacy keys are kept byte for byte and nothing of them is heard", async () => {

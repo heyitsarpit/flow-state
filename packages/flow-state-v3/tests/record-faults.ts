@@ -139,7 +139,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
   fault(
     "unknown-slot-unsaved",
     "Records R16, Types HeadShape",
-    ["tests/cells/structure.test.ts", "tests/actors/runtime-disposal.test.ts"],
+    ["src/host/lane-record.test.ts"],
     "a head's one unknown, still owed, is left out of its saved slot",
     WORK,
     "      ...Option.match(unknown, {",
@@ -185,7 +185,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
   fault(
     "dropped-lane-kept-on-disk",
     "WriteAhead I21",
-    ["tests/actors/runtime-disposal.test.ts"],
+    ["tests/restore/saved-records.test.ts"],
     "a dropped lane does not mark its identity's work record",
     "src/core/persist.ts",
     "    tx.dropLane(id);\n    saveWork(lane.actor);",
@@ -285,7 +285,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
   fault(
     "record-key-unchecked",
     "Records Stage 1 row 1, R4",
-    [RESTORE],
+    [SAVED],
     "a key that does not print back the same is read as the key it parses to",
     "src/core/record-key.ts",
     "    (key) => keyText(key) === text,",
@@ -298,7 +298,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
     "a record whose format is not an integer is read as the current format",
     STRUCTURE,
     '      if (Option.isNone(format)) return failed("format");',
-    "      if (Option.isNone(format))\n        return KeyRead.Read({ owner: record.owner, record, read: { key: text, format: FORMAT, json: json.success } });",
+    "      if (Option.isNone(format))\n        return KeyRead.Read({ owner: record.owner, record, read: { key: text, format: FORMAT, json: { ...Object(json.success), format: FORMAT } } });",
   ),
   fault(
     "newer-format-read",
@@ -330,7 +330,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
   fault(
     "lane-operation-unkeyed",
     "Records R4, Format plan",
-    [RESTORE],
+    [SAVED],
     "a format 5 lane record steps under a key of another operation",
     "src/core/record-step.ts",
     "            named(r) && r.operation === l.operation ? Result.succeed({ ...l, record: r }) : failed,",

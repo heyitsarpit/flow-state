@@ -25,15 +25,25 @@ const fault = (
  */
 export const admissionFaults: ReadonlyArray<Fault> = [
   // Stage 2: the reference table (Records R4, R7, R15, I9, I16, I18).
-  fault(
-    "record-name-unread",
-    "Records Identity, R4",
-    [RESTORE],
-    "a record restores under a name its machine's name codec cannot read",
-    "src/core/record-names.ts",
-    "      holding((text) => Result.isSuccess(decodeName(compiled, text))).pipe(",
-    "      holding(() => true).pipe(",
-  ),
+  {
+    name: "record-name-unread",
+    rule: "Records Identity, R4",
+    tests: [RESTORE],
+    says: "a record restores under a name its machine's name codec cannot read",
+    edits: [
+      {
+        file: "src/core/record-names.ts",
+        find: "      holding((text) => Result.isSuccess(decodeName(compiled, text))).pipe(",
+        replace: "      holding(() => true).pipe(",
+      },
+      {
+        file: "src/core/record-names.ts",
+        find: "        Option.map(Result.getSuccess(decodeName(compiled, actorName)), (input) => ({",
+        replace:
+          "        Option.map(Option.some(Result.getOrElse(decodeName(compiled, actorName), () => ({}))), (input) => ({",
+      },
+    ],
+  },
   fault(
     "name-not-encoded-back",
     "Records Identity, R4",
@@ -46,7 +56,7 @@ export const admissionFaults: ReadonlyArray<Fault> = [
   fault(
     "record-machine-unread",
     "Records Fates Kept(Orphan)",
-    [RESTORE],
+    [SAVED],
     "a record of a machine no entry declares is left unreported",
     "src/core/admit.ts",
     "      quarantined: group.keys.filter((key) => !settled.has(key)).map((key) => [key, why] as const),",
@@ -120,10 +130,10 @@ export const admissionFaults: ReadonlyArray<Fault> = [
     "owed-row-operation-unread",
     "Records reference table, Carried",
     [RESTORE],
-    "a row of a contract the machine lacks is dropped, not carried",
+    "a row that does not read is dropped, not carried",
     ADMIT_WORK,
-    "        onNone: () =>\n          both(\n            read,",
-    "        onNone: () =>\n          both(\n            none,",
+    '        onNone: () =>\n          both(\n            read,\n            carriedPart({\n              place: Place.Row({ after: read.saved.length }),\n              json: row,\n              why: "Unread",\n              held: Option.none(),\n            }),\n          ),',
+    "        onNone: () => read,",
   ),
   fault(
     "carried-delivered",

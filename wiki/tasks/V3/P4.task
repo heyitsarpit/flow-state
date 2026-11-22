@@ -1879,6 +1879,10 @@ tasks
             boot, where @spec.Records gives one per machine with a count. It's a small change to an evidence field (Epic
             Authority), noted for the user's read. Why: 'reported for its key' must be testable, and a boot reports each
             bad key once. Reverse: one report per machine carrying the keys.
+        comment     2026-11-22T22:50:48Z
+            Checkpoint (builder, bf482f05): format 6 writer and full decode built; every T92 red and the
+            corrupt-one-field test pass; suite and check green; 55 superseded faults re-pointed and the new ones
+            planted, not yet verified with faults --only. Next: verify faults, close checks, decisions comment.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

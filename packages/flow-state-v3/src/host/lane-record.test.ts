@@ -3,6 +3,7 @@ import { expect, it } from "vite-plus/test";
 import { admit } from "../core/admit.ts";
 import { workKey } from "../core/persist.ts";
 import { encodeWork } from "../core/record-work.ts";
+import { Audience, Delivery, Origin, type Owed, type OwedId, Route } from "../core/ledger.ts";
 import { attempt } from "../core/test/ids.ts";
 import { type CallId, laneId, OwnedBy, Phase } from "../core/world.ts";
 import { definition, Flow, machine, transaction } from "../index.ts";
@@ -103,4 +104,54 @@ it("a work record saves a lane's queue, and a boot ends each queued commit NotSe
     "notSent Restored -",
     `unknown Restored ${minted(2)}`,
   ]);
+});
+
+it("a Held head whose unknown is still owed saves it in its slot, and a boot owes that unknown again, not a new one (Records R16, Types HeadShape)", () => {
+  const compiled = clientUnder("serialize");
+  const machines = new Map([[compiled.id, compiled]]);
+  const actor = { machine: compiled.id, name: "c" };
+  const id = laneId(actor, "write", '{"repo":"flow"}');
+
+  const head = {
+    id: attempt(minted(2)),
+    input,
+    retryCount: 0,
+    owner: OwnedBy.Root(),
+    phase: Phase.Held(),
+  };
+
+  const unknown: Owed = {
+    id: Brand.nominal<OwedId>()("owed-1"),
+    origin: Origin.Decided(),
+    actor,
+    to: Audience.Identity(),
+    operation: "write",
+    attempt: Option.some(head.id),
+    lane: Option.some(id),
+    channel: "unknown",
+    reason: "Lost",
+    value: undefined,
+    route: Route.Current(),
+    delivery: Delivery.Waiting(),
+    input: Option.some(input),
+  };
+
+  const work = Result.getOrThrow(
+    encodeWork(machines, {
+      actor,
+      lanes: [[id, { actor, operation: "write", head, queue: [] }]],
+      displaced: [],
+      rows: [unknown],
+      carried: [],
+    }),
+  );
+
+  const restored = admit(
+    machines,
+    new Map([[workKey(actor), Option.getOrElse(work.text, () => "")]]),
+  );
+
+  expect(
+    restored.rows.map(({ row, derived }) => `${row.channel} ${row.reason} ${String(derived)}`),
+  ).toEqual(["unknown Lost false"]);
 });
