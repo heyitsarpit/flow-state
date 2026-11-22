@@ -69,7 +69,7 @@ const readOf = (read: ContextRead, provider: Incarnation) => {
   }
 };
 
-// Whether a slot's last selection was read from these very values: a select is pure (R19), and an
+// Whether a slot's last selection was read from these very values: a select is pure, and an
 // immutable memory keeps an unchanged field's identity, so the same reads select it again.
 // FLOW_STATE_ALLOW_UNKNOWN: each read has its field's or state's type.
 const sameReads = (last: Selected, reads: ReadonlyArray<unknown>) =>

@@ -2,7 +2,6 @@ import { Option } from "effect";
 import type { Compiled, Schedule } from "./compiled.ts";
 import { readsOf, type Scope } from "./reads.ts";
 import { firstStep } from "./schedule-plan.ts";
-import { chainOf } from "./tree.ts";
 import type { Arming } from "./turn.ts";
 import type { TurnInput } from "./walk.ts";
 
@@ -39,7 +38,7 @@ export const armingsOf = (
 
   const input = readsOf(scope, "Schedule", { key: Option.none(), operations: NO_OPERATIONS, now });
 
-  for (const path of chainOf(leaf))
+  for (const path of compiled.states.get(leaf)?.chain ?? [])
     for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
       if (arms(path, schedule)) {
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one step callback per schedule armed: the turn's result
@@ -60,7 +59,7 @@ export const armingsOf = (
 export const disarmedBy = (compiled: Compiled, leaf: string, tag: string) => {
   const names: Array<string> = [];
 
-  for (const path of chainOf(leaf))
+  for (const path of compiled.states.get(leaf)?.chain ?? [])
     for (const schedule of compiled.states.get(path)?.schedules ?? NO_SCHEDULES)
       if (schedule.disarmOn.includes(tag)) names.push(schedule.name);
 

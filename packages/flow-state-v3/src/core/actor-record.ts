@@ -14,7 +14,6 @@ import {
 import { readSelected, sameForm, type Selected, selectedOf } from "./slots.ts";
 import { SavedTimerFive, timerFromFive } from "./actor-record-five.ts";
 import { type ReadFailure, SavedSchedules, type SavedTimer } from "./vocabulary.ts";
-import { chainOf } from "./tree.ts";
 import type { ActorId, ActorRecord, Wiring } from "./world.ts";
 
 const WiredJson = Schema.Record(Schema.String, ActorJson);
@@ -400,7 +399,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
   const stepFive = (five: typeof ActorRecordFiveJson.Type) =>
     Result.map(machineOf(five), (compiled) => {
       const pathOf = new Map(
-        chainOf(five.state).flatMap((path) =>
+        (compiled.states.get(five.state)?.chain ?? []).flatMap((path) =>
           (compiled.states.get(path)?.schedules ?? []).map((s) => [s.name, path] as const),
         ),
       );
@@ -434,7 +433,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
     Result.map(machineOf(four), (compiled) => {
       const saved = new Set(four.schedules.map((d) => d.name));
 
-      const idle = chainOf(four.state).flatMap((path) =>
+      const idle = (compiled.states.get(four.state)?.chain ?? []).flatMap((path) =>
         (compiled.states.get(path)?.schedules ?? [])
           .filter((s) => s.onEntry && Option.isNone(s.keys) && !saved.has(s.name))
           .map((s) => ({ name: s.name })),

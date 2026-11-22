@@ -3,6 +3,8 @@ import { benchStress, benchTurn, manifest } from "../manifest.ts";
 import { homeApp, homeSetup, roomOf } from "./app.ts";
 import { hubManyDevices, hubSamples, hubStories, hubUsual } from "./stories/hub.ts";
 import {
+  chimeLocal,
+  chimeRingsThrice,
   loungeBeforeDevices,
   loungeFormatFive,
   noSensors,
@@ -32,6 +34,8 @@ export const home = manifest({
   app: homeApp,
   stories: {
     ...stories,
+    chimeRingsThrice,
+    chimeLocal,
     reloadedPaused,
     roomFirst,
     houseFirst,

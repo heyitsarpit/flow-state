@@ -12,7 +12,6 @@ import {
 import { savedSchedule, savedTimer } from "./schedule-decision.ts";
 import { schedulesOf, seriesId } from "./schedule-plan.ts";
 import type { ScheduleSteps } from "./schedules.ts";
-import { chainOf } from "./tree.ts";
 import type { Machines, Tx } from "./tx.ts";
 import type { SavedSchedules, SavedTimer } from "./vocabulary.ts";
 import { type Incarnation, trackOf } from "./world.ts";
@@ -100,7 +99,8 @@ export const savedSchedulesOf = (machines: Machines, incarnation: Incarnation) =
   const saved: Record<string, Record<string, SavedTimer | ReadonlyArray<SavedTimer>>> = {};
   const declared = schedulesOf(machines, incarnation.actor.machine);
 
-  for (const path of chainOf(incarnation.state))
+  for (const path of machines.get(incarnation.actor.machine)?.states.get(incarnation.state)
+    ?.chain ?? [])
     for (const schedule of declared(path)) {
       const scheduled = incarnation.schedules.get(schedule.name);
 
@@ -411,7 +411,7 @@ export const wakeEntries = (
   const declared = schedulesOf(machines, machine);
   const entries: Array<WakeEntry> = [];
 
-  for (const path of chainOf(state))
+  for (const path of machines.get(machine)?.states.get(state)?.chain ?? [])
     for (const schedule of declared(path))
       for (const entry of Option.toArray(Option.fromUndefinedOr(saved[path]?.[schedule.name])))
         for (const kept of Option.toArray(entryOf(machines, machine, schedule, entry)))

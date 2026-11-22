@@ -24,10 +24,41 @@ export type Origin = Data.TaggedEnum<{
 export const Origin = Data.taggedEnum<Origin>();
 
 /**
- * How an actor ends: its grace passed (its record kept), disposed (its record removed), forgotten
- * (its record and its rows let go), or the Runtime's disposal ended.
+ * How an actor ends: its grace passed, disposed, forgotten, or the Runtime's disposal ended.
  */
-export type How = "Grace" | "Disposed" | "Forgotten" | "RuntimeDisposed";
+export type How = Data.TaggedEnum<{ Grace: {}; Disposed: {}; Forgotten: {}; RuntimeDisposed: {} }>;
+
+/**
+ * Constructors and matchers for {@link How}.
+ */
+export const How = Data.taggedEnum<How>();
+
+/**
+ * What an actor's end does, by how: whether its incarnation is dropped and its record kept, what
+ * its owed rows do (wait for the next start, close, or stay as the disposal left them), whether
+ * its providers are released, and whether its mailbox is dropped.
+ */
+export const ENDS = {
+  Grace: { drops: true, keepsRecord: true, rows: "wait", releases: true, dropsMail: false },
+  Disposed: { drops: true, keepsRecord: false, rows: "wait", releases: true, dropsMail: true },
+  Forgotten: { drops: true, keepsRecord: false, rows: "close", releases: true, dropsMail: true },
+  RuntimeDisposed: {
+    drops: false,
+    keepsRecord: false,
+    rows: "kept",
+    releases: false,
+    dropsMail: false,
+  },
+} as const satisfies Record<
+  How["_tag"],
+  {
+    readonly drops: boolean;
+    readonly keepsRecord: boolean;
+    readonly rows: "wait" | "close" | "kept";
+    readonly releases: boolean;
+    readonly dropsMail: boolean;
+  }
+>;
 
 /**
  * Every change to an actor, as one value: the only input of {@link makeApply}'s `apply`.

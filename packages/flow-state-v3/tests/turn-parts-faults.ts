@@ -214,8 +214,8 @@ export const turnPartsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tx.ts",
-        find: "        if (Option.isSome(after) && !Equal.equals(before, after))",
-        replace: "        if (Option.isSome(after) && Option.isNone(before))",
+        find: "    if (Equal.equals(next, world.wake)) return;",
+        replace: "    if (Option.isSome(world.wake) && Option.isSome(next)) return;",
       },
     ],
   },
@@ -269,6 +269,71 @@ export const turnPartsFaults: ReadonlyArray<Fault> = [
         file: "src/core/apply.ts",
         find: "              (b) => b.state !== incarnation.state || b.memory !== incarnation.memory,",
         replace: "              (b) => b.state !== incarnation.state,",
+      },
+    ],
+  },
+  {
+    name: "wake-spent-kept",
+    tests: ["tests/home/schedules.test.ts"],
+    says: "a Tick does not spend the host's wake, so an alarm set again at its deadline gets no wake and a zero-delay step is lost",
+    rule: "Changes T14, I12",
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: "    world.wake = Option.none();",
+        replace: "    void world.wake;",
+      },
+    ],
+  },
+  {
+    name: "wake-held-without-alarm",
+    tests: ["tests/turn/sequence.test.ts"],
+    says: "the host keeps its wake once no alarm is due",
+    rule: "Changes T14, I12",
+    edits: [
+      {
+        file: "src/core/tx.ts",
+        find: "    if (Equal.equals(next, world.wake)) return;",
+        replace: "    if (Equal.equals(next, world.wake) || Option.isNone(next)) return;",
+      },
+    ],
+  },
+  {
+    name: "local-use-unapplied",
+    tests: ["tests/home/schedules.test.ts"],
+    says: "a local actor's host use is written with no Use change, so its schedules hold no alarm",
+    rule: "Changes I12",
+    edits: [
+      {
+        file: "src/core/incarnations.ts",
+        find: '    addUse(actor, "host");',
+        replace: '    tx.putUses(actor, ["host"]);',
+      },
+    ],
+  },
+  {
+    name: "disposal-mail-unseen",
+    tests: ["src/core/turn-parts.test.ts"],
+    says: "the Runtime's disposal drops the events still queued with no evidence",
+    rule: "Changes R24",
+    edits: [
+      {
+        file: "src/core/disposal.ts",
+        find: '      if (Mail.$is("Event")(mail)) tx.act(Act.Unhandled({ actor: mail.actor, event: mail.tag }));',
+        replace: "      void mail;",
+      },
+    ],
+  },
+  {
+    name: "turn-published-as-other",
+    tests: ["tests/shop/pay.test.ts"],
+    says: "an accepted turn's publication says Other, so the turn shows no publication of its own",
+    rule: "Changes C6, Turn I9",
+    edits: [
+      {
+        file: "src/core/change.ts",
+        find: '    Turn: () => Option.some<Why>("Turn"),',
+        replace: '    Turn: () => Option.some<Why>("Other"),',
       },
     ],
   },

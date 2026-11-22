@@ -189,7 +189,7 @@ Turn area (`src/core/`):
   change (head) and delete (accepted branch, about 110 lines: rows C1 to C7 move to `apply.ts`); the head builds the
   trigger and the reads through `readsOf`; each result is a `Change`.
 - `packages/flow-state-v3/src/core/serve.ts#raised`, code:packages/flow-state-v3/src/core/serve.ts#refusal
-  delete: `Change.Refused`, `Change.Unturned`.
+  replaced by the changes `Refused` and `Unturned` that `apply` applies.
 - code:packages/flow-state-v3/src/core/serve.ts#routeOf
   keep: its five `Option`s feed the trigger of a `Change`; no publisher reads them.
 - code:packages/flow-state-v3/src/core/serve.ts#pendingOwners
@@ -256,7 +256,7 @@ Tree, ledger, world, evidence, host:
 
 - code:packages/flow-state-v3/src/core/tree.ts#moveOf, code:packages/flow-state-v3/src/core/tree.ts#historyAfter
   keep: a subroutine's states are states of the one tree.
-- code:packages/flow-state-v3/src/core/tree.ts#chainOf, code:packages/flow-state-v3/src/core/tree.ts#leafOf
+- `packages/flow-state-v3/src/core/tree.ts#chainOf`, `packages/flow-state-v3/src/core/tree.ts#leafOf`
   delete, as `Types` (`DerivedFields`) states: every caller reads `Node.chain` or `Node.leaf`, and the two scans live
   on only as the reference in `Types`' index test (T5). The walk's callers move with this Spec's build.
 - code:packages/flow-state-v3/src/core/ledger.ts#Audience, code:packages/flow-state-v3/src/core/ledger.ts#live,

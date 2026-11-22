@@ -152,6 +152,7 @@ const reloadOptions = (reattach: boolean, heldWrites: "abort" | "land") => {
 const printStep = (samples: Samples, step: Step) =>
   StepData.$match(step, {
     ensure: ({ actor }) => `.ensure(${actorName(samples, actor)})`,
+    create: ({ machine, input }) => `.create(${machine}, { input: ${literal(input)} })`,
     detach: ({ actor }) => `.detach(${actorName(samples, actor)})`,
     send: ({ actor, event }) =>
       `.send(${actorName(samples, actor)}, ${samples.values.find((v) => v.value === event)?.name ?? literal(event)})`,

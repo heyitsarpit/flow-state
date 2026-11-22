@@ -1,5 +1,5 @@
-import { Option } from "effect";
-import { Alarm, type Alarmed, alarmKey } from "./alarms.ts";
+import { Equal, Option } from "effect";
+import { Alarm, type Alarmed, alarmKey, earliest } from "./alarms.ts";
 import { Life } from "./life.ts";
 import { alarmOf, dueRunsOf } from "./schedule-plan.ts";
 import { isInFlight } from "./tx.ts";
@@ -53,17 +53,27 @@ const ownedBy =
     });
 
 /**
- * Changes I12, the alarms' match: the alarms a world holds that no owner fact owes, and the owner
+ * The alarms' match: the alarms a world holds that no owner fact owes, and the owner
  * facts with no alarm, each named by its key; none when the alarms match.
  */
 export const alarmDrift = (world: World) => {
   const wanted = owed(world);
   const owns = ownedBy(wanted);
 
-  return [
-    ...[...world.alarms].flatMap(([key, alarmed]) =>
-      owns(key, alarmed) ? [] : [`${key} has no owner fact`],
-    ),
-    ...[...wanted.keys()].flatMap((key) => (world.alarms.has(key) ? [] : [`${key} has no alarm`])),
-  ];
+  // The host holds one wake exactly while an alarm is due, at the earliest deadline.
+  const wake = earliest(world.alarms);
+
+  const held = Equal.equals(wake, world.wake)
+    ? []
+    : [`the host's wake is not at the earliest alarm`];
+
+  const orphans = [...world.alarms].flatMap(([key, alarmed]) =>
+    owns(key, alarmed) ? [] : [`${key} has no owner fact`],
+  );
+
+  const missing = [...wanted.keys()].flatMap((key) =>
+    world.alarms.has(key) ? [] : [`${key} has no alarm`],
+  );
+
+  return [...held, ...orphans, ...missing];
 };

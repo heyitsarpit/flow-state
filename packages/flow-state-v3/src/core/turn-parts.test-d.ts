@@ -62,7 +62,7 @@ describe("the unions of the turn's parts (Changes R11, T14, Q5, realization)", (
 
   it("Changes realization: the host's one wake is Command.Wake and Input.Tick, with no per-timer command", () => {
     expectTypeOf(command._tag).toEqualTypeOf<
-      "Invoke" | "Lookup" | "Interrupt" | "EndWork" | "Wake" | "Persist" | "Write"
+      "Invoke" | "Lookup" | "Interrupt" | "EndWork" | "Wake" | "Sleep" | "Persist" | "Write"
     >();
     expectTypeOf(input._tag).toEqualTypeOf<
       | "Start"

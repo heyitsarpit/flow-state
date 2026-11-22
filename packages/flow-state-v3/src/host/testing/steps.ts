@@ -60,6 +60,8 @@ export const WorldWord = Data.taggedEnum<WorldWord>();
  */
 export type Step = Data.TaggedEnum<{
   ensure: { actor: ActorId; context: Wiring };
+  // A new local actor of the app's machine with this id, from its input; no ref names it.
+  create: { machine: string; input: Values };
   detach: { actor: ActorId };
   send: { actor: ActorId; event: Envelope };
   dispose: { actor: ActorId; how: "dispose" | "forget" };

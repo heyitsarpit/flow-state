@@ -66,6 +66,7 @@ const exactRecords = [
     | "mail"
     | "uses"
     | "alarms"
+    | "wake"
     | "counter"
     | "attempts"
     | "persistence"

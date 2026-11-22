@@ -262,6 +262,7 @@ export const makeDriver = (options: {
               sleepUntil(clock, at),
               onDone(() => input(Input.Tick())),
             ),
+      Sleep: () => work.cancel("alarm"),
       Persist: ({ due, refused }) => edge.accept(due, refused),
       Write: ({ writes, marks, tickets, refused }) => edge.write(writes, marks, tickets, refused),
     });

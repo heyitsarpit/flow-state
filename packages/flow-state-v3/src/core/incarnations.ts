@@ -5,7 +5,7 @@ import type { Start } from "./input.ts";
 import { makeContext } from "./context.ts";
 import { Alarm } from "./alarms.ts";
 import { makeApply } from "./apply.ts";
-import { Change, Origin } from "./change.ts";
+import { Change, How, Origin } from "./change.ts";
 import { makeSchedules } from "./schedules.ts";
 import { makeScheduleRestore } from "./schedule-restore.ts";
 import { Act } from "./evidence-of.ts";
@@ -106,6 +106,14 @@ export const makeIncarnations = (
     );
   };
 
+  // A use added to a live actor: its first wakes the actor's schedules, as a `Use` change.
+  const addUse = (actor: ActorId, use: Use) => {
+    const returned = !used(actor);
+    tx.putUses(actor, [...(tx.world().uses.get(actorKey(actor)) ?? []), use]);
+
+    if (returned) apply(live(actor), Change.Use({ returned }));
+  };
+
   // A record the boot could not read is never restored: the identity starts fresh, reported, and
   // its first save overwrites the record.
   const startsFresh = (key: ActorKey) => {
@@ -150,12 +158,7 @@ export const makeIncarnations = (
 
     Option.match(use, {
       onNone: () => undefined,
-      onSome: (u) => {
-        const returned = !used(actor);
-        tx.putUses(actor, [...(tx.world().uses.get(key) ?? []), u]);
-
-        if (returned) apply(live(actor), Change.Use({ returned }));
-      },
+      onSome: (u) => addUse(actor, u),
     });
   };
 
@@ -163,7 +166,9 @@ export const makeIncarnations = (
   const createLocal = (actor: ActorId, input: Values) => {
     start(actor, Option.none(), input, Option.none());
 
-    if (incarnationOf(actor) !== undefined) tx.putUses(actor, ["host"]);
+    if (incarnationOf(actor) === undefined) return;
+
+    addUse(actor, "host");
   };
 
   const release = (actor: ActorId, use: Use) => {
@@ -184,7 +189,7 @@ export const makeIncarnations = (
   const end = (actor: ActorId) => {
     if (Option.isNone(live(actor)) || !persistence.encodes(actor)) return;
 
-    apply(live(actor), Change.End({ how: "Grace" }));
+    apply(live(actor), Change.End({ how: How.Grace() }));
   };
 
   /**
@@ -196,7 +201,7 @@ export const makeIncarnations = (
     const key = actorKey(actor);
 
     if (Option.isSome(live(actor)))
-      apply(live(actor), Change.End({ how: forgetting ? "Forgotten" : "Disposed" }));
+      apply(live(actor), Change.End({ how: forgetting ? How.Forgotten() : How.Disposed() }));
     else {
       ledger.suspend(actor, forgetting);
       tx.dropMail(actor);

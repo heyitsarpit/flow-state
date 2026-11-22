@@ -68,8 +68,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/incarnations.ts",
-        find: '    if (incarnationOf(actor) !== undefined) tx.putUses(actor, ["host"]);',
-        replace: "    void tx.putUses;",
+        find: '    addUse(actor, "host");',
+        replace: "    void addUse;",
       },
     ],
   },

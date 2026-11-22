@@ -1,14 +1,22 @@
 import { Duration, Option } from "effect";
 import { Alarm } from "./alarms.ts";
 import type { Apply } from "./apply.ts";
-import { Change } from "./change.ts";
+import { Change, How } from "./change.ts";
 import { Cue } from "./cells.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { Life } from "./life.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import type { Tx } from "./tx.ts";
-import { type ActorId, actorKey, Command, byStart, type TicketId, type World } from "./world.ts";
+import {
+  type ActorId,
+  actorKey,
+  Command,
+  Mail,
+  byStart,
+  type TicketId,
+  type World,
+} from "./world.ts";
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
@@ -55,7 +63,7 @@ export const makeDisposal = (
     for (const actor of endOrder(tx.world()))
       apply(
         Option.fromUndefinedOr(tx.incarnationOf(actor)),
-        Change.End({ how: "RuntimeDisposed" }),
+        Change.End({ how: How.RuntimeDisposed() }),
       );
     tx.setLife(Life.Disposed());
     tx.act(Act.RuntimeEnded());
@@ -63,7 +71,11 @@ export const makeDisposal = (
 
   const started = () => {
     tx.setLife(Life.Disposing({ awaiting: Option.none() }));
-    tx.clearMail();
+
+    // An event still queued finds its actor no longer served: it is unhandled, never dropped
+    // unseen, as at an actor's own disposal.
+    for (const mail of tx.clearMail())
+      if (Mail.$is("Event")(mail)) tx.act(Act.Unhandled({ actor: mail.actor, event: mail.tag }));
 
     // Each identity can no longer hear: its queued rows wait for its next start.
     for (const [first] of tx.world().owed.values())

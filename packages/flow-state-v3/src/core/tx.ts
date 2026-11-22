@@ -308,19 +308,16 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     dirty.add(key);
   };
 
-  // ── alarms: one per owner fact, by its key. The earliest deadline before the step's first
-  // alarm write is kept, so the step owes the host a wake only when the earliest changed.
-  let wakeBefore: Option.Option<Option.Option<number>> = Option.none();
-
-  const touchAlarms = () => {
-    if (Option.isNone(wakeBefore)) wakeBefore = Option.some(earliest(world.alarms));
-  };
+  // ── alarms: one per owner fact, by its key. The host holds one wake exactly while an alarm is
+  // due, at the earliest deadline (`World.wake`); a step that changed the alarms, or spent the
+  // wake on its Tick, sets it again at its end.
+  let alarmsMoved = false;
 
   const setAlarm = (alarm: Alarm, at: number) => {
     const key = alarmKey(alarm);
 
     if (world.alarms.get(key)?.at === at) return;
-    touchAlarms();
+    alarmsMoved = true;
     draft("alarms").set(key, { alarm, at });
   };
 
@@ -328,7 +325,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     const key = alarmKey(alarm);
 
     if (!world.alarms.has(key)) return;
-    touchAlarms();
+    alarmsMoved = true;
     draft("alarms").delete(key);
 
     if (Alarm.$is("Grace")(alarm)) dirty.add(actorKey(alarm.actor));
@@ -339,9 +336,12 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     for (const { alarm } of world.alarms.values()) if (match(alarm)) clearAlarm(alarm);
   };
 
-  // The alarms due by now, taken: a later alarm, and one set while they run, waits for the next
-  // tick.
+  // The alarms due by now, taken on the host's wake, which that wake spent: a later alarm, and
+  // one set while they run, waits for the next wake.
   const takeDue = () => {
+    world.wake = Option.none();
+    alarmsMoved = true;
+
     const due = [...world.alarms.values()].filter((a) => a.at <= env.now);
 
     for (const { alarm } of due) clearAlarm(alarm);
@@ -349,17 +349,19 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     return due;
   };
 
-  // The host's one wake, at the earliest deadline, when the step changed it.
-  const wake = () =>
-    Option.match(wakeBefore, {
-      onNone: () => undefined,
-      onSome: (before) => {
-        const after = earliest(world.alarms);
+  // The host's one wake, at the earliest deadline, or none while no alarm is due: sent when it
+  // differs from the wake the host holds.
+  const wake = () => {
+    if (!alarmsMoved) return;
 
-        if (Option.isSome(after) && !Equal.equals(before, after))
-          commands.push(Command.Wake({ at: after.value }));
-      },
-    });
+    const next = earliest(world.alarms);
+
+    if (Equal.equals(next, world.wake)) return;
+    world.wake = next;
+    commands.push(
+      Option.match(next, { onNone: () => Command.Sleep(), onSome: (at) => Command.Wake({ at }) }),
+    );
+  };
 
   // Counts a turn's sends toward the loop guard of the admitted event it follows; fails with the
   // refusal's slot, naming that event, when they would pass the guard.

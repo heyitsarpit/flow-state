@@ -134,10 +134,15 @@ export const makeMailbox = (access: MailAccess) => {
     }
   };
 
+  // Every mailbox removed; returns the mail they held, in rotation order.
   const clearMail = () => {
+    const held = [...access.world().mail.values()].flat();
+
     for (const key of access.world().mail.keys()) dirty.add(key);
     access.replace(new Map());
     ownBoxes.clear();
+
+    return held;
   };
 
   // An actor's mailbox removed with its references; returns the mail it held.

@@ -475,7 +475,8 @@ export const startRun = <Names extends string>(
         `Defect: the world's ${drift.join(", ")} index is out of step with its facts`,
       );
 
-    // The alarms its owner facts owe: one per fact and no other (Changes I12).
+    // The alarms its owner facts owe, one per fact and no other, and the host's one wake at the
+    // earliest of them.
     const alarms = alarmDrift(world);
 
     if (alarms.length > 0)
@@ -558,6 +559,16 @@ export const startRun = <Names extends string>(
         attach(tab, actor, context);
         const count = uses.get(actorKey(actor))?.count ?? 0;
         uses.set(actorKey(actor), { actor, context, count: count + 1 });
+      },
+      create: ({ machine, input }) => {
+        live("create");
+
+        const made = Object.values(subject.config.app.machines)
+          .map(machineOf)
+          .find((m) => compiledOf(m).id === machine);
+
+        if (made === undefined) scriptFault(`create of ${machine}, which the app does not run`);
+        else tab.built.runtime.createActor(made, { input });
       },
       detach: ({ actor }) => {
         live("detach");

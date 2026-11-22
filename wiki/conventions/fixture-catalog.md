@@ -1212,12 +1212,25 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
       E7 and E8 do not apply: `returns` is decoded at the door, and a booking starts no call.
     - [x] A room left unused while it saves: its timers sleep and its overdue timers fire once on its return. built:
       `home/unused-while-saving` (red for I12 until the build, green on it).
-    - [x] Front mail (R21, I7): 65 avatars' context updates each served with its reaction's turn across the drain's
-      yield. built: `session/avatar-wall`; the yield boundary by hand in `src/core/turn-parts.test.ts`.
+    - [x] Front mail (R21, I7): 65 avatars' context updates in one drain, each served with its reaction's turn in the
+      same call; they stay under the 100-item yield, so the yield boundary itself is pinned by hand. built:
+      `session/avatar-wall`; the yield in `src/core/turn-parts.test.ts`.
     - [x] The wave skip's cost (Changes Q9): 50 accepted turns that change nothing on a provider 65 consumers read.
       built: `session/wave-noop` (the bench's `turn.session.wave-noop`).
-    - [x] Alarms judged after every step of every Story (I12): the harness derives each owed alarm from the world.
-      built: `src/host/testing/run.ts`, every Story.
+    - [x] Alarms judged at every cut of every Story (I12): the harness derives each owed alarm from the world, and
+      the host's one wake at the earliest. built: `src/host/testing/run.ts`, every checkpoint.
+    - [x] Steps with no delay after a firing: a chime's three rings at once, each from the wake the ring before set.
+      built: `home/chime-rings-thrice`.
+    - [x] A local actor's schedules: a chime the host makes with `create` holds its battery alarm. built:
+      `home/chime-local`.
+    - [x] R10's bench cases: a mailbox of 1,000 (`session/newsletter-run`, one turn's thousand sends) and a wave to
+      100 (`session/wall-100`), each a `bench` entry measured with `--dev`.
+    - [ ] X3, an ended copy's schedule callbacks not run in the turn that ended it. left: `@task.V3.T109`, needs
+      instances.
+    - [ ] I9's life-held and subject-held halves, R15 and R17. left: `@task.V3.T109`, needs instances.
+    - [ ] `Collect` and `Release` alarms, set and taken. left: `@task.V3.T122` and `@task.V3.T123`, needs entries
+      and releasing calls.
+    - [ ] I12's `Silent` row. left: `@task.V3.T112`, needs the store's unanswered batches kept in the World.
     - [x] Every two-step sequence of 17 atoms (sends, a refused vacation, sensors, a failed save, detach, ensure,
       time, dispose, reload, the Runtime's disposal), judged after every step for I5, I9, I12, I13 and I15 to I17.
       built: `tests/turn/sequence.test.ts` (three-step under the stress flag).

@@ -32,6 +32,7 @@ import { issueOf } from "./schedule-issues.ts";
 import type { Arming as TurnArming } from "./turn.ts";
 import type { Tx } from "./tx.ts";
 import { readsOf, scopeOf } from "./reads.ts";
+import { armingsOf } from "./turn-arms.ts";
 import { Life } from "./life.ts";
 import { type ActorId, type ArmingId, type Incarnation, trackOf } from "./world.ts";
 import { alarmKey } from "./alarms.ts";
@@ -239,6 +240,25 @@ export const makeSchedules = (tx: Tx) => {
 
     for (const { alarm, at } of wanted) tx.setAlarm(alarm, at);
   };
+
+  /**
+   * The schedules a fresh start arms on its first state, each with its first step read on the
+   * start's memory.
+   */
+  const entryArms = (incarnation: Incarnation) =>
+    Option.match(Option.fromUndefinedOr(tx.machines.get(incarnation.actor.machine)), {
+      onNone: () => [],
+      onSome: (compiled) =>
+        armingsOf(
+          compiled,
+          incarnation.state,
+          new Set(compiled.states.get(incarnation.state)?.chain),
+          "",
+          scopeOf(incarnation),
+          tx.env.now,
+          (name, series, attempt) => stepper(incarnation.actor, name, tx.env.now)(series, attempt),
+        ),
+    });
 
   /**
    * Wakes an actor's schedules at a first use: each later due run has its alarm, and the runs that
@@ -451,6 +471,7 @@ export const makeSchedules = (tx: Tx) => {
     stepper,
     keyOf,
     wake,
+    entryArms,
   };
 };
 

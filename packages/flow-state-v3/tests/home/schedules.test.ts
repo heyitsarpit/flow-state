@@ -1,9 +1,15 @@
 import { Duration, Effect, Option, Predicate, Schedule, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { house, roomOf } from "../../fixtures/home/app.ts";
+import { chime, house, roomOf } from "../../fixtures/home/app.ts";
 import { House } from "../../fixtures/home/machines/house.ts";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import { noSensors, reconnectBackoff, vacationEdges } from "../../fixtures/home/stories/edges.ts";
+import {
+  chimeLocal,
+  chimeRingsThrice,
+  noSensors,
+  reconnectBackoff,
+  vacationEdges,
+} from "../../fixtures/home/stories/edges.ts";
 import { manyRooms, ROOMS } from "../../fixtures/home/stories/load.ts";
 import {
   houseFirst,
@@ -773,5 +779,26 @@ describe("a room left unused while it saves (Changes C5 Use row, I12; Turn R17, 
       ...alarmsMatch(run.checkpoints["still saving"], "still saving"),
       ...alarmsMatch(run.checkpoints.awake, "awake"),
     ]).toEqual([]);
+  });
+});
+
+describe("steps with no delay after a firing (Turn R15; Changes T14)", () => {
+  it("Turn R15, Changes T14: a Schedule of three steps with no delay rings three times, each from the wake the ring before it set", async () => {
+    const run = await played(chimeRingsThrice);
+
+    expect(run.checkpoints.rung.read(chime("front"))?.memory.rings).toBe(3);
+  });
+});
+
+describe("a local actor's schedules (Changes C5 Use row, I12; Actors R7)", () => {
+  it("Changes I12: a chime the host makes as a local actor holds its battery alarm and checks on its hour", async () => {
+    const run = await played(chimeLocal);
+    const timers = run.checkpoints.created.inspection.timers.filter((t) => t.kind === "Schedule");
+    const checks = run.checkpoints.checked.inspection.actors.map(({ snapshot }) => snapshot.memory);
+
+    expect({ alarms: timers.length, checks }).toEqual({
+      alarms: 1,
+      checks: [expect.objectContaining({ door: "side", checks: 1 })],
+    });
   });
 });

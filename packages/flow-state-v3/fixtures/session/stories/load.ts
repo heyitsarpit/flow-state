@@ -1,6 +1,7 @@
 import type { Story } from "../../../src/host/testing/index.ts";
 import { wallAvatar } from "../app.ts";
-import { acme, coreTeam, mainSession, wallBadge } from "../app.ts";
+import { acme, coreTeam, mainInbox, mainSession, newsletter, wallBadge } from "../app.ts";
+import { Mailer } from "../machines/mailer.ts";
 import { Badge } from "../machines/badge.ts";
 import { Session } from "../machines/session.ts";
 import { Team } from "../machines/team.ts";
@@ -68,3 +69,13 @@ export const waveNoop = Array.from({ length: 50 }).reduce<Story>(
     .ensure(mainSession)
     .send(mainSession, Session.E.SignIn({ user: "ada" })),
 );
+
+/**
+ * The newsletter's run: one turn sends its thousand copies to the main inbox, so a thousand
+ * messages wait in one mailbox, taken past the drain's yields.
+ */
+export const newsletterRun = grownStory("session/newsletter-run")
+  .ensure(mainInbox)
+  .ensure(newsletter)
+  .send(newsletter, Mailer.E.Run())
+  .checkpoint("delivered");

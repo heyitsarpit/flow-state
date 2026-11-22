@@ -4630,7 +4630,7 @@ tasks
             code:packages/flow-state-v3/src/core/walk.ts#accept, code:packages/flow-state-v3/src/core/walk.ts#runTurn,
             code:packages/flow-state-v3/src/core/turn-arms.ts#armingsOf,
             code:packages/flow-state-v3/src/core/walk.ts#TurnResult,
-            code:packages/flow-state-v3/src/core/turn.ts#TurnInput; code:packages/flow-state-v3/src/core/serve.ts#turn,
+            code:packages/flow-state-v3/src/core/walk.ts#TurnInput; code:packages/flow-state-v3/src/core/serve.ts#turn,
             `packages/flow-state-v3/src/core/serve.ts#raised`, code:packages/flow-state-v3/src/core/serve.ts#refusal,
             code:packages/flow-state-v3/src/core/serve.ts#pendingOwners,
             `packages/flow-state-v3/src/core/serve.ts#deferred`, code:packages/flow-state-v3/src/core/serve.ts#drain,
@@ -6392,8 +6392,8 @@ tasks
             Task's spike decides.
 
             **Supersedes:** `machine.ts#erasedBody`, `machine.ts#erasedWhen`, `machine.ts#trustedTokens`,
-            code:packages/flow-state-v3/src/machine.ts#handled; code:packages/flow-state-v3/src/core/tree.ts#chainOf,
-            code:packages/flow-state-v3/src/core/tree.ts#leafOf (replaced by `Node.chain` and `Node.leaf`; their last
+            code:packages/flow-state-v3/src/machine.ts#handled; `packages/flow-state-v3/src/core/tree.ts#chainOf`,
+            `packages/flow-state-v3/src/core/tree.ts#leafOf` (replaced by `Node.chain` and `Node.leaf`; their last
             caller, the turn walk, moves in @task.V3.T119, which deletes them); `events.ts#codecOf`,
             `events.ts#trusted`; `contract.ts#trustedAttempt`; `compile-body.ts#childrenOf`,
             `compile-body.ts#childNodes`, `compile-body.ts#nodesOf`, `compile-body.ts#tokenMaps`;

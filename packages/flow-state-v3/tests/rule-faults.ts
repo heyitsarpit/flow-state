@@ -237,7 +237,7 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["src/core/tree.test.ts"],
     "entering a compound leaves the compound active, not a leaf",
     "src/core/tree.ts",
-    "State: () => leafOf(compiled, path),",
+    "State: () => leafIn(compiled, path),",
     "State: () => path,",
   ),
   fault(
@@ -255,8 +255,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["src/core/tree.test.ts"],
     "exits run outermost first, so a parent stops before its child",
     "src/core/tree.ts",
-    "const exits = chainOf(leaf).slice(depth).toReversed();",
-    "const exits = chainOf(leaf).slice(depth);",
+    "const exits = chainIn(compiled, leaf).slice(depth).toReversed();",
+    "const exits = chainIn(compiled, leaf).slice(depth);",
   ),
   fault(
     "equal-selection-heard",

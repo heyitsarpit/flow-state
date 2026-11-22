@@ -457,7 +457,8 @@ export const quarantineText = (q: Quarantine) =>
  * `quarantined` holds each record the boot could not read, by its key, with why: its bytes stay
  * until the identity saves over it or, for a lane, a cancel on its key clears it.
  *
- * `alarms` holds the one host alarm of each owner fact that has a deadline, by the fact's key.
+ * `alarms` holds the one host alarm of each owner fact that has a deadline, by the fact's key;
+ * `wake` the deadline of the one wake the host holds, none while no alarm is due.
  *
  * The last three maps are indexes, each derived from the facts above by the step operation that
  * changes them ({@link indexesOf} rebuilds them): each identity's lanes, the lane whose head waits
@@ -473,6 +474,7 @@ export type World = {
   readonly mail: ReadonlyMap<string, ReadonlyArray<Mail>>;
   readonly uses: ReadonlyMap<ActorKey, ReadonlyArray<Use>>;
   readonly alarms: ReadonlyMap<string, Alarmed>;
+  readonly wake: Option.Option<number>;
   readonly counter: number;
   readonly attempts: number;
   readonly persistence: boolean;
@@ -519,6 +521,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   mail: new Map(),
   uses: new Map(),
   alarms: new Map(),
+  wake: Option.none(),
   counter: 0,
   attempts: 0,
   persistence,
@@ -634,6 +637,8 @@ export type Command = Data.TaggedEnum<{
   EndWork: { owners: ReadonlyArray<string>; reportTo: "ref" | "runtime" };
   // The host's one wake: at the earliest alarm's deadline, a Tick; it replaces any earlier wake.
   Wake: { at: number };
+  // No alarm is due: the host drops the wake it holds.
+  Sleep: {};
   Persist: { refused: ReadonlyArray<TicketId>; due: Due };
   Write: {
     writes: ReadonlyArray<Write>;

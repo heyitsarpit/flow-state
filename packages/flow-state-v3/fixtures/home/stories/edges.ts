@@ -1,5 +1,6 @@
+import { Chime, ChimeMachine } from "../machines/chime.ts";
 import { Fake } from "../../../src/host/testing/index.ts";
-import { house, trip } from "../app.ts";
+import { chime, house, trip } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
 import { Trip } from "../machines/trip.ts";
@@ -118,3 +119,23 @@ export const tripPastLongest = homeStory("home/trip-past-longest")
   .send(house, House.E.Arrive())
   .send(house, House.E.StartVacation({ until: 2 ** 31 }))
   .checkpoint("sent by hand");
+
+/**
+ * The front door's chime is pressed: its three rings are due at once, each a step with no delay
+ * after the ring before, so each comes from the wake the ring before it set.
+ */
+export const chimeRingsThrice = homeStory("home/chime-rings-thrice")
+  .ensure(chime("front"))
+  .send(chime("front"), Chime.E.Press())
+  .advance("1 second")
+  .checkpoint("rung");
+
+/**
+ * A side door's chime made by the host as a local actor, no ref naming it: it checks its battery
+ * on its own hour, as a chime ensured by its door does.
+ */
+export const chimeLocal = homeStory("home/chime-local")
+  .create(ChimeMachine, { input: { door: "side" } })
+  .checkpoint("created")
+  .advance("1 hour")
+  .checkpoint("checked");

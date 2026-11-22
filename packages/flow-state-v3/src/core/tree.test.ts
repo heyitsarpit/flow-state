@@ -95,7 +95,7 @@ describe("history (Turn R4)", () => {
 
   it("a compound's history is its child active when it was last exited, entered through that child's defaults, else its default leaf", () => {
     const leave = moveOf(compiled, "ON.MEDIA.PAUSED", "", to("OFF"), NONE);
-    const history = historyAfter(NONE, "ON.MEDIA.PAUSED", leave);
+    const history = historyAfter(compiled, NONE, "ON.MEDIA.PAUSED", leave);
     const back = moveOf(compiled, "OFF", "OFF", Target.History({ path: "ON" }), history);
 
     expect(history).toEqual(

@@ -2,34 +2,15 @@ import { Option } from "effect";
 import { InternalsId, type Compiled, Source, Target, type Values } from "./compiled.ts";
 
 /**
- * The path of every state from the top level down to `leaf`: `ON.PLAYING` gives `ON`, then
- * `ON.PLAYING`.
- */
-export const chainOf = (leaf: string) => {
-  const segments = leaf.split(".");
-
-  return segments.map((_, i) => segments.slice(0, i + 1).join("."));
-};
-
-/**
  * Whether `state` is `path` or below it.
  */
 export const atOrBelow = (state: string, path: string) =>
   state === path || state.startsWith(`${path}.`);
 
-/**
- * The leaf a state reaches by its defaults.
- */
-export const leafOf = (compiled: Compiled, path: string) => {
-  let at = path;
+// The chain and the default leaf of a state, as its machine computed them once.
+const chainIn = (compiled: Compiled, path: string) => compiled.states.get(path)?.chain ?? [];
 
-  for (let node = compiled.states.get(at); node !== undefined && Option.isSome(node.default);) {
-    at = node.default.value;
-    node = compiled.states.get(at);
-  }
-
-  return at;
-};
+const leafIn = (compiled: Compiled, path: string) => compiled.states.get(path)?.leaf ?? path;
 
 /**
  * One transition's change of state: the states it exits, deepest first, the states it enters,
@@ -43,10 +24,10 @@ export type Move = {
 };
 
 // The nearest proper ancestor of `target` that contains `handler`, as a depth: 0 is the root.
-const boundaryDepth = (handler: string, target: string) => {
-  if (handler !== "" && target.startsWith(`${handler}.`)) return chainOf(handler).length;
+const boundaryDepth = (compiled: Compiled, handler: string, target: string) => {
+  if (handler !== "" && target.startsWith(`${handler}.`)) return chainIn(compiled, handler).length;
 
-  const above = chainOf(target).slice(0, -1);
+  const above = chainIn(compiled, target).slice(0, -1);
   let depth = 0;
 
   for (const [i, path] of above.entries())
@@ -75,18 +56,18 @@ export const moveOf = (
 ) => {
   const path = target.path;
 
-  const depth = boundaryDepth(handler, path);
-  const exits = chainOf(leaf).slice(depth).toReversed();
+  const depth = boundaryDepth(compiled, handler, path);
+  const exits = chainIn(compiled, leaf).slice(depth).toReversed();
 
   // A history the move itself records, exiting the target, is the one it enters (as SCXML).
   const recorded = exits.includes(path)
-    ? Option.fromUndefinedOr(chainOf(leaf)[chainOf(path).length])
+    ? Option.fromUndefinedOr(chainIn(compiled, leaf)[chainIn(compiled, path).length])
     : Option.fromUndefinedOr(history.get(path));
 
   const reached = Target.$match(target, {
-    State: () => leafOf(compiled, path),
+    State: () => leafIn(compiled, path),
     History: () =>
-      leafOf(
+      leafIn(
         compiled,
         Option.getOrElse(recorded, () => path),
       ),
@@ -94,7 +75,7 @@ export const moveOf = (
 
   const move: Move = {
     exits,
-    enters: chainOf(reached).slice(depth),
+    enters: chainIn(compiled, reached).slice(depth),
     leaf: reached,
     target: path,
   };
@@ -105,13 +86,18 @@ export const moveOf = (
 /**
  * The history a move leaves: each exited compound remembers its child that was active.
  */
-export const historyAfter = (history: ReadonlyMap<string, string>, leaf: string, move: Move) => {
+export const historyAfter = (
+  compiled: Compiled,
+  history: ReadonlyMap<string, string>,
+  leaf: string,
+  move: Move,
+) => {
   const next = new Map(history);
 
-  const chain = chainOf(leaf);
+  const chain = chainIn(compiled, leaf);
 
   for (const path of move.exits) {
-    const child = chain[chainOf(path).length];
+    const child = chain[chainIn(compiled, path).length];
 
     if (child !== undefined) next.set(path, child);
   }

@@ -1,6 +1,6 @@
 import { type Duration, Effect, type Layer, Option } from "effect";
-import type { AnyDefinition } from "../../definition.ts";
-import type { EventOf } from "../../derive.ts";
+import type { AnyDefinition, Machine } from "../../definition.ts";
+import type { EventOf, Parts } from "../../derive.ts";
 import { foreignActorRef } from "../../error.ts";
 import {
   actorIdOf,
@@ -78,6 +78,10 @@ export type Story<Names extends string = never, Ds extends AnyDefinition = AnyDe
   readonly id: string;
   readonly steps: Steps<Names>;
   readonly ensure: <D extends Ds>(ref: ActorRef<D>) => Story<Names, Ds>;
+  readonly create: <D extends Ds>(
+    machine: Machine<D>,
+    options: { readonly input: Parts<D>["Input"] },
+  ) => Story<Names, Ds>;
   readonly detach: <D extends Ds>(ref: ActorRef<D>) => Story<Names, Ds>;
   readonly send: <D extends Ds>(ref: ActorRef<D>, event: EventOf<D>) => Story<Names, Ds>;
   readonly dispose: <D extends Ds>(
@@ -152,6 +156,8 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
             context: overridesBy(ref, (_slot, p) => own(p)),
           }),
         ),
+      create: (machine, { input }) =>
+        next(StepData.create({ machine: compiledOf(machine).id, input })),
       detach: (ref) => next(StepData.detach({ actor: own(ref) })),
       send: (ref, event) => next(StepData.send({ actor: own(ref), event })),
       dispose: (ref, how) =>

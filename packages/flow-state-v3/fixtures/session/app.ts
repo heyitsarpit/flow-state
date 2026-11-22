@@ -14,6 +14,7 @@ import {
   ThreadViewMachine,
   UnreadMachine,
 } from "./machines/inbox.ts";
+import { MailerMachine } from "./machines/mailer.ts";
 import { NestsMachine, NestViewMachine } from "./machines/nests.ts";
 import { OutlineMachine, PreviewMachine } from "./machines/outline.ts";
 import { DotMachine, PresenceMachine } from "./machines/presence.ts";
@@ -123,6 +124,11 @@ export const mainByline = actorRef(BylineMachine, "byline");
 export const teamStatus = actorRef(StatusMachine, "status");
 
 /**
+ * The newsletter mailer of the workspace's main list.
+ */
+export const newsletter = actorRef(MailerMachine, { list: "news" });
+
+/**
  * The workspace's inbox.
  */
 export const mainInbox = actorRef(InboxMachine, "main");
@@ -209,6 +215,7 @@ export const workspaceGrown = app({
     byline: { machine: BylineMachine, context: { user: mainSession, team: coreTeam } },
     status: StatusMachine,
     inbox: InboxMachine,
+    mailer: MailerMachine,
     digest: {
       machine: DigestMachine,
       context: {

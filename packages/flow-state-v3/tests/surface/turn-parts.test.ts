@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 // The turn's parts read from the source: only `apply.ts` writes an incarnation and publishes
@@ -49,35 +49,28 @@ describe("one applier (Changes R11, I4)", () => {
   });
 });
 
-// The builders of a callback's inputs before `readsOf`, each a record literal in the code that
-// called the callback; `readsOf` in `reads.ts` replaced every one (Changes R22, CallbackInputs).
-const BUILDERS = [
-  { site: "turn.ts: a guard's and a patch's reads", file: "turn.ts", pattern: /const read = \{/gu },
-  {
-    site: "turn.ts: an action select's reads",
-    file: "turn.ts",
-    pattern: /const select = \{ memory/gu,
-  },
-  {
-    site: "turn-arms.ts: a first delay's reads",
-    file: "turn-arms.ts",
-    pattern: /const input = \{ key: undefined/gu,
-  },
-  {
-    site: "schedules.ts: a schedule function's reads",
-    file: "schedules.ts",
-    pattern: /const readOf = \(/gu,
-  },
-  {
-    site: "context.ts: a reaction's `when` reads",
-    file: "context.ts",
-    pattern: /\{\s*memory: read\.memory,?\s*\}/gu,
-  },
-];
+// A record built for a user callback: a value literal with the scope's memory beside what only a
+// callback reads (its event, the time, a timer's key). Outside `reads.ts`, every core file is
+// scanned, so a builder moved to a new file is still found (Changes R22, CallbackInputs).
+const LITERAL = /\{[^{}]*\}/gu;
 
-const found = BUILDERS.flatMap(({ site, file, pattern }) =>
-  existsSync(new URL(file, CORE)) ? [...text(file).matchAll(pattern)].map(() => site) : [],
-);
+const hasKey = (literal: string, key: string) =>
+  new RegExp(`(?:^\\{|,)\\s*${key}\\s*[:,}]`, "u").test(literal);
+
+const callbackRecord = (literal: string) =>
+  !literal.includes("readonly") &&
+  !literal.includes("Schema.") &&
+  hasKey(literal, "memory") &&
+  ["event", "now", "key"].some((key) => hasKey(literal, key));
+
+const found = production
+  .filter((f) => f !== "reads.ts")
+  .flatMap((f) =>
+    [...text(f).matchAll(LITERAL)]
+      .map((m) => m[0].replaceAll(/\s+/gu, " "))
+      .filter(callbackRecord)
+      .map((literal) => `${f}: ${literal}`),
+  );
 
 describe("one builder of callback inputs (Changes R22)", () => {
   it("Changes R22: readsOf is declared once, in reads.ts", () => {

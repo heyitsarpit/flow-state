@@ -2,12 +2,11 @@ import { Equal, Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { type ContextSteps, OutcomeEdit } from "./context.ts";
 import { defect } from "./defect.ts";
-import { Change, Origin, publishesAlways, refusalOf, whyOf } from "./change.ts";
+import { Change, ENDS, Origin, publishesAlways, refusalOf, whyOf } from "./change.ts";
 import { Act } from "./evidence-of.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import type { Persistence } from "./persist.ts";
-import { scopeOf } from "./reads.ts";
 import { sameForm } from "./slots.ts";
 import { Occasion } from "./schedule-decision.ts";
 import type { Due } from "./schedule-plan.ts";
@@ -17,7 +16,6 @@ import type { Scheduled } from "./timers.ts";
 import { historyAfter } from "./tree.ts";
 import { Resolved } from "./turn.ts";
 import type { Turn } from "./walk.ts";
-import { armingsOf } from "./turn-arms.ts";
 import { routeOf } from "./trigger.ts";
 import type { Tx } from "./tx.ts";
 import { create } from "./tree.ts";
@@ -55,15 +53,16 @@ const sendsOf = (turn: Turn) =>
   turn.parts.flatMap((part) => part.actions.filter(Resolved.$is("Send")));
 
 /**
- * The one applier: every change to an actor runs rows C1 to C7 in order, each once.
+ * The one applier: every change to an actor runs its seven rows in order, each once.
  *
  * **Details**
  *
- * C1 guards a turn's sends by the loop guard, refusing the turn past it; C2 writes the
- * incarnation, the only writer of one and the only minter of its activations; C3 runs a turn's
- * lane members; C4 moves the owed rows; C5 decides the schedules and keeps their alarms; C6
- * publishes once, by {@link whyOf}; C7 queues the change's mail. `apply` returns the change it
- * applied, which C1 may have made a refusal.
+ * The guard holds a turn's sends to the loop guard, refusing the turn past it; the write writes
+ * the incarnation, the only writer of one and the only minter of its activations; the members row
+ * runs a turn's lane members; the holders row moves the owed rows; the schedules row decides the
+ * schedules and keeps their alarms; the publish row publishes once, by {@link whyOf}; the mail row
+ * queues the change's mail. `apply` returns the change it applied, which the guard may have made
+ * a refusal.
  */
 export const makeApply = (tx: Tx, parts: ApplierParts) => {
   const { persistence, ledger, lanes, schedules, context } = parts;
@@ -96,7 +95,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       incarnation.issues,
     );
 
-  // C1: a turn whose sends would pass the loop guard is refused whole, naming its chain.
+  // The guard: a turn whose sends would pass the loop guard is refused whole, naming its chain.
   const guard = (change: Change) =>
     Change.$is("Turn")(change) && sendsOf(change.turn).length > 0
       ? Result.match(tx.countSends(sendsOf(change.turn).length), {
@@ -105,7 +104,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
         })
       : change;
 
-  // C2 of `Begin`: the incarnation minted, bound and read once. A start from a record keeps its
+  // The write of `Begin`: the incarnation minted, bound and read once. A start from a record keeps its
   // saved selections while a selector throws, and its reactions' saved baselines.
   const begun = (change: Extract<Change, { readonly _tag: "Begin" }>) => {
     const { actor, origin } = change;
@@ -161,7 +160,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
     return install({ ...base, issues: outcomesAfter(base, bound.outcomes) }, true);
   };
 
-  // C2: the incarnation after the change's own write; none once it has ended.
+  // The write: the incarnation after the change's own write; none once it has ended.
   const write = (before: Option.Option<Incarnation>, change: Change) =>
     Change.$match(change, {
       Begin: (begin) => Option.some(begun(begin)),
@@ -178,7 +177,12 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
                 ),
                 ...move.enters.map(() => tx.mintActivation()),
               ],
-              history: historyAfter(incarnation.history, incarnation.state, move),
+              history: historyAfter(
+                tx.machines.get(incarnation.actor.machine) ?? defect("a turn of no machine"),
+                incarnation.history,
+                incarnation.state,
+                move,
+              ),
             }),
           });
 
@@ -230,10 +234,12 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       Settled: () => before,
       Use: () => before,
       End: ({ how }) => {
-        for (const incarnation of Option.toArray(before)) {
-          if (how === "RuntimeDisposed") continue;
+        const ending = ENDS[how._tag];
 
-          if (how === "Grace") persistence.keepEnded(incarnation);
+        for (const incarnation of Option.toArray(before)) {
+          if (!ending.drops) continue;
+
+          if (ending.keepsRecord) persistence.keepEnded(incarnation);
           tx.dropIncarnation(incarnation.actor);
           // What it leaves for its handles to read.
           tx.put("ended", actorKey(incarnation.actor), {
@@ -247,11 +253,11 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
           tx.command(Command.EndWork({ owners: [incarnation.id], reportTo: "ref" }));
         }
 
-        return how === "RuntimeDisposed" ? before : Option.none<Incarnation>();
+        return ending.drops ? Option.none<Incarnation>() : before;
       },
     });
 
-  // C3: a turn's lane members, each owned by its part's scope; the turn's record goes before the
+  // The members: a turn's lane members, each owned by its part's scope; the turn's record goes before the
   // members' reports, then its lanes flush. The incarnation is read again, since a flush may move
   // it.
   const members = (
@@ -287,7 +293,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
     return Option.map(after, (a) => incarnationOf(a.actor) ?? a);
   };
 
-  // C4: the owed rows a start delivers and an end suspends; an ending's own row is tried by its
+  // The holders: the owed rows a start delivers and an end suspends; an ending's own row is tried by its
   // ledger around the change.
   const holders = (change: Change, actor: Option.Option<ActorId>) =>
     Change.$match(change, {
@@ -300,9 +306,11 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       Settled: () => undefined,
       Use: () => undefined,
       End: ({ how }) => {
-        if (how === "RuntimeDisposed") return;
+        const { rows } = ENDS[how._tag];
 
-        for (const a of Option.toArray(actor)) ledger.suspend(a, how === "Forgotten");
+        if (rows === "kept") return;
+
+        for (const a of Option.toArray(actor)) ledger.suspend(a, rows === "close");
       },
     });
 
@@ -310,7 +318,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
   const decided = (current: Incarnation, next: Incarnation) =>
     next === current ? current : install(next, true);
 
-  // C5: each schedule hears the change's occasion, and the alarms follow the due runs; a returning
+  // The schedules: each schedule hears the change's occasion, and the alarms follow the due runs; a returning
   // use also hands back the runs that came due while the actor slept.
   const scheduled = (
     change: Change,
@@ -324,24 +332,9 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
         Begin: ({ origin }) =>
           Origin.$match(origin, {
             Fresh: () => {
-              const compiled = tx.machines.get(current.actor.machine);
-
               // A start's entry arms, read on its first memory: a creation, so a bad delay is
               // refused with an issue and refuses nothing.
-              const arms = Option.match(Option.fromUndefinedOr(compiled), {
-                onNone: () => [],
-                onSome: (c) =>
-                  armingsOf(
-                    c,
-                    current.state,
-                    new Set(c.states.get(current.state)?.chain),
-                    "",
-                    scopeOf(current),
-                    tx.env.now,
-                    (name, series, attempt) =>
-                      schedules.stepper(current.actor, name, tx.env.now)(series, attempt),
-                  ),
-              });
+              const arms = schedules.entryArms(current);
 
               return decided(
                 current,
@@ -421,7 +414,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
     before.issues !== after.issues ||
     before.schedules !== after.schedules;
 
-  // C6: one publication, built here alone, carrying the incarnation and why: always for a start, a
+  // The publish row: one publication, built here alone, carrying the incarnation and why: always for a start, a
   // turn, a refusal and an unturned ending; once it differs for the rest; `Finished` for an end.
   const published = (
     change: Change,
@@ -443,7 +436,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
           tx.act(Act.Published({ actor: incarnation.actor, incarnation, why }));
   };
 
-  // C7: the change's mail: a start's owed context update; a turn's wave to its consumers and its
+  // The mail row: the change's mail: a start's owed context update; a turn's wave to its consumers and its
   // sends, in walk order; an update's reaction events at the front; a returning use's overdue
   // firings; an end's providers released and, when disposed or forgotten, its mailbox dropped.
   const mailed = (
@@ -507,10 +500,10 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       },
       End: ({ how }) => {
         for (const incarnation of Option.toArray(before)) {
-          if (how !== "RuntimeDisposed") context.unbind(incarnation);
+          if (ENDS[how._tag].releases) context.unbind(incarnation);
 
           // An event its mailbox held finds its actor gone: it is unhandled, never dropped unseen.
-          if (how === "Disposed" || how === "Forgotten")
+          if (ENDS[how._tag].dropsMail)
             for (const mail of tx.dropMail(incarnation.actor))
               if (Mail.$is("Event")(mail))
                 tx.act(Act.Unhandled({ actor: mail.actor, event: mail.tag }));
@@ -523,7 +516,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
    * `Begin`), and returns the change applied: a turn past the loop guard is applied as its
    * refusal.
    */
-  // RETURN_TYPE: recursive: a refusal C1 found is applied in its place.
+  // RETURN_TYPE: recursive: a refusal the guard found is applied in its place.
   const apply = (before: Option.Option<Incarnation>, given: Change): Change => {
     const change = guard(given);
 

@@ -11,7 +11,6 @@ import {
 import { TIMER_LIMIT_MS } from "./defaults.ts";
 import { laneKeyText } from "./lane-moves.ts";
 import { rowOf, type Row } from "./rows.ts";
-import { chainOf } from "./tree.ts";
 import type { Machines } from "./tx.ts";
 import {
   type ActorId,
@@ -40,7 +39,9 @@ export const schedulesOf = (machines: Machines, machine: string) => (path: strin
  * order: the order equal deadlines fire in.
  */
 export const declaredOn = (machines: Machines, incarnation: Incarnation) =>
-  chainOf(incarnation.state).flatMap(schedulesOf(machines, incarnation.actor.machine));
+  (machines.get(incarnation.actor.machine)?.states.get(incarnation.state)?.chain ?? []).flatMap(
+    schedulesOf(machines, incarnation.actor.machine),
+  );
 
 /**
  * The rows of an actor's write lanes, by operation and key text: what a snapshot shows and what a

@@ -6,6 +6,8 @@ import { transaction } from "../contract.ts";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
+import { send } from "../send.ts";
+import { actorRef } from "../index.ts";
 import { compiledOf } from "../compiled-of.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { Input } from "./input.ts";
@@ -196,7 +198,7 @@ describe("one host wake (Changes realization, One host wake; algorithm, a step's
     }).toEqual({ commands: ["Wake"], at: Option.some(1000) });
   });
 
-  it("Changes T14: an early Tick, from a wake an earlier step superseded, takes no alarm, loses none and owes no new wake", () => {
+  it("Changes T14: a Tick before every deadline takes no alarm, loses none, and gives the host back the wake it spent", () => {
     const { world } = armed();
     const early = step(tickerMachines, world, Input.Tick(), { ...env, now: 500 });
 
@@ -204,7 +206,7 @@ describe("one host wake (Changes realization, One host wake; algorithm, a step's
       alarms: [...early.world.alarms.values()].map((a) => a.at).toSorted((a, b) => a - b),
       commands: early.commands.map(tagOf),
       evidence: early.evidence.length,
-    }).toEqual({ alarms: [1000, 60_000], commands: [], evidence: 0 });
+    }).toEqual({ alarms: [1000, 60_000], commands: ["Wake"], evidence: 0 });
   });
 });
 
@@ -335,6 +337,16 @@ const probeOf = (hear: (kind: string, input: unknown) => void) =>
 
               return { by: reads.event.by };
             },
+            actions: [
+              send(
+                () => actorRef(LeadMachine, "lead"),
+                Lead.E.Rename.from((reads) => {
+                  hear("Select", reads);
+
+                  return { name: "core" };
+                }),
+              ),
+            ],
           },
         },
       },
@@ -409,14 +421,20 @@ describe("one builder of callback inputs (Changes R22, T15)", () => {
 
     const event = { by: 2 };
 
+    // The turn's after view: its memory and leaf, with the context it began with (the lead's
+    // rename its send made lands after it).
+    const turned = { ...scopeOf(after), context: scopeOf(before).context };
+
     expect({
       Guard: heard.get("Guard"),
       Patch: heard.get("Patch"),
+      Select: heard.get("Select"),
       Schedule: heard.get("Schedule"),
     }).toEqual({
       Guard: readsOf(scopeOf(before), "Guard", { event }),
       Patch: readsOf(scopeOf(before), "Patch", { event, now: env.now }),
-      Schedule: readsOf(scopeOf(after), "Schedule", {
+      Select: readsOf(turned, "Select", { event }),
+      Schedule: readsOf(turned, "Schedule", {
         key: Option.none(),
         operations: new Map(),
         now: env.now,
@@ -452,6 +470,21 @@ describe("the alarms due at one instant (Changes Q9, build-time choice 1)", () =
 });
 
 describe("mail an actor's end finds in its mailbox (Changes R24, the trigger table)", () => {
+  it("Changes R24: an event still queued when the Runtime's disposal starts is unhandled, as at an actor's own disposal", () => {
+    const started = ensure({ ...emptyWorld(false), life: Life.Open() }, noise(0));
+
+    const queued = {
+      ...started,
+      mail: new Map([[actorKey(noise(0)), [event(noise(0), "Poke")]]]),
+    };
+
+    const disposing = step(machines, queued, Input.DisposeRuntime(), env);
+
+    expect(disposing.evidence.filter((e) => e._tag === "Unhandled")).toEqual([
+      expect.objectContaining({ actor: noise(0), event: "Poke" }),
+    ]);
+  });
+
   it("Changes R24: an event queued for an actor disposed in the same step is unhandled, not dropped unseen", () => {
     const started = ensure({ ...emptyWorld(false), life: Life.Open() }, noise(0));
 

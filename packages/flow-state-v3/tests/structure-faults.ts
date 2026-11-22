@@ -35,8 +35,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/tree.ts",
-        find: "return chainOf(handler).length;",
-        replace: "return chainOf(handler).length - 1;",
+        find: "return chainIn(compiled, handler).length;",
+        replace: "return chainIn(compiled, handler).length - 1;",
       },
     ],
   },

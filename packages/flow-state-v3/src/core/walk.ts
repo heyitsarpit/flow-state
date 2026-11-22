@@ -216,7 +216,7 @@ const visit = (walk: Walk, alternative: Alternative, handler: string, input: Tur
 // After the walk, on the after view: each part's actions resolved, and the scope's schedule work,
 // read on the leaf the changer's move reaches. A turn's own arm with a bad delay refuses the turn,
 // but a turn its source cannot send again (an operation's outcome, an actor's send, a context
-// reaction) commits with that start refused (Schedules R11).
+// reaction) commits with that start refused.
 // RETURN_TYPE: each branch builds one TurnResult variant; the union is the contract.
 const settled = (walk: Walk, input: TurnInput): TurnResult =>
   Walk.$match(walk, {

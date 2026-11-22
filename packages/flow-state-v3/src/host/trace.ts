@@ -95,6 +95,7 @@ const wordText = (word: WorldWord) =>
 const stepText = (step: Step) =>
   StepData.$match(step, {
     ensure: ({ actor }) => `ensure ${actorKey(actor)}`,
+    create: ({ machine }) => `create ${machine}`,
     detach: ({ actor }) => `detach ${actorKey(actor)}`,
     send: ({ actor, event: { _tag, ...payload } }) =>
       `send ${actorKey(actor)} ${_tag} ${json(payload)}`,

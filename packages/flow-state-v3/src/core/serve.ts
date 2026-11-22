@@ -114,7 +114,16 @@ export const makeServe = (
 
     const route = routeOf(trigger);
 
-    const owning = pendingOwners(tx.lanesOf(incarnation.actor).map(([, lane]) => lane));
+    // The activations owning pending work, read on the first question of a late turn only.
+    let owning = Option.none<ReadonlySet<ActivationId>>();
+
+    const owned = () =>
+      Option.getOrElse(owning, () => {
+        const read = pendingOwners(tx.lanesOf(incarnation.actor).map(([, lane]) => lane));
+        owning = Option.some(read);
+
+        return read;
+      });
 
     const result = runTurn({
       compiled,
@@ -131,7 +140,7 @@ export const makeServe = (
       }),
       now: tx.env.now,
       lane: viewOf(incarnation, route.own),
-      owns: (activation) => owning.has(activation),
+      owns: (activation) => owned().has(activation),
       step: (name, series, attempt) =>
         schedules.stepper(incarnation.actor, name, tx.env.now)(series, attempt),
     });
