@@ -76,6 +76,7 @@ export const AttachmentUpload = trait(
         },
       }),
     }),
+    schedules: { start: {}, resend: {} },
   },
   ({ E, O, callbacks }) => {
     const own = ({ memory }: { memory: { ref: string } }) => ({ ref: memory.ref }); // user-defined: this upload's lane

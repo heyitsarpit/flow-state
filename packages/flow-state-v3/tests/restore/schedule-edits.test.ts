@@ -5,23 +5,37 @@ import { booking, wizardSetup } from "../../fixtures/wizard/app.ts";
 import { usual } from "../../fixtures/wizard/stories/usual.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Story, turnsOf } from "../../src/host/testing/index.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  runtimeSetup,
+  type ScheduleDecls,
+} from "../../src/index.ts";
+import { loose } from "../../src/test/loose.ts";
 import { played } from "../rules/played.ts";
 import { timersOf } from "../timers.ts";
 
-// The booking's definition edited in a later build: the same id and memory, two more events.
-const Edited = definition({
-  id: "Wizard/Booking",
-  persist: true,
-  states: ["PICKING", "HELD", "BOOKED", "EXPIRED"],
-  events: Booking.events,
-  internalEvents: { Warned: {}, Expired: {}, Lapsed: {}, Reminded: {} },
-  memory: {
-    slotId: Flow.initial(Schema.String, ""),
-    heldUntil: Flow.initial(Schema.Number, 0),
-    warning: Flow.initial(Schema.Boolean, false),
-  },
-});
+// The booking's definition edited in a later build: the same id and memory, two more events,
+// and its schedules declared as `which` edits them.
+const editedOf = <const D extends ScheduleDecls>(schedules: D) =>
+  definition({
+    id: "Wizard/Booking",
+    persist: true,
+    states: ["PICKING", "HELD", "BOOKED", "EXPIRED"],
+    events: Booking.events,
+    internalEvents: { Warned: {}, Expired: {}, Lapsed: {}, Reminded: {} },
+    memory: {
+      slotId: Flow.initial(Schema.String, ""),
+      heldUntil: Flow.initial(Schema.Number, 0),
+      warning: Flow.initial(Schema.Boolean, false),
+    },
+    schedules,
+  });
+
+const Edited = editedOf({ expire: {}, warn: {}, remind: {} });
 
 type Which =
   | "reordered"
@@ -33,8 +47,21 @@ type Which =
   | "resent";
 
 // The edited booking's machine: its hold's schedules as `which` edits them.
-const editedMachine = (which: Which) =>
-  machine(Edited, ({ S, E }) => {
+const DECLARED = {
+  reordered: { warn: {}, expire: {} },
+  added: { expire: {}, warn: {}, remind: {} },
+  addedByEvent: { expire: {}, warn: {}, remind: {} },
+  addedByRestart: { expire: {}, warn: {}, remind: { restartOn: Schema.Number } },
+  removed: { expire: {} },
+  renamed: { expire: {}, nudge: {} },
+  resent: { expire: {}, warn: {} },
+};
+
+// The build `which` edits to, typed as the booking it edits: each edit declares what it places.
+const editedMachine = (which: Which) => {
+  const declared: typeof Edited = loose(editedOf(DECLARED[which]));
+
+  return machine(declared, ({ S, E }) => {
     const expire = {
       schedule: ({
         memory,
@@ -92,11 +119,12 @@ const editedMachine = (which: Which) =>
             Lapsed: { target: S.EXPIRED, updateMemory: () => ({ slotId: "" }) },
             Reminded: { updateMemory: () => ({ warning: true }) },
           },
-          schedules,
+          schedules: loose(schedules),
         },
       },
     };
   });
+};
 
 const RECORD = "actor/Wizard/Booking/inspection";
 
@@ -195,17 +223,26 @@ describe("restore after the definition is edited (Turn R17; Machines O5)", () =>
 
 // A persisted one-minute schedule held by reason A while `a` is set, and the same machine as a
 // later build edits it, with no pause reasons.
-const Hold = definition({
-  id: "Edits/Hold",
-  persist: true,
-  states: ["ON"],
-  events: { Set: { a: Schema.Boolean } },
-  internalEvents: { Tick: {} },
-  memory: { a: Flow.initial(Schema.Boolean, false), ticks: Flow.initial(Schema.Number, 0) },
-});
+const holdOf = <const P extends ReadonlyArray<string>>(pausedBy: P) =>
+  definition({
+    id: "Edits/Hold",
+    persist: true,
+    states: ["ON"],
+    events: { Set: { a: Schema.Boolean } },
+    internalEvents: { Tick: {} },
+    memory: { a: Flow.initial(Schema.Boolean, false), ticks: Flow.initial(Schema.Number, 0) },
+    schedules: { t: { pausedBy } },
+  });
 
+const Hold = holdOf(["A"]);
+
+// A later build of the hold, typed as the build it edits.
+// RETURN_TYPE: the hold's type, which the later build stands in for.
+const later = (built: unknown): typeof Hold => loose(built);
+
+// A later build without the pause reason is typed as the build it edits.
 const holdMachine = (withPause: boolean) =>
-  machine(Hold, ({ S, E }) => ({
+  machine(withPause ? Hold : later(holdOf([])), ({ S, E }) => ({
     default: S.ON,
     on: {
       Set: { updateMemory: ({ event }) => ({ a: event.a }) },
@@ -216,7 +253,7 @@ const holdMachine = (withPause: boolean) =>
         schedules: {
           t: withPause
             ? { schedule: "1 minute", send: E.Tick, paused: { A: ({ memory }) => memory.a } }
-            : { schedule: "1 minute", send: E.Tick },
+            : loose({ schedule: "1 minute", send: E.Tick }),
         },
       },
     },

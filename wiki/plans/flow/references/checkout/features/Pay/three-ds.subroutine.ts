@@ -41,6 +41,7 @@ export const ThreeDS = subroutine(
       intentId: Flow.input(Schema.String),
       helpOpened: Flow.private(Flow.initial(Schema.Int, 0)),
     },
+    schedules: { leave: {} },
   },
   ({ S, E, exits }) => ({
     on: {

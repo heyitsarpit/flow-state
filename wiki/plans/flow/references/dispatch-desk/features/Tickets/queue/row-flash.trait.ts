@@ -10,6 +10,7 @@ export const RowFlash = trait(
     internalEvents: { Faded: {} },
     callbacks: { onFaded: Flow.Callback({ ticketId: Schema.String }) },
     memory: { ticketId: Flow.input(Schema.String) },
+    schedules: { fade: {} },
   },
   ({ E, callbacks }) => ({
     schedules: { fade: { schedule: "2 seconds", armOn: [Flow.entry], send: E.Faded } },

@@ -12,8 +12,7 @@ import { timersOf } from "../timers.ts";
 // A saved booking restored under a later build whose definition declares its schedules, edited in
 // the declaration: reordered, one added, one removed, one renamed. The declaration lands with the
 // runtime half of declared schedules; today the definition accepts the declaration and reads none of
-// it, so each check is a guard that holds today and must hold once the declaration is read. The
-// types follow later, so the build is written as plain JavaScript writes it.
+// it. The build is written as plain JavaScript writes it.
 
 type Tokens = {
   readonly S: Readonly<Record<string, unknown>>;
@@ -136,8 +135,7 @@ describe("restore under a build that declares its schedules (Schedules R14; Type
   });
 });
 
-// A persisted poller with one keyed timer per id, its key declared with `fields` in that order. Until
-// keyed schedules are declared, the body still wraps the keyed schedule in Flow.keyed.
+// A persisted poller with one timer per key, its key declared with `fields` in that order.
 const poller = (fields: ReadonlyArray<string>) => {
   const Poller = untyped.definition({
     id: "Declared/Poller",
@@ -148,20 +146,16 @@ const poller = (fields: ReadonlyArray<string>) => {
     schedules: { poll: { key: Object.fromEntries(fields.map((field) => [field, Schema.String])) } },
   });
 
-  const keyed: (config: unknown) => unknown = Predicate.hasProperty(Flow, "keyed")
-    ? loose(Flow.keyed)
-    : (config) => config;
-
   return untyped.machine(Poller, ({ S, E }) => ({
     default: S["ON"],
     states: {
       ON: {
         schedules: {
-          poll: keyed({
+          poll: {
             keys: () => [{ id: "a", zone: "eu" }],
             schedule: 600_000,
             send: E["Polled"],
-          }),
+          },
         },
       },
     },

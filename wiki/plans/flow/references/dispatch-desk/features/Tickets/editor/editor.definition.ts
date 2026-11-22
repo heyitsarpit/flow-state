@@ -156,6 +156,7 @@ export const Editor = definition({
     fields: Autosave.each({ of: "fieldList", by: "field", max: 3 }),
     body: Body,
   },
+  schedules: { settle: { key: { field: Schema.String }, restartOn: Schema.UndefinedOr(Schema.String) }, autosave: { restartOn: Schema.String }, retry: {}, resend: {} },
 });
 
 // Editor also exposes Editor.Event, State, Input, Memory and Snapshot Schemas for decoding at

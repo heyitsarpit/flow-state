@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Step, Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import { loose } from "../../src/test/loose.ts";
 import { breachesOf } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
 import { ATOMS, type Atom, FIRST, type View, viewsOf, type World } from "./schedule-ledger.ts";
@@ -24,23 +25,28 @@ const Written = {
   refuse: Schema.Boolean,
 };
 
-const Pair = definition({
-  id: "Sequences/Pair",
-  persist: true,
-  states: ["ON"],
-  events: { Set: Written, Stop: {}, Reenter: {} },
-  internalEvents: { Tick: { id: Schema.String } },
-  memory: {
-    keys: Flow.initial(Written.keys, FIRST.keys),
-    keysThrow: Flow.initial(Schema.Boolean, FIRST.keysThrow),
-    a: Flow.initial(Written.a, FIRST.a),
-    far: Flow.initial(Schema.Boolean, FIRST.far),
-    sel: Flow.initial(Schema.Number, FIRST.sel),
-    selThrow: Flow.initial(Schema.Boolean, FIRST.selThrow),
-    refuse: Flow.initial(Schema.Boolean, FIRST.refuse),
-    ticks: Flow.initial(Schema.Array(Schema.String), []),
-  },
-});
+// The fixture's definition, with pause reason A declared or, as a later build edits it, none.
+const pairOf = <const P extends ReadonlyArray<string>>(pausedBy: P) =>
+  definition({
+    id: "Sequences/Pair",
+    persist: true,
+    states: ["ON"],
+    events: { Set: Written, Stop: {}, Reenter: {} },
+    internalEvents: { Tick: { id: Schema.String } },
+    memory: {
+      keys: Flow.initial(Written.keys, FIRST.keys),
+      keysThrow: Flow.initial(Schema.Boolean, FIRST.keysThrow),
+      a: Flow.initial(Written.a, FIRST.a),
+      far: Flow.initial(Schema.Boolean, FIRST.far),
+      sel: Flow.initial(Schema.Number, FIRST.sel),
+      selThrow: Flow.initial(Schema.Boolean, FIRST.selThrow),
+      refuse: Flow.initial(Schema.Boolean, FIRST.refuse),
+      ticks: Flow.initial(Schema.Array(Schema.String), []),
+    },
+    schedules: {
+      t: { key: { id: Schema.Literals(["bad", "good"]) }, pausedBy, restartOn: Schema.Number },
+    },
+  });
 
 const DELAY = 60_000;
 
@@ -50,9 +56,52 @@ const unreadable = (what: string) => {
 
 const flag = (value: "t" | "f" | "x") => (value === "x" ? unreadable("the reason") : value === "t");
 
+const Pair = pairOf(["A"]);
+
 // The fixture's schedule, with pause reason A or, as a later build edits it, none.
-const pairMachine = (withPause: boolean) =>
-  machine(Pair, ({ S, E }) => ({
+const Paused = machine(Pair, ({ S, E }) => ({
+  default: S.ON,
+  on: {
+    Set: {
+      updateMemory: ({ event }) => ({
+        keys: event.keys,
+        keysThrow: event.keysThrow,
+        a: event.a,
+        far: event.far,
+        sel: event.sel,
+        selThrow: event.selThrow,
+        refuse: event.refuse,
+      }),
+    },
+    Tick: {
+      updateMemory: ({ event, memory }) =>
+        memory.refuse ? unreadable("the firing") : { ticks: [...memory.ticks, event.id] },
+    },
+  },
+  states: {
+    ON: {
+      on: { Reenter: { target: S.ON } },
+      schedules: {
+        t: {
+          keys: ({ memory }) =>
+            memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
+          schedule: ({ key, memory }) => (key.id === "bad" && memory.far ? 2 ** 31 : DELAY),
+          send: E.Tick.from(({ key }) => ({ id: String(key.id) })),
+          restartOn: ({ memory }) => (memory.selThrow ? unreadable("the selection") : memory.sel),
+          disarmOn: [E.Stop],
+          paused: {
+            A: ({ key, memory }) => flag(key.id === "bad" ? memory.a.bad : memory.a.good),
+          },
+        },
+      },
+    },
+  },
+}));
+
+// The later build, typed as the build it edits, as the same app's next release is: its
+// declaration drops the pause reason.
+const Plain: typeof Paused = loose(
+  machine(pairOf([]), ({ S, E }) => ({
     default: S.ON,
     on: {
       Set: {
@@ -75,36 +124,19 @@ const pairMachine = (withPause: boolean) =>
       ON: {
         on: { Reenter: { target: S.ON } },
         schedules: {
-          t: withPause
-            ? Flow.keyed({
-                keys: ({ memory }) =>
-                  memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
-                schedule: ({ key, memory }) => (key.id === "bad" && memory.far ? 2 ** 31 : DELAY),
-                send: E.Tick.from(({ key }) => ({ id: String(key.id) })),
-                restartOn: ({ memory }) =>
-                  memory.selThrow ? unreadable("the selection") : memory.sel,
-                disarmOn: [E.Stop],
-                paused: {
-                  A: ({ key, memory }) => flag(key.id === "bad" ? memory.a.bad : memory.a.good),
-                },
-              })
-            : Flow.keyed({
-                keys: ({ memory }) =>
-                  memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
-                schedule: ({ key, memory }) => (key.id === "bad" && memory.far ? 2 ** 31 : DELAY),
-                send: E.Tick.from(({ key }) => ({ id: String(key.id) })),
-                restartOn: ({ memory }) =>
-                  memory.selThrow ? unreadable("the selection") : memory.sel,
-                disarmOn: [E.Stop],
-              }),
+          t: {
+            keys: ({ memory }) =>
+              memory.keysThrow ? unreadable("keys") : memory.keys.map((id) => ({ id })),
+            schedule: ({ key, memory }) => (key.id === "bad" && memory.far ? 2 ** 31 : DELAY),
+            send: E.Tick.from(({ key }) => ({ id: String(key.id) })),
+            restartOn: ({ memory }) => (memory.selThrow ? unreadable("the selection") : memory.sel),
+            disarmOn: [E.Stop],
+          },
         },
       },
     },
-  }));
-
-const Paused = pairMachine(true);
-
-const Plain = pairMachine(false);
+  })),
+);
 
 const setupOf = (withPause: boolean) =>
   runtimeSetup({

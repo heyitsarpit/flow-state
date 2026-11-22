@@ -26,7 +26,7 @@ const fieldsOf = (value: Record<string, Sample>) => ({ ...value });
 const isItems = (value: Sample): value is ReadonlyArray<Sample> => Array.isArray(value);
 
 // Every corruption of one field of `value`, and of one field of its `ending`, plus the whole value
-// as null, a number, and only its mark.
+// as null and as a number.
 // RETURN_TYPE: recursive through a shape's `ending`.
 const corruptionsOf = (value: Sample): ReadonlyArray<Corrupt> => {
   const whole: Array<Corrupt> = [
@@ -46,16 +46,9 @@ const corruptionsOf = (value: Sample): ReadonlyArray<Corrupt> => {
   if (!isRecordLike(value)) return whole;
 
   const fields = fieldsOf(value);
-  const marked = Object.hasOwn(fields, "~flow");
-
-  const markOnly: ReadonlyArray<Corrupt> =
-    marked && Object.keys(fields).length > 1
-      ? [{ how: "mark only", value: { "~flow": fields["~flow"] }, mayPass: false }]
-      : [];
 
   return [
     ...whole,
-    ...markOnly,
     ...Object.keys(fields).flatMap((key) => {
       const rest = Object.fromEntries(Object.entries(fields).filter(([k]) => k !== key));
       const inner = fields[key];
@@ -102,6 +95,17 @@ type Slot = {
 const order = (body: (tokens: typeof StandingOrder) => Sample) =>
   machine(StandingOrder, () => loose(body(StandingOrder)));
 
+// The standing order with one schedule t declared, for the schedule shapes.
+const Scheduled = definition({
+  id: "Corrupt/Scheduled",
+  states: StandingOrder.states,
+  events: StandingOrder.events,
+  schedules: { t: {} },
+});
+
+const scheduled = (body: (tokens: typeof Scheduled) => Sample) =>
+  machine(Scheduled, () => loose(body(Scheduled)));
+
 const SLOTS: ReadonlyArray<Slot> = [
   {
     numbersValid: false,
@@ -137,9 +141,9 @@ const SLOTS: ReadonlyArray<Slot> = [
   {
     numbersValid: false,
     name: "a schedule's send",
-    samples: [StandingOrder.E.Resume],
+    samples: [Scheduled.E.Resume],
     construct: (value) =>
-      order(({ S }) => ({
+      scheduled(({ S }) => ({
         default: S.DRAFT,
         states: { SCHEDULED: { schedules: { t: { schedule: "1 day", send: value } } } },
       })),
@@ -149,7 +153,7 @@ const SLOTS: ReadonlyArray<Slot> = [
     numbersValid: true,
     samples: ["7 days", { days: 7 }, [1, 0], 5, Duration.seconds(5)],
     construct: (value) =>
-      order(({ S, E }) => ({
+      scheduled(({ S, E }) => ({
         default: S.DRAFT,
         states: { SCHEDULED: { schedules: { t: { schedule: value, send: E.Resume } } } },
       })),
@@ -159,7 +163,7 @@ const SLOTS: ReadonlyArray<Slot> = [
     name: "a schedule's armOn element",
     samples: [Flow.entry],
     construct: (value) =>
-      order(({ S, E }) => ({
+      scheduled(({ S, E }) => ({
         default: S.DRAFT,
         states: {
           SCHEDULED: { schedules: { t: { schedule: "1 day", send: E.Resume, armOn: [value] } } },

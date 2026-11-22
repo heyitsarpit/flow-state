@@ -5,7 +5,7 @@ import {
   armOnBesideRestart,
   armOnKeyed,
 } from "../../fixtures/home/stories/structure.ts";
-import { definition, Flow, FlowError, machine } from "../../src/index.ts";
+import { definition, FlowError, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 
 // Each refusal as [code, path], or none when construction did not refuse.
@@ -20,7 +20,12 @@ const refusal = (construct: () => unknown) => {
   return [];
 };
 
-const Clock = definition({ id: "Construction/ScheduleClock", states: ["ON"], events: { Off: {} } });
+const Clock = definition({
+  id: "Construction/ScheduleClock",
+  states: ["ON"],
+  events: { Off: {} },
+  schedules: { ring: {}, ding: {} },
+});
 
 const Bell = definition({
   id: "Construction/ScheduleBell",
@@ -43,7 +48,7 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
 
   it("Turn R14: an armOn event beside restartOn is refused at that element; armOn: [Flow.entry] beside it constructs", () => {
     expect(refusal(armOnBesideRestart)).toEqual([
-      ["InvalidConfiguration", "states.ONLINE.schedules.boost.armOn.1"],
+      ["InvalidConfiguration", "states.ONLINE.schedules.check.armOn.1"],
     ]);
   });
 
@@ -80,64 +85,14 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
               ONLINE: { default: S.ONLINE.IDLE },
               OFFLINE: {
                 schedules: {
-                  nudge: { schedule: "1 minute", send: E.BoostEnded, paused: () => true },
+                  boost: { schedule: "1 minute", send: E.BoostEnded, paused: () => true },
                 },
               },
             },
           }),
         ),
       ),
-    ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.nudge.paused"]]);
-  });
-
-  it("Turn R16: keys written outside Flow.keyed, untyped, are refused at keys; inside it they construct", () => {
-    const withPoll = (poll: unknown) => () =>
-      machine(Room, ({ S }) =>
-        loose({
-          default: S.OFFLINE,
-          states: { ONLINE: { default: S.ONLINE.IDLE }, OFFLINE: { schedules: { poll } } },
-        }),
-      );
-
-    const fields = {
-      keys: () => [{ id: "a" }],
-      schedule: "1 minute",
-      send: Room.E.BoostEnded,
-    };
-
-    expect(refusal(withPoll(fields))).toEqual([
-      ["InvalidConfiguration", "states.OFFLINE.schedules.poll.keys"],
-    ]);
-    expect(refusal(withPoll(Flow.keyed(loose(fields))))).toEqual([]);
-  });
-
-  it("Turn R16: the refusal of keys written outside Flow.keyed names Flow.keyed in its help", () => {
-    const construct = () =>
-      machine(Room, ({ S }) =>
-        loose({
-          default: S.OFFLINE,
-          states: {
-            ONLINE: { default: S.ONLINE.IDLE },
-            OFFLINE: {
-              schedules: {
-                poll: { keys: () => [{ id: "a" }], schedule: "1 minute", send: Room.E.BoostEnded },
-              },
-            },
-          },
-        }),
-      );
-
-    const help = (() => {
-      try {
-        construct();
-      } catch (error) {
-        if (error instanceof FlowError) return error.diagnostics.map((d) => d.help);
-      }
-
-      return [];
-    })();
-
-    expect(help.map((h) => h.includes("Flow.keyed"))).toEqual([true]);
+    ).toEqual([["InvalidConfiguration", "states.OFFLINE.schedules.boost.paused"]]);
   });
 
   it("Compile T11: a schedule's send mapped from this definition's own event (E.X.from) constructs", () => {
@@ -149,7 +104,7 @@ describe("schedule shapes at construction (Turn R14, R27; Compile T11)", () => {
             ONLINE: { default: S.ONLINE.IDLE },
             OFFLINE: {
               schedules: {
-                nudge: {
+                boost: {
                   schedule: "1 minute",
                   send: E.Polled.from(({ firedAt }) => ({ id: "t1", at: firedAt })),
                 },

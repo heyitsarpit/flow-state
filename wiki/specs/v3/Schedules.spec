@@ -709,7 +709,7 @@ realization typescript
     typed: `machine` casts the whole body to `AnyBody` (code:packages/flow-state-v3/src/machine.ts#AnyBody); then
     `scheduleOf` (code:packages/flow-state-v3/src/compile-schedules.ts) wraps each callback with `erase`, whose input
     type is `never` (code:packages/flow-state-v3/src/handles.ts#erase), so it checks nothing. The public types are
-    written by hand on the other side (code:packages/flow-state-v3/src/tokens.ts#ScheduleKey).
+    written by hand on the other side (`ScheduleKey` in `src/tokens.ts`, since deleted).
 
     The design: one point, derived from the declaration. The compiled schedule, `Schedule`, is built by one generic
     function from the declaration and the typed body entry. It holds the three codecs and the callbacks already

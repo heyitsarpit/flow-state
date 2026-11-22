@@ -105,16 +105,18 @@ export type {
   GuardToken,
   Handler,
   HistoryToken,
-  KeyedConfig,
-  KeyedSchedule,
+  KeyOfDecl,
   On,
   Operations,
   ReadHandle,
   RootToken,
-  ScheduleConfig,
-  ScheduleEntry,
-  ScheduleKey,
+  ReasonOfDecl,
+  ScheduleBodyOf,
+  ScheduleDecl,
+  ScheduleDecls,
   ScheduleMetadata,
+  SchedulesOf,
+  SelOfDecl,
   StateConfig,
   StateRead,
   StateToken,
@@ -125,6 +127,7 @@ export type {
 import type {
   Handles,
   MemoryToken,
+  ScheduleDecls,
   RootToken,
   StateNameToken,
   StateRead,
@@ -232,6 +235,7 @@ type DefinitionConfig<
   O extends Readonly<Record<string, Bound>>,
   Cx extends ContextConfig,
   Id extends string,
+  Sch extends ScheduleDecls,
 > = {
   readonly id: Id;
   readonly persist?: boolean;
@@ -241,6 +245,7 @@ type DefinitionConfig<
   readonly memory?: M;
   readonly context?: Cx;
   readonly operations?: (tokens: { readonly E: Tokens<In, Id> }) => O;
+  readonly schedules?: Sch;
 };
 
 /**
@@ -269,6 +274,7 @@ export type Definition<
   O extends Readonly<Record<string, Bound>> = Readonly<Record<string, Bound>>,
   Cx extends ContextConfig = ContextConfig,
   Id extends string = string,
+  Sch extends ScheduleDecls = ScheduleDecls,
 > = Branded<"definition"> & {
   readonly id: Id;
   readonly persist: boolean;
@@ -278,6 +284,7 @@ export type Definition<
   readonly memory: M;
   readonly context: Cx;
   readonly operations: O;
+  readonly schedules: Sch;
   readonly M: {
     readonly [K in keyof OutsideOf<M> & string]-?: MemoryToken<
       OutsideOf<M>[K],
@@ -410,10 +417,11 @@ export const definition = entry(
       Record<never, never>,
     Cx extends ContextConfig = Record<never, never>,
     const Id extends string = string,
+    const Sch extends ScheduleDecls = Record<never, never>,
   >(
-    config: DefinitionConfig<States, Ev, In, M, O, Cx, Id> & DefinitionCheck<States, Id>,
-  ): Definition<States, Ev, In, M, O, Cx, Id> => {
-    type Made = Definition<States, Ev, In, M, O, Cx, Id>;
+    config: DefinitionConfig<States, Ev, In, M, O, Cx, Id, Sch> & DefinitionCheck<States, Id>,
+  ): Definition<States, Ev, In, M, O, Cx, Id, Sch> => {
+    type Made = Definition<States, Ev, In, M, O, Cx, Id, Sch>;
 
     const keys = Predicate.isObject(config) ? Object.keys(config) : [];
 
@@ -424,6 +432,7 @@ export const definition = entry(
     const internal = config.internalEvents ?? trusted<In>({});
     const context = config.context ?? trusted<Cx>({});
     const memory = config.memory ?? trusted<M>({});
+    const schedules = config.schedules ?? trusted<Sch>({});
     const E = tokensOf(config.id, owner, { ...config.events, ...internal });
     const declare = config.operations;
 
@@ -459,7 +468,14 @@ export const definition = entry(
       inDeclarationOrder(keys, [
         ...malformed,
         ...definitionFindings(
-          { id: config.id, events: config.events, internalEvents: internal, memory, context },
+          {
+            id: config.id,
+            events: config.events,
+            internalEvents: internal,
+            memory,
+            context,
+            schedules,
+          },
           tree.findings,
           operations,
           keys,
@@ -502,6 +518,7 @@ export const definition = entry(
       memory,
       context,
       operations,
+      schedules,
       M: trusted<Made["M"]>(
         Object.fromEntries(
           Object.entries(memory).flatMap(([name, field]) =>
@@ -577,6 +594,7 @@ export type AnyDefinition = Branded<"definition"> & {
   readonly memory: MemoryConfig;
   readonly context: ContextConfig;
   readonly operations: Readonly<Record<string, Bound>>;
+  readonly schedules: ScheduleDecls;
   readonly S: Values;
   readonly E: Values;
   readonly O: Values;

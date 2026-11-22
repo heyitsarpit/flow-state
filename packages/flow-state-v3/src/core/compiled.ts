@@ -1,9 +1,11 @@
 import {
   Data,
+  Duration,
   type Effect,
   Option,
+  Predicate,
   Result,
-  type Schedule as EffectSchedule,
+  Schedule as EffectSchedule,
   type Schema,
 } from "effect";
 import type { Walker } from "./boundary.ts";
@@ -192,6 +194,46 @@ export type Planned = Data.TaggedEnum<{
 export const Planned = Data.taggedEnum<Planned>();
 
 /**
+ * Whether a delay is an Effect Schedule, as the core steps it: the types admit only Schedules with
+ * no error and no services, and the host passes no input.
+ */
+// RETURN_TYPE: a type guard states the Schedule type it narrows to.
+export const isSeries = (
+  // FLOW_STATE_ALLOW_UNKNOWN: a delay of any form, told apart here.
+  value: unknown,
+): value is Series => EffectSchedule.isSchedule(value);
+
+// A computed delay that is no Schedule and no number, as the Duration input its types promise; one
+// that is not decodes to no Duration and refuses its turn.
+const durationOf = (
+  // FLOW_STATE_ALLOW_UNKNOWN: whatever a computed schedule returned.
+  value: unknown,
+) =>
+  // SAFETY: Duration.fromInput returns none for any value that is no Duration input.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- fromInput checks the value itself
+  value as Duration.Input;
+
+/**
+ * A computed delay as the core plans it: an Effect Schedule to step, or a Duration input in
+ * milliseconds (a number as written; NaN when it is neither, which refuses its turn).
+ */
+export const plannedOf = (
+  // FLOW_STATE_ALLOW_UNKNOWN: whatever a computed schedule returned, checked here.
+  value: unknown,
+) => {
+  if (isSeries(value)) return Planned.Stepped({ series: value });
+
+  if (Predicate.isNumber(value)) return Planned.Ms({ ms: value });
+
+  return Planned.Ms({
+    ms: Option.getOrElse(
+      Option.map(Duration.fromInput(durationOf(value)), Duration.toMillis),
+      () => Number.NaN,
+    ),
+  });
+};
+
+/**
  * When a schedule fires after its arming: a fixed delay, an Effect Schedule, or either computed
  * from the after memory, the key, the context and the arming turn's now.
  */
@@ -242,6 +284,17 @@ export type Schedule = {
     readonly reason: string;
     readonly check: Slot<(input: ScheduleInput) => boolean>;
   }>;
+};
+
+/**
+ * A declared schedule's codecs and reasons: its key's codec to canonical text when it is keyed, its
+ * `restartOn` selection's codec when it declares one, and its pause reasons in declaration order.
+ */
+export type ScheduleCodecs = {
+  readonly key: Option.Option<Schema.Codec<Values, string>>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a selection is of any declared type.
+  readonly selection: Option.Option<Schema.Codec<unknown, string>>;
+  readonly reasons: ReadonlyArray<string>;
 };
 
 /**
@@ -423,6 +476,7 @@ export type Compiled = {
   readonly memoryJson: Schema.Codec<Values, Values>;
   readonly operations: ReadonlyMap<string, Operation>;
   readonly context: ReadonlyMap<string, ContextSlot>;
+  readonly schedules: ReadonlyMap<string, ScheduleCodecs>;
   readonly wiring: ReadonlyMap<string, { readonly machine: string; readonly name: string }>;
   readonly [InternalsId]: CompiledInternals;
 };

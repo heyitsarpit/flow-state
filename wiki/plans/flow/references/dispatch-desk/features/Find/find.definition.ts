@@ -41,4 +41,5 @@ export const Find = definition({
       failure: { NoResponse: E.FindFailed, Defect: E.FindFailed, Interrupted: E.FindFailed },
     }),
   }),
+  schedules: { settle: { restartOn: Schema.String } },
 });

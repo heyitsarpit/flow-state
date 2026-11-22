@@ -136,6 +136,7 @@ export const Pay = definition({
       },
     }),
   }),
+  schedules: { slow: {}, retry: {}, check: {} },
 });
 
 type Memory = {

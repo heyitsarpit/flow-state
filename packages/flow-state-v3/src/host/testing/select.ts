@@ -1,7 +1,13 @@
 import { Option } from "effect";
 import { Evidence, type EvidenceOf, type Member, type Part } from "../../core/evidence.ts";
 import type { Ending, ErasedEnding } from "../../contract.ts";
-import type { AnyDefinition, ActorRef, LeavesOf, MemoryOf } from "../../definition.ts";
+import type {
+  AnyDefinition,
+  ActorRef,
+  LeavesOf,
+  MemoryOf,
+  ReasonOfDecl,
+} from "../../definition.ts";
 import { definitionOfToken } from "../../events.ts";
 import { actorIdOf } from "../runtime.ts";
 import { scriptFault } from "./steps.ts";
@@ -13,8 +19,31 @@ import { entry } from "../../entry.ts";
 export type Recorded<Ds extends AnyDefinition = AnyDefinition> = {
   // A phantom method: the app's definitions, so a selector takes only their tokens and refs.
   "~app"?(app: Ds): void;
-  readonly evidence: ReadonlyArray<Evidence>;
+  readonly evidence: ReadonlyArray<EvidenceIn<Ds>>;
 };
+
+// A schedule's Paused or Resumed record of one definition: its schedule a declared name, and a
+// Paused record's reasons that schedule's declared reasons.
+type ScheduleRecordsOf<D extends AnyDefinition> = {
+  readonly [N in keyof D["schedules"] & string]:
+    | (Omit<EvidenceOf<"Paused">, "schedule" | "reasons"> & {
+        readonly schedule: N;
+        readonly reasons: ReadonlyArray<ReasonOfDecl<D["schedules"][N]>>;
+      })
+    | (Omit<EvidenceOf<"Resumed">, "schedule"> & { readonly schedule: N });
+}[keyof D["schedules"] & string];
+
+/**
+ * Every evidence record of a run of the definitions `Ds`: a schedule's Paused and Resumed records
+ * typed by each definition's declaration, the rest as the Runtime records them.
+ */
+export type EvidenceIn<Ds extends AnyDefinition> =
+  | Exclude<Evidence, { readonly _tag: "Paused" | "Resumed" }>
+  | (Ds extends AnyDefinition
+      ? string extends keyof Ds["schedules"]
+        ? EvidenceOf<"Paused" | "Resumed">
+        : ScheduleRecordsOf<Ds>
+      : never);
 
 /**
  * An evidence record that names an event: a turn, a delivery, an event nothing handled, a denial

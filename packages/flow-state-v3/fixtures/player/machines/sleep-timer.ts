@@ -14,6 +14,7 @@ export const SleepTimer = definition({
     room: Flow.input(Schema.String),
     after: Flow.initial(Schema.NullOr(Schema.DurationFromMillis), null),
   },
+  schedules: { sleep: {} },
 });
 
 /**

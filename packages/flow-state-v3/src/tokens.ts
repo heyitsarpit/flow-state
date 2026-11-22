@@ -1,5 +1,5 @@
 import type { Duration, Option, Schedule, Schema } from "effect";
-import type { Denial, Values } from "./core/compiled.ts";
+import type { Denial, ScheduleInput as ScheduleInputOf, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending } from "./contract.ts";
 import type { ChildrenOf, ContextOf, ContextSlot, NamesOf, PayloadOf } from "./definition.ts";
@@ -216,28 +216,68 @@ export type On<
 };
 
 /**
- * A schedule's key: the record its `keys` returned for one timer, identity only.
+ * One schedule as its definition declares it: the fields of its key when it has a timer per key,
+ * the reasons that pause it, and the Schema of its `restartOn` selection. `{}` declares a plain
+ * schedule.
  */
-export type ScheduleKey = Readonly<Record<string, string>>;
+export type ScheduleDecl = {
+  readonly key?: Schema.Struct.Fields;
+  readonly pausedBy?: ReadonlyArray<string>;
+  readonly restartOn?: Schema.Top;
+};
 
 /**
- * What a schedule's send maps from: the firing's metadata, times in Runtime Clock milliseconds.
+ * A definition's schedules, by name.
  */
-export type ScheduleMetadata = {
-  readonly name: string;
+export type ScheduleDecls = Readonly<Record<string, ScheduleDecl>>;
+
+/**
+ * A declared schedule's key: the record of its key fields, or `undefined` for an unkeyed one.
+ */
+export type KeyOfDecl<Dc> = Dc extends { readonly key: infer F extends Schema.Struct.Fields }
+  ? Schema.Struct<F>["Type"]
+  : undefined;
+
+// A keyed declaration's key record; `never` for an unkeyed one.
+type KeyRecordOf<Dc> = Dc extends { readonly key: infer F extends Schema.Struct.Fields }
+  ? Schema.Struct<F>["Type"]
+  : never;
+
+/**
+ * A declared schedule's pause reasons, as a union of their names.
+ */
+export type ReasonOfDecl<Dc> = Dc extends {
+  readonly pausedBy: ReadonlyArray<infer R extends string>;
+}
+  ? R
+  : never;
+
+/**
+ * A declared schedule's `restartOn` selection, or `never` when it declares none.
+ */
+export type SelOfDecl<Dc> = Dc extends { readonly restartOn: infer S extends Schema.Top }
+  ? S["Type"]
+  : never;
+
+/**
+ * What a schedule's send maps from: the firing's metadata, times in Runtime Clock milliseconds,
+ * its name and its key `K` as declared.
+ */
+export type ScheduleMetadata<N extends string = string, K = unknown> = {
+  readonly name: N;
   readonly attempt: number;
   readonly armedAt: number;
   readonly dueAt: number;
   readonly firedAt: number;
   // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule's output, whatever its type; a Duration has none.
   readonly output: unknown;
-  readonly key: ScheduleKey;
+  readonly key: K;
 };
 
 // What a schedule's functions read: its key `K` (keyed schedules), the after memory, the context
 // `Cx` and, for the delay, the arming turn's now.
 type ScheduleInput<M, Cx, K> = {
-  readonly key: Readonly<K>;
+  readonly key: K;
   readonly memory: M;
   readonly context: Cx;
   readonly now: number;
@@ -255,101 +295,69 @@ type ScheduleEvent<Ev, Id extends string> = {
 // FLOW_STATE_ALLOW_UNKNOWN: any Effect Schedule, whatever its output; the host reads only its delays.
 type AnySchedule = Schedule.Schedule<unknown>;
 
-// What every schedule declares, its functions reading the key `K`.
-type ScheduleParts<M, Ev, Id extends string, Cx, K> = {
+type In<M, Cx, Dc> = Omit<ScheduleInput<M, Cx, KeyOfDecl<Dc>>, "now">;
+
+/**
+ * A placement of the declared schedule `N` in a state: its delay, the event it sends, what arms
+ * and disarms it, and, as its declaration `Dc` requires, its `keys`, its `restartOn` selection
+ * and a callback for each of its pause reasons. Every callback reads the declared key.
+ */
+export type ScheduleBodyOf<M, Ev, Id extends string, Cx, N extends string, Dc> = {
   readonly schedule:
     | Duration.Input
     | AnySchedule
-    | ((input: ScheduleInput<M, Cx, K>) => Duration.Input | AnySchedule);
+    | ((input: ScheduleInput<M, Cx, KeyOfDecl<Dc>>) => Duration.Input | AnySchedule);
   readonly send: (
     | { readonly tag: keyof Ev & string }
     | { readonly ending: { readonly event: keyof Ev & string } }
   ) &
-    Ending<ScheduleMetadata, Id>;
+    Ending<ScheduleMetadata<N, KeyOfDecl<Dc>>, Id>;
   readonly armOn?: ReadonlyArray<ScheduleEvent<Ev, Id> | Entry>;
   readonly disarmOn?: ReadonlyArray<ScheduleEvent<Ev, Id>>;
+} & ([KeyOfDecl<Dc>] extends [undefined]
+  ? { readonly keys?: never }
+  : {
+      readonly keys: (input: {
+        readonly memory: M;
+        readonly operations: ScheduleOperations;
+      }) => ReadonlyArray<KeyRecordOf<Dc>>;
+    }) &
+  ([SelOfDecl<Dc>] extends [never]
+    ? { readonly restartOn?: never }
+    : { readonly restartOn: (input: In<M, Cx, Dc>) => SelOfDecl<Dc> }) &
+  ([ReasonOfDecl<Dc>] extends [never]
+    ? { readonly paused?: never }
+    : {
+        readonly paused: {
+          readonly [P in ReasonOfDecl<Dc>]: (
+            input: In<M, Cx, Dc> & { readonly operations: ScheduleOperations },
+          ) => boolean;
+        };
+      });
+
+/**
+ * A state's `schedules`: a placement of each declared schedule it arms, by name.
+ */
+export type SchedulesOf<M, Ev, Id extends string, Cx, Sch> = {
+  readonly [N in keyof Sch & string]?: ScheduleBodyOf<M, Ev, Id, Cx, N, Sch[N]>;
+};
+
+/**
+ * A placement as the compiler reads it, its literal types erased.
+ */
+export type ErasedPlacement = {
+  readonly schedule: Duration.Input | AnySchedule | ((input: ScheduleInputOf) => unknown);
+  // FLOW_STATE_ALLOW_UNKNOWN: an ending, read as made when it compiles.
+  readonly send: unknown;
+  // FLOW_STATE_ALLOW_UNKNOWN: event tokens and Flow.entry, read as made when it compiles.
+  readonly armOn?: ReadonlyArray<unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: event tokens, read as made when it compiles.
+  readonly disarmOn?: ReadonlyArray<unknown>;
+  readonly keys?: (input: ScheduleInputOf) => ReadonlyArray<Values>;
   // FLOW_STATE_ALLOW_UNKNOWN: a selection of any type, compared by Equal.equals.
-  readonly restartOn?: (input: Omit<ScheduleInput<M, Cx, K>, "now">) => unknown;
-  readonly paused?: Readonly<
-    Record<
-      string,
-      (
-        input: Omit<ScheduleInput<M, Cx, K>, "now"> & { readonly operations: ScheduleOperations },
-      ) => boolean
-    >
-  >;
+  readonly restartOn?: (input: ScheduleInputOf) => unknown;
+  readonly paused?: Readonly<Record<string, (input: ScheduleInputOf) => boolean>>;
 };
-
-/**
- * A schedule with one timer: its delay, the event it sends, what arms, disarms and restarts it,
- * and its pause reasons. A schedule with a timer per key is written with `Flow.keyed`.
- */
-export type ScheduleConfig<M, Ev, Id extends string = string, Cx = Values> = ScheduleParts<
-  M,
-  Ev,
-  Id,
-  Cx,
-  undefined
-> & { readonly keys?: never };
-
-/**
- * What `Flow.keyed` takes: a schedule whose `keys` return one record per timer, and whose
- * `schedule`, `restartOn` and `paused` each receive the timer's key `K`. Its send's mapper reads
- * the key as a `ScheduleKey`: the mapper's call is resolved before `K` is inferred.
- */
-export type KeyedConfig<M, Ev, Id extends string, Cx, K extends ScheduleKey> = ScheduleParts<
-  M,
-  Ev,
-  Id,
-  Cx,
-  K
-> & {
-  readonly keys: (input: {
-    readonly memory: M;
-    readonly operations: ScheduleOperations;
-  }) => ReadonlyArray<K>;
-};
-
-/**
- * A keyed schedule as `Flow.keyed` returns it: its config, its key's type checked where it was
- * written.
- */
-export type KeyedSchedule<M = Values, Ev = Values, Id extends string = string, Cx = Values> = {
-  readonly "~flow": "keyed";
-  readonly config: Values;
-  // A phantom type: the memory, events, definition and context it was written for.
-  readonly "~keyed"?: (input: { readonly memory: M; readonly context: Cx }) => {
-    readonly events: Ev;
-    readonly definition: Id;
-  };
-};
-
-/**
- * A schedule as the compiler reads it, keyed or not, its literal types erased.
- */
-export type ErasedSchedule = ScheduleParts<
-  Values,
-  Values,
-  string,
-  Values,
-  ScheduleKey | undefined
-> & {
-  readonly keys?: KeyedConfig<Values, Values, string, Values, ScheduleKey>["keys"];
-};
-
-/**
- * A state's schedule as the compiler reads it: a schedule, or `Flow.keyed`'s wrapper of one.
- */
-export type ErasedEntry =
-  | ErasedSchedule
-  | { readonly "~flow": "keyed"; readonly config: ErasedSchedule };
-
-/**
- * What a state's `schedules` record holds by name: a schedule, or a keyed one.
- */
-export type ScheduleEntry<M, Ev, Id extends string = string, Cx = Values> =
-  | ScheduleConfig<M, Ev, Id, Cx>
-  | KeyedSchedule<M, Ev, Id, Cx>;
 
 export type StateConfig<
   M,
@@ -359,9 +367,10 @@ export type StateConfig<
   Id extends string = string,
   L extends string = string,
   Cx = Values,
+  Sch = ScheduleDecls,
 > = {
   readonly on?: On<M, Ev, S, W, Id, L, Cx>;
-  readonly schedules?: Readonly<Record<string, ScheduleEntry<M, Ev, Id, Cx>>>;
+  readonly schedules?: SchedulesOf<M, Ev, Id, Cx, Sch>;
 };
 
 /**

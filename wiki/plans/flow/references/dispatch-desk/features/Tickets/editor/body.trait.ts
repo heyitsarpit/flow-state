@@ -57,6 +57,7 @@ export const Body = trait(
         },
       }),
     }),
+    schedules: { settle: { restartOn: Schema.String }, resend: {} },
   },
   ({ E, O, callbacks }) => {
     const dirty = ({ memory }: { memory: { body: string; saved: string } }) =>

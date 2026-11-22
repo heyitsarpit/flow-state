@@ -18,7 +18,6 @@ import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts
 import { heldUntilReleased, makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
 import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
-import type { CheckedEntries } from "./context-refs.ts";
 import {
   type FlowError,
   flowError,
@@ -28,8 +27,7 @@ import {
   refuse,
 } from "../error.ts";
 import { entry, entryEffect } from "../entry.ts";
-import { made, madeOf } from "../made.ts";
-import { appFindings, malformedOf } from "../core/well-formed.ts";
+import { malformedOf } from "../core/well-formed.ts";
 import { setupFindings } from "../config.ts";
 import { makeDriver, type Driver } from "./driver.ts";
 import { actorIdOf, type ActorRef, refOf } from "./refs.ts";
@@ -42,7 +40,14 @@ import { outside, type Snapshot, snapshotOf } from "./snapshot.ts";
 import { Host, type Platform } from "./host.ts";
 import { Store, StoreScope } from "./store.ts";
 
-export { type Snapshot, snapshotIn, snapshotOf, type TimerView, type Timers } from "./snapshot.ts";
+export {
+  type Snapshot,
+  snapshotIn,
+  snapshotOf,
+  type TimerView,
+  type Timers,
+  type TimersOf,
+} from "./snapshot.ts";
 
 export type { Unsettled } from "./close.ts";
 
@@ -62,7 +67,6 @@ export {
 
 import {
   type App,
-  type AppEntry,
   type DefsOf,
   machineOf,
   noStore,
@@ -74,51 +78,9 @@ import {
 
 export { actorIdOf, actorRef, type ActorRef, type RefName } from "./refs.ts";
 
-/**
- * Declares an app: the closed list of machines a Runtime may run.
- *
- * **When to use**
- *
- * Once per application, in `app.ts`; `runtimeSetup` takes it.
- *
- * **Gotchas**
- *
- * - Unknown fields, two machines with one id, one machine under two keys, or two contracts with
- *   one id throw one {@link FlowError} naming every entry.
- */
-export const app = entry(
-  "app",
-  // RETURN_TYPE: the App contract runtimeSetup takes, keeping its machines' types.
-  <const M extends Readonly<Record<string, AppEntry>>>(
-    config: App<M> & { readonly machines: CheckedEntries<NoInfer<M>> },
-  ): App<M> => {
-    refuse(
-      Object.entries(config.machines).flatMap(([key, entry]) =>
-        Result.match(
-          madeOf("machine")(
-            machineOf(entry),
-            entry === machineOf(entry) ? ["machines", key] : ["machines", key, "machine"],
-          ),
-          { onFailure: (finding) => [finding], onSuccess: () => [] },
-        ),
-      ),
-    );
+export { app } from "./app.ts";
 
-    refuse(
-      appFindings({
-        ...config,
-        machines: Object.fromEntries(
-          Object.entries(config.machines).map(([key, entry]) => [key, machineOf(entry)]),
-        ),
-      }),
-    );
-
-    return made("app", APPS, { ...config, machines: { ...config.machines } }, {});
-  },
-);
-
-// The owner of every app: an app is compared by identity, never by owner.
-const APPS = Symbol("flow-state/app");
+import { app } from "./app.ts";
 
 /**
  * A handle to an actor: it follows the identity, not the incarnation.

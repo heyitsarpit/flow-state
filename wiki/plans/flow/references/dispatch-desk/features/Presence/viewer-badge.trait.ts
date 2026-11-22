@@ -8,6 +8,7 @@ export const ViewerBadge = trait(
     id: "ViewerBadge",
     internalEvents: { Settled: {} },
     memory: { fresh: Flow.initial(Schema.Boolean, true) },
+    schedules: { settle: {} },
   },
   ({ E }) => ({
     schedules: { settle: { schedule: "2 seconds", armOn: [Flow.entry], send: E.Settled } },

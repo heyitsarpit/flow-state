@@ -30,7 +30,7 @@ const tableOf = (compiled: unknown): ReadonlyMap<unknown, unknown> => {
 };
 
 describe("every fixture declares the schedules it places (Types R8, I11, T2)", () => {
-  it.fails("Types I11: each schedule a fixture machine places has its Compiled.schedules entry", () => {
+  it("Types I11: each schedule a fixture machine places has its Compiled.schedules entry", () => {
     const placed = manifests.flatMap((manifest) =>
       Object.values(manifest.app.machines).flatMap((entry) => {
         const { compiled } = "machine" in entry ? entry.machine : entry;
@@ -65,7 +65,7 @@ const reasonsOf = (construct: () => unknown) =>
   refusal(construct, (d) => [String(d.details.reason ?? d.code)]).flat();
 
 describe("the old form is refused (Types R8, I13)", () => {
-  it.fails("Types I13: a body schedule written in the old form, its definition declaring none, is refused ScheduleUndeclared", () => {
+  it("Types I13: a body schedule written in the old form, its definition declaring none, is refused ScheduleUndeclared", () => {
     expect(
       reasonsOf(() =>
         untyped.machine(Undeclared(), ({ S, E }) => ({
@@ -76,7 +76,7 @@ describe("the old form is refused (Types R8, I13)", () => {
     ).toContain("ScheduleUndeclared");
   });
 
-  it.fails("Types I13: the old keyed wrapper, written by hand, is refused ScheduleUndeclared", () => {
+  it("Types I13: the old keyed wrapper, written by hand, is refused ScheduleUndeclared", () => {
     expect(
       reasonsOf(() =>
         untyped.machine(Undeclared(), ({ S, E }) => ({
@@ -85,6 +85,7 @@ describe("the old form is refused (Types R8, I13)", () => {
             OFF: {
               schedules: {
                 poll: {
+                  // oxlint-disable-next-line flow-state/no-undeclared-schedule -- the old keyed wrapper written by hand, to show it is refused
                   "~flow": "keyed",
                   config: { keys: () => [{ id: "a" }], schedule: 1000, send: E["Tick"] },
                 },
@@ -96,7 +97,7 @@ describe("the old form is refused (Types R8, I13)", () => {
     ).toContain("ScheduleUndeclared");
   });
 
-  it.fails("Types R8: Flow.keyed is gone from Flow", () => {
+  it("Types R8: Flow.keyed is gone from Flow", () => {
     expect(Object.keys(Flow)).not.toContain("keyed");
   });
 });
@@ -114,7 +115,7 @@ const OLD_FORM =
   /Flow\.keyed|is\.keyed|KeyedConfig|KeyedSchedule|ScheduleKey\b|ScheduleParts|ErasedEntry|"~keyed"|"keyed"/u;
 
 describe("the old form is gone from the package (Types R8)", () => {
-  it.fails("Types R8: no source, fixture or test names Flow.keyed, KeyedConfig, KeyedSchedule, ScheduleKey, ScheduleParts, ErasedEntry or the keyed mark", () => {
+  it("Types R8: no source, fixture or test names Flow.keyed, KeyedConfig, KeyedSchedule, ScheduleKey, ScheduleParts, ErasedEntry or the keyed mark", () => {
     const self = "tests/compile/schedule-migration.test.ts";
 
     expect(
@@ -126,7 +127,7 @@ describe("the old form is gone from the package (Types R8)", () => {
 });
 
 describe("the casts that restored the old form are gone (Types R8, R13)", () => {
-  it.fails("Types R13: compile-schedules.ts erases no schedule callback and casts no delay; config.ts reads the declaration instead of accepting it unread", () => {
+  it("Types R13: compile-schedules.ts erases no schedule callback and casts no delay; config.ts reads the declaration instead of accepting it unread", () => {
     const text = (path: string) => filesUnder("src").find((file) => file.path === path)?.text ?? "";
 
     expect([

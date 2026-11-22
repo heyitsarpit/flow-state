@@ -9,6 +9,7 @@ const Player = definition({
   states: ["IDLE", { ON: ["PLAYING"] }],
   events: {},
   internalEvents: { Saved: {}, Tick: {} },
+  schedules: { tick: {} },
 });
 
 const { compiled } = machine(Player, ({ S, E }) => ({

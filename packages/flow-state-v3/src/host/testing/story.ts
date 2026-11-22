@@ -170,7 +170,9 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
       checkpoint: (name) => chain([...steps, StepData.checkpoint({ name })]),
       // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts, lint-bomb/no-optional-domain-properties -- run() runs the Story's own steps; an omitted seed keeps the Story's own world
       run: (given?: { readonly steps: ReadonlyArray<Step>; readonly seed?: number }) =>
-        run<Names>(subject, id, given?.steps ?? steps, Option.fromUndefinedOr(given?.seed)),
+        run<Names>(subject, id, given?.steps ?? steps, Option.fromUndefinedOr(given?.seed)).then(
+          ranBy<Names, Ds>,
+        ),
     };
   };
 
@@ -231,6 +233,12 @@ export const Story = {
   ),
 };
 
+// A run of the erased runner as its Story's own definitions read it.
+const ranBy = <Names extends string, Ds extends AnyDefinition>(ran: StoryRun<Names>) =>
+  // SAFETY: a Story runs only its app's definitions, so each schedule record it holds names one of their declared schedules and reasons.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the runner is erased; a Story's run is typed by its app
+  ran as StoryRun<Names, Ds>;
+
 /**
  * Runs a reload at every position of a Story, each forked from the world saved there instead of
  * replayed from boot.
@@ -277,7 +285,7 @@ export const forkReloads = entry(
       const saved = own.save();
 
       return visit(at, (reload, rest) =>
-        attempt(() => runForked(subject, story.id, saved, reload, rest)),
+        attempt(() => ranBy<never, Ds>(runForked(subject, story.id, saved, reload, rest))),
       );
     };
 
@@ -288,7 +296,7 @@ export const forkReloads = entry(
 
     yield* forkAt(story.steps.length);
 
-    const run: StoryRun<Names, Ds> = yield* attempt(() => own.finish().run);
+    const run = yield* attempt(() => ranBy<Names, Ds>(own.finish().run));
 
     return run;
   }),

@@ -5,7 +5,13 @@ import { definition, type Machine, machine } from "../../src/index.ts";
 // schedule compiles and is asserted exactly. Construction refuses both at load too
 // (tests/compile/schedule-send.test.ts).
 
-const Lamp = definition({ id: "types/Lamp", states: ["ON"], events: { Off: {} }, memory: {} });
+const Lamp = definition({
+  id: "types/Lamp",
+  states: ["ON"],
+  events: { Off: {} },
+  memory: {},
+  schedules: { ring: {}, off: {} },
+});
 
 const Bell = definition({ id: "types/Bell", states: ["IDLE"], events: { Ring: {} }, memory: {} });
 

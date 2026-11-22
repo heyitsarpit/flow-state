@@ -262,7 +262,13 @@ describe("Compile R9, Reads R1: a read's failures are its lookup's tags, each ma
 
 describe("Turn R15, Compile R14: a schedule sends an event no value fills only if it has no fields", () => {
   it("a schedule sending an event with a required field", () => {
-    const Timed = definition({ id: "types/endings/Timed", states: ["A"], events, internalEvents });
+    const Timed = definition({
+      id: "types/endings/Timed",
+      states: ["A"],
+      events,
+      internalEvents,
+      schedules: { ok: {}, bad: {} },
+    });
 
     expectTypeOf(
       machine(Timed, ({ S, E }) => ({

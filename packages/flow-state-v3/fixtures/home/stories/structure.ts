@@ -116,12 +116,14 @@ export const armOnKeyed = () =>
       ONLINE: {
         default: S.ONLINE.IDLE,
         schedules: {
-          poll: Flow.keyed({
+          poll: {
             keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
             schedule: Duration.minutes(1),
-            send: E.Polled.from(({ key, firedAt }) => ({ id: key["id"] ?? "", at: firedAt })),
+            send: E.Polled.from(({ key, firedAt }) => ({ id: key.id, at: firedAt })),
             armOn: [E.Connected],
-          }),
+            restartOn: () => "temperature",
+            paused: { Vacation: () => false, Saving: () => false },
+          },
         },
       },
     },
@@ -159,11 +161,12 @@ export const armOnBesideRestart = () =>
       ONLINE: {
         default: S.ONLINE.IDLE,
         schedules: {
-          boost: {
+          check: {
             schedule: Duration.minutes(30),
             send: E.BoostEnded,
             armOn: [Flow.entry, E.Boost],
             restartOn: ({ memory }) => memory.target,
+            paused: { Vacation: () => false },
           },
         },
       },

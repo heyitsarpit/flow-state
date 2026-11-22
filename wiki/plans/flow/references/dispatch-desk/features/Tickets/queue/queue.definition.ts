@@ -171,4 +171,5 @@ export const Queue = definition({
       unknown: E.BulkUnsure,
     }),
   }),
+  schedules: { settle: { restartOn: Schema.String }, firstMinute: {}, minute: {}, sla: { key: { workspaceId: Schema.String, ticketId: Schema.String } }, poll: {} },
 });

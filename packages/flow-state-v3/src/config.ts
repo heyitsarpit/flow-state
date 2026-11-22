@@ -21,7 +21,6 @@ import { type Finding, invalid } from "./error.ts";
 import type { Entry, Uncertain } from "./flow.ts";
 import { type Container, isMade, type Kind } from "./made.ts";
 import type { SendToken as SendTokenOf } from "./send.ts";
-import type { ErasedEntry, ErasedSchedule } from "./tokens.ts";
 
 const Fn = Schema.declare(Predicate.isFunction);
 
@@ -105,6 +104,15 @@ const ContextSlot = madeKind(
   "Declare a context slot with Flow.context(X.M.field) or Flow.context(Schema, { reads, select }).",
 );
 
+// One declared schedule: its key's fields, its pause reasons and its restartOn selection's Schema.
+const ScheduleDecl = Schema.Struct({
+  key: Schema.optionalKey(Payload),
+  pausedBy: Schema.optionalKey(Schema.Array(Schema.String)),
+  restartOn: Schema.optionalKey(FieldSchema),
+}).annotate({
+  help: "Declare a schedule as { key?: { field: Schema }, pausedBy?: [reasons], restartOn?: Schema }.",
+});
+
 const DefinitionConfig = Schema.Struct({
   id: Schema.String.annotate({ help: "Give the definition a string id." }),
   persist: Schema.optionalKey(Schema.Boolean.annotate({ help: "Set persist to true or false." })),
@@ -114,10 +122,9 @@ const DefinitionConfig = Schema.Struct({
   memory: Schema.optionalKey(Schema.Record(Schema.String, MemoryField)),
   context: Schema.optionalKey(Schema.Record(Schema.String, ContextSlot)),
   operations: Schema.optionalKey(Fn.annotate({ help: "Declare operations as ({ E }) => record." })),
-  // FLOW_STATE_ALLOW_UNKNOWN: a schedule declaration, accepted and not yet read.
-  schedules: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+  schedules: Schema.optionalKey(Schema.Record(Schema.String, ScheduleDecl)),
 }).annotate({
-  help: "Declare id, states and events; a definition may also declare persist, internalEvents, memory, context and operations.",
+  help: "Declare id, states and events; a definition may also declare persist, internalEvents, memory, context, operations and schedules.",
 });
 
 const GuardElement = Schema.Union([StateToken, GuardToken, Fn]);
@@ -166,27 +173,19 @@ const Delay = Schema.Union([
   DurationObject,
 ]).annotate({ help: 'Give a schedule a Duration input, such as "5 seconds" or { seconds: 5 }.' });
 
-const scheduleFields = {
+// A schedule placed in a state: what its declaration names it with is checked against the
+// declaration when the machine is built.
+const ScheduleEntry = Schema.Struct({
   schedule: Delay,
   send: Ending,
   armOn: Schema.optionalKey(Schema.Array(Schema.Union([EventToken, EntryToken]))),
   disarmOn: Schema.optionalKey(Schema.Array(EventToken)),
+  keys: Schema.optionalKey(Fn),
   restartOn: Schema.optionalKey(Fn),
   paused: Schema.optionalKey(Schema.Record(Schema.String, Fn)),
-};
-
-// A schedule, or a keyed one as Flow.keyed makes it: its config, with keys.
-const ScheduleEntry = Schema.Union([
-  Schema.Struct(scheduleFields).annotate({
-    help: "Write a schedule as { schedule, send: E.X, armOn: [E.X tokens or Flow.entry] }, and one with a timer per key as Flow.keyed({ keys, schedule, send: E.X }).",
-  }),
-  Schema.Struct({
-    "~flow": Schema.Literal("keyed"),
-    config: Schema.Struct({ ...scheduleFields, keys: Fn }).annotate({
-      help: "Write a keyed schedule as Flow.keyed({ keys, schedule, send: E.X }).",
-    }),
-  }),
-]);
+}).annotate({
+  help: "Place a schedule declared on the definition as { schedule, send: E.X }, with its keys, restartOn and paused as its declaration names them.",
+});
 
 // A slot's change reaction, as `C.slot.change` makes it: when a change counts, and its event.
 const Change = madeKind("change", "Write a reaction as C.slot.change({ when, event }).");
@@ -382,8 +381,4 @@ export const is = {
   guard: kindIs<GuardTokenOf<never>>("guard"),
   send: kindIs<SendTokenOf>("send"),
   entry: kindIs<Entry>("entry"),
-  // FLOW_STATE_ALLOW_UNKNOWN: a decoded schedule entry, told apart by its shape.
-  // RETURN_TYPE: a type guard states the entry it narrows to.
-  keyed: (x: unknown): x is Extract<ErasedEntry, { readonly config: ErasedSchedule }> =>
-    Predicate.hasProperty(x, "config") && !Predicate.hasProperty(x, "schedule"),
 };

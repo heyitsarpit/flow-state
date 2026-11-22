@@ -31,13 +31,23 @@ import { codecOf, endingOf } from "./events.ts";
 import { defect } from "./core/defect.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { ActorId } from "./core/world.ts";
-import type { Change, ContextTokens, ErasedEntry } from "./tokens.ts";
+import type { Change, ContextTokens, ErasedPlacement } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
 import { nodesOf, tokenMaps } from "./compile-body.ts";
 import type { Compile } from "./compile-names.ts";
+import { placementFindings, scheduleCodecsOf } from "./compile-schedules.ts";
 
 type Parts<D> =
-  D extends Definition<infer States, infer Ev, infer In, infer M, infer _O, infer Cx, infer Id>
+  D extends Definition<
+    infer States,
+    infer Ev,
+    infer In,
+    infer M,
+    infer _O,
+    infer Cx,
+    infer Id,
+    infer Sch
+  >
     ? {
         readonly Context: Partial<ContextOf<Cx>>;
         readonly Tree: States;
@@ -47,6 +57,7 @@ type Parts<D> =
         readonly Memory: MemoryOf<M>;
         readonly Writable: WritableOf<M>;
         readonly Id: Id;
+        readonly Schedules: Sch;
       }
     : never;
 
@@ -67,7 +78,8 @@ type LeafBody<D> = StateConfig<
   Parts<D>["Writable"],
   Parts<D>["Id"],
   Parts<D>["Leaves"],
-  Parts<D>["Context"]
+  Parts<D>["Context"],
+  Parts<D>["Schedules"]
 >;
 
 type StatesBody<D, L, P extends string> = {
@@ -102,7 +114,7 @@ export type AnyBody = {
   readonly default?: StateToken;
   readonly on?: Values;
   readonly onContext?: ReadonlyArray<Change>;
-  readonly schedules?: Readonly<Record<string, ErasedEntry>>;
+  readonly schedules?: Readonly<Record<string, ErasedPlacement>>;
   readonly states?: Readonly<Partial<Record<string, AnyBody>>>;
 };
 
@@ -361,6 +373,7 @@ export const machine = entry(
       inDeclarationOrder(BODY_KEYS, [
         ...bodyFindings(config),
         ...reactionKinds(Array.isArray(config.onContext) ? config.onContext : [], reactor),
+        ...placementFindings(definition.schedules, config),
       ]),
     );
 
@@ -376,7 +389,7 @@ export const machine = entry(
       events: new Set(Object.keys(definition.E)),
       sends: new Set(Object.values(definition.E)),
       findings: [],
-      scheduleNames: new Map(),
+      placements: new Map(),
     };
 
     const compiledTree = nodesOf(compile, config, Option.none(), []);
@@ -438,6 +451,7 @@ export const machine = entry(
         ]),
       ),
       context: new Map(context),
+      schedules: scheduleCodecsOf(definition.schedules),
       wiring: new Map<string, ActorId>(),
       [InternalsId]: {
         fields,

@@ -22,6 +22,8 @@ import {
 import type {
   AnyDefinition,
   ContextOf,
+  KeyOfDecl,
+  ReasonOfDecl,
   LeavesOf,
   Machine,
   MemoryOf,
@@ -63,16 +65,28 @@ export type Snapshot<
   readonly lifecycle: Lifecycle;
   readonly context: Erased<D> extends true ? Values : Partial<ContextOf<D["context"]>>;
   readonly issues: ReadonlyArray<Diagnostic>;
-  readonly schedules: Timers;
+  readonly schedules: Erased<D> extends true ? Timers : TimersOf<D>;
 };
 
 /**
  * One armed timer as a snapshot shows it: `{ dueAt }` while it runs, `{ left, pausedBy }` while its
- * pause reasons hold it, never both. Times are Runtime Clock milliseconds.
+ * pause reasons `R` hold it, never both. Times are Runtime Clock milliseconds.
  */
-export type TimerView =
+export type TimerView<R extends string = string> =
   | { readonly dueAt: number }
-  | { readonly left: number; readonly pausedBy: ReadonlyArray<string> };
+  | { readonly left: number; readonly pausedBy: ReadonlyArray<R> };
+
+/**
+ * A snapshot's armed timers typed by the definition's declaration: each declared schedule by name,
+ * a keyed one as a list of its declared key with its timer, pausedBy its declared reasons.
+ */
+export type TimersOf<D extends AnyDefinition> = {
+  readonly [N in keyof D["schedules"]]?: [KeyOfDecl<D["schedules"][N]>] extends [undefined]
+    ? TimerView<ReasonOfDecl<D["schedules"][N]>>
+    : ReadonlyArray<
+        { readonly key: KeyOfDecl<D["schedules"][N]> } & TimerView<ReasonOfDecl<D["schedules"][N]>>
+      >;
+};
 
 /**
  * A snapshot's armed timers by schedule name: a keyed schedule's as a list in key order, each with

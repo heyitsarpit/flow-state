@@ -393,6 +393,7 @@ const Reminders = definition({
     items: Flow.initial(Schema.Array(Schema.String), ["a", "b"]),
     reminded: Flow.initial(Schema.Number, 0),
   },
+  schedules: { remind: { key: { id: Schema.String } } },
 });
 
 const RemindersMachine = machine(Reminders, ({ S, E }) => ({
@@ -404,12 +405,12 @@ const RemindersMachine = machine(Reminders, ({ S, E }) => ({
         Reminded: { updateMemory: ({ memory }) => ({ reminded: memory.reminded + 1 }) },
       },
       schedules: {
-        remind: Flow.keyed({
+        remind: {
           keys: ({ memory }) => memory.items.map((id) => ({ id })),
           schedule: "1 minute",
-          send: E.Reminded.from(({ key }) => ({ id: key["id"] ?? "" })),
+          send: E.Reminded.from(({ key }) => ({ id: key.id })),
           disarmOn: [E.Mute],
-        }),
+        },
       },
     },
   },
@@ -451,6 +452,7 @@ const Search = definition({
     query: Flow.initial(Schema.String, ""),
     searches: Flow.initial(Schema.Number, 0),
   },
+  schedules: { debounce: { restartOn: Schema.String } },
 });
 
 const SearchMachine = machine(Search, ({ S, E }) => ({
@@ -509,6 +511,7 @@ const Meter = definition({
   events: {},
   internalEvents: { Read: {} },
   memory: { reads: Flow.initial(Schema.Number, 0) },
+  schedules: { read: {} },
 });
 
 // A Schedule whose first step waits a minute and whose second dies.
@@ -562,6 +565,7 @@ const Ticker = definition({
   events: {},
   internalEvents: { Ticked: {} },
   memory: { ticks: Flow.initial(Schema.Number, 0) },
+  schedules: { tick: {} },
 });
 
 const TickerMachine = machine(Ticker, ({ S, E }) => ({
@@ -626,6 +630,7 @@ const Heater = definition({
     target: Flow.initial(Schema.Number, 20),
     checks: Flow.initial(Schema.Number, 0),
   },
+  schedules: { check: { pausedBy: ["Away"], restartOn: Schema.Number } },
 });
 
 const unreadable = (broken: boolean) => {

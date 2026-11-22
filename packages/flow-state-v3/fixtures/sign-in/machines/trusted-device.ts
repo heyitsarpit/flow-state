@@ -26,6 +26,7 @@ export const TrustedDevice = definition({
     signedIn: Flow.initial(Schema.Boolean, false),
   },
   context: { session: Flow.context(AuthSession.S.SIGNED_IN) },
+  schedules: { reverify: {} },
 });
 
 /**

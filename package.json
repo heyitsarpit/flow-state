@@ -10,7 +10,8 @@
   "scripts": {
     "build": "nub run build:library",
     "build:library": "nub run --filter flow-state build && nub run --filter flow-state check:packed-consumers",
-    "check": "vp check packages/flow-state-v3 && nub run check:effect && nub run check:plans",
+    "check": "vp check packages/flow-state-v3 && nub run check:effect && nub run check:plans && nub run check:references",
+    "check:references": "oxlint -c tools/flow-state-lint/no-undeclared-schedule.oxlintrc.json wiki/plans/flow/references/checkout wiki/plans/flow/references/dispatch-desk",
     "check:effect": "effect-tsgo tsc -p packages/flow-state-v3/tsconfig.json",
     "check:plans": "bun tools/plan-coverage/check.ts",
     "check:fix": "vp check --fix packages/flow-state-v3",
@@ -26,7 +27,7 @@
     "fmt:check": "vp fmt packages/flow-state-v3 --check",
     "lint": "vp lint packages/flow-state-v3",
     "lint:fix": "vp lint packages/flow-state-v3 --fix",
-    "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/bans.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-raw-event.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-event-name-filter.test.ts &&node --experimental-strip-types tools/flow-state-lint/rules/no-hand-option.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-tag-chain.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/owners-only.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/paired-refusals.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/timers-decided.test.ts && node --experimental-strip-types tools/flow-state-lint/imports.test.ts",
+    "lint:rules": "node --experimental-strip-types tools/lint-bomb/test/rules.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/bans.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-raw-event.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-event-name-filter.test.ts &&node --experimental-strip-types tools/flow-state-lint/rules/no-hand-option.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-tag-chain.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/no-undeclared-schedule.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/owners-only.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/paired-refusals.test.ts && node --experimental-strip-types tools/flow-state-lint/rules/timers-decided.test.ts && node --experimental-strip-types tools/flow-state-lint/imports.test.ts",
     "test": "vp test",
     "test:browser": "node tools/browser/run.ts",
     "test:stress": "node --experimental-strip-types tools/stress/select.test.ts && FLOW_STRESS=1 vp test run packages/flow-state-v3",

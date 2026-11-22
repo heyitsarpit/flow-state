@@ -47,6 +47,7 @@ export const Sync = definition({
       },
     }),
   }),
+  schedules: { cool: {} },
 });
 
 const byRepo = ({ event }: { readonly event: { readonly repo: string } }) => ({ repo: event.repo });

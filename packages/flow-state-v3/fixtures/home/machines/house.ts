@@ -11,6 +11,7 @@ export const House = definition({
   events: { Leave: {}, Arrive: {}, StartVacation: { until: Schema.Number } },
   internalEvents: { Returned: {} },
   memory: { until: Flow.initial(Schema.Number, 0) },
+  schedules: { homecoming: {} },
 });
 
 /**

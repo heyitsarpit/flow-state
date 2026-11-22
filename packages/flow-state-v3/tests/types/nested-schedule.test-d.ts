@@ -5,6 +5,7 @@ const Player = definition({
   id: "types/NestedSchedule",
   states: ["OFF", { ON: ["PLAYING", "PAUSED"] }],
   events: { Seek: {}, Tick: {} },
+  schedules: { tick: {} },
 });
 
 describe("Compile R14: a nested leaf's schedule", () => {

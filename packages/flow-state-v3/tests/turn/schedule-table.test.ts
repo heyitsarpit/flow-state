@@ -3,7 +3,15 @@ import { describe, expect, it } from "vite-plus/test";
 import { Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { TraceRecord } from "../../src/host/trace.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  runtimeSetup,
+  type ScheduleDecl,
+} from "../../src/index.ts";
 import { checked } from "../rules/rules.ts";
 import { timersOf } from "../timers.ts";
 
@@ -27,29 +35,34 @@ type Inputs = {
   readonly keys: ReadonlyArray<string>;
 };
 
-const Table = definition({
-  id: "Table/Schedule",
-  states: ["ON"],
-  events: {
-    Set: Inputs,
-    Go: Inputs,
-    Stop: Inputs,
-    Reenter: Inputs,
-    ReenterStop: Inputs,
-    Queue: Inputs,
-  },
-  internalEvents: { Tick: {} },
-  memory: {
-    a: Flow.initial(Flag, "f"),
-    b: Flow.initial(Flag, "f"),
-    sel: Flow.initial(Schema.Number, 0),
-    keys: Flow.initial(Schema.Array(Schema.String), []),
-    na: Flow.initial(Flag, "f"),
-    nb: Flow.initial(Flag, "f"),
-    nsel: Flow.initial(Schema.Number, 0),
-    nkeys: Flow.initial(Schema.Array(Schema.String), []),
-  },
-});
+// The table's definition, its schedule t declared as each kind places it.
+const tableOf = <const T extends ScheduleDecl>(t: T) =>
+  definition({
+    id: "Table/Schedule",
+    states: ["ON"],
+    events: {
+      Set: Inputs,
+      Go: Inputs,
+      Stop: Inputs,
+      Reenter: Inputs,
+      ReenterStop: Inputs,
+      Queue: Inputs,
+    },
+    internalEvents: { Tick: {} },
+    memory: {
+      a: Flow.initial(Flag, "f"),
+      b: Flow.initial(Flag, "f"),
+      sel: Flow.initial(Schema.Number, 0),
+      keys: Flow.initial(Schema.Array(Schema.String), []),
+      na: Flow.initial(Flag, "f"),
+      nb: Flow.initial(Flag, "f"),
+      nsel: Flow.initial(Schema.Number, 0),
+      nkeys: Flow.initial(Schema.Array(Schema.String), []),
+    },
+    schedules: { t },
+  });
+
+const Table = tableOf({});
 
 type Memory = Inputs & {
   readonly na: Flag;
@@ -99,30 +112,33 @@ const ROOT = {
   Tick: { updateMemory: ticked },
 };
 
-const EntryTable = machine(Table, ({ S, E }) => ({
-  default: S.ON,
-  on: ROOT,
-  states: {
-    ON: {
-      on: {
-        Reenter: { target: S.ON, updateMemory: written },
-        ReenterStop: { target: S.ON, updateMemory: written },
-      },
-      schedules: {
-        t: {
-          schedule: "1 minute",
-          send: E.Tick,
-          armOn: [Flow.entry],
-          restartOn: ({ memory }) => selection(memory.sel),
-          disarmOn: [E.Stop, E.ReenterStop],
-          paused: { A: ({ memory }) => flag(memory.a), B: ({ memory }) => flag(memory.b) },
+const EntryTable = machine(
+  tableOf({ pausedBy: ["A", "B"], restartOn: Schema.Number }),
+  ({ S, E }) => ({
+    default: S.ON,
+    on: ROOT,
+    states: {
+      ON: {
+        on: {
+          Reenter: { target: S.ON, updateMemory: written },
+          ReenterStop: { target: S.ON, updateMemory: written },
+        },
+        schedules: {
+          t: {
+            schedule: "1 minute",
+            send: E.Tick,
+            armOn: [Flow.entry],
+            restartOn: ({ memory }) => selection(memory.sel),
+            disarmOn: [E.Stop, E.ReenterStop],
+            paused: { A: ({ memory }) => flag(memory.a), B: ({ memory }) => flag(memory.b) },
+          },
         },
       },
     },
-  },
-}));
+  }),
+);
 
-const ArmOnTable = machine(Table, ({ S, E }) => ({
+const ArmOnTable = machine(tableOf({ pausedBy: ["A", "B"] }), ({ S, E }) => ({
   default: S.ON,
   on: ROOT,
   states: {
@@ -144,7 +160,7 @@ const ArmOnTable = machine(Table, ({ S, E }) => ({
   },
 }));
 
-const PlainTable = machine(Table, ({ S, E }) => ({
+const PlainTable = machine(tableOf({ pausedBy: ["A", "B"] }), ({ S, E }) => ({
   default: S.ON,
   on: ROOT,
   states: {
@@ -165,34 +181,37 @@ const PlainTable = machine(Table, ({ S, E }) => ({
   },
 }));
 
-const KeyedTable = machine(Table, ({ S, E }) => ({
-  default: S.ON,
-  on: ROOT,
-  states: {
-    ON: {
-      on: {
-        Reenter: { target: S.ON, updateMemory: written },
-        ReenterStop: { target: S.ON, updateMemory: written },
-      },
-      schedules: {
-        t: Flow.keyed({
-          keys: ({ memory }) => memory.keys.map((id) => ({ id })),
-          schedule: "1 minute",
-          send: E.Tick,
-          restartOn: ({ memory }) => selection(memory.sel),
-          disarmOn: [E.Stop, E.ReenterStop],
-          paused: { A: ({ memory }) => flag(memory.a), B: ({ memory }) => flag(memory.b) },
-        }),
+const KeyedTable = machine(
+  tableOf({ key: { id: Schema.String }, pausedBy: ["A", "B"], restartOn: Schema.Number }),
+  ({ S, E }) => ({
+    default: S.ON,
+    on: ROOT,
+    states: {
+      ON: {
+        on: {
+          Reenter: { target: S.ON, updateMemory: written },
+          ReenterStop: { target: S.ON, updateMemory: written },
+        },
+        schedules: {
+          t: {
+            keys: ({ memory }) => memory.keys.map((id) => ({ id })),
+            schedule: "1 minute",
+            send: E.Tick,
+            restartOn: ({ memory }) => selection(memory.sel),
+            disarmOn: [E.Stop, E.ReenterStop],
+            paused: { A: ({ memory }) => flag(memory.a), B: ({ memory }) => flag(memory.b) },
+          },
+        },
       },
     },
-  },
-}));
+  }),
+);
 
 // ── rows.
 
-type Kind = "entry" | "armOn" | "plain" | "keyed";
+type Kind = "entry" | "armOn" | "plain" | "byKey";
 
-const MACHINES = { entry: EntryTable, armOn: ArmOnTable, plain: PlainTable, keyed: KeyedTable };
+const MACHINES = { entry: EntryTable, armOn: ArmOnTable, plain: PlainTable, byKey: KeyedTable };
 
 type Before =
   | "absent"
@@ -221,7 +240,7 @@ type Row = {
   readonly b: Flag;
 };
 
-const hasRestart = (kind: Kind) => kind === "entry" || kind === "keyed";
+const hasRestart = (kind: Kind) => kind === "entry" || kind === "byKey";
 
 const FLAGS: ReadonlyArray<Flag> = ["t", "f", "x"];
 
@@ -248,7 +267,7 @@ const keptWith = (key: KeyChange) => KEPT.map((before) => ({ before, key }));
 
 // A keyed key that appears starts absent; the others start with the key.
 const startsOf = (kind: Kind) =>
-  kind === "keyed"
+  kind === "byKey"
     ? [
         { before: "absent" as const, key: "appear" as const },
         ...keptWith("stay"),
@@ -275,7 +294,7 @@ const rowsOf = (kind: Kind) =>
 const titleOf = (row: Row) => {
   const parts = [
     row.kind,
-    row.kind === "keyed" ? `${row.before}, key ${row.key}s` : row.before,
+    row.kind === "byKey" ? `${row.before}, key ${row.key}s` : row.before,
     row.turn === "firing" ? "firing due" : row.turn,
   ];
 
@@ -334,7 +353,7 @@ const startsRun = (row: Row) => {
 
   const arms =
     (reenters(row) && row.kind !== "armOn") ||
-    (row.key === "appear" && row.kind === "keyed") ||
+    (row.key === "appear" && row.kind === "byKey") ||
     (row.kind === "armOn" && row.turn === "go");
 
   return !disarms(row) && (arms || restarted);
@@ -454,7 +473,7 @@ const inputsOf = (row: Row) =>
     a: row.a,
     b: row.b,
     sel: SEL[row.restart],
-    keys: row.kind === "keyed" && row.key !== "leave" ? WITH_KEY : [],
+    keys: row.kind === "byKey" && row.key !== "leave" ? WITH_KEY : [],
   }) satisfies Inputs;
 
 // The event a turn or a start sends.
@@ -500,12 +519,12 @@ const armingOf = (row: Row, base: Inputs): ReadonlyArray<Sent> => {
       ? []
       : [["go", base]];
 
-  return row.kind === "keyed" && row.before !== "absent" ? [["write", base]] : [];
+  return row.kind === "byKey" && row.before !== "absent" ? [["write", base]] : [];
 };
 
 // What each start sends at 0, after the ensure, then a firing row's queued inputs.
 const preludeOf = (row: Row) => {
-  const keys = row.kind === "keyed" && row.before !== "absent" ? WITH_KEY : [];
+  const keys = row.kind === "byKey" && row.before !== "absent" ? WITH_KEY : [];
   const base = { ...NONE, keys };
   const queued: ReadonlyArray<Sent> = row.turn === "firing" ? [["queue", inputsOf(row)]] : [];
 
@@ -519,7 +538,7 @@ const REFS = {
   entry: (name: `r${number}`) => actorRef(EntryTable, name),
   armOn: (name: `r${number}`) => actorRef(ArmOnTable, name),
   plain: (name: `r${number}`) => actorRef(PlainTable, name),
-  keyed: (name: `r${number}`) => actorRef(KeyedTable, name),
+  byKey: (name: `r${number}`) => actorRef(KeyedTable, name),
 };
 
 const refOf = (row: Row, n: number) => REFS[row.kind](nameOf(n));
@@ -609,7 +628,7 @@ const outcomeOf = (run: StoryRun, row: Row, n: number) => {
   } satisfies Outcome;
 };
 
-const KINDS: ReadonlyArray<Kind> = ["entry", "armOn", "plain", "keyed"];
+const KINDS: ReadonlyArray<Kind> = ["entry", "armOn", "plain", "byKey"];
 
 describe("one schedule's same-turn inputs (Turn R14 to R17, R19, R25, R27)", () => {
   for (const kind of KINDS)
@@ -634,6 +653,7 @@ const Ring = definition({
   events: { Reenter: { far: Schema.Boolean }, ReenterStop: { far: Schema.Boolean } },
   internalEvents: { Rang: {} },
   memory: { far: Flow.initial(Schema.Boolean, false) },
+  schedules: { ring: {} },
 });
 
 const RingMachine = machine(Ring, ({ S, E }) => ({
@@ -691,6 +711,7 @@ const Kept = definition({
   events: { Go: { a: Flag }, Stop: { a: Flag } },
   internalEvents: { Tick: {} },
   memory: { a: Flow.initial(Flag, "f") },
+  schedules: { t: { pausedBy: ["A"] } },
 });
 
 const KeptMachine = machine(Kept, ({ S, E }) => ({

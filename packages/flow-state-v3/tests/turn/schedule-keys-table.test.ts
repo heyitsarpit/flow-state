@@ -42,6 +42,7 @@ const Pair = definition({
     nfar: Flow.initial(Schema.Array(Schema.String), []),
     na: Flow.initial(Schema.Record(Schema.String, Flag), {}),
   },
+  schedules: { t: { key: { id: Schema.String }, pausedBy: ["A"] } },
 });
 
 const flag = (value: Flag) => {
@@ -64,12 +65,12 @@ const PairMachine = machine(Pair, ({ S, E }) => ({
   states: {
     ON: {
       schedules: {
-        t: Flow.keyed({
+        t: {
           keys: ({ memory }) => memory.keys.map((id) => ({ id })),
           schedule: ({ key, memory }) => (memory.far.includes(key.id) ? 2 ** 31 : DELAY),
           send: E.Tick,
           paused: { A: ({ key, memory }) => flag(memory.a[key.id] ?? "f") },
-        }),
+        },
       },
     },
   },
@@ -519,6 +520,7 @@ const Mapped = definition({
   events: { Set: { keys: Schema.Array(Schema.String) } },
   internalEvents: { Tick: {} },
   memory: { keys: Flow.initial(Schema.Array(Schema.String), []) },
+  schedules: { t: { key: { id: Schema.String } } },
 });
 
 const MappedMachine = machine(Mapped, ({ S, E }) => ({
@@ -530,15 +532,15 @@ const MappedMachine = machine(Mapped, ({ S, E }) => ({
   states: {
     ON: {
       schedules: {
-        t: Flow.keyed({
+        t: {
           keys: ({ memory }) => memory.keys.map((id) => ({ id })),
           schedule: Schedule.spaced("1 minute"),
           send: E.Tick.from(({ key, attempt }) => {
-            if (key["id"] === "j" && attempt === 1) throw new Error("the firing cannot be mapped");
+            if (key.id === "j" && attempt === 1) throw new Error("the firing cannot be mapped");
 
             return {};
           }),
-        }),
+        },
       },
     },
   },

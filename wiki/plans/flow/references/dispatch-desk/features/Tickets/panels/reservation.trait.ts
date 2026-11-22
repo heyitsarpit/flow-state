@@ -12,6 +12,7 @@ export const Reservation = (p: { length: Duration.Input }) =>
       hostEvents: { Start: {}, Stop: {} },
       internalEvents: { Expired: {} },
       callbacks: { onExpired: Flow.Callback({}) },
+      schedules: { expire: {} },
     },
     ({ E, callbacks }) => ({
       // No memory: "held" is the armed schedule, `s.schedules.parts.reservation.expire.dueAt`.

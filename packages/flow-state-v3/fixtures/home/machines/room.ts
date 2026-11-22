@@ -59,6 +59,16 @@ export const Room = definition({
       unknown: E.Unsure,
     }),
   }),
+  schedules: {
+    reconnect: {},
+    poll: {
+      key: { id: Schema.String },
+      pausedBy: ["Vacation", "Saving"],
+      restartOn: Sensor.kind,
+    },
+    check: { pausedBy: ["Vacation"], restartOn: Schema.Number },
+    boost: {},
+  },
 });
 
 /**
@@ -144,7 +154,7 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
           },
         },
         schedules: {
-          poll: Flow.keyed({
+          poll: {
             keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
             schedule: ({ key, memory }) =>
               Schedule.spaced(POLL_EVERY[kindOf(memory.sensors, key.id)]),
@@ -159,8 +169,8 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
                   (row) => row.pending,
                 ),
             },
-            send: E.Polled.from(({ key, firedAt }) => ({ id: key["id"] ?? "", at: firedAt })),
-          }),
+            send: E.Polled.from(({ key, firedAt }) => ({ id: key.id, at: firedAt })),
+          },
         },
         states: {
           HEATING: {

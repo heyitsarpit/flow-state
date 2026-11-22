@@ -2,7 +2,12 @@ import { describe, expect, it } from "vite-plus/test";
 import { definition, FlowError, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 
-const Clock = definition({ id: "Construction/Clock", states: ["ON"], events: { Off: {} } });
+const Clock = definition({
+  id: "Construction/Clock",
+  states: ["ON"],
+  events: { Off: {} },
+  schedules: { ring: {}, off: {} },
+});
 
 const Bell = definition({
   id: "Construction/Bell",

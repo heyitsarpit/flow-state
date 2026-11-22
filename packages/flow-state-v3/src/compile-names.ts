@@ -36,7 +36,7 @@ export type Compile = {
   // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
   readonly sends: ReadonlySet<unknown>;
   readonly findings: Array<Finding>;
-  readonly scheduleNames: Map<string, string>;
+  readonly placements: Map<string, ReadonlyArray<string>>;
 };
 
 /**

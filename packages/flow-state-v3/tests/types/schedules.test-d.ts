@@ -2,19 +2,9 @@ import { Duration, Schema } from "effect";
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { House } from "../../fixtures/home/machines/house.ts";
 import { Room } from "../../fixtures/home/machines/room.ts";
-import {
-  definition,
-  deny,
-  Flow,
-  type Machine,
-  machine,
-  type Snapshot,
-  type Timers,
-} from "../../src/index.ts";
+import { definition, deny, Flow, type Machine, machine, type Snapshot } from "../../src/index.ts";
 
-// Inverted: each assertion marked `today` asserts today's wide type and fails once that is fixed:
-// make it the narrow type its comment names. The others are two-sided: a refused line beside its
-// correct one.
+// Two-sided: a refused line beside its correct one.
 
 const Lamp = definition({
   id: "types/schedules/Lamp",
@@ -23,19 +13,24 @@ const Lamp = definition({
   internalEvents: { Tick: { attempt: Schema.Number } },
   memory: { level: Flow.initial(Schema.Number, 0) },
   context: { mode: Flow.context(House.state) },
+  schedules: {
+    timed: { pausedBy: ["Away"], restartOn: Schema.Number },
+    held: { pausedBy: ["Away"] },
+    plain: {},
+  },
 });
 
 type Mode = Partial<{ readonly mode: "HOME" | "AWAY" | "VACATION" }>;
 
 describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
-  it("Turn R16: a keyed schedule's schedule, restartOn and pause reasons receive its key as the record `keys` returns; another field and `keys` outside Flow.keyed are refused", () => {
+  it("Types R8: a keyed schedule's schedule, restartOn, pause reasons and send mapper receive its declared key; another field, and keys on an unkeyed schedule, are refused", () => {
     expectTypeOf(
       machine(Room, ({ S, E }) => ({
         default: S.OFFLINE,
         states: {
           OFFLINE: {
             schedules: {
-              poll: Flow.keyed({
+              poll: {
                 keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
                 schedule: ({ key }) => {
                   expectTypeOf(key).toEqualTypeOf<{ readonly id: string }>();
@@ -45,23 +40,22 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
                 restartOn: ({ key }) => {
                   expectTypeOf(key).toEqualTypeOf<{ readonly id: string }>();
 
-                  return key.id;
+                  return key.id === "" ? "motion" : "temperature";
                 },
                 paused: {
-                  Away: ({ key }) => {
+                  Vacation: ({ key }) => {
                     expectTypeOf(key).toEqualTypeOf<{ readonly id: string }>();
 
                     return key.id === "";
                   },
+                  Saving: () => false,
                 },
                 send: E.Polled.from(({ key }) => {
-                  // today: the send's mapper reads the key wide; its call is resolved before
-                  // `keys` infers the key. The narrow type is { readonly id: string }.
-                  expectTypeOf(key).toEqualTypeOf<Readonly<Record<string, string>>>();
+                  expectTypeOf(key).toEqualTypeOf<{ readonly id: string }>();
 
-                  return { id: key["id"] ?? "", at: 0 };
+                  return { id: key.id, at: 0 };
                 }),
-              }),
+              },
             },
           },
           ONLINE: { default: S.ONLINE.IDLE },
@@ -74,14 +68,16 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
       states: {
         OFFLINE: {
           schedules: {
-            poll: Flow.keyed({
+            poll: {
               keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
-              // @ts-expect-error Turn R16: the key holds id alone
+              // @ts-expect-error Types R8: the declared key holds id alone
               schedule: ({ key }) => Duration.minutes(key.kind === "motion" ? 1 : 2),
               send: E.BoostEnded,
-            }),
-            check: {
-              // @ts-expect-error Turn R16: a keyed schedule is written with Flow.keyed
+              restartOn: () => "motion",
+              paused: { Vacation: () => false, Saving: () => false },
+            },
+            boost: {
+              // @ts-expect-error Types R8: boost is declared without a key
               keys: ({ memory }) => memory.sensors.map((s) => ({ id: s.id })),
               schedule: Duration.minutes(1),
               send: E.BoostEnded,
@@ -100,7 +96,7 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
         states: {
           OFF: {
             schedules: {
-              tick: {
+              timed: {
                 schedule: ({ key }) => {
                   expectTypeOf(key).toEqualTypeOf<undefined>();
 
@@ -132,7 +128,7 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
       states: {
         OFF: {
           schedules: {
-            tock: {
+            plain: {
               // @ts-expect-error Turn R16: an unkeyed schedule's key is undefined
               schedule: ({ key }) => Duration.seconds(key.id === "" ? 1 : 2),
               send: E.Tick.from(({ attempt }) => ({ attempt })),
@@ -169,7 +165,7 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
         states: {
           OFF: {
             schedules: {
-              tick: {
+              held: {
                 schedule: Duration.seconds(1),
                 send: E.Tick.from(({ attempt }) => ({ attempt })),
                 paused: {
@@ -198,7 +194,7 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
       states: {
         OFF: {
           schedules: {
-            tick: {
+            held: {
               schedule: Duration.seconds(1),
               send: E.Tick.from(({ attempt }) => ({ attempt })),
               // @ts-expect-error Turn R12: the context has no slot named user
@@ -221,7 +217,7 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
             states: {
               DIM: {
                 schedules: {
-                  tick: {
+                  plain: {
                     schedule: Duration.seconds(1),
                     send: E.Tick.from(({ attempt }) => ({ attempt })),
                   },
@@ -241,7 +237,7 @@ describe("schedule functions' inputs (Turn R16, R12; Machines O5)", () => {
           states: {
             DIM: {
               schedules: {
-                tick: {
+                plain: {
                   schedule: Duration.seconds(1),
                   // @ts-expect-error Compile R14: the metadata has attempt, not tries
                   send: E.Tick.from(({ tries }) => ({ attempt: tries })),
@@ -263,7 +259,7 @@ describe("paused and the snapshot's timers (Turn R27; Machines O8)", () => {
         states: {
           OFF: {
             schedules: {
-              tick: {
+              held: {
                 schedule: Duration.seconds(1),
                 send: E.Tick.from(({ attempt }) => ({ attempt })),
                 paused: { Away: ({ memory }) => memory.level > 0 },
@@ -280,7 +276,7 @@ describe("paused and the snapshot's timers (Turn R27; Machines O8)", () => {
       states: {
         OFF: {
           schedules: {
-            tick: {
+            held: {
               schedule: Duration.seconds(1),
               send: E.Tick.from(({ attempt }) => ({ attempt })),
               // @ts-expect-error Turn R27: paused is a record of reasons, never a bare function
@@ -293,11 +289,20 @@ describe("paused and the snapshot's timers (Turn R27; Machines O8)", () => {
     }));
   });
 
-  it("Machines O8: a snapshot's schedules are a record by name, a keyed one a keyed list, each `{ dueAt }` or `{ left, pausedBy }` with pausedBy its reasons' names", () => {
-    // today: a snapshot is typed by its definition, which holds none of the machine body's
-    // schedules. The narrow type is { readonly poll?: ReadonlyArray<{ readonly key: { readonly id:
-    // string } } & ({ readonly dueAt: number } | { readonly left: number; readonly pausedBy:
-    // ReadonlyArray<"Vacation" | "Saving"> })>; readonly check?: ...; readonly boost?: ... }.
-    expectTypeOf<Snapshot<typeof Room>["schedules"]>().toEqualTypeOf<Timers>();
+  it("Machines O8: a snapshot's schedules are a record by declared name, a keyed one a keyed list, each `{ dueAt }` or `{ left, pausedBy }` with pausedBy its declared reasons", () => {
+    type Paused<R extends string> = { readonly left: number; readonly pausedBy: ReadonlyArray<R> };
+
+    type Due = { readonly dueAt: number };
+
+    expectTypeOf<Snapshot<typeof Room>["schedules"]>().toEqualTypeOf<
+      Partial<{
+        readonly reconnect: Due | Paused<never>;
+        readonly poll: ReadonlyArray<
+          { readonly key: { readonly id: string } } & (Due | Paused<"Vacation" | "Saving">)
+        >;
+        readonly check: Due | Paused<"Vacation">;
+        readonly boost: Due | Paused<never>;
+      }>
+    >();
   });
 });

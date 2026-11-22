@@ -21,6 +21,16 @@ export const codecOf = <E, S = Schema.Top>(schema: S) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Schema.Struct over a runtime record has no static field types
   schema as Schema.Codec<Values, E>;
 
+/**
+ * A schedule's `restartOn` selection codec, as Compiled holds it: its JSON text from a value of
+ * the declaration's type.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a selection is of any type its declaration names.
+export const selectionCodec = <S>(schema: S) =>
+  // SAFETY: a declared restartOn Schema needs no services, as every Flow field Schema, and its JSON text is a string.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the selection's type is the declaration's, erased in Compiled
+  schema as Schema.Codec<unknown, string>;
+
 // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
 export const trusted = <A>(value: unknown) =>
   // SAFETY: a value built from the definition's own keys, whose static type the caller names.
@@ -63,8 +73,8 @@ export type EventInternals = {
  * What a mapping (`E.X.from(f)`) keeps for the core: its mapper and the token it maps onto.
  */
 export type MappingInternals = {
-  // FLOW_STATE_ALLOW_UNKNOWN: a mapper's context is Flow's own and read by no mapper yet.
-  readonly map: (value: never, context: unknown) => Values;
+  // FLOW_STATE_ALLOW_UNKNOWN: an ending's value, typed where the mapper is written; its context is Flow's own.
+  readonly map: (value: unknown, context: unknown) => Values;
   readonly token: Container;
 };
 

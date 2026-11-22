@@ -175,4 +175,5 @@ export const Pay = definition({
       unknown: E.VoidUnsure, // `StillUnknown { AlreadyCaptured }` after a lost first send (O12)
     }),
   }),
+  schedules: { slow: {}, retry: {}, check: {} },
 });

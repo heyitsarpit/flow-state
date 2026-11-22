@@ -12,6 +12,9 @@ const Plain = 'const Plain = definition({ id: "P", states: ["ON"], events: {}, i
 const Declared =
   'const Declared = definition({ id: "D", states: ["ON"], events: {}, internalEvents: { T: {} }, schedules: { tick: {} } });';
 
+// Each planted line is its own block, so the definitions it repeats are declared once per scope.
+const block = (line: string) => `{ ${line} }`;
+
 // Each part runs and reports alone, so one failing part never hides another's verdict.
 const failures: Array<string> = [];
 
@@ -39,13 +42,13 @@ part("planted uses", () => plantRules({
       "type Old = KeyedConfig<never, never, string, never, never>;",
       "type Wide = ScheduleKey;",
       "type Kin = KeyedSchedule | ScheduleParts<never, never, string, never, never> | ErasedEntry;",
-    ],
+    ].map(block),
     quiet: [
       `${Declared} machine(Declared, ({ S, E }) => ({ default: S.ON, states: { ON: { schedules: { tick: { schedule: 1000, send: E.T } } } } }));`,
       `${Declared} const ticks = { tick: { schedule: 1000, send: Declared.E.T } }; machine(Declared, ({ S }) => ({ default: S.ON, states: { ON: { schedules: ticks } } }));`,
       "const timers = snapshot.schedules;",
       'const text = "schedules";',
-    ],
+    ].map(block),
     silent: [],
   },
 }));

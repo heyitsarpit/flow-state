@@ -9,6 +9,7 @@ const Lamp = definition({
   events: { Flip: {}, Fix: {}, Break: {} },
   internalEvents: { Dim: {} },
   memory: { broken: Flow.initial(Schema.Boolean, true), flips: Flow.initial(Schema.Number, 0) },
+  schedules: { dim: {} },
 });
 
 const LampMachine = machine(Lamp, ({ S, E }) => ({
@@ -101,6 +102,7 @@ const Alarm = definition({
   events: {},
   internalEvents: { Never: {} },
   memory: { gap: Flow.initial(Schema.Number, 2 ** 31) },
+  schedules: { broken: {} },
 });
 
 const AlarmMachine = machine(Alarm, ({ S, E }) => ({

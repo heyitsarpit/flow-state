@@ -34,6 +34,7 @@ const Lamp = Flow.definition({
   operations: ({ E }) => ({
     ping: ping.outcomes({ success: E.Pinged, failure: {}, unknown: E.Unsure }),
   }),
+  schedules: { tick: {} },
 });
 
 const Other = Flow.definition({
@@ -320,7 +321,7 @@ const sources = () =>
     }));
 
 describe("the marks are gone (Operations R10)", () => {
-  it.fails("Operations R10: no source outside the testing route writes or reads a ~flow, ~token, ~owner, ~path, ~payload, ~walk or ~names mark", () => {
+  it("Operations R10: no source outside the testing route writes or reads a ~flow, ~token, ~owner, ~path, ~payload, ~walk or ~names mark", () => {
     const marked = sources()
       .filter(({ path }) => !path.startsWith("host/testing/"))
       .filter(({ text }) => /"~(flow|token|owner|path|payload|walk|names)"/u.test(text))

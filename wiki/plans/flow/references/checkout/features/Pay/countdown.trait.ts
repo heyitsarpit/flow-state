@@ -16,6 +16,7 @@ export const Countdown = (p: { length: Duration.Input }) =>
       hostEvents: { Shown: {} },
       internalEvents: { Expired: {} },
       callbacks: { onExpired: Flow.Callback({}) },
+      schedules: { expire: {} },
     },
     ({ E, callbacks }) => ({
       schedules: { expire: { schedule: p.length, send: E.Expired, armOn: [E.Shown] } },

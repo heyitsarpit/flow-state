@@ -13,6 +13,7 @@ export const Cells = definition({
   internalEvents: Pay.internalEvents,
   memory: Pay.memory,
   operations: () => Pay.operations,
+  schedules: Pay.schedules,
 });
 
 /**

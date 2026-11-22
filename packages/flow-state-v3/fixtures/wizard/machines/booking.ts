@@ -27,6 +27,7 @@ export const Booking = definition({
     heldUntil: Flow.initial(Schema.Number, 0),
     warning: Flow.initial(Schema.Boolean, false),
   },
+  schedules: { expire: {}, warn: {} },
 });
 
 /**

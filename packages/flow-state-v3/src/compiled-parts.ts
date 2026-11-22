@@ -11,7 +11,6 @@ import {
 } from "./core/compiled.ts";
 import type { Bound, BoundInternals } from "./contract.ts";
 import { internalsOf } from "./made.ts";
-import { erase } from "./handles.ts";
 import { defect } from "./core/defect.ts";
 import { isUncertain } from "./config.ts";
 import {
@@ -44,7 +43,7 @@ export const mappingOf = (
       (map) => ({
         slot,
         // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own; its mapper is written for it.
-        run: erase<unknown, Values>((value) => map(value, {})),
+        run: (value: unknown) => map(value, {}),
       }),
     ),
   };

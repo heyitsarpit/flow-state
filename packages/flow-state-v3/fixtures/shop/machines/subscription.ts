@@ -15,6 +15,7 @@ export const Subscription = definition({
     paymentMethodId: Flow.initial(Schema.String, ""),
     renewals: Flow.initial(Schema.Number, 0),
   },
+  schedules: { renew: {} },
 });
 
 const toPay = () => actorRef(PayMachine, "renewal");

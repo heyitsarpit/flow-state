@@ -214,6 +214,7 @@ describe("Runtime", () => {
       states: ["COLD", "HEATING", "BOILED"],
       events: { Heat: {} },
       internalEvents: { Boiled: {} },
+      schedules: { boil: {} },
     });
 
     const kettle = machine(Kettle, ({ S, E }) => ({

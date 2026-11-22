@@ -55,6 +55,7 @@ export const Autosave = trait(
         unknown: E.Unsure, // Restored mid-autosave too: re-send the same Attempt (O12)
       }),
     }),
+    schedules: { resend: {} },
   },
   ({ E, O, callbacks }) => ({
     traits: { check: { input: ({ memory }) => ({ value: memory.saved }) } },

@@ -8,4 +8,5 @@ export const Toasts = definition({
   events: { Push: { text: Schema.String }, Dismiss: {} },
   internalEvents: { Expire: {} },
   memory: { messages: Flow.initial(Schema.Array(Schema.String), []) },
+  schedules: { expire: {} },
 });

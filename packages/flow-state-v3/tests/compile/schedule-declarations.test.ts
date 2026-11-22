@@ -7,8 +7,7 @@ import { refusal } from "../refusals.ts";
 
 // Declared schedules, the runtime half: the declaration on the definition, the body's placement
 // checked against it at construction (the twin rule), and each schedule's key and selection codec
-// in `Compiled.schedules`. Every check is inverted (`it.fails`) until the declaration lands; the
-// types follow later, so these call `definition` and `machine` as plain JavaScript does.
+// in `Compiled.schedules`. These call `definition` and `machine` as plain JavaScript does.
 
 type Tokens = {
   readonly S: Readonly<Record<string, unknown>>;
@@ -22,12 +21,6 @@ const untyped: {
     body: (tokens: Tokens) => unknown,
   ) => { readonly compiled: unknown };
 } = loose({ definition, machine });
-
-// A keyed schedule's body: wrapped in Flow.keyed while that wrapper exists, plain once keys are
-// declared, so each keyed check fails today for its own rule.
-const keyed: (config: unknown) => unknown = Predicate.hasProperty(Flow, "keyed")
-  ? loose(Flow.keyed)
-  : (config) => config;
 
 // A lamp whose definition declares `schedules`, as an app author writes it.
 const Lamp = (schedules: unknown) =>
@@ -84,20 +77,20 @@ describe("the declaration (Types R8; Schedules R16)", () => {
           },
           ({ E }) => ({
             tick: { schedule: 1000, send: E["Tick"] },
-            poll: keyed({
+            poll: {
               schedule: 1000,
               send: E["Tick"],
               keys: () => [{ id: "a" }],
               paused: { Away: () => false },
               restartOn: () => 1,
-            }),
+            },
           }),
         ),
       ),
     ).toEqual([]);
   });
 
-  it.fails("Types R8: one declared schedule placed in two states constructs, every placement sharing its name, key and reasons", () => {
+  it("Types R8: one declared schedule placed in two states constructs, every placement sharing its name, key and reasons", () => {
     const declared = { tick: { pausedBy: ["Away"] } };
 
     const tick = ({ E }: Tokens) => ({
@@ -119,7 +112,7 @@ describe("the declaration (Types R8; Schedules R16)", () => {
 });
 
 describe("the twin rule: each refusal the types make has a construction row (Types R8, I13)", () => {
-  it.fails("Types I13: a body schedule its definition does not declare is refused ScheduleUndeclared at it", () => {
+  it("Types I13: a body schedule its definition does not declare is refused ScheduleUndeclared at it", () => {
     expect(
       refusedAt("states.OFF.schedules.tock", () =>
         lampMachine({ tick: {} }, ({ E }) => ({
@@ -130,7 +123,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ScheduleUndeclared", "true"]]);
   });
 
-  it.fails("Types I13: a pause reason the declaration does not name is refused ReasonUndeclared at it", () => {
+  it("Types I13: a pause reason the declaration does not name is refused ReasonUndeclared at it", () => {
     expect(
       refusedAt(`${TICK}.paused`, () =>
         lampMachine({ tick: { pausedBy: ["Away"] } }, ({ E }) => ({
@@ -144,7 +137,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ReasonUndeclared", "true"]]);
   });
 
-  it.fails("Types I13, Q4: a declared reason with no callback in a placement is refused ReasonMissing, a reason named like an Object member included", () => {
+  it("Types I13, Q4: a declared reason with no callback in a placement is refused ReasonMissing, a reason named like an Object member included", () => {
     expect(
       refusedAt(TICK, () =>
         lampMachine({ tick: { pausedBy: ["Away", "toString"] } }, ({ E }) => ({
@@ -154,7 +147,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ReasonMissing", "true"]]);
   });
 
-  it.fails("Types I13, Q4: a declared reason missing from a second placement is refused ReasonMissing at that placement", () => {
+  it("Types I13, Q4: a declared reason missing from a second placement is refused ReasonMissing at that placement", () => {
     expect(
       refusedAt("states.ON.schedules.tick", () =>
         lampMachine(
@@ -166,7 +159,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ReasonMissing", "true"]]);
   });
 
-  it.fails("Types I13: a schedule undeclared in a second state is refused ScheduleUndeclared there", () => {
+  it("Types I13: a schedule undeclared in a second state is refused ScheduleUndeclared there", () => {
     expect(
       refusedAt("states.ON.schedules.tock", () =>
         lampMachine(
@@ -178,20 +171,20 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["ScheduleUndeclared", "true"]]);
   });
 
-  it.fails("Types I13: a keyed schedule with a declared restartOn placed without one is refused RestartOnMissing", () => {
+  it("Types I13: a keyed schedule with a declared restartOn placed without one is refused RestartOnMissing", () => {
     expect(
       refusedAt(TICK, () =>
         lampMachine(
           { tick: { key: { id: Schema.String }, restartOn: Schema.Number } },
           ({ E }) => ({
-            tick: keyed({ schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] }),
+            tick: { schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] },
           }),
         ),
       ),
     ).toEqual([["RestartOnMissing", "true"]]);
   });
 
-  it.fails("Types I13: a keyed declaration placed without keys is refused KeysMissing", () => {
+  it("Types I13: a keyed declaration placed without keys is refused KeysMissing", () => {
     expect(
       refusedAt(TICK, () =>
         lampMachine({ tick: { key: { id: Schema.String } } }, ({ E }) => ({
@@ -201,17 +194,17 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["KeysMissing", "true"]]);
   });
 
-  it.fails("Types I13: keys on a schedule declared without a key are refused KeysUnexpected", () => {
+  it("Types I13: keys on a schedule declared without a key are refused KeysUnexpected", () => {
     expect(
       refusedAt(TICK, () =>
         lampMachine({ tick: {} }, ({ E }) => ({
-          tick: keyed({ schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] }),
+          tick: { schedule: 1000, send: E["Tick"], keys: () => [{ id: "a" }] },
         })),
       ),
     ).toEqual([["KeysUnexpected", "true"]]);
   });
 
-  it.fails("Types I13: restartOn on a schedule declared without restartOn is refused RestartOnUndeclared", () => {
+  it("Types I13: restartOn on a schedule declared without restartOn is refused RestartOnUndeclared", () => {
     expect(
       refusedAt(TICK, () =>
         lampMachine({ tick: {} }, ({ E }) => ({
@@ -221,7 +214,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["RestartOnUndeclared", "true"]]);
   });
 
-  it.fails("Types I13: a declared restartOn placed without one is refused RestartOnMissing", () => {
+  it("Types I13: a declared restartOn placed without one is refused RestartOnMissing", () => {
     expect(
       refusedAt(TICK, () =>
         lampMachine({ tick: { restartOn: Schema.Number } }, ({ E }) => ({
@@ -231,7 +224,7 @@ describe("the twin rule: each refusal the types make has a construction row (Typ
     ).toEqual([["RestartOnMissing", "true"]]);
   });
 
-  it.fails("Types R8: a declared reason follows the name rules: an empty one is InvalidName and a repeated one DuplicateName", () => {
+  it("Types R8: a declared reason follows the name rules: an empty one is InvalidName and a repeated one DuplicateName", () => {
     expect(
       refusedAt("schedules.tick.pausedBy", () =>
         lampMachine({ tick: { pausedBy: ["", "Away", "Away"] } }, ({ E }) => ({
@@ -270,18 +263,18 @@ const keyedLamp = () =>
   lampMachine(
     { poll: { key: { id: Schema.String, n: Schema.Number }, restartOn: Schema.Number }, tick: {} },
     ({ E }) => ({
-      poll: keyed({
+      poll: {
         schedule: 1000,
         send: E["Tick"],
         keys: () => [{ id: "a", n: 1 }],
         restartOn: () => 1,
-      }),
+      },
       tick: { schedule: 1000, send: E["Tick"] },
     }),
   );
 
 describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedules R16)", () => {
-  it.fails("Types I11: a keyed schedule's key codec round trips a key through its canonical text", () => {
+  it("Types I11: a keyed schedule's key codec round trips a key through its canonical text", () => {
     const codec = codecOf(keyedLamp().compiled, "poll", "key");
     const key = { id: "a", n: 1 };
 
@@ -290,10 +283,10 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     ).toEqual(Option.some(key));
   });
 
-  it.fails("Types I11; Schedules I14: a key's text writes its fields in name order whatever the declaration's order, as a contract's keyText", () => {
+  it("Types I11; Schedules I14: a key's text writes its fields in name order whatever the declaration's order, as a contract's keyText", () => {
     const codec = codecOf(
       lampMachine({ poll: { key: { zone: Schema.String, id: Schema.String } } }, ({ E }) => ({
-        poll: keyed({ schedule: 1000, send: E["Tick"], keys: () => [{ zone: "eu", id: "a" }] }),
+        poll: { schedule: 1000, send: E["Tick"], keys: () => [{ zone: "eu", id: "a" }] },
       })).compiled,
       "poll",
       "key",
@@ -304,7 +297,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     );
   });
 
-  it.fails("Types I11; Schedules I14: the key codec gives NaN, Infinity and -Infinity three texts, so three keys are three timers", () => {
+  it("Types I11; Schedules I14: the key codec gives NaN, Infinity and -Infinity three texts, so three keys are three timers", () => {
     const codec = codecOf(keyedLamp().compiled, "poll", "key");
 
     const texts = Option.map(
@@ -320,7 +313,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     expect(texts).toEqual(Option.some(3));
   });
 
-  it.fails("Schedules R14: a saved key's text holding a field its declaration no longer has does not decode, so two saved keys never merge into one", () => {
+  it("Schedules R14: a saved key's text holding a field its declaration no longer has does not decode, so two saved keys never merge into one", () => {
     const codec = codecOf(keyedLamp().compiled, "poll", "key");
 
     const decodes = (text: string) =>
@@ -332,7 +325,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     ]);
   });
 
-  it.fails("Types I11: an unkeyed schedule has no key codec and a schedule with no restartOn no selection codec; a declared restartOn's codec round trips", () => {
+  it("Types I11: an unkeyed schedule has no key codec and a schedule with no restartOn no selection codec; a declared restartOn's codec round trips", () => {
     const { compiled } = keyedLamp();
     const selection = codecOf(compiled, "poll", "selection");
     const table = tableOf(compiled);
@@ -345,7 +338,7 @@ describe("each schedule's codecs in Compiled.schedules (Types R14, I11; Schedule
     ).toEqual(Option.some(5));
   });
 
-  it.fails("Types I11, T2: home's Room: a sensor key encoded by its declaration decodes through Compiled.schedules to an equal key", () => {
+  it("Types I11, T2: home's Room: a sensor key encoded by its declaration decodes through Compiled.schedules to an equal key", () => {
     const Rooms = machine(Room, ({ S }) => ({
       default: S.OFFLINE,
       states: { ONLINE: { default: S.ONLINE.IDLE } },

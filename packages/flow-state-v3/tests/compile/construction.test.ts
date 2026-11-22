@@ -353,6 +353,7 @@ const Lamp = definition({
   operations: ({ E }) => ({
     save: save.outcomes({ success: E.Saved, failure: {}, unknown: E.Unsure }),
   }),
+  schedules: { off: {} },
 });
 
 const Other = definition({
@@ -395,7 +396,7 @@ describe("the machine adds nothing (Compile R1, R3, R4, T1, T11)", () => {
     ]);
   });
 
-  it("refuses a default that is not a direct child, two schedules of one name and a fixed delay past 2^31 - 1 ms", () => {
+  it("refuses a default that is not a direct child and a fixed delay past 2^31 - 1 ms; one declared schedule placed in two states shares its declaration", () => {
     expect(
       refusal(() =>
         machine(Lamp, ({ S, E }) =>
@@ -416,9 +417,25 @@ describe("the machine adds nothing (Compile R1, R3, R4, T1, T11)", () => {
     ).toEqual([
       ["InvalidConfiguration", "DefaultNotChild", "default"],
       ["InvalidConfiguration", "DefaultNotChild", "states.ON.default"],
-      ["InvalidConfiguration", "DuplicateName", "states.ON.schedules.off"],
       ["InvalidConfiguration", "DelayOutOfRange", "states.ON.schedules.off.schedule"],
     ]);
+  });
+
+  it("Types R8: one schedule placed in a state and in a state below it, both active at once, is refused DuplicateName at the second", () => {
+    expect(
+      refusal(() =>
+        machine(Lamp, ({ S, E }) => ({
+          default: S.OFF,
+          states: {
+            ON: {
+              default: S.ON.DIM,
+              schedules: { off: { schedule: "1 second", send: E.Flip } },
+              states: { DIM: { schedules: { off: { schedule: "2 seconds", send: E.Flip } } } },
+            },
+          },
+        })),
+      ),
+    ).toEqual([["InvalidConfiguration", "DuplicateName", "states.ON.states.DIM.schedules.off"]]);
   });
 
   it("a schedule of exactly 2^31 - 1 ms compiles", () => {
@@ -703,6 +720,7 @@ const Lit = definition({
   states: ["OFF", { ON: ["DIM", "BRIGHT"] }],
   events: { Flip: {} },
   context: { twin: Flow.context(Twin.S.OFF) },
+  schedules: { off: {} },
 });
 
 // Each diagnostic of a refused construction as [code, reason, path], its path kept as segments.

@@ -20,6 +20,7 @@ const Alarm = definition({
   events: {},
   internalEvents: { Ring: {}, Never: {} },
   memory: { gap: Flow.initial(Schema.Number, 2 ** 31) },
+  schedules: { ring: {}, broken: {} },
 });
 
 const AlarmMachine = machine(Alarm, ({ S, E }) => ({

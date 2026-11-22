@@ -6,93 +6,12 @@ const STANDING_ORDER = "tests/transfers/standing-order.test.ts";
 
 const TRUSTED_DEVICE = "tests/sign-in/trusted-device.test.ts";
 
-const DOORS = "tests/surface/doors.test.ts";
-
 /**
  * Wrong compilers of a definition's and machine's configuration: a raw TypeError before the
  * decode, a decode that trusts what it should refuse, a foreign token taken by name, a callback's
  * throw that escapes raw, and a payload kept whole.
  */
 export const constructionFaults: ReadonlyArray<Fault> = [
-  {
-    name: "copy-taken-as-made",
-    tests: [DOORS],
-    says: "a value without the brand is read as made, as a mark that a copy carries was",
-    rule: "Operations R10",
-    edits: [
-      {
-        file: "src/made.ts",
-        find: "      isContainer(value) && MadeTypeId in value ? cardOf(value) : undefined,",
-        replace:
-          '      isContainer(value) && MadeTypeId in value\n        ? cardOf(value)\n        : { kind, owner: Option.getOrElse(owner, () => Symbol("copy")), internals: {} },',
-      },
-    ],
-  },
-  {
-    name: "owner-compare-skipped",
-    tests: [DOORS, CONSTRUCTION, "tests/actors/context-slots.test.ts"],
-    says: "a door that names an owner takes another owner's made value",
-    rule: "Operations R10",
-    edits: [
-      {
-        file: "src/made.ts",
-        find: "    if (Option.exists(owner, (own) => card.owner !== own))",
-        replace: "    if (Option.exists(owner, () => false))",
-      },
-    ],
-  },
-  {
-    name: "throw-at-call-name",
-    tests: [DOORS],
-    says: "an argument whose read throws escapes the door's reader, so its Defect names the call, not the argument",
-    rule: "Operations R10",
-    edits: [
-      {
-        file: "src/made.ts",
-        find: "    if (Result.isFailure(read)) return Result.fail(defectAt(path));",
-        replace: "    if (Result.isFailure(read)) throw read.failure;",
-      },
-    ],
-  },
-  {
-    name: "raw-in-face",
-    tests: [DOORS],
-    says: "a machine's Compiled carries the memory walker on its face, a function no door registered",
-    rule: "Operations I19",
-    edits: [
-      {
-        file: "src/machine.ts",
-        find: "      [InternalsId]: {",
-        replace: "      walk: walkerOf(memoryJson),\n      [InternalsId]: {",
-      },
-    ],
-  },
-  {
-    name: "second-copy-refused",
-    tests: [DOORS],
-    says: "the brand is an unregistered symbol, so a second loaded copy of Flow reads the first copy's values as copies",
-    rule: "Operations R10, Q6",
-    edits: [
-      {
-        file: "src/made.ts",
-        find: 'export const MadeTypeId: unique symbol = Symbol.for("flow-state/Made");',
-        replace: 'export const MadeTypeId: unique symbol = Symbol("flow-state/Made");',
-      },
-    ],
-  },
-  {
-    name: "testing-route-unwrapped",
-    tests: [DOORS, "tests/surface/surface.test.ts"],
-    says: "the testing route's defineConfig is no door: given null it throws a raw TypeError",
-    rule: "Operations R10, I19",
-    edits: [
-      {
-        file: "src/host/testing/config.ts",
-        find: 'export const defineConfig = entry(\n  "defineConfig",',
-        replace: 'export const defineConfig = ((_: string, run: never) => run)(\n  "defineConfig",',
-      },
-    ],
-  },
   {
     name: "definition-null-raw",
     tests: [CONSTRUCTION, STANDING_ORDER],

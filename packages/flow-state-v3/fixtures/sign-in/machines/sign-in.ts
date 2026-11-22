@@ -43,6 +43,7 @@ export const SignIn = definition({
       unknown: E.Unsure,
     }),
   }),
+  schedules: { cooldown: {}, unlock: {} },
 });
 
 type Email = { readonly email: string };

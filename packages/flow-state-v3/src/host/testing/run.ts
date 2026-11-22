@@ -1,6 +1,7 @@
 import { type Cause, Context, Effect, Exit, Layer, Option, Predicate } from "effect";
 import { TestClock } from "effect/testing";
 import type { Evidence } from "../../core/evidence.ts";
+import type { EvidenceIn } from "./select.ts";
 import { dependentsOf, Input } from "../../core/step.ts";
 import type { Life } from "../../core/life.ts";
 import { retain } from "../../core/tx.ts";
@@ -92,7 +93,7 @@ export type StoryRun<Names extends string = never, Ds extends AnyDefinition = An
   // A phantom method, so a run of one app reads as a run of any app where its app is not read.
   "~app"?(app: Ds): void;
   readonly steps: ReadonlyArray<StepOf<Ds>>;
-  readonly evidence: ReadonlyArray<Evidence>;
+  readonly evidence: ReadonlyArray<EvidenceIn<Ds>>;
   readonly checkpoints: { readonly [K in Names]: Cut<Ds> };
   readonly end: Cut<Ds>;
   readonly trace: Trace;

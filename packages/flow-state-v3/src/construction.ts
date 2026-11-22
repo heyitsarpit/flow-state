@@ -7,6 +7,7 @@ import { operationFindings } from "./operation-checks.ts";
 import type { ContextConfig, EventFields, MemoryConfig, StateTree } from "./definition.ts";
 import type { Finding } from "./error.ts";
 import type { Field, Initial, Input, Private } from "./flow.ts";
+import type { ScheduleDecls } from "./tokens.ts";
 
 /**
  * One node of a declared tree, by path, in declaration order.
@@ -334,6 +335,34 @@ const publicAndInternal = (
       ),
     );
 
+// The findings of the declared schedules' names: each schedule's and each pause reason's name, and
+// a reason named twice in one schedule.
+const scheduleDeclFindings = (schedules: ScheduleDecls) =>
+  Object.entries(schedules).flatMap(([name, declared]) => {
+    const seen = new Set<string>();
+
+    return [
+      ...checkName(name, ["schedules", name]),
+      ...(declared.pausedBy ?? []).flatMap((reason, i) => {
+        const at = ["schedules", name, "pausedBy", i];
+        const twice = seen.has(reason);
+
+        seen.add(reason);
+
+        return twice
+          ? [
+              invalid(
+                at,
+                "DuplicateName",
+                `the schedule ${name} names the reason ${reason} twice`,
+                "Name each pause reason of a schedule once.",
+              ),
+            ]
+          : checkName(reason, at);
+      }),
+    ];
+  });
+
 /**
  * The findings of a decoded definition's rules, in declaration then rule order; the tree's come
  * from its walk, the operations' from the record they returned.
@@ -345,6 +374,7 @@ export const definitionFindings = (
     readonly internalEvents: Readonly<Record<string, EventFields>>;
     readonly memory: MemoryConfig;
     readonly context: ContextConfig;
+    readonly schedules: ScheduleDecls;
   },
   tree: ReadonlyArray<Finding>,
   operations: Readonly<Record<string, Bound>>,
@@ -359,4 +389,5 @@ export const definitionFindings = (
     ...memoryFindings(config.memory),
     ...Object.keys(config.context).flatMap((slot) => checkName(slot, ["context", slot])),
     ...operationFindings(operations, config.internalEvents),
+    ...scheduleDeclFindings(config.schedules),
   ]);

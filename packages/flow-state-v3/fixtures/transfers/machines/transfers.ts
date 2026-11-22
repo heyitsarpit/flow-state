@@ -31,6 +31,7 @@ export const Transfers = definition({
       unknown: E.Unsure,
     }),
   }),
+  schedules: { nudge: {} },
 });
 
 const byTransfer = ({ event }: { readonly event: { readonly transferId: string } }) => ({

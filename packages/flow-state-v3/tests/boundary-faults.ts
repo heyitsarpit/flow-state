@@ -15,7 +15,7 @@ export const boundaryFaults: ReadonlyArray<Fault> = [
     rule: "Diagnostics R1",
     edits: [
       {
-        file: "src/host/runtime.ts",
+        file: "src/host/app.ts",
         find: "export const app = entry(",
         replace: "export const app = ((_name, run) => run)(",
       },

@@ -20,6 +20,7 @@ const Lamp = definition({
   operations: ({ E }) => ({
     save: save.outcomes({ success: E.Saved, failure: {}, unknown: E.Unsure }),
   }),
+  schedules: { off: {} },
 });
 
 describe("Machines O1, Compile R4, R14: a machine body", () => {

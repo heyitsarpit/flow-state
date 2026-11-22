@@ -176,6 +176,7 @@ const Lamp = definition({
   internalEvents: { Tick: {} },
   memory: { touches: Flow.initial(Schema.Number, 0) },
   operations: () => ({}),
+  schedules: { tick: {} },
 });
 
 // A lamp whose touch arms a tick that no state handles, so the firing is Unhandled; a press counts.

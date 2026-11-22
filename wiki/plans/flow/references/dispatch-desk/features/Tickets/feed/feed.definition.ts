@@ -38,4 +38,5 @@ export const DeskFeed = definition({
       failure: { SignedOut: E.SessionExpired, SocketDropped: E.FeedEnded, Feed: E.FeedEnded },
     }),
   }),
+  schedules: { healthy: {}, reopen: {} },
 });

@@ -3242,10 +3242,8 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
-            **Supersedes:** code:packages/flow-state-v3/src/tokens.ts#ScheduleKey,
-            code:packages/flow-state-v3/src/tokens.ts#ScheduleParts,
-            code:packages/flow-state-v3/src/tokens.ts#KeyedConfig,
-            code:packages/flow-state-v3/src/tokens.ts#KeyedSchedule; code:packages/flow-state-v3/src/flow.ts#keyed;
+            **Supersedes:** `ScheduleKey`, `ScheduleParts`, `KeyedConfig` and `KeyedSchedule` in `src/tokens.ts`
+            and `Flow.keyed` in `src/flow.ts` (deleted by the slice's build);
             code:packages/flow-state-v3/src/config.ts#findingsAgainst;
             code:packages/flow-state-v3/src/compile-schedules.ts#scheduleOf;
             code:packages/flow-state-v3/src/core/compiled.ts#Schedule; the two metadata types in `src/tokens.ts` and

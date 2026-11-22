@@ -33,6 +33,7 @@ export const Player = definition({
       unknown: E.Unsure,
     }),
   }),
+  schedules: { tick: {} },
 });
 
 /**

@@ -43,6 +43,7 @@ export const Stepper = definition({
     }),
     lastCommit: Flow.initial(Commit, { seq: 0, value: null }),
   },
+  schedules: { delay: {}, repeat: {}, settle: {} },
 });
 
 /**
