@@ -2806,7 +2806,7 @@ tasks
             gives this Task's applier.
     T113
         title       The typed machine: derived types everywhere user code needs them, no hand-written guesses
-        status      draft
+        status      in_progress
         priority    high
         blocked_by  [@T57, @T131, @T120]
         satisfies   [@plan.Machines.O1, @plan.Machines.O8]
@@ -5094,7 +5094,7 @@ tasks
 
     T141
         title       Bench loads again: the testing entry imports no test runner
-        status      review
+        status      done
         priority    high
         description
             The bench loads and records again: nothing the fixtures import pulls in the test runner at load time.
@@ -5311,3 +5311,6 @@ tasks
                and in the close review's.
             7. Runs: `nub run check` 0; both touched test files 23 of 23; `faults --only` caught
                `store-contract-passes-any-records` and `testing-entry-imports-runner`.
+        comment     2026-11-22T10:06:47Z
+            test:browser at 1f819c4c (orchestrator): Chrome 16 of 16, Safari 16 of 16, exit 0. All acceptance holds;
+            both reviews PASS.

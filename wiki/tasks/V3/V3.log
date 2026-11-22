@@ -680,3 +680,11 @@ note 2026-11-22T09:26:28Z
 
 note 2026-11-22T09:35:56Z
     [decided: user 2026-11-22] Q1 A: Package.plan shows storeContract(name, layer, { describe, it }) (T141's choice A).
+
+note 2026-11-22T09:50:35Z
+    Slice T113 (own slice, the typed machine) started: requirements lead (Opus, high). T141 waits only on the Safari
+    half of test:browser (the user quits Safari); its reviews passed.
+
+note 2026-11-22T10:06:50Z
+    T141 done (test:browser passes in Chrome and Safari). Page @page.T141-bench-loads written, unread. Unread pages:
+    T57, T89, T118, T141; slice closes held until read.
