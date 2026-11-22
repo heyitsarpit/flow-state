@@ -1,6 +1,7 @@
 import { DERIVED } from "./data-view.ts";
 import { Option, Predicate, Schedule, Schema } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
+import { declarationOf } from "../declaration-of.ts";
 import type { Machine } from "../definition.ts";
 import { checkName } from "../construction.ts";
 import { type Finding, invalid } from "../error.ts";
@@ -44,7 +45,7 @@ const entryFindings = (seen: Seen, key: string, entry: Machine) => {
       ),
     );
 
-  for (const [name, bound] of Object.entries(entry.definition.operations)) {
+  for (const [name, bound] of Object.entries(declarationOf(entry.definition).operations)) {
     const first = seen.contracts.get(bound.contract);
 
     if (first === undefined)

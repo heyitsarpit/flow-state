@@ -6,10 +6,8 @@ import type { Sync } from "../../fixtures/sync/machines/sync.ts";
 import type * as Flow from "../../src/index.ts";
 import { machine, type Machine } from "../../src/index.ts";
 
-// Types derived from a fixture's own definition, the way an app reads them. Each holding pin is
-// two-sided: the right line asserted exactly, the wrong line refused under `@ts-expect-error`. An
-// inverted pin refuses a type that does not exist yet; it names the row that flips it, and the
-// flipped test asserts the type exactly and refuses a wrong field.
+// Types derived from a fixture's own definition, the way an app reads them. Each pin is two-sided:
+// the right line asserted exactly, the wrong line refused under `@ts-expect-error`.
 
 describe("a schedule's send mapper is typed by the declaration (Types R3, R8; Schedules R16)", () => {
   it("Types R3: an unkeyed schedule's send mapper receives `key` as undefined; reading a field of it is refused", () => {
@@ -103,8 +101,23 @@ describe("phantom types of a definition's tokens (Types R1, R10)", () => {
       readonly repo: string;
     }>();
 
-    // @ts-expect-error Types R10: inverted until E.X.Type lands; then it equals { readonly repo: string } and a wrong field fails
     expectTypeOf<typeof Sync.E.SyncRepo.Type>().toEqualTypeOf<{ readonly repo: string }>();
+    // @ts-expect-error Types R10: SyncRepo's payload holds repo alone
+    expectTypeOf<typeof Sync.E.SyncRepo.Type>().toEqualTypeOf<{ readonly repository: string }>();
+  });
+
+  it("Types R10: a payload-less event's E.X.Type is empty", () => {
+    expectTypeOf<keyof typeof Sync.E.Synced.Type>().toEqualTypeOf<never>();
+    // @ts-expect-error Types R10: Synced declares no field
+    expectTypeOf<keyof typeof Sync.E.Synced.Type>().toEqualTypeOf<"repo">();
+  });
+
+  it("Types R10: a helper written apart from a body names E.X.Type, and a field the payload lacks is refused", () => {
+    expectTypeOf(
+      (event: typeof Sync.E.SyncRepo.Type) => event.repo,
+    ).returns.toEqualTypeOf<string>();
+    // @ts-expect-error Types R10: SyncRepo's payload has no branch
+    void ((event: typeof Sync.E.SyncRepo.Type) => event.branch);
   });
 
   it("Types R10: D.M.field.Type is the public memory field's type", () => {
@@ -112,8 +125,14 @@ describe("phantom types of a definition's tokens (Types R1, R10)", () => {
 
     expectTypeOf<(typeof Room.Memory.Type)["sensors"]>().toEqualTypeOf<ReadonlyArray<Sensor>>();
 
-    // @ts-expect-error Types R10: inverted until D.M.field.Type lands; then it equals the sensors list and a wrong field fails
     expectTypeOf<typeof Room.M.sensors.Type>().toEqualTypeOf<ReadonlyArray<Sensor>>();
+
+    type AnyKind = ReadonlyArray<{ readonly id: string; readonly kind: string }>;
+
+    // @ts-expect-error Types R10: a sensor's kind is temperature or motion, not any string
+    expectTypeOf<typeof Room.M.sensors.Type>().toEqualTypeOf<AnyKind>();
+    // @ts-expect-error Types R10: Room's memory has no field sensor
+    void Room.M.sensor;
   });
 });
 
@@ -123,8 +142,11 @@ describe("a shared body is typed by an exported row (Types R1, G2)", () => {
 
     expectTypeOf<HandDerived["S"]>().toEqualTypeOf<typeof Pay.S>();
 
-    // @ts-expect-error Types R1: inverted until BodyTokens is exported; then it equals the whole token record and pay.ts's payBody takes it
     expectTypeOf<Flow.BodyTokens<typeof Pay>>().toEqualTypeOf<HandDerived>();
+    // @ts-expect-error Types R1: the whole token record, not one with E or O erased
+    expectTypeOf<Flow.BodyTokens<typeof Pay>>().toEqualTypeOf<
+      HandDerived & { readonly E: never }
+    >();
   });
 });
 
@@ -139,19 +161,12 @@ describe("a definition's face holds tokens and codecs, not its config (Types R1;
     expectTypeOf<typeof Room>().toHaveProperty("Snapshot");
     expectTypeOf<typeof Room>().toHaveProperty("state");
 
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; states is read through S
     expectTypeOf<Extract<keyof typeof Room, "states">>().toEqualTypeOf<never>();
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; events is read through E
     expectTypeOf<Extract<keyof typeof Room, "events">>().toEqualTypeOf<never>();
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; internalEvents is read through E
     expectTypeOf<Extract<keyof typeof Room, "internalEvents">>().toEqualTypeOf<never>();
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; memory is read through M and Memory
     expectTypeOf<Extract<keyof typeof Room, "memory">>().toEqualTypeOf<never>();
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; context is Flow's private copy
     expectTypeOf<Extract<keyof typeof Room, "context">>().toEqualTypeOf<never>();
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; operations is read through O
     expectTypeOf<Extract<keyof typeof Room, "operations">>().toEqualTypeOf<never>();
-    // @ts-expect-error Types R1: inverted until the echo leaves the face; schedules is Flow's private copy
     expectTypeOf<Extract<keyof typeof Room, "schedules">>().toEqualTypeOf<never>();
   });
 
@@ -159,7 +174,6 @@ describe("a definition's face holds tokens and codecs, not its config (Types R1;
     type Sensor = { readonly id: string; readonly kind: "temperature" | "motion" };
 
     expectTypeOf<(typeof Room.Memory.Type)["sensors"]>().toEqualTypeOf<ReadonlyArray<Sensor>>();
-    // @ts-expect-error Types R1: inverted until M.field.schema leaves the face
     expectTypeOf<Extract<keyof typeof Room.M.sensors, "schema">>().toEqualTypeOf<never>();
   });
 

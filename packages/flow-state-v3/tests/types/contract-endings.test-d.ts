@@ -15,8 +15,24 @@ const order = {
 
 const place = transaction(order);
 
+// Orders' internal events, whose tokens a bound contract's endings map onto.
+const Orders = definition({
+  id: "types/Orders",
+  states: ["READY"],
+  events: {},
+  internalEvents: { Placed: {}, Refused: {}, Unsure: Flow.uncertain({}) },
+});
+
 describe("Operations O1, V1, WriteLanes R4: a contract and its endings", () => {
   it("each wrong line fails to compile beside its exact right one", () => {
+    expectTypeOf(
+      place.outcomes({
+        success: Orders.E.Placed,
+        failure: { Declined: Orders.E.Refused },
+        unknown: Orders.E.Unsure,
+      })["~definition"],
+    ).toEqualTypeOf<"types/Orders" | undefined>();
+
     expectTypeOf(
       definition({
         id: "types/Orders",
@@ -31,8 +47,8 @@ describe("Operations O1, V1, WriteLanes R4: a contract and its endings", () => {
             unknown: E.Unsure,
           }),
         }),
-      }).operations.place["~definition"],
-    ).toEqualTypeOf<"types/Orders" | undefined>();
+      }).id,
+    ).toEqualTypeOf<"types/Orders">();
 
     void definition({
       id: "types/Orders",
@@ -70,8 +86,8 @@ describe("Operations O1, V1, WriteLanes R4: a contract and its endings", () => {
             unknown: E.Unsure,
           }),
         }),
-      }).operations.place["~definition"],
-    ).toEqualTypeOf<"types/Orders" | undefined>();
+      }).id,
+    ).toEqualTypeOf<"types/Orders">();
 
     void definition({
       id: "types/Orders",

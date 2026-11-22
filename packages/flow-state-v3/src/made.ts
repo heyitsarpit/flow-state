@@ -158,6 +158,16 @@ const seal = (root: Container) => {
     }
 };
 
+/**
+ * A value frozen deeply, as a made value's face is: for what Flow keeps off a face and must not
+ * change, such as a definition's declaration.
+ */
+export const frozen = <A extends Container>(value: A) => {
+  seal(value);
+
+  return value;
+};
+
 const describe = <A extends Container, I>(value: A, kind: Kind, owner: symbol, internals: I) => {
   Object.defineProperty(value, InternalsId, {
     // oxlint-disable-next-line lint-bomb/no-object-freeze -- the card is read by every door and changed by none

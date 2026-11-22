@@ -17,6 +17,7 @@ import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
 import { entry } from "../entry.ts";
 import type { AnyDefinition } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 import {
   type App,
   type DefsOf,
@@ -112,7 +113,7 @@ type SnapshotOf<Ds extends AnyDefinition> = Ds extends AnyDefinition ? Snapshot<
  * An operation name of any of the app's definitions.
  */
 export type OperationOf<Ds extends AnyDefinition> = Ds extends AnyDefinition
-  ? keyof Ds["operations"] & string
+  ? keyof Parts<Ds>["Operations"] & string
   : never;
 
 const contractOf = (driver: Driver, machine: string, operation: string) =>

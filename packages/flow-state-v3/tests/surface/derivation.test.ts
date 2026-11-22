@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
+import { Room } from "../../fixtures/home/machines/room.ts";
 
 const SRC = new URL("../../src/", import.meta.url);
 
@@ -11,6 +12,24 @@ const DECLARED = /^(\s*)(?:export\s+)?(?:const|function)\s+(\w+)/u;
 const production = readdirSync(SRC, { recursive: true, encoding: "utf8" })
   .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.endsWith(".test-d.ts"))
   .filter((f) => !f.startsWith("host/testing/") && !f.split("/").includes("test"));
+
+// The declared parts a definition's face does not hold, and what it holds for them.
+const ECHO = ["states", "events", "internalEvents", "memory", "context", "operations", "schedules"];
+
+const KEPT = [
+  "id",
+  "persist",
+  "S",
+  "E",
+  "O",
+  "M",
+  "state",
+  "Event",
+  "State",
+  "Input",
+  "Memory",
+  "Snapshot",
+];
 
 const indentOf = (line: string) => line.length - line.trimStart().length;
 
@@ -62,10 +81,20 @@ const CROSSINGS = ["entry.ts#door", "handles.ts#slot"];
 const PARTS = /^(?:export\s+)?type\s+Parts\b/mu;
 
 describe("one derivation (Types R1, I1)", () => {
-  it.fails("Types I1: Parts, the one reading of a definition's parts, is declared in derive.ts alone", () => {
+  it("Types I1: Parts, the one reading of a definition's parts, is declared in derive.ts alone", () => {
     expect(production.filter((f) => PARTS.test(readFileSync(new URL(f, SRC), "utf8")))).toEqual([
       "derive.ts",
     ]);
+  });
+});
+
+describe("a definition's face holds tokens and codecs, not its declaration (Types R1)", () => {
+  it("Types R1: the declaration is off the face's value; the tokens and the codecs for whole values stay", () => {
+    expect({
+      echo: ECHO.filter((key) => key in Room),
+      kept: KEPT.filter((key) => !(key in Room)),
+      schema: "schema" in Room.M.sensors,
+    }).toEqual({ echo: [], kept: [], schema: false });
   });
 });
 

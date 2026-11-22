@@ -1,7 +1,8 @@
 import { Option, Result } from "effect";
 import { inputFieldsOf, LOCAL_PREFIX, refName } from "../core/identity.ts";
 import type { ActorId } from "../core/world.ts";
-import type { ActorRef, AnyDefinition, InputOf, Machine } from "../definition.ts";
+import type { ActorRef, AnyDefinition, Machine } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 import type { ContextRefs } from "./context-refs.ts";
 import { entry } from "../entry.ts";
 import { flowError, raise, refuse } from "../error.ts";
@@ -14,7 +15,7 @@ export type { ActorRef } from "../definition.ts";
  * What names an actor of `D`: a value carrying its input fields when it has any, otherwise a
  * literal string that does not start with `~`.
  */
-export type RefName<D extends AnyDefinition, N> = [keyof InputOf<D["memory"]>] extends [never]
+export type RefName<D extends AnyDefinition, N> = [keyof Parts<D>["Input"]] extends [never]
   ? N extends string
     ? string extends N
       ? never
@@ -22,7 +23,7 @@ export type RefName<D extends AnyDefinition, N> = [keyof InputOf<D["memory"]>] e
         ? never
         : N
     : never
-  : InputOf<D["memory"]>;
+  : Parts<D>["Input"];
 
 /**
  * Names a shared actor. Inert.
@@ -46,7 +47,7 @@ export const actorRef = entry(
     machine: Machine<D>,
     nameOrValue: N & RefName<D, N>,
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: a ref with no context uses its machine entry's wiring
-    options?: { readonly context: ContextRefs<D["context"]> },
+    options?: { readonly context: ContextRefs<Parts<D>["Slots"]> },
   ): ActorRef<D> =>
     refOf(
       machine,

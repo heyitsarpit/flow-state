@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from "vite-plus/test";
 import { Context, Schema, SchemaGetter } from "effect";
-import { definition, Flow } from "../../src/index.ts";
+import { type BodyTokens, definition, Flow } from "../../src/index.ts";
 
 class Rates extends Context.Service<Rates, { readonly factor: number }>()("types/Rates") {}
 
@@ -43,10 +43,12 @@ describe("Machines O1, Compile R4, R5: a definition's fields and operations", ()
     const withContext = definition({ ...lamp, context: {} });
     const withOperations = definition({ ...lamp, operations: () => ({}) });
 
-    expectTypeOf<keyof typeof withEvent.events>().toEqualTypeOf<"X">();
-    expectTypeOf<keyof typeof withEvent.events.X>().toEqualTypeOf<never>();
-    expectTypeOf<keyof typeof withContext.context>().toEqualTypeOf<never>();
-    expectTypeOf<keyof typeof withOperations.operations>().toEqualTypeOf<never>();
+    expectTypeOf<keyof typeof withEvent.E>().toEqualTypeOf<"X">();
+    expectTypeOf<keyof typeof withEvent.E.X.Type>().toEqualTypeOf<never>();
+    expectTypeOf<keyof BodyTokens<typeof withContext>["C"]>().toEqualTypeOf<never>();
+    expectTypeOf(definition({ ...lamp, context: {} }).id).toEqualTypeOf<"types/Lamp">();
+    expectTypeOf<keyof typeof withOperations.O>().toEqualTypeOf<never>();
+    expectTypeOf(definition({ ...lamp, operations: () => ({}) }).id).toEqualTypeOf<"types/Lamp">();
 
     void definition({
       ...lamp,

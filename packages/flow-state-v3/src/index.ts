@@ -5,6 +5,7 @@ export { resource, transaction } from "./contract.ts";
 
 export type {
   Ending,
+  MapperContext,
   ReadEndings,
   Resource,
   Transaction,
@@ -21,6 +22,8 @@ export { machine } from "./machine.ts";
 export { send } from "./send.ts";
 
 export type { Definition, Machine, ScheduleDecl, ScheduleDecls } from "./definition.ts";
+
+export type { BodyTokens } from "./derive.ts";
 
 export { Diagnostic, FlowError } from "./error.ts";
 

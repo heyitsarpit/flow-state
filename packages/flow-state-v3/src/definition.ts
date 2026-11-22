@@ -7,7 +7,9 @@ import { readHandle, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
 import { entry } from "./entry.ts";
-import { type Branded, type Kind, type KindOf, internalsOf, made, type Container } from "./made.ts";
+import { type Declaration, declarationOf, type DefinitionInternals } from "./declaration-of.ts";
+import type { Declared, InputOf, MemoryOf, OutsideOf, PayloadOf } from "./derive.ts";
+import { type Branded, type Container, frozen, internalsOf, type KindOf, made } from "./made.ts";
 import {
   definitionFindings,
   isInput,
@@ -17,84 +19,23 @@ import {
   treeOf,
   unwrapPrivate,
 } from "./construction.ts";
-import {
-  type Field,
-  type Input,
-  type Plain,
-  type Private,
-  type Reader,
-  slotReadsOf,
-  type Uncertain,
-} from "./flow.ts";
+import { type Field, type Reader, slotReadsOf, type Uncertain } from "./flow.ts";
 
 export type EventFields = Fields | Uncertain;
 
-type FieldsOf<X> = X extends Uncertain<infer F> ? F : X extends Fields ? X : never;
-
-/**
- * The payload an event declares: the decoded record of its fields.
- */
-export type PayloadOf<X> = Schema.Struct<FieldsOf<X>>["Type"];
+export type { InputOf, MemoryOf, OutsideOf, PayloadOf, WritableOf } from "./derive.ts";
 
 /**
  * A definition's memory fields, each with its one source.
  */
 export type MemoryConfig = Readonly<Record<string, Field>>;
 
-type Unwrapped<F> = F extends Private<infer G> ? G : F;
-
-type TypeOf<F> =
-  Unwrapped<F> extends Branded<Kind> & { readonly schema: infer S extends Plain }
-    ? S["Type"]
-    : Unwrapped<F> extends Plain
-      ? Unwrapped<F>["Type"]
-      : never;
-
-type OptionalKeys<M> = {
-  readonly [K in keyof M]: Unwrapped<M[K]> extends Branded<Kind> ? never : K;
-}[keyof M];
-
-type InputKeys<M> = { readonly [K in keyof M]: M[K] extends Input ? K : never }[keyof M];
-
-type Flat<T> = { readonly [K in keyof T]: T[K] };
-
-/**
- * A definition's memory: each field's decoded value; an optional key may be absent.
- */
-export type MemoryOf<M> = Flat<
-  { readonly [K in Exclude<keyof M, OptionalKeys<M>>]: TypeOf<M[K]> } & {
-    readonly [K in OptionalKeys<M>]?: TypeOf<M[K]>;
-  }
->;
-
-type PrivateKeys<M> = { readonly [K in keyof M]: M[K] extends Private ? K : never }[keyof M];
-
-/**
- * The memory an outside snapshot shows: every field but the `Flow.private` ones.
- */
-export type OutsideOf<M> = Omit<MemoryOf<M>, PrivateKeys<M>>;
-
-/**
- * The memory a handler may write: every field but the input fields, which name the actor.
- */
-export type WritableOf<M> = Omit<MemoryOf<M>, InputKeys<M>>;
-
-/**
- * What a creator supplies: the definition's `Flow.input` fields.
- */
-export type InputOf<M> = Flat<{ readonly [K in InputKeys<M>]: TypeOf<M[K]> }>;
-
 /**
  * A public event as `send` takes it: its tag and its payload.
  */
 export type Envelope<Name extends string = string, P = Values> = { readonly _tag: Name } & P;
 
-/**
- * A public event of an actor's definition, as `send` takes it.
- */
-export type EventOf<D extends AnyDefinition> = {
-  readonly [K in keyof D["events"] & string]: Envelope<K, PayloadOf<D["events"][K]>>;
-}[keyof D["events"] & string];
+export type { EventOf } from "./derive.ts";
 
 export type { EventToken, MappedEvent, Tokens } from "./event-tokens.ts";
 
@@ -199,7 +140,9 @@ export type ContextConfig = Readonly<Record<string, ContextSlot>>;
 /**
  * A provider's state tree and memory, by which a slot's wiring ref is checked.
  */
-export type ProvidedBy<States, M> = { readonly states: States; readonly memory: M };
+export type ProvidedBy<States, M> = {
+  readonly [Declared]: { readonly states: States; readonly memory: M };
+};
 
 /**
  * The values a definition's context slots select, by slot.
@@ -257,6 +200,9 @@ type DefinitionConfig<
  * envelopes, `State` its leaf paths, `Input` what a creator supplies, `Memory` the whole memory and
  * `Snapshot` an outside snapshot's state and memory, without the `Flow.private` fields.
  *
+ * The declaration itself stays off the face: its states are read through `S`, its events through
+ * `E` and `Event`, its memory through `M` and `Memory`, its operations through `O`.
+ *
  * `M`, `S` and `state` are what another definition's context slots read: `M` has one token per
  * public memory field (a `Flow.private` field has none), `S` each state, true while the actor is in
  * it or below it, and `state` the current state's name. A slot's value passes through its Schema's
@@ -276,15 +222,17 @@ export type Definition<
   Id extends string = string,
   Sch extends ScheduleDecls = ScheduleDecls,
 > = Branded<"definition"> & {
+  readonly [Declared]: {
+    readonly states: States;
+    readonly events: Ev;
+    readonly internalEvents: In;
+    readonly memory: M;
+    readonly context: Cx;
+    readonly operations: O;
+    readonly schedules: Sch;
+  };
   readonly id: Id;
   readonly persist: boolean;
-  readonly states: States;
-  readonly events: Ev;
-  readonly internalEvents: In;
-  readonly memory: M;
-  readonly context: Cx;
-  readonly operations: O;
-  readonly schedules: Sch;
   readonly M: {
     readonly [K in keyof OutsideOf<M> & string]-?: MemoryToken<
       OutsideOf<M>[K],
@@ -509,9 +457,7 @@ export const definition = entry(
       }),
     );
 
-    const face: Omit<Made, typeof KindOf> = {
-      id: config.id,
-      persist: config.persist ?? false,
+    const declaration = frozen({
       states: config.states,
       events: config.events,
       internalEvents: internal,
@@ -519,6 +465,11 @@ export const definition = entry(
       context,
       operations,
       schedules,
+    } satisfies Declaration);
+
+    const face: Omit<Made, typeof KindOf | typeof Declared> = {
+      id: config.id,
+      persist: config.persist ?? false,
       M: trusted<Made["M"]>(
         Object.fromEntries(
           Object.entries(memory).flatMap(([name, field]) =>
@@ -527,7 +478,7 @@ export const definition = entry(
               : [
                   [
                     name,
-                    made("memory", owner, { schema: schemaOfField(field) }, {
+                    made("memory", owner, {}, {
                       path: name,
                       reader: {
                         ...origin,
@@ -573,28 +524,23 @@ export const definition = entry(
 
     // SAFETY: the face is every field of the definition but its kind, which the brand carries.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
-    return made("definition", owner, face, {}) as Made;
+    return made("definition", owner, face, { declaration } satisfies DefinitionInternals) as Made;
   },
 );
 
 /**
  * The declared tree of a definition, in declaration order: what `machine` compiles.
  */
-export const treeOfDefinition = (definition: AnyDefinition) => treeOf(definition.states);
+export const treeOfDefinition = (definition: AnyDefinition) =>
+  treeOf(declarationOf(definition).states);
 
 /**
  * What every definition has, whatever its literal types: what `machine` and the Runtime read.
  */
 export type AnyDefinition = Branded<"definition"> & {
+  readonly [Declared]: Declaration;
   readonly id: string;
   readonly persist: boolean;
-  readonly states: StateTree;
-  readonly events: Readonly<Record<string, EventFields>>;
-  readonly internalEvents: Readonly<Record<string, EventFields>>;
-  readonly memory: MemoryConfig;
-  readonly context: ContextConfig;
-  readonly operations: Readonly<Record<string, Bound>>;
-  readonly schedules: ScheduleDecls;
   readonly S: Values;
   readonly E: Values;
   readonly O: Values;

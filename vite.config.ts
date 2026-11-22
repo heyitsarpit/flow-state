@@ -248,6 +248,7 @@ export default defineConfig({
         files: [
           `${productionSource}/contract.ts`,
           `${productionSource}/definition.ts`,
+          `${productionSource}/derive.ts`,
           `${productionSource}/event-tokens.ts`,
           `${productionSource}/tokens.ts`,
           `${productionSource}/machine.ts`,

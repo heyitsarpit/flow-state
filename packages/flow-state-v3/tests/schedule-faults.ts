@@ -381,4 +381,18 @@ export const scheduleFaults: ReadonlyArray<Fault> = [
     "  above.has(name)\n",
     "  above.has(`${name} below`)\n",
   ),
+  {
+    name: "unkeyed-key-empty-record",
+    tests: [HOME],
+    says: "an unkeyed schedule's send mapper reads an empty record as its key, not undefined",
+    rule: "Types R3",
+    edits: [
+      {
+        file: "src/core/schedules.ts",
+        find: "      key: Option.getOrUndefined(Option.map(tracked.key, (k) => k.value)),",
+        replace:
+          "      key: Option.getOrElse(Option.map(tracked.key, (k) => k.value), () => ({})),",
+      },
+    ],
+  },
 ];

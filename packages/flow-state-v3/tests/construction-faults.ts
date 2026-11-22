@@ -127,7 +127,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
       {
         file: "src/compile-body.ts",
         find: '    if (ownerOf("guard", element) !== compile.owner)',
-        replace: "    if (!Object.hasOwn(compile.definition.operations, element.operation))",
+        replace: "    if (!Object.hasOwn(compile.declaration.operations, element.operation))",
       },
     ],
   },
@@ -140,7 +140,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
       {
         file: "src/compile-body.ts",
         find: '    if (ownerOf("action", a) !== compile.owner) {',
-        replace: "    if (!Object.hasOwn(compile.definition.operations, a.operation)) {",
+        replace: "    if (!Object.hasOwn(compile.declaration.operations, a.operation)) {",
       },
     ],
   },

@@ -1,4 +1,5 @@
 import type { ActorRef, AnyDefinition, EventOf, MappedEvent, PayloadOf } from "./definition.ts";
+import type { Parts } from "./derive.ts";
 import type { SendArg } from "./handles.ts";
 import { builder } from "./entry.ts";
 import { type Branded, made } from "./made.ts";
@@ -31,8 +32,12 @@ const SENDS = Symbol("flow-state/send");
  */
 export type SendEvent<In, D extends AnyDefinition> =
   | {
-      readonly [K in keyof D["events"] & string]: MappedEvent<K, In, PayloadOf<D["events"][K]>>;
-    }[keyof D["events"] & string]
+      readonly [K in keyof Parts<D>["Public"] & string]: MappedEvent<
+        K,
+        In,
+        PayloadOf<Parts<D>["Public"][K]>
+      >;
+    }[keyof Parts<D>["Public"] & string]
   | EventOf<D>
   | ((input: In) => EventOf<D>);
 

@@ -150,6 +150,16 @@ export type BoundInput<B> = B extends { readonly "~input"?: infer I }
  */
 export type BoundKey<B> = B extends { readonly "~key"?: infer Ky } ? Exclude<Ky, undefined> : never;
 
+/**
+ * What an ending's mapper reads beside the value: the call's input `I` and its picked key record
+ * `K`, each typed from the contract, as `E.X.from((value, { input, key }) => ...)` receives them.
+ *
+ * **Details**
+ *
+ * For a bound contract `B`, `MapperContext<BoundInput<B>, BoundKey<B>>`.
+ */
+export type MapperContext<I, K> = { readonly input: I; readonly key: K };
+
 type RequiredKeyOf<T> = {
   readonly [P in keyof T]-?: Record<never, never> extends Pick<T, P> ? never : P;
 }[keyof T];

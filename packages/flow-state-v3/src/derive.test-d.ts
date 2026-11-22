@@ -4,8 +4,8 @@ import type * as Contract from "./contract.ts";
 import { transaction, type BoundInput, type BoundKey } from "./contract.ts";
 import type { Compiled, Node } from "./core/compiled.ts";
 
-// The internal rows of the typed machine. Each pin is inverted: it refuses a type that does not
-// exist yet and names the row that flips it; the flipped test asserts the row exactly.
+// The internal rows of the typed machine. Each holding pin is two-sided; an inverted pin refuses
+// a type that does not exist yet and names the row that flips it.
 
 const send = transaction({
   id: "derive/send",
@@ -23,10 +23,14 @@ describe("the mapper context row (Types R10, MapperTypes)", () => {
   it("Types R10: a bound contract's mapper context is its input and its picked key record", () => {
     expectTypeOf<BoundKey<Bound>>().toEqualTypeOf<{ readonly account: string }>();
 
-    // @ts-expect-error Types R10: inverted until contract.ts's MapperContext lands; the row the mapper's second argument reads
     expectTypeOf<Contract.MapperContext<BoundInput<Bound>, BoundKey<Bound>>>().toEqualTypeOf<{
       readonly input: { readonly account: string; readonly cents: number };
       readonly key: { readonly account: string };
+    }>();
+    // @ts-expect-error Types R10: the key is the picked record, not the whole input
+    expectTypeOf<Contract.MapperContext<BoundInput<Bound>, BoundKey<Bound>>>().toEqualTypeOf<{
+      readonly input: { readonly account: string; readonly cents: number };
+      readonly key: { readonly account: string; readonly cents: number };
     }>();
   });
 });

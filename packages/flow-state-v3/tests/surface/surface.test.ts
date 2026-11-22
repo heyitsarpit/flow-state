@@ -190,7 +190,11 @@ const memberEnding = (value: unknown, name: string, argument: unknown) => {
 describe("functions handed out inside inert data and the testing route (Diagnostics R1)", () => {
   it("Diagnostics R1: a bound contract's textOfKey is off its face, or given null refuses with a FlowError", () => {
     expect(["gone", "FlowError"]).toContain(
-      memberEnding(Keeper.operations.keep, "textOfKey", null),
+      memberEnding(
+        keep.outcomes({ success: Keeper.E.Kept, failure: {}, unknown: Keeper.E.Unsure }),
+        "textOfKey",
+        null,
+      ),
     );
   });
 

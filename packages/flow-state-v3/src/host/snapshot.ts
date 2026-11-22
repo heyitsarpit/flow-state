@@ -21,24 +21,18 @@ import {
   type World,
 } from "../core/world.ts";
 import { Arming, timersIn, Timing, type Tracked, valueOf } from "../core/timers.ts";
-import type {
-  AnyDefinition,
-  ContextOf,
-  KeyOfDecl,
-  ReasonOfDecl,
-  LeavesOf,
-  Machine,
-  MemoryOf,
-  Operations,
-  OutsideOf,
-} from "../definition.ts";
+import type { AnyDefinition, KeyOfDecl, ReasonOfDecl, Machine, Operations } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 import { type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
 import { compiledOf } from "../compiled-of.ts";
 
 // A definition whose leaves are text is the erased one: its snapshot keeps text and Values.
-type Erased<D extends AnyDefinition> =
-  LeavesOf<D["states"]> extends infer L ? (string extends L ? true : false) : never;
+type Erased<D extends AnyDefinition> = Parts<D>["Leaves"] extends infer L
+  ? string extends L
+    ? true
+    : false
+  : never;
 
 /**
  * What a handle shows of an identity: its leaf state, its memory and its write lanes'
@@ -56,17 +50,17 @@ export type Snapshot<
   D extends AnyDefinition = AnyDefinition,
   View extends "inside" | "outside" = "inside",
 > = {
-  readonly state: Erased<D> extends true ? string : LeavesOf<D["states"]>;
+  readonly state: Erased<D> extends true ? string : Parts<D>["Leaves"];
   readonly memory: Erased<D> extends true
     ? Values
     : View extends "outside"
-      ? OutsideOf<D["memory"]>
-      : MemoryOf<D["memory"]>;
+      ? Parts<D>["Outside"]
+      : Parts<D>["Memory"];
   readonly operations: Erased<D> extends true
     ? Operations
-    : ReadonlyMap<keyof D["operations"] & string, ReadonlyMap<string, Row>>;
+    : ReadonlyMap<keyof Parts<D>["Operations"] & string, ReadonlyMap<string, Row>>;
   readonly lifecycle: Lifecycle;
-  readonly context: Erased<D> extends true ? Values : Partial<ContextOf<D["context"]>>;
+  readonly context: Erased<D> extends true ? Values : Parts<D>["Context"];
   readonly issues: ReadonlyArray<Diagnostic>;
   readonly schedules: Erased<D> extends true ? Timers : TimersOf<D>;
 };
@@ -84,10 +78,14 @@ export type TimerView<R extends string = string> =
  * a keyed one as a list of its declared key with its timer, pausedBy its declared reasons.
  */
 export type TimersOf<D extends AnyDefinition> = {
-  readonly [N in keyof D["schedules"]]?: [KeyOfDecl<D["schedules"][N]>] extends [undefined]
-    ? TimerView<ReasonOfDecl<D["schedules"][N]>>
+  readonly [N in keyof Parts<D>["Schedules"]]?: [KeyOfDecl<Parts<D>["Schedules"][N]>] extends [
+    undefined,
+  ]
+    ? TimerView<ReasonOfDecl<Parts<D>["Schedules"][N]>>
     : ReadonlyArray<
-        { readonly key: KeyOfDecl<D["schedules"][N]> } & TimerView<ReasonOfDecl<D["schedules"][N]>>
+        { readonly key: KeyOfDecl<Parts<D>["Schedules"][N]> } & TimerView<
+          ReasonOfDecl<Parts<D>["Schedules"][N]>
+        >
       >;
 };
 
@@ -222,6 +220,24 @@ const issueOf = (actor: ActorId, issue: Issue) =>
 const freshStart = (compiled: Compiled, actor: ActorId) =>
   create(compiled, inputOfName(compiled, actor.name));
 
+// What one source of a snapshot supplies: a live incarnation, a saved record, a quarantined
+// record's fresh start, or an ended identity. A resting source has no context, issues or timers
+// unless it names them.
+type Shows = Pick<Snapshot, "state" | "memory" | "lifecycle"> &
+  Partial<Pick<Snapshot, "context" | "issues" | "schedules">>;
+
+// The one writer of a snapshot: every field, from one source and the identity's write lanes.
+const shownAs = (operations: Operations, shows: Shows) =>
+  ({
+    state: shows.state,
+    memory: shows.memory,
+    operations,
+    lifecycle: shows.lifecycle,
+    context: shows.context ?? {},
+    issues: shows.issues ?? [],
+    schedules: shows.schedules ?? NO_TIMERS,
+  }) satisfies Snapshot;
+
 // RETURN_TYPE: an Option of the snapshot: none when the identity has no incarnation and no record.
 export const snapshotIn = (
   world: World,
@@ -232,63 +248,61 @@ export const snapshotIn = (
   const live = world.incarnations.get(key);
   const record = world.records.get(key);
   const ended = world.ended.get(key);
-  const operations = operationsOf(world, machines, actor);
+  const shown = (shows: Shows) => shownAs(operationsOf(world, machines, actor), shows);
 
   if (live !== undefined)
-    return Option.some({
-      state: live.state,
-      memory: live.memory,
-      operations,
-      lifecycle: actorLifecycleOf(world.life),
-      context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
-      issues: issuesOf(live).map((issue) => issueOf(actor, issue)),
-      schedules: liveTimersOf(live),
-    });
+    return Option.some(
+      shown({
+        state: live.state,
+        memory: live.memory,
+        lifecycle: actorLifecycleOf(world.life),
+        context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
+        issues: issuesOf(live).map((issue) => issueOf(actor, issue)),
+        schedules: liveTimersOf(live),
+      }),
+    );
 
   if (record !== undefined)
-    return Option.some({
-      state: record.state,
-      memory: record.memory,
-      operations,
-      lifecycle: restingLifecycleOf(world.life, "active"),
-      context: {},
-      issues: savedScheduleIssues(machines, record).map((issue) => issueOf(actor, issue)),
-      schedules: savedTimersOf(record.schedules),
-    });
+    return Option.some(
+      shown({
+        state: record.state,
+        memory: record.memory,
+        lifecycle: restingLifecycleOf(world.life, "active"),
+        issues: savedScheduleIssues(machines, record).map((issue) => issueOf(actor, issue)),
+        schedules: savedTimersOf(record.schedules),
+      }),
+    );
 
   const compiled = machines.get(actor.machine);
   const quarantined = world.quarantined.get(actorRecordKey(key));
 
   // A record the boot could not read shows the fresh start an ensure would make, with its issue.
   if (quarantined !== undefined && compiled !== undefined)
-    return Option.some({
-      state: compiled.initial,
-      memory: freshStart(compiled, actor),
-      operations,
-      lifecycle: restingLifecycleOf(world.life, "quarantined"),
-      context: {},
-      issues: [
-        new Diagnostic({
-          classification: "Failure",
-          code: "RecordUndecodable",
-          path: [actor.machine, actor.name],
-          details: { reason: quarantineText(quarantined) },
-          summary: `the saved record of ${actor.name} could not be read`,
-          help: "Ensure the actor to start it fresh; its first save replaces the record.",
-        }),
-      ],
-      schedules: NO_TIMERS,
-    });
+    return Option.some(
+      shown({
+        state: compiled.initial,
+        memory: freshStart(compiled, actor),
+        lifecycle: restingLifecycleOf(world.life, "quarantined"),
+        issues: [
+          new Diagnostic({
+            classification: "Failure",
+            code: "RecordUndecodable",
+            path: [actor.machine, actor.name],
+            details: { reason: quarantineText(quarantined) },
+            summary: `the saved record of ${actor.name} could not be read`,
+            help: "Ensure the actor to start it fresh; its first save replaces the record.",
+          }),
+        ],
+      }),
+    );
 
-  return Option.map(Option.fromUndefinedOr(ended), (x) => ({
-    state: x.state,
-    memory: x.memory,
-    operations,
-    lifecycle: restingLifecycleOf(world.life, "disposed"),
-    context: {},
-    issues: [],
-    schedules: NO_TIMERS,
-  }));
+  return Option.map(Option.fromUndefinedOr(ended), (x) =>
+    shown({
+      state: x.state,
+      memory: x.memory,
+      lifecycle: restingLifecycleOf(world.life, "disposed"),
+    }),
+  );
 };
 
 // An outside snapshot omits the machine's Flow.private fields; Stories and Inspection see them.

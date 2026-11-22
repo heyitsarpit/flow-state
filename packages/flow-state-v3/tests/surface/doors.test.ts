@@ -43,6 +43,9 @@ const Other = Flow.definition({
   events: { Flip: {} },
 });
 
+// A bound contract, built from Lamp's tokens as its operations callback builds one.
+const pingBound = ping.outcomes({ success: Lamp.E.Pinged, failure: {}, unknown: Lamp.E.Unsure });
+
 const LampMachine = Flow.machine(Lamp, ({ S }) => ({
   default: S.OFF,
   states: { OFF: { on: { Flip: S.ON } }, ON: { on: { Flip: S.OFF } } },
@@ -257,12 +260,30 @@ describe("made values (Operations R10, I19)", () => {
     expect(facesOf(madeRoots).unfrozen).toEqual([]);
   });
 
+  it("Operations R10: the config a definition was given is frozen deeply, though it is off the face, so a later write to a shared config object refuses", () => {
+    const states = ["OFF", { ON: ["DIM", "BRIGHT"] }] as const;
+    const events = { Flip: {}, Dim: { level: Schema.Number } };
+    const memory = { level: Flow.Flow.initial(Schema.Number, 0) };
+    const schedules = { tick: { pausedBy: ["Away"] } } as const;
+
+    void Flow.definition({ id: "Doors/Frozen", states, events, memory, schedules });
+
+    expect(
+      facesOf([
+        ["states", states],
+        ["events", events],
+        ["memory", memory],
+        ["schedules", schedules],
+      ]).unfrozen,
+    ).toEqual([]);
+  });
+
   it("Operations R10: a definition, a machine, a contract, a bound contract, a state token, a ref and an app each carry the registered Made brand on one shared frozen prototype", () => {
     const made = [
       Lamp,
       LampMachine,
       ping,
-      Lamp.operations.ping,
+      pingBound,
       Lamp.S.OFF,
       Flow.actorRef(LampMachine, "one"),
       Flow.app({ id: "Doors", machines: { lamp: LampMachine } }),
@@ -287,7 +308,7 @@ describe("made values (Operations R10, I19)", () => {
     const token = Lamp.O.ping.commit(() => ({ id: "x" }));
 
     expect([
-      Object.keys(Lamp.operations.ping).filter((key) => key === "textOfKey" || key === "call"),
+      Object.keys(pingBound).filter((key) => key === "textOfKey" || key === "call"),
       Object.keys(token).filter((key) => key === "make"),
     ]).toEqual([[], []]);
   });

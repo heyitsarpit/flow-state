@@ -217,8 +217,8 @@ export const scheduleStateFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: "      issues: savedScheduleIssues(machines, record).map((issue) => issueOf(actor, issue)),",
-        replace: "      issues: [],",
+        find: "        issues: savedScheduleIssues(machines, record).map((issue) => issueOf(actor, issue)),",
+        replace: "        issues: [],",
       },
     ],
   },

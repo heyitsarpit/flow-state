@@ -17,7 +17,8 @@ import { endedBy, isStopped, Verdict } from "../core/life.ts";
 import { type ActorId, actorKey, sameActor, type Wiring } from "../core/world.ts";
 import { heldUntilReleased, makeClose, makeForget, type Unsettled, unsettledOf } from "./close.ts";
 import { inputFieldsOf, LOCAL_PREFIX } from "../core/identity.ts";
-import type { AnyDefinition, EventOf, InputOf, Machine } from "../definition.ts";
+import type { AnyDefinition, EventOf, Machine } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 import {
   type FlowError,
   flowError,
@@ -152,7 +153,7 @@ export type Runtime<R = never, A extends App = App> = {
   readonly ensureActor: <D extends DefsOf<A>>(ref: ActorRef<D>) => Actor<D>;
   readonly createActor: <D extends DefsOf<A>>(
     machine: Machine<D>,
-    options: { readonly input: InputOf<D["memory"]> },
+    options: { readonly input: Parts<D>["Input"] },
   ) => Actor<D>;
   readonly disposeActor: <D extends DefsOf<A>>(actor: Actor<D> | ActorRef<D>) => void;
   readonly dispose: (
@@ -500,7 +501,7 @@ export const buildRuntime = <R = never, A extends App = App>(
       "createActor",
       <D extends AnyDefinition>(
         machine: Machine<D>,
-        options: { readonly input: InputOf<D["memory"]> },
+        options: { readonly input: Parts<D>["Input"] },
       ) => {
         const compiled = compiledOf(machine);
 

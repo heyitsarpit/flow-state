@@ -25,7 +25,13 @@ const editedOf = <const D extends ScheduleDecls>(schedules: D) =>
     id: "Wizard/Booking",
     persist: true,
     states: ["PICKING", "HELD", "BOOKED", "EXPIRED"],
-    events: Booking.events,
+    events: {
+      Held: { slotId: Schema.String, heldUntil: Schema.Number },
+      Extended: { heldUntil: Schema.Number },
+      DismissWarning: {},
+      Book: {},
+      PickAgain: {},
+    },
     internalEvents: { Warned: {}, Expired: {}, Lapsed: {}, Reminded: {} },
     memory: {
       slotId: Flow.initial(Schema.String, ""),

@@ -383,15 +383,22 @@ export type RootToken<L extends string = string, C extends string = string> = {
 
 /**
  * A public memory field of a definition, read as context (`X.M.field`): its value's type `V`, its
- * definition's id `Id` and what a ref to its provider must have, `P`.
+ * definition's id `Id` and what a ref to its provider must have, `P`. Its Schema stays with the
+ * definition; the whole memory's is `X.Memory`.
  */
 export type MemoryToken<
   V = unknown,
   Id extends string = string,
   P = unknown,
 > = Branded<"memory"> & {
-  // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a field's Schema is the field's own.
-  readonly schema: Schema.Codec<V, unknown>;
+  /**
+   * The field's type, for code written apart from a body: `typeof Room.M.sensors.Type`.
+   *
+   * **Gotchas**
+   *
+   * - Type only, as a Schema's `Type` is: it holds no value at run time.
+   */
+  readonly Type: V;
   // A phantom type: the definition that made the token.
   readonly "~definition"?: Id;
   // A phantom type: the provider's state tree and memory, which the wiring's ref must have.

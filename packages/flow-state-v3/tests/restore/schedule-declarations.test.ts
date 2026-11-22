@@ -1,6 +1,6 @@
 import { Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { Booking, WARN_MS } from "../../fixtures/wizard/machines/booking.ts";
+import { WARN_MS } from "../../fixtures/wizard/machines/booking.ts";
 import { usual } from "../../fixtures/wizard/stories/usual.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { Fake, Story } from "../../src/host/testing/index.ts";
@@ -33,7 +33,13 @@ const declaredBuild = (declared: ReadonlyArray<string>, placed: ReadonlyArray<st
     id: "Wizard/Booking",
     persist: true,
     states: ["PICKING", "HELD", "BOOKED", "EXPIRED"],
-    events: Booking.events,
+    events: {
+      Held: { slotId: Schema.String, heldUntil: Schema.Number },
+      Extended: { heldUntil: Schema.Number },
+      DismissWarning: {},
+      Book: {},
+      PickAgain: {},
+    },
     internalEvents: { Warned: {}, Expired: {}, Reminded: {} },
     memory: {
       slotId: Flow.initial(Schema.String, ""),

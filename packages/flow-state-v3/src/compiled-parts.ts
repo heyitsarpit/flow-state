@@ -21,6 +21,7 @@ import {
   schemaOfField,
   unwrapPrivate,
 } from "./construction.ts";
+import { declarationOf } from "./declaration-of.ts";
 import type { AnyDefinition, EventFields } from "./definition.ts";
 import { admissionOf, codecOf, endingOf } from "./events.ts";
 import type { Field as FieldMarker } from "./flow.ts";
@@ -140,9 +141,11 @@ export const eventsOf = (definition: AnyDefinition) => {
     uncertain: isUncertain(fields),
   });
 
+  const declaration = declarationOf(definition);
+
   return new Map([
-    ...Object.entries(definition.events).map(([tag, f]) => [tag, entry(tag, f, true)] as const),
-    ...Object.entries(definition.internalEvents).map(
+    ...Object.entries(declaration.events).map(([tag, f]) => [tag, entry(tag, f, true)] as const),
+    ...Object.entries(declaration.internalEvents).map(
       ([tag, f]) => [tag, entry(tag, f, false)] as const,
     ),
   ]);

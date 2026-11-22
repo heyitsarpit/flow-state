@@ -2862,8 +2862,7 @@ tasks
               `host/snapshot.ts`), through `Parts`.
             - Public callers migrate in the same pass:
               - code:packages/flow-state-v3/fixtures/cells/machines/cells.ts builds a definition from `Pay`'s echo.
-                Export Pay's plain config object and call `definition` on it twice (the orchestrator's
-                ruling, 2026-11-22);
+                Cells writes its own full definition;
               - `tests/compile/corruption.test.ts` (101–235), `tests/restore/schedule-declarations.test.ts` and
                 `schedule-edits.test.ts` (`Booking.events`);
               - `tests/surface/doors.test.ts` (265, 290) and `tests/types/doors.test-d.ts` (26–29, `Lamp.operations`).
@@ -2880,7 +2879,7 @@ tasks
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract. Where building shows it wrong, fix the Spec and log the change in `wiki/specs/specs.log`.
 
-            **Supersedes:** code:packages/flow-state-v3/src/machine.ts#Parts,
+            **Supersedes:** `machine.ts#Parts` (moved to code:packages/flow-state-v3/src/derive.ts#Parts),
             code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody;
             code:packages/flow-state-v3/src/definition.ts#Definition,
             code:packages/flow-state-v3/src/definition.ts#AnyDefinition,
@@ -2920,8 +2919,8 @@ tasks
             - A definition's face holds no config echo: `states`, `events`, `internalEvents`, `memory`, `context`,
               `operations` and `schedules` are gone from the type and the value. `M.field.schema` is gone. `Event`,
               `State`, `Input`, `Memory`, `Snapshot` and `state` stay. Each is shown by a type test. `machine()`,
-              `compile` and the runtime read Flow's private copy, `cells.ts` shares Pay's plain config object, and an
-              operation handle carries no `Input` or `Key` type.
+              `compile` and the runtime read Flow's private copy, Cells writes its own full definition, and an operation
+              handle carries no `Input` or `Key` type.
             - `Parts<D>` and every derived row live in `derive.ts` (@spec.Types I1), shown by the source check in
               `tests/surface/derivation.test.ts`. The carried snapshot type has a name and one writer.
             - `nub run check` and the suite pass.
@@ -3376,6 +3375,35 @@ tasks
             `snapshot.ts#asOutside` and `project` leave this Task for @task.V3.T111 (the orchestrator's ruling on
             @task.V3.T142's re-review); Fix 9 of 03:54 is retracted. The carried snapshot type's name and one writer
             stay here.
+        comment     2026-11-22T11:24:48Z
+            Correction (orchestrator): the cells.ts ruling above is replaced: Cells writes its own full definition, and
+            the restore tests write their edited Booking in full; Pay and Booking stay plain literals.
+        comment     2026-11-22T11:27:27Z
+            [decided: agent builder 2026-11-22] The declaration's types ride on a phantom symbol key,
+            `Definition[Declared]` (`derive.ts`), and its value on the internals key, read by
+            `declaration-of.ts#declarationOf` and frozen as the face was. `Parts<D>` infers from that key once; an
+            indexed `D[Declared]` form hit TS2589 at `machine(Pay, payBody)`. Why: the echo leaves the face (type and
+            value) while `Parts`, `ProvidedBy` and every `D["events"|…]` reader keep one source, as `Compiled` left the
+            machine's face. Reverse: put the seven fields back on `Definition` and drop `[Declared]`.
+        comment     2026-11-22T11:27:28Z
+            [decided: agent builder 2026-11-22] `E.X.Type` and `M.field.Type` are type-only, as a Schema's `Type` is: no
+            value at run time, stated under Gotchas. Why: Effect's convention, and the acceptance asks for phantoms.
+            Reverse: give each token a decoded sample value.
+        comment     2026-11-22T11:27:29Z
+            Build-time choice: the 10:20 tag stands (A where every token's name and kind are known, else B). Its
+            deciding test (a module with `const Idle = X.S.IDLE` must import) does not change here: T113 builds no
+            construction-as-value, which is @task.V3.T22's by ruling, so today every finding still raises (B).
+        comment     2026-11-22T11:27:29Z
+            Build notes (builder). Origins of the reds fixed: the seven echo pins and `M.field.schema` came from
+            `definition.ts#definition`'s face literal; `.Type` from `event-tokens.ts#EventToken` and
+            `tokens.ts#MemoryToken` having no row; `BodyTokens` and `MapperContext` from missing exports
+            (`machine.ts#BodyOf`'s inline record, `contract.ts`); I1 from `Parts` living in `machine.ts`. The unkeyed
+            run read uses a test-local `Nudger` (Room's `setTarget` needs a services Layer a bare setup cannot give).
+            Cells writes its own full definition; the edited Bookings and the corruption test's `Scheduled` are written
+            in full. `snapshot.ts#shownAs` is the snapshot's one writer. Extra files: `vite.config.ts` (`derive.ts`
+            joins the option-bag exemption, as `machine.ts` had for `MachineBody`), four fault modules re-anchored.
+            Faults `definition-echo-on-face`, `memory-token-schema-on-face`, `declaration-unfrozen`,
+            `unkeyed-key-empty-record`: 4 of 4 caught by their targets.
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
         status      draft
@@ -6073,3 +6101,10 @@ tasks
               only type-test lines. It adds `schedule-sequences.test.ts:319-322` and
               `fixtures/lanes/stories/usual.ts:62`, both the envelope, so `EventOf<D>`, not `.Type`.
             - Plants: `rg -n 'sync-repo-renamed|account-renamed|receipt-renamed' tests/faults.ts tests/*-faults.ts`.
+        comment     2026-11-22T11:00:21Z
+            [decided: user 2026-11-22] Scope added (Q5 A): machine captures the body's type as B and checks B & Exact<B,
+            MachineBody<D>> (@proposal.body-key-typos, its spiked machine.ts in the session scratchpad is prior art
+            only), so typos in target, updateMemory (and its returned keys), guard, actions, states and schedules each
+            get a red line; one excess-keys type test per typo class; check time measured before and after (spike:
+            +14%); construction's strict decode stays. Why: reverses Types Q19 C; nothing in user bodies changes.
+            Reverse: drop the capture, back to runtime-only.

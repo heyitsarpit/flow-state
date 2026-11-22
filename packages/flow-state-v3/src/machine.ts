@@ -3,22 +3,14 @@ import { walkerOf } from "./core/boundary.ts";
 import { nameSchemaOf } from "./core/identity.ts";
 import { InternalsId, type Level, type Node, type Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
+import { declarationOf } from "./declaration-of.ts";
 import {
   type AnyDefinition,
-  type ChildrenOf,
-  type ContextOf,
-  type Definition,
-  type LeavesOf,
   type Machine,
-  type MemoryOf,
-  type NamesOf,
-  type On,
-  type PathsOf,
-  type StateConfig,
   type StateToken,
   treeOfDefinition,
-  type WritableOf,
 } from "./definition.ts";
+import type { BodyTokens, MachineBody } from "./derive.ts";
 import { bodyFindings, inDeclarationOrder } from "./config.ts";
 
 // A body's keys in the order its findings are reported.
@@ -31,82 +23,12 @@ import { codecOf, endingOf } from "./events.ts";
 import { defect } from "./core/defect.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
 import type { ActorId } from "./core/world.ts";
-import type { Change, ContextTokens, ErasedPlacement } from "./tokens.ts";
+import type { Change, ErasedPlacement } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
 import { nodesOf, tokenMaps } from "./compile-body.ts";
 import type { Compile } from "./compile-names.ts";
 import type { MachineInternals } from "./compiled-of.ts";
 import { placementFindings, scheduleCodecsOf } from "./compile-schedules.ts";
-
-type Parts<D> =
-  D extends Definition<
-    infer States,
-    infer Ev,
-    infer In,
-    infer M,
-    infer _O,
-    infer Cx,
-    infer Id,
-    infer Sch
-  >
-    ? {
-        readonly Context: Partial<ContextOf<Cx>>;
-        readonly Tree: States;
-        readonly S: PathsOf<States>;
-        readonly Leaves: LeavesOf<States>;
-        readonly Events: Ev & In;
-        readonly Memory: MemoryOf<M>;
-        readonly Writable: WritableOf<M>;
-        readonly Id: Id;
-        readonly Schedules: Sch;
-      }
-    : never;
-
-type Handlers<D> = On<
-  Parts<D>["Memory"],
-  Parts<D>["Events"],
-  Parts<D>["S"],
-  Parts<D>["Writable"],
-  Parts<D>["Id"],
-  Parts<D>["Leaves"],
-  Parts<D>["Context"]
->;
-
-type LeafBody<D> = StateConfig<
-  Parts<D>["Memory"],
-  Parts<D>["Events"],
-  Parts<D>["S"],
-  Parts<D>["Writable"],
-  Parts<D>["Id"],
-  Parts<D>["Leaves"],
-  Parts<D>["Context"],
-  Parts<D>["Schedules"]
->;
-
-type StatesBody<D, L, P extends string> = {
-  readonly [N in NamesOf<L>]?: NodeBody<D, ChildrenOf<L, N>, `${P}${N}.`>;
-};
-
-type NodeBody<D, C, P extends string> = [C] extends [never] ? LeafBody<D> : CompoundBody<D, C, P>;
-
-type CompoundBody<D, L, P extends string> = {
-  readonly on?: Handlers<D>;
-  readonly schedules?: LeafBody<D>["schedules"];
-  readonly default: StateToken<`${P}${NamesOf<L>}`, Parts<D>["Id"]>;
-  readonly states?: StatesBody<D, L, P>;
-};
-
-/**
- * What a machine body returns: the root's default child, handlers and reactions, and each state's
- * body, mirroring the definition's tree: a compound has a default direct child and its children's
- * bodies; a leaf has neither. `onContext` holds the `C.slot.change` reactions, live in every state.
- */
-export type MachineBody<D extends AnyDefinition> = {
-  readonly on?: Handlers<D>;
-  readonly onContext?: ReadonlyArray<Change>;
-  readonly default: StateToken<`${NamesOf<Parts<D>["Tree"]>}`, Parts<D>["Id"]>;
-  readonly states?: StatesBody<D, Parts<D>["Tree"], "">;
-};
 
 /**
  * A machine body as the compiler walks it, its literal types erased.
@@ -121,14 +43,7 @@ export type AnyBody = {
 
 // The body function. A conditional type, so a call that infers D instantiates it before checking
 // the body: the returned literal is then checked against the definition's own tree at every depth.
-type BodyOf<D> = [D] extends [AnyDefinition]
-  ? (tokens: {
-      readonly S: D["S"];
-      readonly E: D["E"];
-      readonly O: D["O"];
-      readonly C: ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>;
-    }) => MachineBody<D>
-  : never;
+type BodyOf<D> = [D] extends [AnyDefinition] ? (tokens: BodyTokens<D>) => MachineBody<D> : never;
 
 /**
  * What a reaction keeps for the core: when a change counts, and the event it sends.
@@ -336,15 +251,14 @@ export const machine = entry(
       () => defect("a refused definition"),
     );
 
+    const declaration = declarationOf(definition);
     const reactor = Symbol(`${definition.id}/C`);
 
     const handed = {
       S: definition.S,
       E: definition.E,
       O: definition.O,
-      C: trustedTokens<ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>>(
-        changeTokens(Object.keys(definition.context), reactor),
-      ),
+      C: trustedTokens<BodyTokens<D>["C"]>(changeTokens(Object.keys(declaration.context), reactor)),
     };
 
     const written = Result.try({
@@ -374,7 +288,7 @@ export const machine = entry(
       inDeclarationOrder(BODY_KEYS, [
         ...bodyFindings(config),
         ...reactionKinds(Array.isArray(config.onContext) ? config.onContext : [], reactor),
-        ...placementFindings(definition.schedules, config),
+        ...placementFindings(declaration.schedules, config),
       ]),
     );
 
@@ -383,6 +297,7 @@ export const machine = entry(
 
     const compile: Compile = {
       definition,
+      declaration,
       owner,
       nodes: new Map(tree.nodes.map((n) => [n.path, n])),
       tokens,
@@ -408,7 +323,7 @@ export const machine = entry(
     refuse(compile.findings);
 
     // The definition refused every slot that does not read; each slot here reads one provider.
-    const context = Object.entries(definition.context).flatMap(([slot, declared]) =>
+    const context = Object.entries(declaration.context).flatMap(([slot, declared]) =>
       Result.match(slotReadsOf(slot, declared), {
         onFailure: () => [],
         onSuccess: ({ provider, reads, select }) => {
@@ -430,7 +345,7 @@ export const machine = entry(
       }),
     );
 
-    const fields = Object.entries(definition.memory).map(([name, raw]) => fieldOf(name, raw));
+    const fields = Object.entries(declaration.memory).map(([name, raw]) => fieldOf(name, raw));
     const memory = memoryCodec(fields);
     const memoryJson = codecOf<Values>(Schema.toCodecJson(memory));
     const states = new Map(compiledTree.nodes.map((n) => [n.path, n]));
@@ -445,13 +360,13 @@ export const machine = entry(
       memory,
       memoryJson,
       operations: new Map(
-        Object.entries(definition.operations).map(([name, bound]) => [
+        Object.entries(declaration.operations).map(([name, bound]) => [
           name,
           operationOf(name, bound),
         ]),
       ),
       context: new Map(context),
-      schedules: scheduleCodecsOf(definition.schedules),
+      schedules: scheduleCodecsOf(declaration.schedules),
       wiring: new Map<string, ActorId>(),
       [InternalsId]: {
         fields,

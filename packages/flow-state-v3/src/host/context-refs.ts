@@ -1,4 +1,5 @@
 import type { ActorRef, AnyDefinition, Machine } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 
 /**
  * The provider a context slot reads from: its state tree and memory.
@@ -26,10 +27,10 @@ type CheckedEntry<E> = E extends Machine
         readonly context?: E extends { readonly context: infer X }
           ? string extends keyof X
             ? Readonly<Record<string, ActorRef>>
-            : ContextRefs<D["context"]> & {
-                readonly [P in Exclude<keyof X, keyof D["context"]>]: never;
+            : ContextRefs<Parts<D>["Slots"]> & {
+                readonly [P in Exclude<keyof X, keyof Parts<D>["Slots"]>]: never;
               }
-          : ContextRefs<D["context"]>;
+          : ContextRefs<Parts<D>["Slots"]>;
       } & { readonly [P in Exclude<keyof E, "machine" | "context">]: never }
     : never;
 

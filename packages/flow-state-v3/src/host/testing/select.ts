@@ -1,13 +1,8 @@
 import { Option } from "effect";
 import { Evidence, type EvidenceOf, type Member, type Part } from "../../core/evidence.ts";
 import type { Ending, ErasedEnding } from "../../contract.ts";
-import type {
-  AnyDefinition,
-  ActorRef,
-  LeavesOf,
-  MemoryOf,
-  ReasonOfDecl,
-} from "../../definition.ts";
+import type { AnyDefinition, ActorRef, ReasonOfDecl } from "../../definition.ts";
+import type { Parts } from "../../derive.ts";
 import { definitionOfToken } from "../../events.ts";
 import { actorIdOf } from "../runtime.ts";
 import { scriptFault } from "./steps.ts";
@@ -25,13 +20,13 @@ export type Recorded<Ds extends AnyDefinition = AnyDefinition> = {
 // A schedule's Paused or Resumed record of one definition: its schedule a declared name, and a
 // Paused record's reasons that schedule's declared reasons.
 type ScheduleRecordsOf<D extends AnyDefinition> = {
-  readonly [N in keyof D["schedules"] & string]:
+  readonly [N in keyof Parts<D>["Schedules"] & string]:
     | (Omit<EvidenceOf<"Paused">, "schedule" | "reasons"> & {
         readonly schedule: N;
-        readonly reasons: ReadonlyArray<ReasonOfDecl<D["schedules"][N]>>;
+        readonly reasons: ReadonlyArray<ReasonOfDecl<Parts<D>["Schedules"][N]>>;
       })
     | (Omit<EvidenceOf<"Resumed">, "schedule"> & { readonly schedule: N });
-}[keyof D["schedules"] & string];
+}[keyof Parts<D>["Schedules"] & string];
 
 /**
  * Every evidence record of a run of the definitions `Ds`: a schedule's Paused and Resumed records
@@ -40,7 +35,7 @@ type ScheduleRecordsOf<D extends AnyDefinition> = {
 export type EvidenceIn<Ds extends AnyDefinition> =
   | Exclude<Evidence, { readonly _tag: "Paused" | "Resumed" }>
   | (Ds extends AnyDefinition
-      ? string extends keyof Ds["schedules"]
+      ? string extends keyof Parts<Ds>["Schedules"]
         ? EvidenceOf<"Paused" | "Resumed">
         : ScheduleRecordsOf<Ds>
       : never);
@@ -59,17 +54,17 @@ export type PublishedOf<D extends AnyDefinition> = Omit<
   "actor" | "state" | "memory"
 > & {
   readonly actor: { readonly machine: D["id"]; readonly name: string };
-  readonly state: LeavesOf<D["states"]>;
-  readonly memory: MemoryOf<D["memory"]>;
+  readonly state: Parts<D>["Leaves"];
+  readonly memory: Parts<D>["Memory"];
 };
 
 type TokenOf<D extends AnyDefinition> = D["E"][keyof D["E"]];
 
 type Named<D extends AnyDefinition> = {
   readonly machine: D["id"];
-  readonly states: LeavesOf<D["states"]>;
-  readonly events: (keyof D["events"] | keyof D["internalEvents"]) & string;
-  readonly operations: keyof D["operations"] & string;
+  readonly states: Parts<D>["Leaves"];
+  readonly events: keyof Parts<D>["Events"] & string;
+  readonly operations: keyof Parts<D>["Operations"] & string;
 };
 
 type NamedMember<N extends Named<AnyDefinition>> = {

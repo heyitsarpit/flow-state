@@ -1,5 +1,6 @@
 import { Predicate } from "effect";
 import type { TreeNode } from "./construction.ts";
+import type { Declaration } from "./declaration-of.ts";
 import type { AnyDefinition } from "./definition.ts";
 import { type Finding, invalid } from "./error.ts";
 
@@ -26,6 +27,7 @@ export const slotOf = (at: Path) =>
  */
 export type Compile = {
   readonly definition: AnyDefinition;
+  readonly declaration: Declaration;
   readonly owner: symbol;
   readonly nodes: ReadonlyMap<string, TreeNode>;
   // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.

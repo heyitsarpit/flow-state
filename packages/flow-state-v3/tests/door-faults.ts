@@ -93,4 +93,43 @@ export const doorFaults: ReadonlyArray<Fault> = [
       },
     ],
   },
+  {
+    name: "definition-echo-on-face",
+    tests: ["tests/surface/derivation.test.ts"],
+    says: "a definition's face holds its states again beside the tokens that read them",
+    rule: "Types R1",
+    edits: [
+      {
+        file: "src/definition.ts",
+        find: "      persist: config.persist ?? false,\n",
+        replace: "      persist: config.persist ?? false,\n      states: config.states,\n",
+      },
+    ],
+  },
+  {
+    name: "memory-token-schema-on-face",
+    tests: ["tests/surface/derivation.test.ts"],
+    says: "a memory token's face holds its field's Schema beside its Type",
+    rule: "Types R1",
+    edits: [
+      {
+        file: "src/definition.ts",
+        find: '                    made("memory", owner, {}, {',
+        replace: '                    made("memory", owner, { schema: schemaOfField(field) }, {',
+      },
+    ],
+  },
+  {
+    name: "declaration-unfrozen",
+    tests: [DOORS],
+    says: "a definition's declaration, kept off its face, is left unfrozen, so a later write to a shared config changes it",
+    rule: "Operations R10",
+    edits: [
+      {
+        file: "src/definition.ts",
+        find: "    const declaration = frozen({",
+        replace: "    const declaration = ({",
+      },
+    ],
+  },
 ];

@@ -226,8 +226,8 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: '      lifecycle: restingLifecycleOf(world.life, "active"),',
-        replace: '      lifecycle: "active",',
+        find: '        lifecycle: restingLifecycleOf(world.life, "active"),',
+        replace: '        lifecycle: "active",',
       },
     ],
   },
@@ -239,8 +239,8 @@ export const lifeFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: '    lifecycle: restingLifecycleOf(world.life, "disposed"),',
-        replace: '    lifecycle: "disposed",',
+        find: '      lifecycle: restingLifecycleOf(world.life, "disposed"),',
+        replace: '      lifecycle: "disposed",',
       },
     ],
   },

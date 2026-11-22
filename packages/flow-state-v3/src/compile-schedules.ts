@@ -120,7 +120,7 @@ export const scheduleOf = (
   config: ErasedPlacement,
   at: Path,
 ): Schedule => {
-  const declared = compile.definition.schedules[name] ?? {};
+  const declared = compile.declaration.schedules[name] ?? {};
   const keyed = declared.key !== undefined;
 
   const send = endingOf(config.send);

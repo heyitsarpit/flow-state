@@ -112,17 +112,23 @@ describe("Compile R12, R14, T6: a definition's id is a type, and its tokens carr
       }),
     });
 
-    const Own = definition({
-      id: "types/tokens/Own",
-      states: ["A"],
-      events: { go: {} },
-      internalEvents,
-      operations: ({ E }) => ({
-        own: add.outcomes({ success: E.Ok, failure: {}, unknown: E.Unsure }),
-      }),
-    });
+    expectTypeOf(
+      definition({
+        id: "types/tokens/Own",
+        states: ["A"],
+        events: { go: {} },
+        internalEvents,
+        operations: ({ E }) => ({
+          own: add.outcomes({ success: E.Ok, failure: {}, unknown: E.Unsure }),
+        }),
+      }).id,
+    ).toEqualTypeOf<"types/tokens/Own">();
 
-    expectTypeOf(Own.operations.own["~definition"]).toEqualTypeOf<"types/tokens/Own" | undefined>();
+    const Own = definition({ id: "types/tokens/Own", states: ["A"], events: {}, internalEvents });
+
+    expectTypeOf(
+      add.outcomes({ success: Own.E.Ok, failure: {}, unknown: Own.E.Unsure })["~definition"],
+    ).toEqualTypeOf<"types/tokens/Own" | undefined>();
 
     const Reacting = definition({
       id: "types/tokens/Reacting",

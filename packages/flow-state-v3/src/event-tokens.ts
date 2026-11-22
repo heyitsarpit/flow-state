@@ -22,6 +22,14 @@ export type EventToken<
   UncertainMark<IsUncertain> &
   Branded<"event"> & {
     readonly tag: Name;
+    /**
+     * The event's payload, what a handler's `event` is: `typeof Sync.E.SyncRepo.Type`.
+     *
+     * **Gotchas**
+     *
+     * - Type only, as a Schema's `Type` is: it holds no value at run time.
+     */
+    readonly Type: P;
     readonly from: <V, R extends P>(
       map: (value: V) => R & { readonly [K in Exclude<keyof R, keyof P>]: never },
     ) => MappedEvent<Name, V, P, Id> & UncertainMark<IsUncertain>;

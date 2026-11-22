@@ -2,7 +2,10 @@ import { Duration, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { AuthSession } from "../../fixtures/sign-in/machines/session.ts";
 import { TrustedDevice } from "../../fixtures/sign-in/machines/trusted-device.ts";
+import { setUsername } from "../../fixtures/sign-in/operations/writes.ts";
+import { Customer } from "../../fixtures/transfers/machines/customer.ts";
 import { fromAccount, StandingOrder } from "../../fixtures/transfers/machines/standing-order.ts";
+import { balance } from "../../fixtures/transfers/operations/reads.ts";
 import { definition, Diagnostic, Flow, FlowError, machine } from "../../src/index.ts";
 import { loose } from "../../src/test/loose.ts";
 
@@ -98,9 +101,34 @@ const order = (body: (tokens: typeof StandingOrder) => Sample) =>
 // The standing order with one schedule t declared, for the schedule shapes.
 const Scheduled = definition({
   id: "Corrupt/Scheduled",
-  states: StandingOrder.states,
-  events: StandingOrder.events,
+  states: ["DRAFT", "CHECKING", "SCHEDULED", "PAUSED"],
+  events: {
+    Plan: {
+      first: Schema.DateFromString,
+      cents: Schema.Number,
+      memo: Schema.optional(Schema.String),
+    },
+    Pause: { until: Schema.NullOr(Schema.DateFromString) },
+    Resume: {},
+  },
   schedules: { t: {} },
+});
+
+// A write and a read bound the way the fixtures' operations bind them.
+const sessionSave = setUsername.outcomes({
+  success: AuthSession.E.Saved.from((v) => ({ handle: v.handle })),
+  failure: { Taken: AuthSession.E.Refused.from((e) => ({ handle: e.handle })) },
+  notSent: AuthSession.E.NotSaved.from((e) => ({ why: e.why })),
+  unknown: AuthSession.E.SaveUnsure,
+});
+
+const orderBalance = balance.outcomes({
+  success: StandingOrder.E.BalanceRead.from((v) => ({ cents: v.cents })),
+  failure: {
+    NoAnswer: StandingOrder.E.BalanceFailed,
+    Defect: StandingOrder.E.BalanceFailed,
+    Interrupted: StandingOrder.E.BalanceFailed,
+  },
 });
 
 const scheduled = (body: (tokens: typeof Scheduled) => Sample) =>
@@ -110,14 +138,21 @@ const SLOTS: ReadonlyArray<Slot> = [
   {
     numbersValid: false,
     name: "a bound",
-    samples: [AuthSession.operations.save, StandingOrder.operations.balance],
+    samples: [sessionSave, orderBalance],
     construct: (value) =>
       definition(
         loose({
           id: "Corrupt/Bound",
           states: ["A"],
           events: {},
-          internalEvents: { ...AuthSession.internalEvents, ...StandingOrder.internalEvents },
+          internalEvents: {
+            Saved: { handle: Schema.String },
+            Refused: { handle: Schema.String },
+            NotSaved: { why: Schema.String },
+            SaveUnsure: Flow.uncertain({}),
+            BalanceRead: { cents: Schema.Number },
+            BalanceFailed: {},
+          },
           operations: () => ({ op: value }),
         }),
       ),
@@ -216,7 +251,7 @@ const SLOTS: ReadonlyArray<Slot> = [
   {
     numbersValid: false,
     name: "a context slot",
-    samples: [StandingOrder.context.customer],
+    samples: [Flow.context(Customer.M.account)],
     construct: (value) =>
       definition(
         loose({ id: "Corrupt/Context", states: ["A"], events: {}, context: { c: value } }),
@@ -225,14 +260,22 @@ const SLOTS: ReadonlyArray<Slot> = [
   {
     numbersValid: false,
     name: "a memory field",
-    samples: Object.values(StandingOrder.memory),
+    samples: [
+      Flow.input(Schema.String),
+      Flow.initial(Schema.String, ""),
+      Flow.initial(Schema.NullOr(Schema.DateFromString), null),
+      Schema.optional(Schema.String),
+    ],
     construct: (value) =>
       definition(loose({ id: "Corrupt/Memory", states: ["A"], events: {}, memory: { f: value } })),
   },
   {
     numbersValid: false,
     name: "an event's fields",
-    samples: [StandingOrder.events.Plan, Flow.uncertain({ at: Schema.String })],
+    samples: [
+      { first: Schema.DateFromString, cents: Schema.Number, memo: Schema.optional(Schema.String) },
+      Flow.uncertain({ at: Schema.String }),
+    ],
     construct: (value) =>
       definition(loose({ id: "Corrupt/Event", states: ["A"], events: { X: value } })),
   },

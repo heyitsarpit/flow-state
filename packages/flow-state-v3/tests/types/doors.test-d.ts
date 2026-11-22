@@ -21,12 +21,14 @@ const Lamp = definition({
   }),
 });
 
+const pingBound = ping.outcomes({ success: Lamp.E.Pinged, failure: {}, unknown: Lamp.E.Unsure });
+
 describe("what the core calls on a made value is off its type (Operations R10, I19)", () => {
   it("Operations R10: a bound contract's textOfKey and call, and an operation token's make, are not on their public types", () => {
-    expectTypeOf(Lamp.operations.ping).not.toHaveProperty("textOfKey");
-    expectTypeOf(Lamp.operations.ping).not.toHaveProperty("call");
+    expectTypeOf(pingBound).not.toHaveProperty("textOfKey");
+    expectTypeOf(pingBound).not.toHaveProperty("call");
     expectTypeOf(Lamp.O.ping.commit(() => ({ id: "x" }))).not.toHaveProperty("make");
-    expectTypeOf(Lamp.operations.ping).toHaveProperty("contract");
+    expectTypeOf(pingBound).toHaveProperty("contract");
     expectTypeOf(Lamp.O.ping.commit(() => ({ id: "x" }))).toHaveProperty("operation");
   });
 });

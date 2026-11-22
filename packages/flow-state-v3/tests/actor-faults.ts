@@ -134,8 +134,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: "      schedules: liveTimersOf(live),",
-        replace: "      schedules: NO_TIMERS,",
+        find: "        schedules: liveTimersOf(live),",
+        replace: "        schedules: NO_TIMERS,",
       },
     ],
   },

@@ -2,6 +2,7 @@ import type { Layer } from "effect";
 import { flowError, flowErrorOf } from "../error.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { Machine } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 import type { ActorRef } from "./refs.ts";
 import type { Store, StoreScope } from "./store.ts";
 
@@ -42,7 +43,7 @@ export type App<M extends Readonly<Record<string, AppEntry>> = Readonly<Record<s
  */
 export type ServicesOf<A extends App> = {
   readonly [K in keyof A["machines"]]: RequirementsOf<
-    MachineOf<A["machines"][K]>["definition"]["operations"]
+    Parts<MachineOf<A["machines"][K]>["definition"]>["Operations"]
   >;
 }[keyof A["machines"]];
 

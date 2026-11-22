@@ -1,4 +1,4 @@
-import { Duration, Effect, Option, Schedule, Schema } from "effect";
+import { Duration, Effect, Option, Predicate, Schedule, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { house, roomOf } from "../../fixtures/home/app.ts";
 import { House } from "../../fixtures/home/machines/house.ts";
@@ -269,6 +269,54 @@ describe("a host-stepped step past the timer limit (Turn R15)", () => {
     );
     expect(timersOf(run.checkpoints["second reminder"].read(lounge))).toEqual({});
     expect(run.checkpoints["second reminder"].read(lounge)?.issues).toHaveLength(1);
+  });
+});
+
+// An offline device reminded hourly, as Room's reconnect reminder is, whose reminder records what
+// its send mapper read as the firing's key: the attempt when the key is undefined, else -1.
+const Nudger = definition({
+  id: "Home/Nudger",
+  states: ["OFFLINE"],
+  events: {},
+  internalEvents: { Nudged: { attempt: Schema.Number } },
+  memory: { notice: Flow.initial(Schema.String, "") },
+  schedules: { reconnect: {} },
+});
+
+const NudgerMachine = machine(Nudger, ({ S, E }) => ({
+  default: S.OFFLINE,
+  on: {
+    Nudged: { updateMemory: ({ event }) => ({ notice: `reminder ${String(event.attempt)}` }) },
+  },
+  states: {
+    OFFLINE: {
+      schedules: {
+        reconnect: {
+          schedule: Duration.hours(1),
+          send: E.Nudged.from((firing) => ({
+            attempt: Predicate.isUndefined(firing.key) ? firing.attempt : -1,
+          })),
+        },
+      },
+    },
+  },
+}));
+
+const nudger = actorRef(NudgerMachine, "nudger");
+
+describe("an unkeyed schedule's key at run time (Types R3, I3)", () => {
+  it("Types R3: an unkeyed schedule's send mapper reads key as undefined, the value its type states", async () => {
+    const run = await played(
+      Story.app(runtimeSetup({ app: app({ id: "nudger", machines: { nudger: NudgerMachine } }) }), {
+        id: "home/unkeyed-key",
+        fixtures: [],
+      })
+        .ensure(nudger)
+        .advance("1 hour")
+        .checkpoint("reminded"),
+    );
+
+    expect(run.checkpoints.reminded.read(nudger)?.memory.notice).toBe("reminder 1");
   });
 });
 

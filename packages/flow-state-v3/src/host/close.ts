@@ -29,6 +29,7 @@ import {
 } from "./owners/owners.ts";
 import { Store, StoreRefused } from "./store.ts";
 import type { AnyDefinition } from "../definition.ts";
+import type { Parts } from "../derive.ts";
 
 /**
  * One identity with writes still out, as `runtime.unsettledWrites()` lists it.
@@ -44,7 +45,7 @@ import type { AnyDefinition } from "../definition.ts";
  * one definition's.
  */
 export type Unsettled<Ds extends AnyDefinition = AnyDefinition> = Ds extends AnyDefinition
-  ? UnsettledOf<Ds["id"], keyof Ds["operations"] & string>
+  ? UnsettledOf<Ds["id"], keyof Parts<Ds>["Operations"] & string>
   : never;
 
 type UnsettledOf<Machine extends string, Operation extends string> = {
