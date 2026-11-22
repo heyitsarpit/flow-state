@@ -810,3 +810,11 @@ note 2026-11-22T20:04:33Z
 
 note 2026-11-22T20:04:33Z
     T119 fix round in review (6aab9c8b, 9d09f531); second close review starts.
+
+note 2026-11-22T20:19:33Z
+    T119 close review 2: PASS (ff07be51). Page @page.T119-turn-parts written; loop findings 12-15 added. The create-step
+    type pin and Story tooling items routed to T97.
+
+note 2026-11-22T20:19:34Z
+    T119's slice close held (Epic stops): @page.T142-typed-machine is unread. T119 stays in review with its PASS until
+    the user reads it; then done.

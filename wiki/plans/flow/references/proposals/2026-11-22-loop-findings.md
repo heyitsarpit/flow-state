@@ -54,6 +54,17 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
 11. **The user's fixture taste goes into every build brief that touches fixtures** [proposed]. Why: three mid-build
    corrections in slice T142 (variants, `payBody`, `byRepo`) came from diffs the user read while the build ran.
 
+12. **The requirements list maps every Requirement in the Task's Spec range, not only its Invariants** [proposed].
+   Why: slice T119's requirements review blocked on R22 (one input builder), which no Invariant carries, so the list
+   drawn from the Invariants missed it.
+13. **A fix round's review goes back to the same reviewer by message** [proposed]. Why: slice T119's second close
+   review re-ran its own probes on the fixes in about 14 minutes and a third of the first review's tokens.
+14. **Whatever the harness judges about a fact, it also judges the host's view of it** [proposed]. Why: slice T119's
+   lost wake passed because I12 checked the alarm map but not whether the host held a wake; the same gap can recur for
+   any fact the host mirrors (leases, subscriptions).
+15. **A slice that replaces the turn's core costs about 8% of the weekly limit** [proposed, as a planning figure]:
+   slice T119 took 82% to 90% across requirements, two reviews, a build and one fix round.
+
 ## Already merged
 
 - The requirements lead runs at high effort; other leads stay medium (Epic, the user, 2026-11-22). Check over the
