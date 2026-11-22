@@ -774,3 +774,8 @@ note 2026-11-22T15:57:00Z
 
 note 2026-11-22T16:02:43Z
     T145 done (5878de1c): two faults disabled, not fixed, by the user's order.
+
+note 2026-11-22T16:09:27Z
+    Run paused for handoff to a new orchestrator: tree clean, no live agents, cron removed. Next: T119 (draft,
+    unblocked), write its full text with skill:to-task, then its requirements lead. Unread page:
+    @page.T142-typed-machine. Open: loop findings 1-11 (proposed). Weekly usage ~81%.
