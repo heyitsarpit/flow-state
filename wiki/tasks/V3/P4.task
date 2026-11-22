@@ -6210,7 +6210,7 @@ tasks
               doc sample.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
-        status      review
+        status      done
         priority    high
         parent      [@T142]
         blocked_by  [@T113]
@@ -6456,6 +6456,15 @@ tasks
             `tools/faults/run.ts`'s typecheck block are type faults. `excess-keys.test-d.ts` also proves the capture,
             but the three renames are the only proof that every helper breaks on a rename. `initial-first-state` is
             runtime and stays.
+        comment     2026-11-22T14:07:19Z
+            Rulings (orchestrator) on the close review (PASS): clients.ts goes factory-free (three written-out
+            definitions and a per-policy table, the review's second trace). [decided: agent orchestrator 2026-11-22]
+            Why: correctness first, since the factory lets one client's event type-check against another; it also
+            matches the user's no-factories taste. Reverse: restore the factory. A follow-up cleanup (orchestrator-run,
+            before the slice closes) does it with the missing typo tests (an event name under on, a schedule name), the
+            lint rule's alias case and FLOW-STATE.md row, one Callable, and the Spec records (Types R2, Q19, Types.md
+            payBody); the pipe-named field disabling the typo check (machine.ts#Opaque) lands as an inverted type test
+            owned by T121. Faults items go to T145.
 
     T145
         title       Planted faults: runtime rules only, judged by their targets

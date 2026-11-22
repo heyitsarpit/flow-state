@@ -737,3 +737,7 @@ note 2026-11-22T13:59:12Z
     [decided: user 2026-11-22] Q7 B: planted faults only for runtime rules, judged by their own target tests (no
     whole-suite fallback; a miss is re-aimed); type and lint rules get none. Scope: the whole run. Tooling and existing
     faults: T145.
+
+note 2026-11-22T14:07:39Z
+    T144 done (close and seam review PASS, 03e59af3). A Sonnet cleanup (clients.ts factory-free, typo tests, Spec
+    records, proposal deleted) runs before slice T142 closes.
