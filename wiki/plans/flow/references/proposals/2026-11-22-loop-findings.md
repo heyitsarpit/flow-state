@@ -46,6 +46,14 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
    about 61% to 70% of the weekly limit (9%), with three review rounds after the build. Why: the requirements rework
    and two post-PASS rulings each added a round.
 
+9. **A ruling that changes how fixtures or user code look comes with a before/after snippet** [proposed]. Why: in
+   slice T142 a one-line ruling ("share the plain config object") came back as a generic factory the user rejected.
+10. **A decision the user doubts gets a fresh spike before a ruling** [proposed]. Why: slice T142's re-spike of body
+   exactness found the capture costs about 14 to 27% check time, not the prohibitive cost Q19 assumed, and the user
+   reversed Q19.
+11. **The user's fixture taste goes into every build brief that touches fixtures** [proposed]. Why: three mid-build
+   corrections in slice T142 (variants, `payBody`, `byRepo`) came from diffs the user read while the build ran.
+
 ## Already merged
 
 - The requirements lead runs at high effort; other leads stay medium (Epic, the user, 2026-11-22). Check over the

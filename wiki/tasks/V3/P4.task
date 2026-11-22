@@ -5828,7 +5828,7 @@ tasks
 
     T142
         title       Slice: The typed machine
-        status      in_progress
+        status      done
         priority    high
         description
             Execution slice: its children run together through one requirements phase, requirements review, build and

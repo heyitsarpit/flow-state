@@ -745,3 +745,7 @@ note 2026-11-22T14:07:39Z
 note 2026-11-22T14:10:55Z
     Merged `@proposal.body-key-typos` deleted; last commit holding it: git show
     77bd2f79:wiki/plans/flow/references/proposals/2026-11-22-body-key-typos.md
+
+note 2026-11-22T14:13:57Z
+    Slice T142 (the typed machine) closed. Page @page.T142-typed-machine written, unread; loop findings added. Next:
+    T145.
