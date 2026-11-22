@@ -248,13 +248,15 @@ instructions
       for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with fixture work
       links the page in its acceptance, and every brief cites it too. What to build comes from
       @convention.fixture-catalog (the user, 2026-11-17): each Task's fixtures line names its migration step and
-      fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively. Fixture counts
-      are set from the bench and recorded in each Story; a count may change only by a recorded re-measurement (the user,
-      2026-11-17, Q8 A). The catalog is a task list: at the close the lead marks every scenario item in those fixtures
-      built (with its Story id) or left (with the later Task and the feature it needs), never leaves one unmarked, and
-      corrects any row the build proved wrong; only a scenario needing a later Task's feature may be left, and the
-      review checks each. The scenarios and their linked tests are best-guess guidance: the lead targets proper coverage
-      and may add, reshape or replace scenarios, writing each change back as a catalog item.
+      fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively: a feature
+      extends an existing machine where a real app would, and a new machine is added only when none has a natural reason
+      to own it (the user, 2026-11-22). Fixture counts are set from the bench and recorded in each Story; a count may
+      change only by a recorded re-measurement (the user, 2026-11-17, Q8 A). The catalog is a task list: at the close
+      the lead marks every scenario item in those fixtures built (with its Story id) or left (with the later Task and
+      the feature it needs), never leaves one unmarked, and corrects any row the build proved wrong; only a scenario
+      needing a later Task's feature may be left, and the review checks each. The scenarios and their linked tests are
+      best-guess guidance: the lead targets proper coverage and may add, reshape or replace scenarios, writing each
+      change back as a catalog item.
     - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
       fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
       inverted test with its owner Task, and is fixed by that owner against the full coverage.
@@ -297,11 +299,10 @@ instructions
       run before each checkpoint commit; a builder that needs a ruling states it and keeps doing independent work.
     - Big test commands run at the end of a Task (the user, 2026-11-16): the stress runs (stress Stories, their reload
       sweeps, generated stress seeds) sit behind a flag outside the default suite; they run once at a Task's close, in
-      its review, and at a phase's close, never mid-Task. The whole `nub run faults` runs at most once a day (the user,
-      2026-11-18) as a background process that blocks nothing: the first wake of the day starts `nub run faults
-      --background` (few copies, lowest CPU priority) whether or not a lead runs, and no one waits on it; the next wake
-      routes each missed fault. Timings taken while it runs are marked as such. Also at a phase's close; never in a
-      Task's build or review.
+      its review, and at a phase's close, never mid-Task. The whole `nub run faults` runs only on the user's demand (the
+      user, 2026-11-22; was daily): no wake, Task, review or phase close starts it; a phase gate that names it asks the
+      user. When it runs, it runs in the background, timings taken meanwhile are marked as such, and each missed fault
+      is routed.
     - Proof has a time budget (the user, 2026-11-18): any single verification step a lead or reviewer runs (a harness, a
       sweep, a matrix) is capped at 10 minutes; past it, it stops, reports what it has, and the orchestrator decides
       whether more is worth it. A review runs the suite once, alone, plus the stress runs only when the Task touched
@@ -343,8 +344,7 @@ instructions
       2, the user, 2026-11-12; R35). Tests before convergence (the user, 2026-11-16): first every known behaviour of the
       part gets its fixtures, Stories and tests, the class shown red; only then redesign. On running code the freedom is
       taken away by structure (skill:policy-convergence#converging-live-code, the user, 2026-11-19, after T99).
-    - When the daily `nub run faults` misses a fault, it lands as a run rule or a Story test, owned by the Task
-      in range.
+    - When a whole `nub run faults` misses a fault, it lands as a run rule or a Story test, owned by the Task in range.
     - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
       quality is otherwise left to lint (the user, 2026-11-14).
     - Every requirements review and close review runs skill:check-task step 5 (cohesion) (the user, 2026-11-19), with
@@ -381,12 +381,11 @@ cadence
     follow instructions' 5-hour pacing. Only when the local hour is a multiple of 3 and the minute is under 30: start
     `nub run bench tooling --record` in the background and never wait on it; at the next wake read its rows, and if a
     test command regressed beyond noise against the previous tooling row, note it and insert a Task to make the tests
-    fast again, taken before the lead's next Task. At the first wake of the day, lead or not: start `nub run faults
-    --background` in the background, never wait on it, tell a running lead its timings are noisy until it ends, and at
-    the next wake route each missed fault. If a Task is in review, or a review event in instructions has no review
-    covering it, and no lead is running, start one Opus lead at medium effort with its read-only Haiku sidecars, one of
-    them blind; verify its findings, route the accepted ones, and note the review. If the lead has shown no activity for
-    100 minutes, resume it by message or replace it (R7) and note it. Otherwise write nothing."
+    fast again, taken before the lead's next Task. Never start `nub run faults` whole (the user's demand only). If a
+    Task is in review, or a review event in instructions has no review covering it, and no lead is running, start one
+    Opus lead at medium effort with its read-only Haiku sidecars, one of them blind; verify its findings, route the
+    accepted ones, and note the review. If the lead has shown no activity for 100 minutes, resume it by message or
+    replace it (R7) and note it. Otherwise write nothing."
 
     Quiet rule: a wake that finds nothing writes no note and sends no message; timings within bound are not noted.
 stops

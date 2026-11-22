@@ -610,3 +610,12 @@ note 2026-11-22T04:55:14Z
 
 note 2026-11-22T05:13:54Z
     T118 requirements review: PASS (bb7e9bc5). Acceptance 1 amended per the 2026-11-20 ruling; build lead starts.
+
+note 2026-11-22T05:52:00Z
+    [decided: user 2026-11-22] "yes extend and upgrade existing machines": a feature's fixtures extend an existing
+    machine where a real app would; a new machine only when none has a natural reason to own it. Scope: the whole run,
+    T118 now.
+
+note 2026-11-22T06:07:49Z
+    [decided: user 2026-11-22] "get rid of daily cadence, it will run only on my demand": the whole nub run faults runs
+    only when the user asks; no wake, Task, review or phase close starts it. Scope: the whole run. Cron prompt updated.
