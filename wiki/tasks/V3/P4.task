@@ -6472,7 +6472,7 @@ tasks
 
     T145
         title       Planted faults: runtime rules only, judged by their targets
-        status      in_progress
+        status      review
         priority    high
         description
             Planted faults cover runtime rules only and are judged by their own target tests, so `nub run faults --only`
@@ -6551,3 +6551,10 @@ tasks
             through runtimeSetup. Why: Operations R10 refuses a hand-made Compiled as a copy at the door, so no public
             path reaches it; the check stays as the Runtime guard. Reverse: delete the check and its fault if the guard
             is judged dead code.
+        comment     2026-11-22T14:46:58Z
+            Close (builder): every acceptance item holds at c6b544f2; set to review. Requirements: 1 verdict.test.ts
+            passes (`judge` reports MISSED with only targets run); 2 both rg checks empty; 3 all 486 faults caught by
+            their targets over 11 `--only` groups plus a 47-fault rerun of the re-aimed and changed-file faults; 4 `nub
+            run check` 0, suite 25148 passed, 1 failure a 5 s timeout in shop/context (1000 lines) under load, passing
+            alone. Sample `--only` group of 5: 2.8 s before and after (all caught by targets; the saving is on misses,
+            each formerly a whole-suite run).
