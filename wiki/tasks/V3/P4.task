@@ -179,6 +179,9 @@ comment 2026-11-22T03:50:19Z
       - T132 outside the tree: it is in P5 by design.
 comment 2026-11-22T03:54:16Z
     Breakdown review fixes 1-12 applied (orchestrator); fix 13 waits for the user.
+comment 2026-11-22T04:00:20Z
+    [answered: user 2026-11-22] R48 fix 13: the new Order supersedes the 2026-11-19 deferral of T92 (T56's own deferral
+    is likewise ordered by the Order).
 tasks
     T58
         title       Store in real browsers: the Store port, storeContract and a minimal IndexedDB adapter
@@ -1566,6 +1569,9 @@ tasks
         comment     2026-11-22T03:54:03Z
             Fix 3: blocked_by T118 added (crossing value: the format 5 to 6 step and format 6). T118 the schedule row,
             T92 the other partitions, T56 the version rules. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T04:00:19Z
+            [decided: user 2026-11-22] The 2026-11-22 Order supersedes the 2026-11-19 deferral: T92 runs sixth, before
+            the T21 slice and T56. Why: R48 fix 13. Reverse: re-park it and drop T121's and T124's blockers on it.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
@@ -2996,7 +3002,7 @@ tasks
             (2026-11-22, P4 comment).
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      review
+        status      in_progress
         priority    high
         blocked_by  [@T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
@@ -3423,6 +3429,10 @@ tasks
         comment     2026-11-22T04:33:41Z
             Extra file beyond May change: wiki/conventions/fixture-catalog.md, home's Hub rows (the fixtures proof's
             catalog items).
+        comment     2026-11-22T04:35:36Z
+            [decided: agent orchestrator 2026-11-22] One schedule placed in a state and in its descendant is refused at
+            construction; sibling placements stay. Why: the two timers' issues can't be told apart and no Spec says
+            which the snapshot shows. Reverse: allow it and key the snapshot's issue by placement.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail

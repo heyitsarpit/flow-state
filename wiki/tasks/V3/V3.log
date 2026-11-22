@@ -591,3 +591,11 @@ note 2026-11-22T03:47:10Z
 note 2026-11-22T03:51:10Z
     Open for the user: R48 fix 13 (P4 comment 2026-11-22T03:50Z), T92's 2026-11-19 deferral vs the 2026-11-22 Order that
     puts it sixth. Recommended: the Order supersedes the deferral. Holds only T92's slice; T118 and T113 go on.
+
+note 2026-11-22T03:55:08Z
+    Slice T118 (own slice) started: requirements lead (Opus, high) refreshes the requirements on post-T120 code and
+    applies the 2026-11-20 review's rulings; then the requirements review.
+
+note 2026-11-22T04:00:19Z
+    [decided: user 2026-11-22] "new order": the 2026-11-22 Order supersedes T92's 2026-11-19 deferral; T92 runs sixth.
+    Scope: P4 (T92, T56, the T21 slice). Answers R48 fix 13.
