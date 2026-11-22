@@ -27,13 +27,13 @@ const accountedBy = (e: Evidence) => {
  * that open, and was not superseded or released there, is heard in a later open of its identity:
  * its saved ending, or unknown Restored. Only
  * identities started again in a later open are judged, since a disposed identity's endings wait
- * for an adopting ensure; and an Attempt whose lane record a later boot could not read is reported
- * there instead, its key held until a cancel (Restore R5).
+ * for an adopting ensure; and an Attempt whose work record a later boot kept unread is reported
+ * there instead, its bytes kept (Records R1, Fates Kept).
  */
 export const acknowledgedHeardAgain: Rule = {
   rule: "WriteAhead I17",
   breaches: (run: StoryRun) => {
-    const { owner, ended, started, operation, unread } = opensOf(run);
+    const { owner, ended, started, unread } = opensOf(run);
 
     return run.end.records.batches.flatMap((b) =>
       b.status !== "landed"
@@ -45,9 +45,7 @@ export const acknowledgedHeardAgain: Rule = {
             const later = [...(started.get(actor) ?? [])].filter((o) => o > open);
 
             const quarantined = [...unread].some(
-              ([key, opens]) =>
-                key.startsWith(`lane/${actor}|${operation.get(attempt) ?? ""}|`) &&
-                [...opens].some((o) => o > open),
+              ([key, opens]) => key === `work/${actor}` && [...opens].some((o) => o > open),
             );
 
             return heard.length > 0 || later.length === 0 || quarantined

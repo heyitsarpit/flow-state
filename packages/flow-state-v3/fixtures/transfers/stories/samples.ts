@@ -142,18 +142,18 @@ const ACCOUNT_WORK = "work/Bank/Transfers/acct-1";
 // input holds its key's field, the identity written into the body, a lane of a contract no machine
 // declares beside a held one, and a success row with no Attempt.
 const forgedWork = [
-  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[{"attempt":"att-000000000000000000006d61696e3a31-1","contract":"Bank/transfer","ending":{"channel":"success","reason":"success","value":{"receipt":"r1"}},"kept":false,"keyText":"{\"transferId\":\"t1\"}","rest":{"cents":500},"subject":""}]},"format":6}`,
-  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{"cents":500,"transferId":"t1"},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
-  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"machine":"Bank/Transfers","name":"acct-1","rows":[]},"format":6}`,
-  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Held","rest":{"cents":500},"retryCount":0},"queue":[]}},"Bank/wire":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a39-9","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
-  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a31-1","claims":[],"hold":"Held","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[{"contract":"Bank/transfer","ending":{"channel":"success","reason":"success","value":{"receipt":"r1"}},"kept":false,"keyText":"{\"transferId\":\"t1\"}","rest":{"cents":500},"subject":""}]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a38-1","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[{"attempt":"att-000000000000000000006d61696e3a38-1","contract":"Bank/transfer","ending":{"channel":"success","reason":"success","value":{"receipt":"r1"}},"kept":false,"keyText":"{\"transferId\":\"t1\"}","rest":{"cents":500},"subject":""}]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a38-1","claims":[],"hold":"Out","rest":{"cents":500,"transferId":"t1"},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a38-1","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"machine":"Bank/Transfers","name":"acct-1","rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a38-1","claims":[],"hold":"Held","rest":{"cents":500},"retryCount":0},"queue":[]}},"Bank/wire":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a39-9","claims":[],"hold":"Out","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[]},"format":6}`,
+  String.raw`{"body":{"lanes":{"":{"Bank/transfer":{"{\"transferId\":\"t1\"}":{"displaced":[],"head":{"attempt":"att-000000000000000000006d61696e3a38-1","claims":[],"hold":"Held","rest":{"cents":500},"retryCount":0},"queue":[]}}}},"rows":[{"contract":"Bank/transfer","ending":{"channel":"success","reason":"success","value":{"receipt":"r1"}},"kept":false,"keyText":"{\"transferId\":\"t1\"}","rest":{"cents":500},"subject":""}]},"format":6}`,
 ].map((text) => Fake.storage.put(ACCOUNT_WORK, text));
 
 // The account's held transfer as a format 5 build saved it, which the next build steps to its work
 // record.
 const laneFive = Fake.storage.put(
   t1Lane,
-  String.raw`{"attempt":"att-000000000000000000006d61696e3a31-1","displaced":[],"format":5,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}`,
+  String.raw`{"attempt":"att-000000000000000000006d61696e3a38-1","displaced":[],"format":5,"inFlight":false,"input":{"cents":500,"transferId":"t1"},"machine":"Bank/Transfers","name":"acct-1","operation":"transfer","queue":[],"retryCount":0}`,
 );
 
 const plannedSamplesOf = (variant: "usual" | "edges" | "records") =>

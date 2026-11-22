@@ -6,15 +6,17 @@ import { TraceRecord } from "../../src/host/trace.ts";
 import { checked } from "../rules/rules.ts";
 import { LIMITS } from "../limits.ts";
 
-const OWED = "owed/Bank/Transfers/acct-1";
+const OWED = "work/Bank/Transfers/acct-1";
 
-const OwedRows = Schema.fromJsonString(Schema.Struct({ rows: Schema.Array(Schema.Unknown) }));
+const OwedRows = Schema.fromJsonString(
+  Schema.Struct({ body: Schema.Struct({ rows: Schema.Array(Schema.Unknown) }) }),
+);
 
 const owedParts = (cut: Cut) => [...cut.records.stored.keys()].filter((k) => k.startsWith(OWED));
 
 const rows = (cut: Cut) =>
   owedParts(cut).flatMap(
-    (key) => Schema.decodeUnknownSync(OwedRows)(cut.records.stored.get(key)).rows,
+    (key) => Schema.decodeUnknownSync(OwedRows)(cut.records.stored.get(key)).body.rows,
   );
 
 const inOpen = (run: StoryRun, open: number) =>

@@ -135,21 +135,27 @@ const displacedEntry = (operation: Operation, d: Displaced) =>
 
 // The rows saved apart from the heads: a head's one unknown sits in its slot, and an unknown a later
 // row of the same Attempt answers is replaced by it (Records, Lanes and rows).
-const savedRows = (rows: ReadonlyArray<Owed>, heads: ReadonlySet<string>) =>
-  rows.filter((row, at) =>
+const savedRows = (rows: ReadonlyArray<Owed>, heads: ReadonlySet<string>) => {
+  const last = new Map<string, number>();
+  const firstFinal = new Map<string, number>();
+
+  for (const [at, row] of rows.entries())
+    for (const attempt of Option.toArray(row.attempt)) {
+      last.set(attempt, at);
+
+      if (row.channel !== "unknown" && !firstFinal.has(attempt)) firstFinal.set(attempt, at);
+    }
+
+  return rows.filter((row, at) =>
     Option.match(row.attempt, {
       onNone: () => true,
-      onSome: (attempt) => {
-        const others = rows.filter((r) => Option.contains(r.attempt, attempt));
-
-        return (
-          !heads.has(attempt) &&
-          others.indexOf(row) === others.findIndex((r) => r.channel !== "unknown" || r === row) &&
-          !(row.channel === "unknown" && rows.slice(at + 1).some((r) => others.includes(r)))
-        );
-      },
+      onSome: (attempt) =>
+        !heads.has(attempt) &&
+        (firstFinal.get(attempt) ?? at) >= at &&
+        (row.channel !== "unknown" || last.get(attempt) === at),
     }),
   );
+};
 
 // What one row saves: its JSON, or nothing when its input has no key (counted lost), with whether
 // its value was saved as unknown Restored.
@@ -201,11 +207,7 @@ const laneJson = (lane: LaneJson) => ({
   displaced: lane.displaced,
 });
 
-// RETURN_TYPE: a type guard tells a lane being written from a carried part's JSON.
-const isLaneJson = (value: LaneJson | Part): value is LaneJson =>
-  Predicate.hasProperty(value, "head") && Option.isOption(value.head);
-
-type ByKey = Map<string, LaneJson | Part>;
+type ByKey = Map<string, Building | Part>;
 
 type Nested = Map<string, Map<string, ByKey>>;
 
@@ -224,19 +226,33 @@ const laneAt = (lanes: Nested, subject: string, contract: string) =>
   at(
     at(lanes, subject, () => new Map<string, ByKey>()),
     contract,
-    () => new Map<string, LaneJson | Part>(),
+    () => new Map<string, Building | Part>(),
   );
 
-// A lane's entries merged: a head with its queue, and displaced Attempts beside it.
-const merged = (was: Option.Option<LaneJson | Part>, entry: LaneJson) =>
-  Option.match(Option.filter(was, isLaneJson), {
-    onNone: () => entry,
-    onSome: (lane) => ({
-      head: Option.orElse(lane.head, () => entry.head),
-      queue: [...lane.queue, ...entry.queue],
-      displaced: [...lane.displaced, ...entry.displaced],
-    }),
-  });
+// A lane being written: its head, and the queue and displaced Attempts gathered for it.
+type Building = {
+  head: Option.Option<Part>;
+  readonly queue: Array<Part>;
+  readonly displaced: Array<Part>;
+};
+
+// RETURN_TYPE: a type guard tells a lane being written from a carried part's JSON.
+const isBuilding = (value: Building | Part): value is Building =>
+  Predicate.hasProperty(value, "head") && Option.isOption(value.head);
+
+// A lane's entries merged into the one being written: a head with its queue, and displaced
+// Attempts beside it, gathered in place.
+const merge = (byKey: Map<string, Building | Part>, keyText: string, entry: LaneJson) => {
+  const was = byKey.get(keyText);
+
+  const lane: Building =
+    was !== undefined && isBuilding(was) ? was : { head: Option.none(), queue: [], displaced: [] };
+
+  lane.head = Option.orElse(lane.head, () => entry.head);
+  lane.queue.push(...entry.queue);
+  lane.displaced.push(...entry.displaced);
+  byKey.set(keyText, lane);
+};
 
 // The body's lanes, with each carried part written back at its place, unchanged: a whole subject,
 // a whole contract's lanes, a lane, or a displaced Attempt beside a lane's own.
@@ -245,10 +261,7 @@ const lanesOf = (entries: ReadonlyArray<Entry>, carried: Carried) => {
   const subjects = new Map<string, Json>();
   const contracts = new Map<string, Map<string, Json>>();
 
-  for (const e of entries) {
-    const byKey = laneAt(lanes, "", e.contract);
-    byKey.set(e.keyText, merged(Option.fromUndefinedOr(byKey.get(e.keyText)), e.lane));
-  }
+  for (const e of entries) merge(laneAt(lanes, "", e.contract), e.keyText, e.lane);
 
   for (const part of carried)
     Place.$match(part.place, {
@@ -257,17 +270,18 @@ const lanesOf = (entries: ReadonlyArray<Entry>, carried: Carried) => {
         void at(contracts, subject, () => new Map<string, Json>()).set(contract, part.json),
       Lane: ({ subject, contract, keyText }) =>
         void laneAt(lanes, subject, contract).set(keyText, part.json),
-      Displaced: ({ subject, contract, keyText }) => {
-        const byKey = laneAt(lanes, subject, contract);
-        const entry = { head: Option.none(), queue: [], displaced: [part.json] };
-        byKey.set(keyText, merged(Option.fromUndefinedOr(byKey.get(keyText)), entry));
-      },
+      Displaced: ({ subject, contract, keyText }) =>
+        merge(laneAt(lanes, subject, contract), keyText, {
+          head: Option.none(),
+          queue: [],
+          displaced: [part.json],
+        }),
       Row: () => undefined,
     });
 
-  const keyed = (byKey: ReadonlyMap<string, LaneJson | Part>) =>
+  const keyed = (byKey: ReadonlyMap<string, Building | Part>) =>
     Object.fromEntries(
-      [...byKey].map(([text, lane]) => [text, isLaneJson(lane) ? laneJson(lane) : lane]),
+      [...byKey].map(([text, lane]) => [text, isBuilding(lane) ? laneJson(lane) : lane]),
     );
 
   const subjectOf = (subject: string) => {
@@ -279,7 +293,7 @@ const lanesOf = (entries: ReadonlyArray<Entry>, carried: Carried) => {
       [...names].map((contract) => [
         contract,
         whole.get(contract) ??
-          keyed(byContract.get(contract) ?? new Map<string, LaneJson | Part>()),
+          keyed(byContract.get(contract) ?? new Map<string, Building | Part>()),
       ]),
     );
   };

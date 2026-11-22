@@ -1389,7 +1389,7 @@ tasks
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T118]
 
@@ -1883,6 +1883,88 @@ tasks
             Checkpoint (builder, bf482f05): format 6 writer and full decode built; every T92 red and the
             corrupt-one-field test pass; suite and check green; 55 superseded faults re-pointed and the new ones
             planted, not yet verified with faults --only. Next: verify faults, close checks, decisions comment.
+        comment     2026-11-22T23:00:55Z
+            [decided: agent builder 2026-11-23] A Held head owes nothing at any start: Origin.HeldAtStart and its
+            start-time unknown Restored go (@spec.Records composition, Operations (d)); the boot derives what a restored
+            head owes. Why: Records R16's table and T5; a re-tell at each start broke R2. Reverse: restore HeldAtStart.
+            Tests that asserted the re-tell now use a head out at the reload, or expect nothing.
+        comment     2026-11-22T23:00:57Z
+            [decided: agent builder 2026-11-23] An owed row keeps its commit's input (Owed.input; none for a lookup's),
+            so a saved row writes its keyText and rest (Records Types RowShape). Why: R11's writer form holds both.
+            Reverse: save rows with no rest and carry them.
+        comment     2026-11-22T23:00:59Z
+            [decided: agent builder 2026-11-23] A decline whose input has no encoded form (NotSent Unencodable, no
+            Attempt) saves with no keyText and no rest, and stage 2 reads it; the reference table carries any other such
+            row. Why: R1, and it has no lane and its mapper takes no input. Reverse: carry it.
+        comment     2026-11-22T23:01:00Z
+            [decided: agent builder 2026-11-23] Ahead of @task.V3.T56's fate filter: capture never writes over a key the
+            boot kept (position or work), and a commit on an identity whose work record is kept declines StorageRefused
+            (Records Fates Kept). Why: one work record holds the whole identity, so an overwrite loses what it owed
+            (I4). Reverse: overwrite as before.
+        comment     2026-11-22T23:01:02Z
+            [decided: agent builder 2026-11-23] forget lets go of the identity's carried parts and kept keys (Records
+            operations, forget), removed by its next work write, one HoldForgotten each. Why: Kept leaves only by
+            forget. Reverse: forget leaves kept keys.
+        comment     2026-11-22T23:01:04Z
+            [decided: agent builder 2026-11-23] Brands are decoded at the admission boundary by Schemas built per
+            machine in code:packages/flow-state-v3/src/core/record-names.ts#namesOf, the one hook for machine-supplied
+            paths; World's ActorId fields stay strings, and ShapeStamp waits for T56's stamp. Why: one constructor per
+            brand without retyping every ActorId site (T98, T102). Reverse: brand ActorId's fields.
+        comment     2026-11-22T23:01:06Z
+            [decided: agent builder 2026-11-23] A binding or graph entry naming a local actor is not written. Why: R8 (a
+            local actor has no key), and the reader would drop and report it at every boot. Reverse: write it and let
+            the boot drop it.
+        comment     2026-11-22T23:01:08Z
+            [decided: agent builder 2026-11-23] Admission drops a saved schedule path or name the machine lacks
+            (FieldDropped); a timer's key, reasons and selection stay Schedules' wake decode (Records composition,
+            Schedules taken). SavedEnding stays structural (channel, reason, value; a decline's reason from Decline);
+            the per-contract union is Operations' (a). Why: no table of Schedules changes. Reverse: decode every timer
+            leaf at admission.
+        comment     2026-11-22T23:01:09Z
+            [decided: agent builder 2026-11-23] A contract two write operations of one machine share names no lane, so
+            its lanes are carried. Why: format 6 keys lanes by contract, so the operation is ambiguous. Reverse: key
+            by operation.
+        comment     2026-11-22T23:01:11Z
+            [decided: agent builder 2026-11-23] Endings the boot derives (an out head, a queued commit, a displaced
+            Attempt) are recorded Ended and waiting at the boot; the WriteLanes I3 start rule in tests/rules/places.ts
+            accepts an Ended in a reload step. Why: Actors I19 (owed order) and WriteAhead I17 (an identity no start
+            reaches still ends). Reverse: record them at the start.
+        comment     2026-11-22T23:01:13Z
+            [decided: agent builder 2026-11-23] The saved form leaves out an unknown that a later row of the same
+            Attempt answers (Records, Lanes and rows: a final answer replaces it); live, both are delivered until
+            @task.V3.T121. Why: one Attempt once (I6) in the record. Reverse: keep both and let row 8 keep the record.
+        comment     2026-11-22T23:01:14Z
+            [decided: agent builder 2026-11-23] corrupt.test.ts judges a mutant in the writer's form only for booting: a
+            forged valid rest re-sends its Attempt with that input (WriteLanes I6), which R20 puts out of scope.
+            recordKinds skips identities a Story put records for, whose carried parts are written back as put. Why: R20.
+            Reverse: require meaning of forged records.
+        comment     2026-11-22T23:01:16Z
+            [decided: agent builder 2026-11-23] Not built: R12's pin (FORMAT with the Shapes' hash) needs codecSig,
+            @spec.Records Q4, T56's spike; R21's records-boot bench row. Why: scope. Reverse: build them here.
+        comment     2026-11-22T23:01:27Z
+            Requirement tests corrected at the build, wrong side named by replay: the lanes forgeries used contract
+            Git/sync, which the serialize client does not write (Lanes/sync-serialize); the read-lane forgery gave both
+            heads one Attempt (row 8); the carried test counted its own send's decline as heard; the bound-to-local cart
+            retries the add out at the reload, so l1 lands; definition-edits' Unsure needs a head out at the reload
+            (R16). 14 older tests that asserted Restore R3's re-tell or format 5 keys were moved to Records' rules.
+        comment     2026-11-22T23:01:29Z
+            Faults: 55 whose finds sat in the replaced decode and writers re-pointed; 20 new record faults plus
+            step-reads-definition planted (tests/record-faults.ts, tests/admission-faults.ts); nub run faults --only on
+            all 74: caught by their own targets (b3d7ba5b).
+        comment     2026-11-22T23:02:24Z
+            User's read (builder, 2026-11-23): bindings are saved, each decoded as its slot provider's ActorName
+            (decision 2026-11-23). A corrupt field is reported for its key or proven harmless: corrupt.test.ts passes on
+            all nine persisting fixtures; only writer-form mutants (R20, forged but valid) go unreported. Semantics you
+            will notice: a Held head whose unknown was heard is not told again at any start (HeldAtStart gone), and a
+            kept work record refuses new sends StorageRefused. Agent decisions: the 13 tagged comments above; the
+            per-key report stands (orchestrator). Built: requirement items 1-13 (brands at the boundary; ActorId fields
+            still strings); Spec T15 faults built: 15 of 25, the rest are T56, T48, T115's.
+        comment     2026-11-22T23:09:55Z
+            Close checks (builder): nub run test:stress once failed four, each fixed and replayed green: a work encoder
+            copying a lane's displaced list per entry (O(n^2), lane-bound timed out; now gathered in place);
+            bank-records forged an Attempt id open 1 mints (sample ids moved; R20, T28's id uniqueness); I6 and I17 run
+            rules now count put records' Attempts as minted and excuse a work record a later boot kept (R1); two stress
+            tests read format 6. Fresh seeds (FLOW_SEEDS=20) over generated, pairs and mix: green.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

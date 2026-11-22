@@ -253,7 +253,7 @@ const idFieldsOf = (calls: ReadonlyArray<Call>, minted: ReadonlySet<string>) => 
  * and one input. An endpoint's idempotency field is any request field that names a minted Attempt
  * or carries a value shaped like an Attempt id; every request of that endpoint must name a minted
  * Attempt there, and requests naming one Attempt carry one input. No two Attempts share an id across
- * every open of the run's tab.
+ * every open of the run's tab. An Attempt a record the Story put names counts as minted.
  *
  * **Gotchas**
  *
@@ -264,7 +264,11 @@ export const oneIdOneInput: Rule = {
   rule: "WriteLanes I6",
   breaches: (run) => {
     const mints = run.evidence.flatMap((e) => (e._tag === "Minted" ? [e.attempt] : []));
-    const minted = new Set(mints);
+
+    // An Attempt a record the Story put names counts as minted by that record's writer: a forged
+    // record that decodes is the user's data (Records R20).
+    const put = [...putBy(run)].flatMap((entry) => entry.match(/att-[\da-f]+-\d+/gu) ?? []);
+    const minted = new Set([...mints, ...put]);
     const calls = run.end.calls;
     const idFields = idFieldsOf(calls, minted);
     const inputs = new Map<string, Call["input"]>();
