@@ -4579,7 +4579,7 @@ tasks
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
-        status      in_progress
+        status      review
         priority    high
         blocked_by  [@T113]
         description
@@ -4949,6 +4949,70 @@ tasks
               `alarmsMatch`'s `kind` and `tagOf` by the new unions.
             - Spec question: mail queued for an actor disposed in the same step is dropped with no evidence
               (`incarnations.ts#dispose`); R3 covers endings only.
+        comment     2026-11-22T19:10:21Z
+            [decided: agent builder 2026-11-23] Q9's third choice lands A: a turn whose committed state and root memory
+            are the same objects as before sends no context wave. Why: views are equal on the whole suite (every
+            fixture, the sequence test, the reload sweeps), and the new bench case `turn.session.wave-noop` (Story
+            `session/wave-noop`, 65 consumers) is 0.073 against 0.126 ms per turn (dev tier, load 7.5); plant
+            `wave-skipped-on-change`. Reverse: B, a wave after every accepted turn.
+        comment     2026-11-22T19:10:24Z
+            [decided: agent builder 2026-11-23] An event an actor's end finds queued in its mailbox (Disposed,
+            Forgotten) is recorded `Unhandled`, not dropped unseen. Why: the Spec says the mail is dropped and is silent
+            on evidence; the trigger table makes an event to a gone target `Unhandled`, and neither reading loses an
+            ending (rows wait by the holder table). Case: a `Poke` queued for `noise-0` when `DisposeActor` runs gives
+            `Unhandled{noise-0, Poke}` (A: nothing). A blind Haiku check found the Spec silent on evidence (accepted);
+            its lean to A from "mail dropped" is rejected, since the mail is dropped either way. Plant
+            `disposed-mail-unseen`. Reverse: drop with no evidence.
+        comment     2026-11-22T19:10:28Z
+            [decided: agent builder 2026-11-23] I4 is enforced by the source check (only `apply.ts` calls
+            `putIncarnation` and builds `Published`; `tests/surface/turn-parts.test.ts`, plant `second-applier`), not an
+            `Applied` brand. Why: an Effect brand is a property type, so a spread keeps it and refuses no second writer.
+            Reverse: an `Incarnation` type with a private field only `apply.ts` can make.
+        comment     2026-11-22T19:10:30Z
+            [decided: agent builder 2026-11-23] The alarms are a map by owner-fact key, and the host's one wake is the
+            earliest deadline, found by a scan only in a step that changed them; no heap. Why: one alarm per fact needs
+            the key map anyway, and nothing measured shows the scan; a heap waits for the bench. Reverse: add a heap
+            index with lazy deletes.
+        comment     2026-11-22T19:10:33Z
+            [decided: agent builder 2026-11-23] `Mail.Firing` and `Alarm.Schedule` keep the schedule name and track,
+            with no scope id. Why: the root has one scope, and the track is the timer's one-lookup key; a scope id comes
+            with instances (@task.V3.T109). Reverse: name only the scope id and the arming.
+        comment     2026-11-22T19:10:36Z
+            [decided: agent builder 2026-11-23] A returning use fires each overdue run once as mail at the use and sets
+            alarms only for later runs; it passes no `Wake` or `Context` to the schedules. Why: while its actor sleeps
+            nothing a schedule reads changes but time, which the overdue firings cover; views are unchanged. Reverse:
+            `Wake` then `Context` per scope on a return, as `algorithm` states.
+        comment     2026-11-22T19:10:39Z
+            [decided: agent builder 2026-11-23] I12's `Silent` row stays unjudged, and the harness judges the other
+            kinds at every cut, not after every step; this narrows the 2026-11-22 tag on `alarmsMatch`. Why: a silence's
+            owner fact is the store's unanswered batch, which the World does not keep (a head that stops awaiting it
+            leaves the batch out, and its alarm then fires and reports nothing); after every step the judge is quadratic
+            in a Story's actors (the 9,261-actor sequence run took 640 s). Reverse: keep outstanding tickets in the
+            World and judge each step on the actors it touched.
+        comment     2026-11-22T19:10:42Z
+            [decided: agent builder 2026-11-23] `readsOf(scope, kind, extra)` builds by callback kind (`Guard`, `Patch`,
+            `Select`, `Schedule`, `Reaction`), each kind's record as today: a guard reads no time, a select no context.
+            Why: the walk's before and after views are not incarnations, and the record shapes are `Types`'; T15 pins
+            each root callback to it. Reverse: `readsOf(incarnation, scope, view)` with `view` before, after
+            or committed.
+        comment     2026-11-22T19:10:45Z
+            [decided: agent builder 2026-11-23] The public `Published` evidence carries `incarnation` (its id) and `why`
+            beside the state and memory it showed. Why: Q5 leaves the face to the host; the core's act carries the
+            incarnation itself, and flat fields keep every reader. Reverse: nest state and memory under the incarnation.
+        comment     2026-11-22T19:10:49Z
+            Supersedes entries left, each waiting on a later feature: `ledger.ts` `Audience`, `live`, `onRecord` and
+            `suspend` per subject, with `locate` (instances, @task.V3.T109 and @task.V3.T121);
+            `following.ts#following`'s Props case and `Mail.Props` (@task.V3.T76); `Mail.Event.at` and `OwnedBy.Scope`
+            (@task.V3.T109); `driver.ts#ownerOf` per scope and `owners.ts#cancel`'s fork-key map (@task.V3.T112). R10's
+            bench cases (a mailbox of 1,000, a wave to 100) do not exist; only `turn.session.wave-noop` was added.
+        comment     2026-11-22T19:14:24Z
+            Built at 011a5c41, ready for the close review: suite 25,186 passed (16 expected fail), stress runs and 20
+            fresh seeds of the generated Stories green, 77 plants caught by their targets. The user's read, each an
+            agent decision tagged above (2026-11-23): the wave skip lands (Q9 3, A); an event queued at a disposal is
+            `Unhandled`; one writer by source check, not a brand; alarms a keyed map with a scanned wake; firings keep
+            their track; a returning use passes no `Wake` or `Context`; `Silent` unjudged and alarms judged at cuts;
+            `readsOf` by callback kind; `Published` carries the incarnation id and why. Earlier tags stand (Q9 1 A;
+            `Collect` and `Release` with no writer; a send-woken actor stays asleep; I9 root form).
 
     T120
         title       Declared schedules: the runtime half
