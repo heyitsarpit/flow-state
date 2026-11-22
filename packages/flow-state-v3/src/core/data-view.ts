@@ -1,5 +1,5 @@
 import { Option, Predicate, Schema } from "effect";
-import type { Compiled } from "./compiled.ts";
+import { type Compiled, InternalsId } from "./compiled.ts";
 
 /**
  * The functions Flow derives from a declared Schema and holds on Compiled beside it: the Schema
@@ -49,7 +49,7 @@ const frameOf = (value: View): Frame => {
   if (Array.isArray(value)) return { children: value, build: (views) => views, views: [] };
 
   const entries = Predicate.isObject(value)
-    ? Object.entries(value).filter(([k]) => !DERIVED.has(k))
+    ? [...Object.entries(value), ...internalEntries(value)].filter(([k]) => !DERIVED.has(k))
     : [];
 
   return {
@@ -57,6 +57,14 @@ const frameOf = (value: View): Frame => {
     build: (views) => Object.fromEntries(entries.map(([k], i) => [k, views[i]])),
     views: [],
   };
+};
+
+// What a part of Compiled keeps for the core beside its face, viewed with it: a Compiled's fields
+// and reactions.
+const internalEntries = (value: Readonly<Record<PropertyKey, View>>) => {
+  const internals = Object.hasOwn(value, InternalsId) ? value[InternalsId] : undefined;
+
+  return Predicate.isObject(internals) ? Object.entries(internals) : [];
 };
 
 // The plain data a part of Compiled shows, built with its own stack, so a constant of any depth

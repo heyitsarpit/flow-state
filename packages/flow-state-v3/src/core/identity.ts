@@ -1,7 +1,7 @@
 import { byCodeUnits } from "./world.ts";
 import { Option, Predicate, Result, Schema } from "effect";
 import { parseCanonical, writeJson } from "./codec.ts";
-import { type Compiled, type Field, Source, type Values } from "./compiled.ts";
+import { InternalsId, type Compiled, type Field, Source, type Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 
 /**
@@ -14,7 +14,7 @@ export const LOCAL_PREFIX = "~";
  * A machine's input fields, by name: the fields that name a value-named actor.
  */
 export const inputFieldsOf = (compiled: Compiled) =>
-  compiled.fields
+  compiled[InternalsId].fields
     .filter((f) => Source.$is("Input")(f.source))
     .toSorted((a, b) => byCodeUnits(a.name, b.name));
 
@@ -50,7 +50,7 @@ export const nameOfValue = (compiled: Compiled, value: unknown) => {
   }
 
   return Result.mapError(
-    Result.flatMap(compiled.identity.encode(input), (encoded) =>
+    Result.flatMap(compiled[InternalsId].identity.encode(input), (encoded) =>
       Result.mapError(writeJson(encoded), () => "schema"),
     ),
     () => Option.none<string>(),
@@ -87,7 +87,7 @@ export const decodeName = (compiled: Compiled, name: string): Result.Result<Valu
     Result.flatMap(
       Result.mapError(parseCanonical(name), () => "json"),
       (json) =>
-        Result.flatMap(compiled.identity.decode(json), (input) =>
+        Result.flatMap(compiled[InternalsId].identity.decode(json), (input) =>
           Result.flatMap(
             Result.mapError(nameOfValue(compiled, input), () => "schema"),
             (again) =>

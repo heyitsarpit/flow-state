@@ -33,7 +33,11 @@ const DATE_WRITES = [
   "setYear",
 ];
 
-const writesOf = (value: Container) => {
+/**
+ * The methods that change a Map, a Set or a Date in place; none for any other container.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: any container a freezer meets.
+export const writesOf = (value: unknown) => {
   if (value instanceof Map) return MAP_WRITES;
 
   if (value instanceof Set) return SET_WRITES;
@@ -54,7 +58,11 @@ const heldBy = (value: Container): ReadonlyArray<Node> => {
   return Reflect.ownKeys(value).map((key) => value[key]);
 };
 
-const refuseWrite = (name: string) => () => {
+/**
+ * A write method that throws where it is called: what a frozen Map, Set or Date has in place of
+ * each method that would change it.
+ */
+export const refuseWrite = (name: string) => () => {
   // oxlint-disable-next-line lint-bomb/no-throw-in-core -- an admitted value is immutable by contract: a write throws where it happens, in dev and test
   throw new TypeError(`Cannot ${name} on an admitted value: admitted values are immutable`);
 };

@@ -1,6 +1,7 @@
 import { Data, Effect, Option, Predicate, Result, Schema } from "effect";
 import type { Denial, Read, Values } from "./core/compiled.ts";
 import { builder } from "./entry.ts";
+import { type Branded, made, madeOf, type Container } from "./made.ts";
 import { type Finding, invalid } from "./error.ts";
 import type { ContextOfTokens, KeyedConfig, KeyedSchedule, ScheduleKey } from "./tokens.ts";
 
@@ -18,8 +19,7 @@ export type OptionalField = Plain & { readonly "~type.optionality": "optional" }
 /**
  * A memory field with a constant start (`Flow.initial(schema, value)`).
  */
-export type Initial<S extends Plain = Plain> = {
-  readonly "~flow": "initial";
+export type Initial<S extends Plain = Plain> = Branded<"initial"> & {
   readonly schema: S;
   readonly value: S["Type"];
 };
@@ -27,16 +27,16 @@ export type Initial<S extends Plain = Plain> = {
 /**
  * A memory field the creator supplies (`Flow.input`): part of the definition's Input.
  */
-export type Input<S extends Plain = Plain> = { readonly "~flow": "input"; readonly schema: S };
+export type Input<S extends Plain = Plain> = Branded<"input"> & { readonly schema: S };
 
 /**
  * A memory field seen only by its owner (`Flow.private`): kept in records and Stories, omitted from
  * outside snapshots.
  */
-export type Private<F extends Initial | OptionalField = Initial | OptionalField> = {
-  readonly "~flow": "private";
-  readonly field: F;
-};
+export type Private<F extends Initial | OptionalField = Initial | OptionalField> =
+  Branded<"private"> & {
+    readonly field: F;
+  };
 
 /**
  * One memory field: its Schema with the one source it starts from.
@@ -46,17 +46,29 @@ export type Field = Initial | Input | Private | OptionalField;
 /**
  * An internal event an operation may name as its unknown ending (`Flow.uncertain`).
  */
-export type Uncertain<F extends Schema.Struct.Fields = Schema.Struct.Fields> = {
-  readonly "~flow": "uncertain";
-  readonly fields: F;
-};
+export type Uncertain<F extends Schema.Struct.Fields = Schema.Struct.Fields> =
+  Branded<"uncertain"> & {
+    readonly fields: F;
+  };
 
 /**
  * The entry of a schedule's owner state, as an `armOn` element (`Flow.entry`).
  */
-export type Entry = { readonly "~flow": "entry" };
+export type Entry = Branded<"entry">;
 
-const entry: Entry = { "~flow": "entry" };
+// The owner of the markers no definition owns: none is ever compared by owner.
+const FREE = Symbol("flow-state/free");
+
+// RETURN_TYPE: the marker's face as its type states it.
+const marker = <T>(
+  kind: "initial" | "input" | "private" | "uncertain" | "entry",
+  face: Container,
+): T =>
+  // SAFETY: a made marker of this kind carries the face its type names; the kind is a phantom.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+  made(kind, FREE, face, {}) as T;
+
+const entry = marker<Entry>("entry", {});
 
 /**
  * How a token reads its provider: the definition that made it, by identity and by id, the read's
@@ -69,37 +81,46 @@ export type Reader = {
   readonly read: Read;
 };
 
-const readers = new WeakMap<WeakKey, Reader>();
-
-/**
- * Records how a token Flow made reads its provider.
- */
-// RETURN_TYPE: the token as given, so its maker returns it in place.
-export const reading = <T extends WeakKey>(token: T, reader: Reader): T => {
-  readers.set(token, reader);
-
-  return token;
-};
-
 /**
  * How a token Flow made reads its provider; none for any other value.
  */
-// FLOW_STATE_ALLOW_UNKNOWN: an authored token, recognised by identity.
+// FLOW_STATE_ALLOW_UNKNOWN: an authored token, recognised as made.
 export const readerOf = (token: unknown) =>
-  Predicate.isObject(token) ? Option.fromUndefinedOr(readers.get(token)) : Option.none<Reader>();
+  Option.firstSomeOf(
+    (["memory", "stateName", "state"] as const).map((kind) =>
+      Option.map(
+        Result.getSuccess(madeOf<{ readonly reader: Reader }>(kind)(token, [])),
+        (card) => card.internals.reader,
+      ),
+    ),
+  );
 
 // A slot as written, read only when its definition reads it: a pass-through's token, or a
 // Schema and a derived slot's spec.
 // FLOW_STATE_ALLOW_UNKNOWN: an authored token or Schema, and a derived slot's spec.
 const contextSlot = (first: unknown, ...spec: ReadonlyArray<unknown>) =>
   spec.length === 0
-    ? {
-        "~flow": "context",
-        schema: Option.match(readerOf(first), { onNone: () => first, onSome: (r) => r.schema }),
-        form: "pass",
-        spec: first,
-      }
-    : { "~flow": "context", schema: first, form: "derived", spec: spec[0] };
+    ? made(
+        "context",
+        FREE,
+        {
+          schema: Option.match(readerOf(first), { onNone: () => first, onSome: (r) => r.schema }),
+          form: "pass",
+        },
+        { spec: first },
+      )
+    : made("context", FREE, { schema: first, form: "derived" }, { spec: spec[0] });
+
+/**
+ * A context slot's spec, as `Flow.context` captured it: a pass-through's token, or a derived
+ * slot's reads and select.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a slot as written; its spec is read when its definition reads it.
+export const specOf = (slot: unknown) =>
+  Result.map(
+    madeOf<{ readonly spec: unknown }>("context")(slot, []),
+    (card) => card.internals.spec,
+  );
 
 // A derived slot's reads and select, or undefined for a part its spec lacks or hides.
 // FLOW_STATE_ALLOW_UNKNOWN: an authored spec, read by its fields.
@@ -119,14 +140,13 @@ const partsOf = (spec: unknown) =>
 export const slotReadsOf = (
   name: string,
   slot: {
-    // FLOW_STATE_ALLOW_UNKNOWN: an authored slot's parts, checked here before they are trusted.
+    // FLOW_STATE_ALLOW_UNKNOWN: an authored slot's Schema, checked here before it is trusted.
     readonly schema: unknown;
     readonly form: "pass" | "derived";
-    // FLOW_STATE_ALLOW_UNKNOWN: as above.
-    readonly spec: unknown;
   },
 ) => {
   const at = ["context", name];
+  const spec = Result.getOrUndefined(specOf(slot));
 
   if (!Schema.isSchema(slot.schema))
     return Result.fail([
@@ -138,7 +158,7 @@ export const slotReadsOf = (
       ),
     ]);
 
-  return slot.form === "pass" ? passOf(name, slot.spec) : derivedOf(name, slot.spec);
+  return slot.form === "pass" ? passOf(name, spec) : derivedOf(name, spec);
 };
 
 // A pass-through's one read, named by its slot; refused at the slot when it is not a Flow token.
@@ -280,29 +300,24 @@ export const Flow = {
   initial: builder(
     "Flow.initial",
     // RETURN_TYPE: the marker's Schema type parameter types the memory field.
-    <S extends Plain>(schema: S, value: S["Type"]): Initial<S> => ({
-      "~flow": "initial",
-      schema,
-      value,
-    }),
+    <S extends Plain>(schema: S, value: S["Type"]): Initial<S> =>
+      marker("initial", { schema, value }),
   ),
   input: builder(
     "Flow.input",
     // RETURN_TYPE: the marker's Schema type parameter types the memory field.
-    <S extends Plain>(schema: S): Input<S> => ({ "~flow": "input", schema }),
+    <S extends Plain>(schema: S): Input<S> => marker("input", { schema }),
   ),
   private: builder(
     "Flow.private",
     // RETURN_TYPE: the marker keeps its field's type.
-    <F extends Initial | OptionalField>(field: F): Private<F> => ({ "~flow": "private", field }),
+    <F extends Initial | OptionalField>(field: F): Private<F> => marker("private", { field }),
   ),
   uncertain: builder(
     "Flow.uncertain",
     // RETURN_TYPE: the marker's fields type the event payload.
-    <const F extends Schema.Struct.Fields>(fields: F): Uncertain<F> => ({
-      "~flow": "uncertain",
-      fields,
-    }),
+    <const F extends Schema.Struct.Fields>(fields: F): Uncertain<F> =>
+      marker("uncertain", { fields }),
   ),
   entry,
   keyed: builder(

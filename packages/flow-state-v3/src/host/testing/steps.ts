@@ -4,6 +4,7 @@ import type { Evidence } from "../../core/evidence.ts";
 import type { ActorId, Wiring } from "../../core/world.ts";
 import type { AnyDefinition, Envelope } from "../../definition.ts";
 import type { AnyServer } from "./fake.ts";
+import { builder, entry } from "../../entry.ts";
 
 /**
  * Where a wire word acts on a call: before the server's handler runs, or after it, on its answer.
@@ -96,15 +97,15 @@ export const StepData = Data.taggedEnum<Step>();
  * machine and any envelope.
  */
 export const Step = {
-  disposeRuntime: StepData.disposeRuntime,
-  world: StepData.world,
-  advance: StepData.advance,
-  reload: StepData.reload,
-  hide: StepData.hide,
-  show: StepData.show,
-  checkpoint: StepData.checkpoint,
-  $is: StepData.$is,
-  $match: StepData.$match,
+  disposeRuntime: builder("Step.disposeRuntime", StepData.disposeRuntime),
+  world: builder("Step.world", StepData.world),
+  advance: builder("Step.advance", StepData.advance),
+  reload: builder("Step.reload", StepData.reload),
+  hide: builder("Step.hide", StepData.hide),
+  show: builder("Step.show", StepData.show),
+  checkpoint: builder("Step.checkpoint", StepData.checkpoint),
+  $is: entry("Step.$is", StepData.$is),
+  $match: entry("Step.$match", StepData.$match),
 };
 
 /**

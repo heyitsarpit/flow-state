@@ -311,8 +311,8 @@ export const structureFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/operation-checks.ts",
-        find: ".filter(([, e]) => !Object.hasOwn(internal, e.ending.event))",
-        replace: ".filter(() => false)",
+        find: "        Object.hasOwn(internal, event)\n          ? []",
+        replace: "        true\n          ? []",
       },
     ],
   },

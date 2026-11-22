@@ -2,7 +2,6 @@ import { Predicate } from "effect";
 import type { TreeNode } from "./construction.ts";
 import type { AnyDefinition } from "./definition.ts";
 import { type Finding, invalid } from "./error.ts";
-import type { ErasedEnding } from "./contract.ts";
 
 /**
  * A place in a machine body, as findings and slots name it.
@@ -27,6 +26,7 @@ export const slotOf = (at: Path) =>
  */
 export type Compile = {
   readonly definition: AnyDefinition;
+  readonly owner: symbol;
   readonly nodes: ReadonlyMap<string, TreeNode>;
   // FLOW_STATE_ALLOW_UNKNOWN: an authored or compiled value, checked here before it is trusted.
   readonly tokens: ReadonlyMap<unknown, string>;
@@ -49,10 +49,3 @@ export const foreign = (at: Path, what: string) =>
     `${what} is not this definition's`,
     "Use the tokens the machine body receives: S, E and O of this definition.",
   );
-
-/**
- * The token an ending maps onto: a mapping's own token (`E.X.from(f)`), or the token itself.
- */
-export const tokenOf = (ending: ErasedEnding) =>
-  // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own tokens by mark until its decode checks them by identity
-  Predicate.hasProperty(ending, "~token") ? ending["~token"] : ending;

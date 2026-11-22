@@ -1,7 +1,8 @@
 import { Option, Predicate } from "effect";
 import { Action, Guard, type GuardInput, type SelectInput, type Values } from "./core/compiled.ts";
 import type { ActionToken, GuardToken, Operations } from "./definition.ts";
-import { builder, entry, inert } from "./entry.ts";
+import { builder, entry } from "./entry.ts";
+import { made, madeCallable } from "./made.ts";
 
 /**
  * What a member's select or key callback reads: the memory, and its handler's event.
@@ -29,9 +30,27 @@ export const erase = <I, R>(run: (input: never) => R) =>
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the definition's payload and memory types are erased in Compiled and restored by the turn
   run as (input: I) => R;
 
+/**
+ * What an action token keeps for the core: how it compiles at its place in a body.
+ */
+export type ActionInternals = { readonly make: (at: string) => Action };
+
+/**
+ * What a guard token keeps for the core: how it compiles at its place in a body.
+ */
+export type GuardInternals = { readonly make: (at: string) => Guard };
+
 // RETURN_TYPE: the ActionToken protocol every member returns.
 const member = (owner: symbol, operation: string, make: (at: string) => Action): ActionToken =>
-  inert({ "~flow": "action", "~owner": owner, operation, make });
+  // SAFETY: an action token's face is its operation; its kind brand is a phantom key.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+  made("action", owner, { operation }, { make } satisfies ActionInternals) as ActionToken;
+
+// RETURN_TYPE: the GuardToken protocol every guard returns.
+const guard = (owner: symbol, operation: string, make: (at: string) => Guard): GuardToken =>
+  // SAFETY: a guard token's face is its operation; its kind brand is a phantom key.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+  made("guard", owner, { operation }, { make } satisfies GuardInternals) as GuardToken;
 
 const keyed =
   (kind: "Retry" | "Cancel", owner: symbol, operation: string) =>
@@ -46,15 +65,21 @@ const keyed =
       }),
     );
 
+// A keyless member that is also the builder of its keyed form: one action token, callable.
 const keylessOrKeyed = (kind: "Retry" | "Cancel", owner: symbol, operation: string) => {
   const of = keyed(kind, owner, operation);
 
-  return Object.assign(
+  return madeCallable(
+    "action",
+    owner,
     builder(
       `O.${operation}.${kind === "Retry" ? "retry" : "cancel"}`,
       (key: (input: SelectArg<Values>) => Values) => of(Option.some(key)),
     ),
-    of(Option.none()),
+    { operation },
+    {
+      make: () => Action[kind]({ operation, key: Option.none() }),
+    } satisfies ActionInternals,
   );
 };
 
@@ -76,16 +101,13 @@ export const writeHandle = (
   idle: builder(
     `O.${operation}.idle`,
     // RETURN_TYPE: the GuardToken protocol every guard returns.
-    (select: (input: GuardArg<Values, never>) => Values): GuardToken => ({
-      "~flow": "guard",
-      "~owner": owner,
-      operation,
-      make: (at) =>
+    (select: (input: GuardArg<Values, never>) => Values): GuardToken =>
+      guard(owner, operation, (at) =>
         Guard.Idle({
           operation,
           key: { slot: `${at}.key`, run: erase<SelectInput, Values>(select) },
         }),
-    }),
+      ),
   ),
   retryable: builder(
     `O.${operation}.retryable`,
@@ -93,11 +115,8 @@ export const writeHandle = (
     (
       first: ((input: GuardArg<Values, never>) => Values) | { readonly times: number },
       second: { readonly times: number } = { times: 0 },
-    ): GuardToken => ({
-      "~flow": "guard",
-      "~owner": owner,
-      operation,
-      make: (at) =>
+    ): GuardToken =>
+      guard(owner, operation, (at) =>
         Predicate.isFunction(first)
           ? Guard.Retryable({
               operation,
@@ -105,7 +124,7 @@ export const writeHandle = (
               times: second.times,
             })
           : Guard.Retryable({ operation, key: Option.none(), times: first.times }),
-    }),
+      ),
   ),
   get: entry(`O.${operation}.get`, (operations: Operations, value: Values) =>
     Option.flatMap(Option.fromUndefinedOr(operations.get(operation)), (rows) =>

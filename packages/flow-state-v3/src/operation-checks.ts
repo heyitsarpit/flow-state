@@ -1,4 +1,5 @@
-import { SchemaAST } from "effect";
+import { Option, SchemaAST } from "effect";
+import { endingOf } from "./events.ts";
 import { isUncertain } from "./config.ts";
 import { invalid } from "./error.ts";
 import { checkName } from "./construction.ts";
@@ -11,16 +12,29 @@ const endingFindings = (
   bound: Bound,
   internal: Readonly<Record<string, EventFields>>,
 ) =>
-  endingsOf(bound)
-    .filter(([, e]) => !Object.hasOwn(internal, e.ending.event))
-    .map(([place, e]) =>
-      invalid(
-        ["operations", name, ...place],
-        "UnknownEvent",
-        `${name}'s ${place.join(" ")} ending maps to ${e.ending.event}, which this definition does not declare as an internal event`,
-        "Map every ending to one of the definition's internalEvents.",
-      ),
-    );
+  endingsOf(bound).flatMap(([place, e]) =>
+    Option.match(endingOf(e), {
+      onNone: () => [
+        invalid(
+          ["operations", name, ...place],
+          "WrongKind",
+          `${name}'s ${place.join(" ")} ending is not an event token`,
+          "Map to this definition's event: E.X, or E.X.from(f).",
+        ),
+      ],
+      onSome: ({ event }) =>
+        Object.hasOwn(internal, event)
+          ? []
+          : [
+              invalid(
+                ["operations", name, ...place],
+                "UnknownEvent",
+                `${name}'s ${place.join(" ")} ending maps to ${event}, which this definition does not declare as an internal event`,
+                "Map every ending to one of the definition's internalEvents.",
+              ),
+            ],
+    }),
+  );
 
 // RETURN_TYPE: the findings this construction reports: a key field outside the input, or one that may be absent.
 const keyFieldFindings = (name: string, bound: Bound): Array<Finding> => {
@@ -69,13 +83,18 @@ export const operationFindings = (
     found.push(...keyFieldFindings(name, bound), ...endingFindings(name, bound, internal));
 
     if (bound.kind === "write") {
-      const target = internal[bound.unknown.ending.event];
+      const event = Option.getOrElse(
+        Option.map(endingOf(bound.unknown), (e) => e.event),
+        () => "",
+      );
+
+      const target = internal[event];
 
       if (target !== undefined && !isUncertain(target))
         found.push({
           code: "UnknownNotUncertain",
           path: [...at, "unknown"],
-          summary: `${name}'s unknown ending maps to ${bound.unknown.ending.event}, not a Flow.uncertain event`,
+          summary: `${name}'s unknown ending maps to ${event}, not a Flow.uncertain event`,
           help: "Map unknown: to an internal event declared with Flow.uncertain.",
         });
 

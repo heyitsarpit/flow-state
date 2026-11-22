@@ -24,6 +24,7 @@ import {
   type Tab,
   WorldWord,
 } from "./steps.ts";
+import { builder, entry } from "../../entry.ts";
 
 /**
  * A fake call's answer was lost: the lost error of a server that stands behind no port, such as one
@@ -728,61 +729,75 @@ class FakeServer<A> extends Effectable.Class<A, never, FakeWorld> {
  *   `toString`) shadows it.
  */
 export const Fake = {
-  // RETURN_TYPE: the Server contract keeps its truth, endpoints and controls.
-  server: <
-    T,
-    const E extends Readonly<Record<string, EndpointOf<T>>>,
-    const C extends Readonly<Record<string, ControlOf<T>>> = Record<never, never>,
-    L = never,
-  >(
-    name: string,
-    config: {
-      readonly truth: Schema.Codec<T, unknown>;
-      readonly initial: NoInfer<T>;
-      readonly endpoints: E;
-      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
-      readonly controls?: C & { readonly [K in keyof C & keyof E]: never };
-      readonly lost: () => L;
+  server: entry(
+    "Fake.server",
+    // RETURN_TYPE: the Server contract keeps its truth, endpoints and controls.
+    <
+      T,
+      const E extends Readonly<Record<string, EndpointOf<T>>>,
+      const C extends Readonly<Record<string, ControlOf<T>>> = Record<never, never>,
+      L = never,
+    >(
+      name: string,
+      config: {
+        readonly truth: Schema.Codec<T, unknown>;
+        readonly initial: NoInfer<T>;
+        readonly endpoints: E;
+        // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
+        readonly controls?: C & { readonly [K in keyof C & keyof E]: never };
+        readonly lost: () => L;
+      },
+    ): Server<T, E, C, L> => {
+      const server: AnyServer = {
+        name,
+        truth: config.truth,
+        initial: config.initial,
+        ...erasedParts(config.endpoints, config.controls ?? {}),
+        lost: config.lost,
+      };
+
+      const endpoints = Record.map(config.endpoints, (_, it) => endpointOf(server, it));
+
+      const controls = Record.map(
+        server.controls,
+        (_, it) => (input: Values) => WorldWord.control({ server, control: it, input }),
+      );
+
+      // SAFETY: the world serves each endpoint by its name, through that endpoint's own handler, whose Exit has its own Schemas' types.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a service built key by key from the server's endpoints
+      const served = Effect.map(FakeWorld, (world) => world.serve(server) as ServiceOf<E, L>);
+
+      // SAFETY: each endpoint's handle carries its own request type only as a phantom, and each control's word takes that control's own input.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the handles and words built from the declaration, under their own names
+      return Object.assign(new FakeServer(server, served), endpoints, controls) as Server<
+        T,
+        E,
+        C,
+        L
+      >;
     },
-  ): Server<T, E, C, L> => {
-    const server: AnyServer = {
-      name,
-      truth: config.truth,
-      initial: config.initial,
-      ...erasedParts(config.endpoints, config.controls ?? {}),
-      lost: config.lost,
-    };
-
-    const endpoints = Record.map(config.endpoints, (_, it) => endpointOf(server, it));
-
-    const controls = Record.map(
-      server.controls,
-      (_, it) => (input: Values) => WorldWord.control({ server, control: it, input }),
-    );
-
-    // SAFETY: the world serves each endpoint by its name, through that endpoint's own handler, whose Exit has its own Schemas' types.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a service built key by key from the server's endpoints
-    const served = Effect.map(FakeWorld, (world) => world.serve(server) as ServiceOf<E, L>);
-
-    // SAFETY: each endpoint's handle carries its own request type only as a phantom, and each control's word takes that control's own input.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the handles and words built from the declaration, under their own names
-    return Object.assign(new FakeServer(server, served), endpoints, controls) as Server<T, E, C, L>;
-  },
-  // RETURN_TYPE: the Endpoint contract keeps its request, success and failure types.
-  call: <T, const F extends Fields, S extends Schema.Top, X extends Schema.Top>(config: {
-    readonly request: F;
-    readonly success: S;
-    readonly failure: X;
-    readonly handle: (
-      truth: T,
-      request: StructType<F>,
-    ) => { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
-  }): Endpoint<T, F, S, X> => config,
-  // RETURN_TYPE: the Control contract keeps its input type.
-  control: <T, const F extends Fields>(
-    fields: F,
-    apply: (truth: T, input: StructType<F>) => T,
-  ): Control<T, F> => ({ fields, apply }),
+  ),
+  call: builder(
+    "Fake.call",
+    // RETURN_TYPE: the Endpoint contract keeps its request, success and failure types.
+    <T, const F extends Fields, S extends Schema.Top, X extends Schema.Top>(config: {
+      readonly request: F;
+      readonly success: S;
+      readonly failure: X;
+      readonly handle: (
+        truth: T,
+        request: StructType<F>,
+      ) => { readonly truth: T; readonly exit: Exit.Exit<S["Type"], X["Type"]> };
+    }): Endpoint<T, F, S, X> => config,
+  ),
+  control: builder(
+    "Fake.control",
+    // RETURN_TYPE: the Control contract keeps its input type.
+    <T, const F extends Fields>(
+      fields: F,
+      apply: (truth: T, input: StructType<F>) => T,
+    ): Control<T, F> => ({ fields, apply }),
+  ),
   /**
    * The run's fake servers as a Layer, each server at its `initial`: for a port fake outside a
    * Story.
@@ -801,7 +816,7 @@ export const Fake = {
      * records, which every later build of the same Layer loads, as a durable store's would. For
      * `storeContract`, and for a setup's services in a test that builds the setup itself.
      */
-    layer: () => {
+    layer: entry("Fake.storage.layer", () => {
       const scopes = new Map<string, Map<string, Map<string, string>>>();
 
       return Layer.effect(
@@ -825,31 +840,33 @@ export const Fake = {
           });
         }),
       );
-    },
-    hold: () => WorldWord.storage({ word: "hold" }),
-    refuse: () => WorldWord.storage({ word: "refuse" }),
-    release: () => WorldWord.storage({ word: "release" }),
+    }),
+    hold: builder("Fake.storage.hold", () => WorldWord.storage({ word: "hold" })),
+    refuse: builder("Fake.storage.refuse", () => WorldWord.storage({ word: "refuse" })),
+    release: builder("Fake.storage.release", () => WorldWord.storage({ word: "release" })),
     /**
      * The oldest held write fails StoreRefused and lands nothing, as a store that took a write
      * and then refused it does (a transaction aborted on quota).
      */
-    refuseHeld: () => WorldWord.storage({ word: "refuseHeld" }),
+    refuseHeld: builder("Fake.storage.refuseHeld", () => WorldWord.storage({ word: "refuseHeld" })),
     /**
      * The next open's load fails, as a store that cannot be read does.
      */
-    refuseLoad: () => WorldWord.storage({ word: "refuseLoad" }),
+    refuseLoad: builder("Fake.storage.refuseLoad", () => WorldWord.storage({ word: "refuseLoad" })),
     /**
      * Writes text under a key of the store at once, as another release or a damaged disk would
      * leave it; the next open loads it.
      */
-    put: (key: string, text: string) => WorldWord.stored({ key, text }),
+    put: builder("Fake.storage.put", (key: string, text: string) =>
+      WorldWord.stored({ key, text }),
+    ),
   },
   /**
    * The network as a whole: offline, every call is lost at request and reaches no server, and
    * waiting wire words wait for the network to come back online.
    */
   network: {
-    offline: () => WorldWord.network({ word: "offline" }),
-    online: () => WorldWord.network({ word: "online" }),
+    offline: builder("Fake.network.offline", () => WorldWord.network({ word: "offline" })),
+    online: builder("Fake.network.online", () => WorldWord.network({ word: "online" })),
   },
 };

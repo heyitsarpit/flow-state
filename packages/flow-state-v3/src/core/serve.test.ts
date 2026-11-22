@@ -1,7 +1,8 @@
 import { makeFreezer } from "./frozen.ts";
 import { Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { definition } from "../definition.ts";
+import { type ActorRef, definition } from "../definition.ts";
+import { loose } from "../test/loose.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
 import { send } from "../send.ts";
@@ -129,7 +130,8 @@ const Echo = definition({
   context: { name: Flow.context(Lead.M.name) },
 });
 
-const leadRef = { machine: LeadMachine, value: "lead", context: {} };
+// A ref as the core reads it: the core never checks a ref is made, the host door does.
+const leadRef: ActorRef<typeof Lead> = loose({ machine: LeadMachine, value: "lead", context: {} });
 
 const EchoMachine = machine(Echo, ({ S, E, C }) => ({
   default: S.ON,

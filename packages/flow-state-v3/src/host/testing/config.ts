@@ -1,4 +1,5 @@
 import type { App } from "../runtime.ts";
+import { entry } from "../../entry.ts";
 
 /**
  * The key of a config's brand: how the CLI tells a `defineConfig` result from a lookalike.
@@ -43,9 +44,12 @@ export type Config = {
  * })
  * ```
  */
-// RETURN_TYPE: the exported Config contract, its brand included.
-export const defineConfig = (config: {
-  readonly apps: Config["apps"];
-  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
-  readonly stories?: ReadonlyArray<string>;
-}): Config => ({ [ConfigId]: ConfigId, apps: config.apps, stories: config.stories ?? [] });
+export const defineConfig = entry(
+  "defineConfig",
+  // RETURN_TYPE: the exported Config contract, its brand included.
+  (config: {
+    readonly apps: Config["apps"];
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
+    readonly stories?: ReadonlyArray<string>;
+  }): Config => ({ [ConfigId]: ConfigId, apps: config.apps, stories: config.stories ?? [] }),
+);

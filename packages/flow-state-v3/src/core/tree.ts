@@ -1,5 +1,5 @@
 import { Option } from "effect";
-import { type Compiled, Source, Target, type Values } from "./compiled.ts";
+import { InternalsId, type Compiled, Source, Target, type Values } from "./compiled.ts";
 
 /**
  * The path of every state from the top level down to `leaf`: `ON.PLAYING` gives `ON`, then
@@ -131,7 +131,7 @@ export const historyAfter = (history: ReadonlyMap<string, string>, leaf: string,
 // RETURN_TYPE: memory is the Values every incarnation holds, not the entries' literal shape.
 export const create = (compiled: Compiled, input: Values): Values =>
   Object.fromEntries(
-    compiled.fields.flatMap((field) =>
+    compiled[InternalsId].fields.flatMap((field) =>
       Option.toArray(
         Option.map(
           Source.$match(field.source, {

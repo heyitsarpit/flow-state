@@ -1,5 +1,6 @@
 import { Option, Predicate, Result, Schema, Struct } from "effect";
 import type { Compiled, Values } from "./compiled.ts";
+import { InternalsId } from "./compiled.ts";
 import {
   ActorJson,
   actorOf,
@@ -170,7 +171,7 @@ const wiredJson = (wired: ReadonlyMap<string, ActorId>) =>
 const memoryText = (compiled: Compiled, memory: Values) =>
   Result.map(
     Result.all(
-      compiled.fields
+      compiled[InternalsId].fields
         .filter((f) => Object.hasOwn(memory, f.name))
         .toSorted((a, b) => Number(a.name > b.name) - Number(a.name < b.name))
         .map((f) =>
@@ -191,7 +192,7 @@ const savedOf = (baseline: Option.Option<Selected>) =>
 const baselinesJson = (compiled: Compiled, record: ActorRecord) => {
   const bySlot = new Map<string, Record<string, ReturnType<typeof savedOf>>>();
 
-  for (const [at, reaction] of compiled.reactions.entries()) {
+  for (const [at, reaction] of compiled[InternalsId].reactions.entries()) {
     const baseline = record.baselines[at] ?? Option.none();
 
     if (!sameForm(baseline, Option.fromUndefinedOr(record.seen.get(reaction.slot))))
@@ -263,7 +264,7 @@ const frameBaseline = (frame: typeof FrameThreeJson.Type, slot: string) => {
 const framesBySlot = (compiled: Compiled, frames: ReadonlyArray<typeof FrameThreeJson.Type>) => {
   const bySlot = new Map<string, Record<string, typeof BaselineJson.Type>>();
 
-  for (const [at, reaction] of compiled.reactions.entries())
+  for (const [at, reaction] of compiled[InternalsId].reactions.entries())
     for (const saved of Option.toArray(frameBaseline(frames[at] ?? null, reaction.slot)))
       bySlot.set(reaction.slot, { ...bySlot.get(reaction.slot), [reaction.event.event]: saved });
 
@@ -300,7 +301,11 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
       const r = yield* stepsTo(format, value);
 
       const compiled = yield* machineOf(r);
-      const memory = yield* Result.mapError(compiled.walk.decode(r.memory), readFailed("memory"));
+
+      const memory = yield* Result.mapError(
+        compiled[InternalsId].walk.decode(r.memory),
+        readFailed("memory"),
+      );
 
       const seen = new Map(
         yield* Result.all(
@@ -319,7 +324,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
 
       // A reaction with no saved baseline of its own takes its slot's last selection.
       const baselines = yield* Result.all(
-        compiled.reactions.map((reaction) =>
+        compiled[InternalsId].reactions.map((reaction) =>
           baselineOf(compiled, reaction, savedFor(r.baselines, reaction), seen),
         ),
       );
@@ -409,7 +414,7 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
         ...Struct.omit(three, ["memories", "reactions"]),
         format: 4,
         baselines:
-          three.reactions.length === compiled.reactions.length
+          three.reactions.length === compiled[InternalsId].reactions.length
             ? framesBySlot(compiled, three.reactions)
             : {},
       };

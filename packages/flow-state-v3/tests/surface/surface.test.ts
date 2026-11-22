@@ -187,14 +187,14 @@ const memberEnding = (value: unknown, name: string, argument: unknown) => {
   return Predicate.isFunction(member) ? endingOf(() => member(argument)) : "gone";
 };
 
-describe("known gaps: functions handed out inside inert data and the testing route (Diagnostics R1)", () => {
-  it.fails("Diagnostics R1: a bound contract's textOfKey is off its face, or given null refuses with a FlowError", () => {
+describe("functions handed out inside inert data and the testing route (Diagnostics R1)", () => {
+  it("Diagnostics R1: a bound contract's textOfKey is off its face, or given null refuses with a FlowError", () => {
     expect(["gone", "FlowError"]).toContain(
       memberEnding(Keeper.operations.keep, "textOfKey", null),
     );
   });
 
-  it.fails("Diagnostics R1: an O.x.commit token's make is off its face, or given a trapped Proxy refuses with a FlowError", () => {
+  it("Diagnostics R1: an O.x.commit token's make is off its face, or given a trapped Proxy refuses with a FlowError", () => {
     const token = Keeper.O.keep.commit(() => ({ id: "x" }));
 
     expect(["gone", "FlowError"]).toContain(
@@ -202,7 +202,7 @@ describe("known gaps: functions handed out inside inert data and the testing rou
     );
   });
 
-  it.fails("Diagnostics R1: an O.x.retryable token's make, its times a throwing getter, is off its face or refuses with a FlowError", () => {
+  it("Diagnostics R1: an O.x.retryable token's make, its times a throwing getter, is off its face or refuses with a FlowError", () => {
     const times = Object.defineProperty({}, "times", {
       enumerable: true,
       get: () => {
@@ -216,7 +216,7 @@ describe("known gaps: functions handed out inside inert data and the testing rou
     );
   });
 
-  it.fails("Diagnostics R1: the testing route's defineConfig(null) refuses with a FlowError, never a return or a raw TypeError", () => {
+  it("Diagnostics R1: the testing route's defineConfig(null) refuses with a FlowError, never a return or a raw TypeError", () => {
     expect(endingOf(() => defineConfig(loose(null)))).toBe("FlowError");
   });
 });

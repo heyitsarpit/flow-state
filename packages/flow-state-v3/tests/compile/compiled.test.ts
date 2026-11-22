@@ -61,21 +61,19 @@ const functionsIn = (view: unknown) => partsOf(view).filter(Predicate.isFunction
 // FLOW_STATE_ALLOW_UNKNOWN: a data view is plain data of any shape.
 const stringsIn = (view: unknown) => partsOf(view).filter(Predicate.isString);
 
-// The refusal a Runtime gives a hand-made Compiled, as [code, reason].
+// The refusal a hand-made Compiled meets on its way to a Runtime, as [code, reason].
 const refusalOf = (compiled: unknown) => {
   const lamp = build();
 
-  const setup = runtimeSetup({
-    app: app({
-      id: "lamps",
-      // SAFETY: the test hands a Runtime a malformed Compiled, which only a cast can build.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a Compiled no machine() call emits
-      machines: { lamp: { ...lamp, compiled: compiled as typeof lamp.compiled } },
-    }),
-  });
-
   try {
-    setup.construct();
+    runtimeSetup({
+      app: app({
+        id: "lamps",
+        // SAFETY: the test hands a Runtime a malformed Compiled, which only a cast can build.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a Compiled no machine() call emits
+        machines: { lamp: { ...lamp, compiled: compiled as typeof lamp.compiled } },
+      }),
+    }).construct();
   } catch (error) {
     if (error instanceof FlowError)
       return [error.code, error.diagnostics[0].details["reason"] ?? null] as const;
@@ -93,7 +91,7 @@ describe("Compiled and its data view (Compile R16, R17, T8, T9)", () => {
     expect(stringsIn(first)).toContain("on.Dim[0].guard[0]");
   });
 
-  it("a Runtime refuses a bare function, a key field outside the input, and no events table, before any actor", () => {
+  it("Operations R10: a machine carrying a hand-made Compiled (a bare function, a key field outside the input, no events table) is a copy, refused WrongKind before any Runtime", () => {
     const { compiled } = build();
     const [first] = [...(compiled.root.get("Dim") ?? [])];
 
@@ -102,7 +100,7 @@ describe("Compiled and its data view (Compile R16, R17, T8, T9)", () => {
         ...compiled,
         root: new Map([["Dim", [{ ...first, update: Option.some(() => ({})) }]]]),
       }),
-    ).toEqual(["InvalidConfiguration", "BareFunction"]);
+    ).toEqual(["InvalidConfiguration", "WrongKind"]);
     expect(
       refusalOf({
         ...compiled,
@@ -110,15 +108,17 @@ describe("Compiled and its data view (Compile R16, R17, T8, T9)", () => {
           [...compiled.operations].map(([k, op]) => [k, { ...op, keyFields: ["missing"] }]),
         ),
       }),
-    ).toEqual(["InvalidConfiguration", "KeyOutsideInput"]);
+    ).toEqual(["InvalidConfiguration", "WrongKind"]);
     expect(refusalOf({ ...compiled, events: undefined })).toEqual([
       "InvalidConfiguration",
-      "MissingEvents",
+      "WrongKind",
     ]);
   });
 
-  it("a Compiled carrying its memory's derived equality and codecs is accepted", () => {
-    expect(refusalOf(build().compiled)).toEqual([]);
+  it("a machine's own Compiled, carrying its memory's derived equality and codecs, is accepted", () => {
+    expect(() =>
+      runtimeSetup({ app: app({ id: "lamps", machines: { lamp: build() } }) }).construct(),
+    ).not.toThrow();
   });
 });
 

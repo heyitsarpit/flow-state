@@ -9,6 +9,7 @@ import { nestedConflictingTeam } from "../../fixtures/session/stories/values.ts"
 import { sessionFirst } from "../../fixtures/sign-in/stories/structure.ts";
 import { syncFirst } from "../../fixtures/sync/stories/structure.ts";
 import { customerFirst } from "../../fixtures/transfers/stories/structure.ts";
+import { InternalsId } from "../../src/host/inspect.ts";
 import { Step, type Story, StoryFailed, type StoryRun } from "../../src/host/testing/index.ts";
 import { checked } from "./rules.ts";
 import { switchedOn } from "../switches.ts";
@@ -21,7 +22,7 @@ const entries = manifests.flatMap((m) =>
 // Every onContext reaction's event, by machine: the events only a context wave enqueues.
 const reactionEvents = new Set(
   entries.flatMap(({ compiled }) =>
-    compiled.reactions.map((r) => `${compiled.id} ${r.event.event}`),
+    compiled[InternalsId].reactions.map((r) => `${compiled.id} ${r.event.event}`),
   ),
 );
 

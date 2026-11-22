@@ -62,7 +62,7 @@ describe("known gaps: invalid authoring refused, never a raw throw or a Defect (
     ]);
   });
 
-  it.fails("Diagnostics R1: machine given a copied ~owner mark is refused WrongKind at its definition, never a Defect from a raw TypeError", () => {
+  it("Diagnostics R1: machine given a hand-made definition lookalike is refused WrongKind at its definition, never a Defect from a raw TypeError", () => {
     expect(refusal(() => machine(loose({ "~owner": Symbol("copied") }), () => loose({})))).toEqual([
       ["InvalidConfiguration", "WrongKind", "definition"],
     ]);

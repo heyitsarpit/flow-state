@@ -16,13 +16,17 @@ import type {
   HistoryToken,
   StateToken,
 } from "./definition.ts";
-import type { SendToken } from "./send.ts";
+import type { SendInternals, SendToken } from "./send.ts";
+import type { ActorRef } from "./definition.ts";
 import { is } from "./config.ts";
 import { invalid } from "./error.ts";
 import type { TreeNode } from "./construction.ts";
 import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
 import { scheduleOf } from "./compile-schedules.ts";
-import { erase } from "./handles.ts";
+import { type ActionInternals, erase, type GuardInternals } from "./handles.ts";
+import { endingOf } from "./events.ts";
+import { internalsOf, ownerOf } from "./made.ts";
+import type { TokenInternals } from "./definition.ts";
 import type { AnyBody } from "./machine.ts";
 
 type AnyAlternative = AlternativeConfig<Values, Values, string> | StateToken | HistoryToken;
@@ -37,14 +41,16 @@ const guardOf = (compile: Compile, element: GuardElement<Values, Values>, at: Pa
 
     if (path === undefined) compile.findings.push(foreign(at, "a guard's state token"));
 
-    return Guard.InState({ state: path ?? element["~path"] });
+    return Guard.InState({
+      state: path ?? internalsOf<TokenInternals>("state", element).path,
+    });
   }
 
   if (is.guard(element)) {
-    if (element["~owner"] !== compile.definition["~owner"])
+    if (ownerOf("guard", element) !== compile.owner)
       compile.findings.push(foreign(at, `the operation ${element.operation}`));
 
-    return element.make(slotOf(at));
+    return internalsOf<GuardInternals>("guard", element).make(slotOf(at));
   }
 
   return Guard.Check({
@@ -90,24 +96,19 @@ const sendEventOf = (
 ): Option.Option<SendCallback> => {
   if (isCallback(event)) return Option.some(erase<SelectInput, ReturnType<SendCallback>>(event));
 
-  if (
-    Predicate.hasProperty(event, "ending") &&
-    Predicate.hasProperty(event.ending, "event") &&
-    Predicate.isString(event.ending.event) &&
-    Predicate.hasProperty(event.ending, "from") &&
-    Option.isOption(event.ending.from)
-  ) {
-    const tag = event.ending.event;
+  const mapped = Option.filter(endingOf(event), (ending) => Option.isSome(ending.from));
 
-    return Option.map(
-      Option.filter(event.ending.from, isCallback),
-      (map) => (input: SelectInput) => {
-        const payload = erase<SelectInput, ReturnType<SendCallback>>(map)(input);
+  if (Option.isSome(mapped)) {
+    const { event: tag, from } = mapped.value;
 
-        // A mapper that returns no record sends no event: the target's check refuses it.
-        return Predicate.isReadonlyObject(payload) ? { ...payload, _tag: tag } : payload;
-      },
-    );
+    return Option.map(from, (map) => (input: SelectInput) => {
+      const payload = erase<SelectInput, ReturnType<SendCallback>>((value: never) =>
+        map(value, {}),
+      )(input);
+
+      // A mapper that returns no record sends no event: the target's check refuses it.
+      return Predicate.isReadonlyObject(payload) ? { ...payload, _tag: tag } : payload;
+    });
   }
 
   return Predicate.hasProperty(event, "_tag") && Predicate.isString(event._tag)
@@ -115,8 +116,10 @@ const sendEventOf = (
     : Option.none();
 };
 
-const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) =>
-  Option.match(sendEventOf(token.event), {
+const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) => {
+  const send = internalsOf<SendInternals>("send", token);
+
+  return Option.match(sendEventOf(send.event), {
     onNone: () => {
       compile.findings.push(
         invalid(
@@ -134,12 +137,13 @@ const sendOf = (compile: Compile, token: SendToken<Values, Values>, at: Path) =>
         Action.Send({
           to: {
             slot: slotOf([...at, "to"]),
-            run: token.to,
+            run: erase<SelectInput, ActorRef>(send.to),
           },
           event: { slot: slotOf([...at, "event"]), run: event },
         }),
       ),
   });
+};
 
 // RETURN_TYPE: the Compiled shape this part builds.
 const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alternative => {
@@ -155,15 +159,15 @@ const alternativeOf = (compile: Compile, raw: AnyAlternative, at: Path): Alterna
   const actions = (config.actions ?? []).flatMap((a, i) => {
     const place = [...at, "actions", i];
 
-    if (a["~flow"] === "send") return Option.toArray(sendOf(compile, a, place));
+    if (is.send(a)) return Option.toArray(sendOf(compile, a, place));
 
-    if (a["~owner"] !== compile.definition["~owner"]) {
+    if (ownerOf("action", a) !== compile.owner) {
       compile.findings.push(foreign(place, "an action"));
 
       return [];
     }
 
-    return [a.make(slotOf(place))];
+    return [internalsOf<ActionInternals>("action", a).make(slotOf(place))];
   });
 
   return {

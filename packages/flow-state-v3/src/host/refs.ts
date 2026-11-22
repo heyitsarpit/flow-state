@@ -4,7 +4,8 @@ import type { ActorId } from "../core/world.ts";
 import type { ActorRef, AnyDefinition, InputOf, Machine } from "../definition.ts";
 import type { ContextRefs } from "./context-refs.ts";
 import { entry } from "../entry.ts";
-import { flowError, raise } from "../error.ts";
+import { flowError, raise, refuse } from "../error.ts";
+import { type KindOf, made, madeOf } from "../made.ts";
 
 export type { ActorRef } from "../definition.ts";
 
@@ -45,13 +46,34 @@ export const actorRef = entry(
     nameOrValue: N & RefName<D, N>,
     // oxlint-disable-next-line lint-bomb/no-optional-domain-properties, lint-bomb/no-nullish-function-contracts -- the Plan's public word: a ref with no context uses its machine entry's wiring
     options?: { readonly context: ContextRefs<D["context"]> },
-  ): ActorRef<D> => ({
-    machine,
-    value: nameOrValue,
-    // An untyped caller's options may lack `context`: such a ref uses its entry's wiring too.
-    context: options?.context === undefined ? {} : slotRefs(options.context),
-  }),
+  ): ActorRef<D> =>
+    refOf(
+      machine,
+      nameOrValue,
+      // An untyped caller's options may lack `context`: such a ref uses its entry's wiring too.
+      options?.context === undefined ? {} : slotRefs(options.context),
+    ),
 );
+
+// The owner of every ref: a ref names its actor by its machine and value, never by owner.
+const REFS = Symbol("flow-state/ref");
+
+/**
+ * A ref as `actorRef` makes it: its machine, its value and its context refs by slot.
+ */
+// RETURN_TYPE: the ActorRef keeps its machine's definition type.
+export const refOf = <D extends AnyDefinition>(
+  machine: Machine<D>,
+  // FLOW_STATE_ALLOW_UNKNOWN: a ref's value is the caller's, checked where the ref is used.
+  value: unknown,
+  context: Readonly<Record<string, ActorRef>>,
+): ActorRef<D> => {
+  const face: Omit<ActorRef<D>, typeof KindOf> = { machine, value, context: { ...context } };
+
+  // SAFETY: the face is every field of the ref but its kind, a phantom key the brand carries.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+  return made("ref", REFS, face, {}) as ActorRef<D>;
+};
 
 // A ref's context refs as the runtime reads them: a ref by slot name. The typed form checks each
 // ref's provider.
@@ -66,6 +88,8 @@ const slotRefs = <Cx>(refs: ContextRefs<Cx>) =>
  */
 // RETURN_TYPE: the core's ActorId, which every input that names an actor takes.
 export const actorIdOf = (ref: ActorRef): ActorId => {
+  refuse(Result.match(madeOf("ref")(ref, ["ref"]), { onFailure: (f) => [f], onSuccess: () => [] }));
+
   const compiled = ref.machine.compiled;
 
   return Result.match(refName(compiled, ref.value), {

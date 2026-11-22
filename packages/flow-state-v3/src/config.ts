@@ -18,93 +18,52 @@ import type {
   StateTree,
 } from "./definition.ts";
 import { type Finding, invalid } from "./error.ts";
-import type { Uncertain } from "./flow.ts";
-import type { ErasedEntry } from "./tokens.ts";
+import type { Entry, Uncertain } from "./flow.ts";
+import { type Container, isMade, type Kind } from "./made.ts";
+import type { SendToken as SendTokenOf } from "./send.ts";
+import type { ErasedEntry, ErasedSchedule } from "./tokens.ts";
 
 const Fn = Schema.declare(Predicate.isFunction);
 
 const FieldSchema = Schema.declare(Schema.isSchema);
 
-// A token of one kind; a retry or cancel member is a callable token, so a function may be one.
-const isToken =
-  <const K extends string>(kind: K) =>
-  // FLOW_STATE_ALLOW_UNKNOWN: an authored value, told apart by its kind.
-  // RETURN_TYPE: a type guard states the token kind it narrows to.
-  (x: unknown): x is { readonly "~flow": K } =>
-    // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own markers by mark until its decode checks them by identity
-    Predicate.hasProperty(x, "~flow") && x["~flow"] === kind;
-
-// A marked value decoded whole: every field its Struct declares is checked, and a callable token
-// (E.X, a keyless retry or cancel) is checked by its own fields.
-const decodedWhole = <S extends Schema.Top>(fields: S) => {
-  const fits = Schema.is(fields);
-
-  return Schema.declare(
-    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, checked whole before it is trusted.
-    // RETURN_TYPE: a type guard states the decoded type it narrows to.
-    (x: unknown): x is S["Type"] =>
-      Predicate.isFunction(x)
-        ? fits(Object.fromEntries(Object.entries(x)))
-        : Predicate.isObject(x) && fits(x),
-  );
-};
-
-const StateToken = decodedWhole(
-  Schema.Struct({ "~flow": Schema.Literal("state"), "~path": Schema.String, is: Fn, child: Fn }),
-);
-
-const HistoryToken = decodedWhole(
-  Schema.Struct({ "~flow": Schema.Literal("history"), "~path": Schema.String }),
-);
-
-const operationToken = <const K extends string>(kind: K) =>
-  decodedWhole(
-    Schema.Struct({
-      "~flow": Schema.Literal(kind),
-      "~owner": Schema.Symbol,
-      operation: Schema.String,
-      make: Fn,
-    }),
-  );
-
-const GuardToken = operationToken("guard");
-
-const ActionToken = operationToken("action");
-
-// A send's event is told apart by its three forms when the body compiles.
-const SendToken = decodedWhole(
-  // FLOW_STATE_ALLOW_UNKNOWN: a send's event in any of its forms, checked by the compiler.
-  Schema.Struct({ "~flow": Schema.Literal("send"), to: Fn, event: Schema.Unknown }),
-);
-
-const EntryToken = decodedWhole(Schema.Struct({ "~flow": Schema.Literal("entry") }));
+// A value Flow made, of one kind: a copy, another kind or a forged value is a wrong kind as a whole.
+const madeKind = (kind: Kind, help: string) =>
+  Schema.declare(
+    // FLOW_STATE_ALLOW_UNKNOWN: an authored value, recognised as made before it is trusted.
+    // RETURN_TYPE: a type guard states the made value it narrows to.
+    (x: unknown): x is Container => isMade(kind)(x),
+  ).annotate({ ...WHOLE, help });
 
 // A value whose parts are judged as one: when it fails, it is one wrong kind at its own path.
 const WHOLE = { whole: true };
 
-const EndingTarget = Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) });
+const StateToken = madeKind("state", "Use the S tokens the machine body receives.");
 
-const EventToken = decodedWhole(
-  Schema.Struct({
-    "~flow": Schema.Literal("event"),
-    tag: Schema.String,
-    ending: EndingTarget,
-    "~payload": FieldSchema,
-    "~walk": Schema.Struct({ encode: Fn, decode: Fn, is: Fn, text: Fn, memo: Fn }),
-    "~names": Schema.Array(Schema.String),
-    from: Fn,
-  }),
-);
+const HistoryToken = madeKind("history", "Use S.X.history of the machine body's tokens.");
+
+const GuardToken = madeKind("guard", "Use the O tokens the machine body receives.");
+
+const ActionToken = madeKind("action", "Use the O tokens the machine body receives.");
+
+const SendToken = madeKind("send", "Write a send with send(to, event).");
+
+const EntryToken = madeKind("entry", "Arm on the state's entry with Flow.entry.");
+
+const EventToken = madeKind("event", "Use the E tokens the machine body receives.");
 
 // An event token or a mapping of one: E.X or E.X.from(f).
 const Ending = Schema.Union([
   EventToken,
-  Schema.Struct({ ending: EndingTarget, "~token": Schema.optionalKey(EventToken) }),
+  madeKind("mapping", "Map with E.X.from(f) of the machine body's tokens."),
 ]).annotate({ ...WHOLE, help: "Map to this definition's event: E.X, or E.X.from(f)." });
 
 const Payload = Schema.Record(Schema.String, FieldSchema);
 
-const UncertainEvent = Schema.Struct({ "~flow": Schema.Literal("uncertain"), fields: Payload });
+const UncertainEvent = madeKind(
+  "uncertain",
+  "Mark an internal event an unknown ending maps to with Flow.uncertain(fields).",
+);
 
 const Events = Schema.Record(Schema.String, Schema.Union([UncertainEvent, Payload])).annotate({
   help: "Write events as a record of payloads: field Schemas, or Flow.uncertain(fields); {} means none.",
@@ -122,36 +81,29 @@ const States: Schema.Codec<StateTree> = Schema.Array(
   help: "Write states as a list of leaf names and single-key compounds { NAME: [children] }.",
 });
 
-const InitialField = Schema.Struct({
-  "~flow": Schema.Literal("initial"),
-  schema: FieldSchema,
-  // FLOW_STATE_ALLOW_UNKNOWN: a constant start is checked by its field's Schema, not here.
-  value: Schema.Unknown,
-});
+const InitialField = madeKind("initial", "Start the field at a constant with Flow.initial.");
+
+// FLOW_STATE_ALLOW_UNKNOWN: a private marker's field, judged with it.
+// RETURN_TYPE: a type guard states the marker it narrows to.
+const isPrivateOf = (x: unknown): x is Container =>
+  isMade("private")(x) &&
+  Predicate.hasProperty(x, "field") &&
+  (isMade("initial")(x.field) || Schema.isSchema(x.field));
 
 const MemoryField = Schema.Union([
   InitialField,
-  Schema.Struct({ "~flow": Schema.Literal("input"), schema: FieldSchema }),
-  Schema.Struct({
-    "~flow": Schema.Literal("private"),
-    field: Schema.Union([InitialField, FieldSchema]),
-  }),
+  madeKind("input", "Take the field from the creator with Flow.input."),
+  Schema.declare(isPrivateOf),
   FieldSchema,
 ]).annotate({
   help: "Start the field with Flow.input, Flow.initial, or an optional field Schema.",
 });
 
-// A slot's reads and select are judged by their tokens' identity when the definition reads them.
-const ContextSlot = Schema.Struct({
-  "~flow": Schema.Literal("context"),
-  // FLOW_STATE_ALLOW_UNKNOWN: a pass-through's Schema comes from its token, judged with its reads.
-  schema: Schema.Unknown,
-  form: Schema.Literals(["pass", "derived"]),
-  // FLOW_STATE_ALLOW_UNKNOWN: a token, or a derived slot's reads and select, judged by identity.
-  spec: Schema.Unknown,
-}).annotate({
-  help: "Declare a context slot with Flow.context(X.M.field) or Flow.context(Schema, { reads, select }).",
-});
+// A slot's reads and select are judged by their tokens when the definition reads them.
+const ContextSlot = madeKind(
+  "context",
+  "Declare a context slot with Flow.context(X.M.field) or Flow.context(Schema, { reads, select }).",
+);
 
 const DefinitionConfig = Schema.Struct({
   id: Schema.String.annotate({ help: "Give the definition a string id." }),
@@ -237,12 +189,7 @@ const ScheduleEntry = Schema.Union([
 ]);
 
 // A slot's change reaction, as `C.slot.change` makes it: when a change counts, and its event.
-const Change = Schema.Struct({
-  "~flow": Schema.Literal("change"),
-  slot: Schema.String,
-  when: Schema.Option(Fn),
-  event: Ending,
-}).annotate({ help: "Write a reaction as C.slot.change({ when, event })." });
+const Change = madeKind("change", "Write a reaction as C.slot.change({ when, event }).");
 
 // RETURN_TYPE: recursive: a state body holds its children's bodies; only its decoding is read.
 // FLOW_STATE_ALLOW_UNKNOWN: an authored body, decoded here before it is trusted.
@@ -293,7 +240,7 @@ const findingsOf = (
   Match.valueTags(issue, {
     Pointer: (pointer) => findingsOf(pointer.issue, [...path, ...pointer.path.map(segment)], help),
     Composite: (all) =>
-      isWhole(all.ast) || all.issues.some(isMarkIssue)
+      isWhole(all.ast)
         ? wrongKind(path, helpOf(all.ast, help))
         : all.issues.flatMap((inner) => findingsOf(inner, path, helpOf(all.ast, help))),
     AnyOf: (any) =>
@@ -317,12 +264,8 @@ const findingsOf = (
     OneOf: () => wrongKind(path, help),
   });
 
-// A marked value whose mark is missing or another kind's is a wrong kind as a whole, never a
-// finding per key; so is a value whose Schema is judged whole.
+// A value whose Schema is judged whole is a wrong kind as a whole, never a finding per key.
 const isWhole = (ast: SchemaAST.AST) => SchemaAST.resolve(ast)?.["whole"] === true;
-
-const isMarkIssue = (issue: SchemaIssue.Issue) =>
-  issue._tag === "Pointer" && issue.path.length === 1 && issue.path[0] === "~flow";
 
 // A union no member matched is a wrong kind; when only one member was of the right kind, its
 // issue is reported where it is.
@@ -351,30 +294,7 @@ const findingsAgainst =
       },
     );
 
-const BoundFields = {
-  contract: Schema.String,
-  identity: Schema.Symbol,
-  input: FieldSchema,
-  inputJson: FieldSchema,
-  key: Schema.Array(Schema.String),
-  keyText: FieldSchema,
-  keyJson: FieldSchema,
-  textOfKey: Fn,
-  concurrency: Schema.Literals(["reject", "latest", "serialize", "cancel"]),
-  call: Fn,
-  success: Ending,
-  failure: Schema.Record(Schema.String, Ending),
-};
-
-const Bound = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("write"),
-    ...BoundFields,
-    notSent: Schema.Option(Ending),
-    unknown: Ending,
-  }),
-  Schema.Struct({ kind: Schema.Literal("read"), ...BoundFields }),
-]).annotate({ ...WHOLE, help: "Bind a contract with contract.outcomes({ ... })." });
+const Bound = madeKind("bound", "Bind a contract with contract.outcomes({ ... }).");
 
 const Operations = Schema.Record(Schema.String, Bound).annotate({
   help: "Return a record of contract.outcomes({ ... }) from operations.",
@@ -442,10 +362,10 @@ export const inDeclarationOrder = (keys: ReadonlyArray<string>, findings: Readon
   findings.toSorted((a, b) => keys.indexOf(String(a.path[0])) - keys.indexOf(String(b.path[0])));
 
 // RETURN_TYPE: a type guard over event fields.
-export const isUncertain = (x: EventFields): x is Uncertain => Schema.is(UncertainEvent)(x);
+export const isUncertain = (x: EventFields): x is Uncertain => isMade("uncertain")(x);
 
-const kindIs = <T extends { readonly "~flow": string }>(kind: T["~flow"]) => {
-  const test = isToken(kind);
+const kindIs = <T>(kind: Kind) => {
+  const test = isMade(kind);
 
   // RETURN_TYPE: a type guard states the token kind it narrows to.
   const guard = <I>(x: I): x is I & T => test(x);
@@ -454,12 +374,16 @@ const kindIs = <T extends { readonly "~flow": string }>(kind: T["~flow"]) => {
 };
 
 /**
- * A decoded body element's token kind: a state, history, guard or entry token.
+ * A decoded body element's token kind: a state, history, guard, action, send or entry token.
  */
 export const is = {
   state: kindIs<StateTokenOf>("state"),
   history: kindIs<HistoryTokenOf>("history"),
   guard: kindIs<GuardTokenOf<never>>("guard"),
-  entry: kindIs<{ readonly "~flow": "entry" }>("entry"),
-  keyed: kindIs<Extract<ErasedEntry, { readonly "~flow": "keyed" }>>("keyed"),
+  send: kindIs<SendTokenOf>("send"),
+  entry: kindIs<Entry>("entry"),
+  // FLOW_STATE_ALLOW_UNKNOWN: a decoded schedule entry, told apart by its shape.
+  // RETURN_TYPE: a type guard states the entry it narrows to.
+  keyed: (x: unknown): x is Extract<ErasedEntry, { readonly config: ErasedSchedule }> =>
+    Predicate.hasProperty(x, "config") && !Predicate.hasProperty(x, "schedule"),
 };

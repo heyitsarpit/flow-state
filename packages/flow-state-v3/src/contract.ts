@@ -4,7 +4,8 @@ import { writeJson } from "./core/codec.ts";
 import type { NotSentWhy } from "./core/cells.ts";
 import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
-import { entry, inert } from "./entry.ts";
+import { entry } from "./entry.ts";
+import { type Branded, made, type Container } from "./made.ts";
 import { codecOf } from "./events.ts";
 
 /**
@@ -53,12 +54,11 @@ export type FailureTag<E> =
  * Where one ending goes: an event token (`E.Voided`) or one with a payload mapper
  * (`E.Declined.from(f)`).
  */
-export type Ending<V = unknown, Id extends string = string> = {
-  readonly ending: {
-    readonly event: string;
-    // FLOW_STATE_ALLOW_UNKNOWN: a mapper's context is Flow's own and read by no mapper yet.
-    readonly from: Option.Option<(value: V, context: unknown) => Values>;
-  };
+export type Ending<V = unknown, Id extends string = string> = Branded<"event" | "mapping"> & {
+  readonly ending: { readonly event: string };
+  // A phantom type: the value its mapper takes, so it maps only an ending of that value.
+  // FLOW_STATE_ALLOW_UNKNOWN: a mapper's context is Flow's own and read by no mapper yet.
+  readonly "~maps"?: (value: V, context: unknown) => Values;
   // A phantom type: the definition whose event it is, so it maps only onto that definition.
   readonly "~definition"?: Id;
 };
@@ -126,17 +126,17 @@ export type Bound<
 > = (K extends "write"
   ? BoundFields & {
       readonly kind: "write";
-      readonly call: Commit;
       readonly notSent: Option.Option<ErasedEnding>;
       readonly unknown: ErasedEnding;
     }
-  : BoundFields & { readonly kind: "read"; readonly call: Lookup }) & {
-  readonly "~requires"?: R;
-  readonly "~input"?: I;
-  readonly "~key"?: Ky;
-  // A phantom type: the definition whose events its endings map onto.
-  readonly "~definition"?: Id;
-};
+  : BoundFields & { readonly kind: "read" }) &
+  Branded<"bound"> & {
+    readonly "~requires"?: R;
+    readonly "~input"?: I;
+    readonly "~key"?: Ky;
+    // A phantom type: the definition whose events its endings map onto.
+    readonly "~definition"?: Id;
+  };
 
 /**
  * The decoded input a bound contract takes, as its handles' selects return it.
@@ -196,6 +196,14 @@ export type RequirementsOf<O> = Exclude<
 >;
 
 /**
+ * What a bound contract keeps for the core: its call and its key's text from a value's key fields.
+ */
+export type BoundInternals = (
+  | { readonly kind: "write"; readonly call: Commit }
+  | { readonly kind: "read"; readonly call: Lookup }
+) & { readonly textOfKey: (value: Values) => Option.Option<string> };
+
+/**
  * What every bound contract carries, whichever its kind.
  */
 type BoundFields = {
@@ -206,7 +214,6 @@ type BoundFields = {
   readonly key: ReadonlyArray<string>;
   readonly keyText: Schema.Codec<Values, string>;
   readonly keyJson: Schema.Codec<Values, Values>;
-  readonly textOfKey: (value: Values) => Option.Option<string>;
   readonly concurrency: Concurrency;
   readonly success: ErasedEnding;
   readonly failure: Readonly<Record<string, ErasedEnding>>;
@@ -229,10 +236,12 @@ const codecsOf = <F extends Fields>(fields: F, key: ReadonlyArray<keyof F & stri
   const keyJson = Schema.toCodecJson(Schema.Struct(Struct.pick(fields, [...key].toSorted())));
 
   return {
-    input,
-    inputJson: codecOf<Values>(Schema.toCodecJson(input)),
-    keyText: Schema.fromJsonString(keyJson),
-    keyJson: codecOf<Values>(keyJson),
+    face: {
+      input,
+      inputJson: codecOf<Values>(Schema.toCodecJson(input)),
+      keyText: Schema.fromJsonString(keyJson),
+      keyJson: codecOf<Values>(keyJson),
+    },
     textOfKey: keyTextBy(walkerOf(keyJson), key),
   };
 };
@@ -254,6 +263,14 @@ const trustedAttempt = <I, K>(context: { readonly attempt: Attempt }) =>
   // SAFETY: the host builds the Attempt's input and key from the call's input, checked as above, and the operation's key fields.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the Attempt's input and key types are erased in Compiled and restored here, at the one call boundary
   context as { readonly attempt: Attempt<I, K> };
+
+// A bound contract as Flow hands it out: its endings and codecs on its face, its call and key text
+// for the core.
+// RETURN_TYPE: the bound contract its outcomes call states.
+const boundOf = <B>(identity: symbol, face: Container, internals: BoundInternals): B =>
+  // SAFETY: the face holds every field of the bound contract but its kind brand, a phantom key.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a bound contract's phantom types are its declarer's
+  made("bound", identity, face, internals) as B;
 
 /**
  * A server write, declared once: inert until a machine commits it.
@@ -338,37 +355,50 @@ export const transaction = entry(
     ) => Effect.Effect<A, E, R>;
   }): Transaction<F, A, E, R, Key> => {
     const identity = Symbol(config.id);
+    const codecs = codecsOf(config.input, config.key);
 
-    const contract: Transaction<F, A, E, R, Key> = {
-      kind: "transaction",
-      id: config.id,
-      input: Schema.Struct(config.input),
-      key: config.key,
-      concurrency: config.concurrency,
-      services: config.services,
-      commit: entry(`${config.id}.commit`, config.commit),
-      outcomes: entry(
-        `${config.id}.outcomes`,
-        <Id extends string>(endings: WriteEndings<E, A, Id>) =>
-          inert<Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>>({
-            kind: "write",
-            contract: config.id,
-            identity,
-            ...codecsOf(config.input, config.key),
-            key: config.key,
-            concurrency: config.concurrency,
-            call: (input, context) =>
-              config.commit(
-                trusted<StructType<F>>(input),
-                trustedAttempt<StructType<F>, KeyRecord<F, Key>>(context),
-              ),
-            success: endings.success,
-            failure: endings.failure,
-            notSent: Option.fromUndefinedOr(endings.notSent),
-            unknown: endings.unknown,
-          }),
-      ),
-    };
+    const contract: Transaction<F, A, E, R, Key> = made(
+      "contract",
+      identity,
+      {
+        kind: "transaction",
+        id: config.id,
+        input: Schema.Struct(config.input),
+        key: config.key,
+        concurrency: config.concurrency,
+        services: config.services,
+        commit: entry(`${config.id}.commit`, config.commit),
+        outcomes: entry(
+          `${config.id}.outcomes`,
+          <Id extends string>(endings: WriteEndings<E, A, Id>) =>
+            boundOf<Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>>(
+              identity,
+              {
+                kind: "write",
+                contract: config.id,
+                identity,
+                ...codecs.face,
+                key: config.key,
+                concurrency: config.concurrency,
+                success: endings.success,
+                failure: endings.failure,
+                notSent: Option.fromUndefinedOr(endings.notSent),
+                unknown: endings.unknown,
+              },
+              {
+                kind: "write",
+                call: (input: Values, context: { readonly attempt: Attempt }) =>
+                  config.commit(
+                    trusted<StructType<F>>(input),
+                    trustedAttempt<StructType<F>, KeyRecord<F, Key>>(context),
+                  ),
+                textOfKey: codecs.textOfKey,
+              },
+            ),
+        ),
+      },
+      {},
+    );
 
     return contract;
   },
@@ -402,32 +432,45 @@ export const resource = entry(
     readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
   }): Resource<F, A, E, R, Key> => {
     const identity = Symbol(config.id);
+    const codecs = codecsOf(config.input, config.key);
 
-    const contract: Resource<F, A, E, R, Key> = {
-      kind: "resource",
-      id: config.id,
-      input: Schema.Struct(config.input),
-      key: config.key,
-      services: config.services,
-      staleTime: config.staleTime,
-      gcTime: config.gcTime,
-      lookup: entry(`${config.id}.lookup`, config.lookup),
-      outcomes: entry(
-        `${config.id}.outcomes`,
-        <Id extends string>(endings: ReadEndings<E, A, Id>) =>
-          inert<Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>>({
-            kind: "read",
-            contract: config.id,
-            identity,
-            ...codecsOf(config.input, config.key),
-            key: config.key,
-            concurrency: "reject",
-            call: (input) => config.lookup(trusted<StructType<F>>(input)),
-            success: endings.success,
-            failure: endings.failure,
-          }),
-      ),
-    };
+    const contract: Resource<F, A, E, R, Key> = made(
+      "contract",
+      identity,
+      {
+        kind: "resource",
+        id: config.id,
+        input: Schema.Struct(config.input),
+        key: config.key,
+        services: config.services,
+        staleTime: config.staleTime,
+        gcTime: config.gcTime,
+        lookup: entry(`${config.id}.lookup`, config.lookup),
+        outcomes: entry(
+          `${config.id}.outcomes`,
+          <Id extends string>(endings: ReadEndings<E, A, Id>) =>
+            boundOf<Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>>(
+              identity,
+              {
+                kind: "read",
+                contract: config.id,
+                identity,
+                ...codecs.face,
+                key: config.key,
+                concurrency: "reject",
+                success: endings.success,
+                failure: endings.failure,
+              },
+              {
+                kind: "read",
+                call: (input: Values) => config.lookup(trusted<StructType<F>>(input)),
+                textOfKey: codecs.textOfKey,
+              },
+            ),
+        ),
+      },
+      {},
+    );
 
     return contract;
   },

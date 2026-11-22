@@ -1,7 +1,9 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { checkout, shopSetup } from "../../fixtures/shop/app.ts";
 import { Shop } from "../../fixtures/services/shop/server/shop.ts";
-import { Fake, propertyTest, Story } from "../../src/host/testing/index.ts";
+import { Fake, propertyTest, Story, StoryFailed } from "../../src/host/testing/index.ts";
+import { FlowError } from "../../src/index.ts";
 import { breachesOf, rules } from "../rules/rules.ts";
 import { planted, ResendingShopFake } from "./planted.ts";
 import { LIMITS } from "../limits.ts";
@@ -20,9 +22,19 @@ describe("a property named for one of Flow's own rules", () => {
   it("untyped, a property named turn limit is a script fault, so its breaches are never read as a turn limit", () => {
     const own = { rule: "turn limit", breaches: () => [] };
 
-    expect(() =>
+    const thrown = Result.try(() =>
       propertyTest(planted, loose({ profile: "usual", properties: [own], seeds: [1] })),
-    ).toThrow(/a property is named turn limit/u);
+    );
+
+    // The testing route's door refuses with a FlowError, the script fault kept as its cause.
+    const problem =
+      Result.isFailure(thrown) &&
+      thrown.failure instanceof FlowError &&
+      thrown.failure.cause instanceof StoryFailed
+        ? thrown.failure.cause.problem
+        : "";
+
+    expect(problem).toContain("a property is named turn limit");
   });
 });
 

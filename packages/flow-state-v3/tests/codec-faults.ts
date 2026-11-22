@@ -201,9 +201,9 @@ export const codecFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/identity.ts",
-        find: "    Result.flatMap(compiled.identity.encode(input), (encoded) =>",
+        find: "    Result.flatMap(compiled[InternalsId].identity.encode(input), (encoded) =>",
         replace:
-          '    Result.flatMap(Result.mapError(Schema.encodeUnknownResult(Schema.toCodecJson(nameSchemaOf(compiled.fields)))(input), () => "schema" as const), (encoded) =>',
+          '    Result.flatMap(Result.mapError(Schema.encodeUnknownResult(Schema.toCodecJson(nameSchemaOf(compiled[InternalsId].fields)))(input), () => "schema" as const), (encoded) =>',
       },
     ],
   },

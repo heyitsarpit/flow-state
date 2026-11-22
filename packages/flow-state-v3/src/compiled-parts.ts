@@ -9,28 +9,46 @@ import {
   Source,
   type Values,
 } from "./core/compiled.ts";
-import type { Bound, Ending } from "./contract.ts";
+import type { Bound, BoundInternals } from "./contract.ts";
+import { internalsOf } from "./made.ts";
+import { erase } from "./handles.ts";
+import { defect } from "./core/defect.ts";
 import { isUncertain } from "./config.ts";
-import { isMarker, isPrivate, pureDefault, schemaOfField, unwrapPrivate } from "./construction.ts";
+import {
+  isInitial,
+  isInput,
+  isPrivate,
+  pureDefault,
+  schemaOfField,
+  unwrapPrivate,
+} from "./construction.ts";
 import type { AnyDefinition, EventFields } from "./definition.ts";
-import { admissionOf, codecOf } from "./events.ts";
+import { admissionOf, codecOf, endingOf } from "./events.ts";
 import type { Field as FieldMarker } from "./flow.ts";
 
-// FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's or the slot's own; the mapper is written for it.
-const endingValue = <V>(value: unknown) =>
-  // SAFETY: the runtime passes each mapper the value of what it is declared on: an operation's ending value, or a reaction's slot value, whose type the ending's own V names.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- an ending's value type is erased in Compiled and restored at its mapper
-  value as V;
-
 // RETURN_TYPE: the Compiled Mapping shape.
-export const mappingOf = <V>(ending: Ending<V>, slot: string): Mapping => ({
-  event: ending.ending.event,
-  from: Option.map(ending.ending.from, (map) => ({
-    slot,
-    // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own; its mapper is written for it.
-    run: (value: unknown) => map(endingValue<V>(value), {}),
-  })),
-});
+export const mappingOf = (
+  // FLOW_STATE_ALLOW_UNKNOWN: an ending its owner's decode checked is an event token or a mapping.
+  ending: unknown,
+  slot: string,
+): Mapping => {
+  const read = endingOf(ending);
+
+  return {
+    event: Option.getOrElse(
+      Option.map(read, (e) => e.event),
+      () => "",
+    ),
+    from: Option.map(
+      Option.flatMap(read, (e) => e.from),
+      (map) => ({
+        slot,
+        // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own; its mapper is written for it.
+        run: erase<unknown, Values>((value) => map(value, {})),
+      }),
+    ),
+  };
+};
 
 const inputNamesOf = (input: Schema.Codec<Values, Values>) => {
   const ast = SchemaAST.toType(input.ast);
@@ -41,7 +59,7 @@ const inputNamesOf = (input: Schema.Codec<Values, Values>) => {
 // RETURN_TYPE: the Compiled OperationWalk shape.
 const operationWalkOf = (bound: Bound): OperationWalk => ({
   input: walkerOf(bound.inputJson),
-  keyText: bound.textOfKey,
+  keyText: internalsOf<BoundInternals>("bound", bound).textOfKey,
 });
 
 export const operationOf = (name: string, bound: Bound) => {
@@ -66,27 +84,29 @@ export const operationOf = (name: string, bound: Bound) => {
   };
 
   const slot = `operations.${name}.call`;
+  const internals = internalsOf<BoundInternals>("bound", bound);
+
+  if (internals.kind === "read")
+    return Operation.Read({ ...shared, call: { slot, run: internals.call } });
 
   return bound.kind === "write"
     ? Operation.Write({
         ...shared,
-        call: { slot, run: bound.call },
+        call: { slot, run: internals.call },
         concurrency: bound.concurrency,
         notSent: Option.map(bound.notSent, (ending) =>
           mappingOf(ending, `operations.${name}.notSent`),
         ),
         unknown: mappingOf(bound.unknown, `operations.${name}.unknown`),
       })
-    : Operation.Read({ ...shared, call: { slot, run: bound.call } });
+    : defect(`the read ${name} holds a write's call`);
 };
 
 // RETURN_TYPE: the Compiled Source each start becomes.
 const sourceOf = (marked: FieldMarker): Source => {
-  if (!isMarker(marked) || marked["~flow"] === "private") return Source.Optional();
+  if (isInput(marked)) return Source.Input();
 
-  if (marked["~flow"] === "input") return Source.Input();
-
-  return Source.Constant({ value: marked.value });
+  return isInitial(marked) ? Source.Constant({ value: marked.value }) : Source.Optional();
 };
 
 // RETURN_TYPE: the Compiled shape this part builds.

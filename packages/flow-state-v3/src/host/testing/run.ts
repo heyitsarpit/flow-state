@@ -484,14 +484,12 @@ export const startRun = <Names extends string>(
     // FLOW_STATE_ALLOW_UNKNOWN: one read answers for three kinds of target, each typed by its overload.
     // RETURN_TYPE: the implementation's result is erased; each overload states its own.
     function read(target: Target): unknown {
-      // oxlint-disable-next-line flow-state/no-mark-probe -- tells apart the test tooling's own read targets, each typed by an overload; no caller's value is trusted by it
       if ("~endpoint" in target) {
         const { server, name } = target["~endpoint"];
 
         return log.filter((l) => l.server === server && l.endpoint === name).map((l) => l.entry);
       }
 
-      // oxlint-disable-next-line flow-state/no-mark-probe -- tells apart the test tooling's own read targets, each typed by an overload; no caller's value is trusted by it
       if ("~server" in target) {
         const server = target["~server"];
 

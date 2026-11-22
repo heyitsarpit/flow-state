@@ -10,6 +10,12 @@ import type { Walker } from "./boundary.ts";
 import type { AttemptId } from "./world.ts";
 
 /**
+ * The key under which a value Flow made keeps what the core calls, off its public face: a
+ * registered symbol, so a second loaded copy of Flow reads the first copy's values.
+ */
+export const InternalsId: unique symbol = Symbol.for("flow-state/Internals");
+
+/**
  * A user closure named by its place in the definition (`operations.pay.failure.CardDeclined`), so
  * tools read the name and only the runtime calls the function.
  */
@@ -403,8 +409,8 @@ export const Operation = Data.taggedEnum<Operation>();
  * **Details**
  *
  * `states` holds every node of the tree by its path, compounds included, in declaration order;
- * `root` holds the root's handlers and `initial` the leaf the root's defaults reach. `fields` lists
- * the memory fields; `memory`, `memoryJson` and `walk` are derived from their Schemas.
+ * `root` holds the root's handlers and `initial` the leaf the root's defaults reach; `memory` and
+ * `memoryJson` are derived from the fields' Schemas. What the core calls sits under `InternalsId`.
  */
 export type Compiled = {
   readonly id: string;
@@ -413,15 +419,24 @@ export type Compiled = {
   readonly states: ReadonlyMap<string, Node>;
   readonly root: Level;
   readonly events: ReadonlyMap<string, EventEntry>;
-  readonly fields: ReadonlyArray<Field>;
   readonly memory: Schema.Codec<Values, Values>;
   readonly memoryJson: Schema.Codec<Values, Values>;
-  readonly walk: Walker<Values, Values>;
-  readonly identity: Walker<Values, Values>;
   readonly operations: ReadonlyMap<string, Operation>;
   readonly context: ReadonlyMap<string, ContextSlot>;
-  readonly reactions: ReadonlyArray<Reaction>;
   readonly wiring: ReadonlyMap<string, { readonly machine: string; readonly name: string }>;
+  readonly [InternalsId]: CompiledInternals;
+};
+
+/**
+ * What the core calls on a Compiled, off the machine's public face: the memory's walker, the
+ * identity's walker, the memory fields with theirs, and the `onContext` reactions with their
+ * callbacks.
+ */
+export type CompiledInternals = {
+  readonly fields: ReadonlyArray<Field>;
+  readonly walk: Walker<Values, Values>;
+  readonly identity: Walker<Values, Values>;
+  readonly reactions: ReadonlyArray<Reaction>;
 };
 
 /**
@@ -480,7 +495,7 @@ export const operationOf = (
  * A memory as an outsider reads it: without the machine's `Flow.private` fields.
  */
 export const publicMemory = (compiled: Compiled, memory: Values) => {
-  const hidden = new Set(compiled.fields.filter((f) => f.private).map((f) => f.name));
+  const hidden = new Set(compiled[InternalsId].fields.filter((f) => f.private).map((f) => f.name));
 
   return hidden.size === 0
     ? memory

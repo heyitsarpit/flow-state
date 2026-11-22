@@ -1,15 +1,16 @@
 import { Predicate, Result, Schema } from "effect";
 import type { Compiled, Values } from "./core/compiled.ts";
 import { atOrBelow, chainOf } from "./core/tree.ts";
-import type { Bound, Fields } from "./contract.ts";
+import type { Bound, BoundInternals, Fields } from "./contract.ts";
 import { fieldsOf, tokensOf, trusted } from "./events.ts";
 import { readHandle, writeHandle } from "./handles.ts";
 import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
 import { flowErrorOf, raise, refuse } from "./error.ts";
 import { entry } from "./entry.ts";
+import { type Branded, type Kind, type KindOf, internalsOf, made, type Container } from "./made.ts";
 import {
   definitionFindings,
-  isMarker,
+  isInput,
   isPrivate,
   schemaOfField,
   type TreeNode,
@@ -21,7 +22,7 @@ import {
   type Input,
   type Plain,
   type Private,
-  reading,
+  type Reader,
   slotReadsOf,
   type Uncertain,
 } from "./flow.ts";
@@ -43,14 +44,14 @@ export type MemoryConfig = Readonly<Record<string, Field>>;
 type Unwrapped<F> = F extends Private<infer G> ? G : F;
 
 type TypeOf<F> =
-  Unwrapped<F> extends { readonly "~flow": string; readonly schema: infer S extends Plain }
+  Unwrapped<F> extends Branded<Kind> & { readonly schema: infer S extends Plain }
     ? S["Type"]
     : Unwrapped<F> extends Plain
       ? Unwrapped<F>["Type"]
       : never;
 
 type OptionalKeys<M> = {
-  readonly [K in keyof M]: Unwrapped<M[K]> extends { readonly "~flow": string } ? never : K;
+  readonly [K in keyof M]: Unwrapped<M[K]> extends Branded<Kind> ? never : K;
 }[keyof M];
 
 type InputKeys<M> = { readonly [K in keyof M]: M[K] extends Input ? K : never }[keyof M];
@@ -124,7 +125,6 @@ export type {
 import type {
   Handles,
   MemoryToken,
-  ReadToken,
   RootToken,
   StateNameToken,
   StateRead,
@@ -180,13 +180,10 @@ type LeavesOfLiteral<L, P extends string> = {
  * pass-through's one token or a derived slot's reads and select. The machine entry or the ref wires
  * which actor provides it.
  */
-export type ContextSlot<V = unknown, P = unknown> = {
-  readonly "~flow": "context";
+export type ContextSlot<V = unknown, P = unknown> = Branded<"context"> & {
   // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a slot's Schema is the Schema's own.
   readonly schema: Schema.Codec<V, unknown>;
   readonly form: "pass" | "derived";
-  // A pass-through's token, or a derived slot's `{ reads, select }`.
-  readonly spec: ReadToken | { readonly reads: Readonly<Record<string, ReadToken>> };
   // A phantom type: the provider's state tree and memory, which the wiring's ref must have.
   readonly "~provider"?: P;
 };
@@ -272,8 +269,7 @@ export type Definition<
   O extends Readonly<Record<string, Bound>> = Readonly<Record<string, Bound>>,
   Cx extends ContextConfig = ContextConfig,
   Id extends string = string,
-> = {
-  readonly "~owner": symbol;
+> = Branded<"definition"> & {
   readonly id: Id;
   readonly persist: boolean;
   readonly states: States;
@@ -322,10 +318,8 @@ const childUnder = (path: string, read: StateRead) => {
   return path === "" || atOrBelow(state, path) ? state.split(".")[depth] : undefined;
 };
 
-// What a state token holds: its path and its reads, before it is recorded as a context read.
-const stateParts = (path: string) => ({
-  "~flow": "state" as const,
-  "~path": path,
+// What a state token reads: whether a snapshot is at its state or below it, and its active child.
+const stateReads = (path: string) => ({
   is: entry(`S.${path}.is`, (read: StateRead) => atOrBelow(readOf(read), path)),
   child: entry(`S.${path}.child`, (read: StateRead) => childUnder(path, read)),
 });
@@ -333,14 +327,19 @@ const stateParts = (path: string) => ({
 // The definition a context read comes from: by identity and by id.
 type Origin = { readonly owner: symbol; readonly provider: string };
 
-// A state token, recorded as a context read of its definition: true at the state or below it.
-// RETURN_TYPE: the token as given, with whatever its compound holds beside it.
-const asRead = <T extends { readonly "~path": string }>(token: T, origin: Origin): T =>
-  reading(token, {
-    ...origin,
-    schema: Schema.Boolean,
-    read: { kind: "state", path: token["~path"] },
-  });
+/**
+ * What a state, history, memory or state-name token keeps for the core: its path or field, and how
+ * a context slot reads it.
+ */
+export type TokenInternals = { readonly path: string; readonly reader: Reader };
+
+// A state token: its reads and a compound's children beside them, read as context as true at the
+// state or below it.
+const stateToken = (path: string, face: Container, origin: Origin) =>
+  made("state", origin.owner, face, {
+    path,
+    reader: { ...origin, schema: Schema.Boolean, read: { kind: "state", path } },
+  } satisfies TokenInternals);
 
 const tokenTree = (
   nodes: ReadonlyArray<TreeNode>,
@@ -358,16 +357,17 @@ const tokenTree = (
 
         return [
           node?.name ?? path,
-          kids.length === 0
-            ? asRead(stateParts(path), origin)
-            : asRead(
-                {
+          stateToken(
+            path,
+            kids.length === 0
+              ? stateReads(path)
+              : {
                   ...build(kids),
-                  ...stateParts(path),
-                  history: { "~flow": "history", "~path": path },
+                  ...stateReads(path),
+                  history: made("history", origin.owner, {}, { path }),
                 },
-                origin,
-              ),
+            origin,
+          ),
         ];
       }),
     );
@@ -424,7 +424,7 @@ export const definition = entry(
     const internal = config.internalEvents ?? trusted<In>({});
     const context = config.context ?? trusted<Cx>({});
     const memory = config.memory ?? trusted<M>({});
-    const E = tokensOf(config.id, { ...config.events, ...internal });
+    const E = tokensOf(config.id, owner, { ...config.events, ...internal });
     const declare = config.operations;
 
     const called =
@@ -474,7 +474,7 @@ export const definition = entry(
       Object.entries(operations).map(([name, bound]) => [
         name,
         bound.kind === "write"
-          ? writeHandle(name, bound.textOfKey, owner)
+          ? writeHandle(name, internalsOf<BoundInternals>("bound", bound).textOfKey, owner)
           : readHandle(name, owner),
       ]),
     );
@@ -489,12 +489,11 @@ export const definition = entry(
       Object.entries(memory).flatMap(([name, raw]) => {
         const field = unwrapPrivate(raw);
 
-        return isMarker(field) && field["~flow"] === "input" ? [[name, field.schema]] : [];
+        return isInput(field) ? [[name, field.schema]] : [];
       }),
     );
 
-    return {
-      "~owner": owner,
+    const face: Omit<Made, typeof KindOf> = {
       id: config.id,
       persist: config.persist ?? false,
       states: config.states,
@@ -511,24 +510,24 @@ export const definition = entry(
               : [
                   [
                     name,
-                    reading(
-                      { "~flow": "memory", "~field": name, schema: schemaOfField(field) },
-                      {
+                    made("memory", owner, { schema: schemaOfField(field) }, {
+                      path: name,
+                      reader: {
                         ...origin,
                         schema: schemaOfField(field),
                         read: { kind: "memory", field: name },
                       },
-                    ),
+                    } satisfies TokenInternals),
                   ],
                 ],
           ),
         ),
       ),
       state: trusted<Made["state"]>(
-        reading(
-          { "~flow": "stateName", schema: Schema.Literals(leaves) },
-          { ...origin, schema: Schema.Literals(leaves), read: { kind: "stateName" } },
-        ),
+        made("stateName", owner, { schema: Schema.Literals(leaves) }, {
+          path: "",
+          reader: { ...origin, schema: Schema.Literals(leaves), read: { kind: "stateName" } },
+        } satisfies TokenInternals),
       ),
       S: trusted<Made["S"]>(tokenTree(tree.nodes, tree.top, origin)),
       E,
@@ -554,6 +553,10 @@ export const definition = entry(
         }),
       ),
     };
+
+    // SAFETY: the face is every field of the definition but its kind, which the brand carries.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+    return made("definition", owner, face, {}) as Made;
   },
 );
 
@@ -565,8 +568,7 @@ export const treeOfDefinition = (definition: AnyDefinition) => treeOf(definition
 /**
  * What every definition has, whatever its literal types: what `machine` and the Runtime read.
  */
-export type AnyDefinition = {
-  readonly "~owner": symbol;
+export type AnyDefinition = Branded<"definition"> & {
   readonly id: string;
   readonly persist: boolean;
   readonly states: StateTree;
@@ -583,7 +585,7 @@ export type AnyDefinition = {
 /**
  * A compiled machine: its definition and its Compiled data.
  */
-export type Machine<D extends AnyDefinition = AnyDefinition> = {
+export type Machine<D extends AnyDefinition = AnyDefinition> = Branded<"machine"> & {
   readonly definition: D;
   readonly compiled: Compiled;
 };
@@ -592,7 +594,7 @@ export type Machine<D extends AnyDefinition = AnyDefinition> = {
  * A shared actor's name: its machine and either the literal name of a machine with no input, or
  * the value that carries a machine's input fields.
  */
-export type ActorRef<D extends AnyDefinition = AnyDefinition> = {
+export type ActorRef<D extends AnyDefinition = AnyDefinition> = Branded<"ref"> & {
   readonly machine: Machine<D>;
   // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
   readonly value: unknown;

@@ -1,6 +1,7 @@
 import { Exit, Option, Predicate, Schema, SchemaAST } from "effect";
 import { inDeclarationOrder, isUncertain } from "./config.ts";
 import { invalid } from "./error.ts";
+import { isMade } from "./made.ts";
 import type { Bound } from "./contract.ts";
 import { operationFindings } from "./operation-checks.ts";
 import type { ContextConfig, EventFields, MemoryConfig, StateTree } from "./definition.ts";
@@ -20,7 +21,7 @@ export type TreeNode = {
 /**
  * Names Flow reserves: as any state name, and `root` at the top level.
  */
-const RESERVED = new Set(["is", "child", "history", "self", "__proto__", "~path", "~flow"]);
+const RESERVED = new Set(["is", "child", "history", "self", "__proto__"]);
 
 // A lone surrogate, a C0 control or DEL makes a name invalid.
 const UNSAFE =
@@ -62,7 +63,7 @@ const nameFindings = (name: string, top: boolean, here: ReadonlyArray<string | n
       code: "ReservedStateName",
       path: here,
       summary: `the state name ${name} is reserved`,
-      help: "Rename the state: is, child, history, self, __proto__, ~path, ~flow and a top-level root are Flow's.",
+      help: "Rename the state: is, child, history, self, __proto__ and a top-level root are Flow's.",
     });
   else if (name.includes("."))
     found.push(
@@ -141,17 +142,27 @@ export const treeOf = (states: StateTree) => {
   return { nodes, top, findings };
 };
 
+/**
+ * Whether a memory field starts at a constant (`Flow.initial`).
+ */
 // RETURN_TYPE: a type guard states the type it narrows to.
-export const isMarker = (x: Field): x is Initial | Input | Private =>
-  // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own markers by mark until its decode checks them by identity
-  Predicate.hasProperty(x, "~flow");
+export const isInitial = (x: Field): x is Initial => isMade("initial")(x);
+
+/**
+ * Whether a memory field is supplied by the creator (`Flow.input`).
+ */
+// RETURN_TYPE: a type guard states the type it narrows to.
+export const isInput = (x: Field): x is Input => isMade("input")(x);
 
 /**
  * Whether a memory field is `Flow.private`.
  */
 // RETURN_TYPE: a type guard states the type it narrows to.
-export const isPrivate = (raw: Field): raw is Private =>
-  isMarker(raw) && raw["~flow"] === "private";
+export const isPrivate = (raw: Field): raw is Private => isMade("private")(raw);
+
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isMarker = (x: Field): x is Initial | Input | Private =>
+  isInitial(x) || isInput(x) || isPrivate(x);
 
 /**
  * A memory field without its `Flow.private` wrapper.
@@ -208,7 +219,7 @@ const sourceFinding = (name: string, raw: Field): Option.Option<Finding> => {
   const at = ["memory", name];
   const field = unwrapPrivate(raw);
 
-  if (isMarker(field) && field["~flow"] === "initial")
+  if (isInitial(field))
     return Option.liftPredicate(
       {
         code: "TwoDefaults",
@@ -262,7 +273,7 @@ const reservedField = (at: ReadonlyArray<string | number>, owner: string) =>
 const constantFinding = (name: string, raw: Field): Option.Option<Finding> => {
   const field = unwrapPrivate(raw);
 
-  if (!isMarker(field) || field["~flow"] !== "initial") return Option.none();
+  if (!isInitial(field)) return Option.none();
 
   const { schema, value } = field;
 

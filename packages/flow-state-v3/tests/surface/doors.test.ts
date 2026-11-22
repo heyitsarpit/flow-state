@@ -9,8 +9,7 @@ import { refusal } from "../refusals.ts";
 import { manifests } from "../../fixtures/index.ts";
 import { surfaceOf } from "./surface.ts";
 
-// The hostile table for construction trust, each row a test. A row that fails today is inverted
-// (`it.fails`) and flips when the doors land; a row that holds today names why in its title.
+// The hostile table for construction trust, each row a test.
 
 const MADE = Symbol.for("flow-state/Made");
 
@@ -66,25 +65,25 @@ const trapped = () => {
 };
 
 describe("the hostile table: a copy is never taken for a made value (Operations R10, I19)", () => {
-  it.fails("Operations R10: a spread copy of a definition is refused at machine() as WrongKind, never taken as made", () => {
+  it("Operations R10: a spread copy of a definition is refused at machine() as WrongKind, never taken as made", () => {
     expect(reasons(() => Flow.machine(loose({ ...Lamp }), () => loose({})))).toEqual([
       ["WrongKind", "definition"],
     ]);
   });
 
-  it.fails("Operations R10: a spread copy of a machine is refused at app() as WrongKind at its entry", () => {
+  it("Operations R10: a spread copy of a machine is refused at app() as WrongKind at its entry", () => {
     expect(
       reasons(() => Flow.app({ id: "Doors", machines: { lamp: loose({ ...LampMachine }) } })),
     ).toEqual([["WrongKind", "machines.lamp"]]);
   });
 
-  it.fails("Operations R10: a spread copy of a state token as a body's default is refused as WrongKind", () => {
+  it("Operations R10: a spread copy of a state token as a body's default is refused as WrongKind", () => {
     expect(
       reasons(() => Flow.machine(Lamp, ({ S }) => ({ default: loose({ ...S.OFF }) }))),
     ).toEqual([["WrongKind", "default"]]);
   });
 
-  it.fails("Operations R10: a copied event token as a schedule's send is refused as WrongKind, never ForeignToken", () => {
+  it("Operations R10: a copied event token as a schedule's send is refused as WrongKind, never ForeignToken", () => {
     expect(
       reasons(() =>
         Flow.machine(Lamp, ({ S, E }) => ({
@@ -111,7 +110,7 @@ describe("the hostile table: a copy is never taken for a made value (Operations 
     ]);
   });
 
-  it.fails("Operations R10: a definition argument whose every read throws is one Defect finding at the definition's path, not at the call's name", () => {
+  it("Operations R10: a definition argument whose every read throws is one Defect finding at the definition's path, not at the call's name", () => {
     expect(reasons(() => Flow.machine(loose(trapped()), () => loose({})))).toEqual([
       ["Defect", "definition"],
     ]);
@@ -165,7 +164,7 @@ describe("a second loaded copy of Flow (Operations R10, Q6)", () => {
     await Effect.runPromiseExit(runtime.dispose());
   });
 
-  it.fails("Operations R10, Q6: a second loaded copy's values carry the same registered Made brand", async () => {
+  it("Operations R10, Q6: a second loaded copy's values carry the same registered Made brand", async () => {
     const { Twin, TwinMachine } = await secondCopy();
 
     expect([MADE in Twin, MADE in TwinMachine]).toEqual([true, true]);
@@ -230,15 +229,15 @@ const madeRoots: ReadonlyArray<readonly [string, unknown]> = [
 ];
 
 describe("made values (Operations R10, I19)", () => {
-  it.fails("Operations I19: every function on a made value's face, inert data included, is a door's", () => {
+  it("Operations I19: every function on a made value's face, inert data included, is a door's", () => {
     expect(facesOf(madeRoots).unregistered).toEqual([]);
   });
 
-  it.fails("Operations R10: a made value's face is deeply frozen data", () => {
+  it("Operations R10: a made value's face is deeply frozen data", () => {
     expect(facesOf(madeRoots).unfrozen).toEqual([]);
   });
 
-  it.fails("Operations R10: a definition, a machine, a contract, a bound contract, a state token, a ref and an app each carry the registered Made brand on one shared frozen prototype", () => {
+  it("Operations R10: a definition, a machine, a contract, a bound contract, a state token, a ref and an app each carry the registered Made brand on one shared frozen prototype", () => {
     const made = [
       Lamp,
       LampMachine,
@@ -264,7 +263,7 @@ describe("made values (Operations R10, I19)", () => {
     expect(Object.isFrozen(shared)).toBe(true);
   });
 
-  it.fails("Operations R10: what the core calls on a made value (a bound contract's textOfKey and call, an operation token's make) is off its face", () => {
+  it("Operations R10: what the core calls on a made value (a bound contract's textOfKey and call, an operation token's make) is off its face", () => {
     const token = Lamp.O.ping.commit(() => ({ id: "x" }));
 
     expect([
@@ -275,11 +274,11 @@ describe("made values (Operations R10, I19)", () => {
 });
 
 describe("the testing route's doors (Operations R10, I19)", () => {
-  it.fails("Operations I19: every function the testing route exports is a door's", () => {
+  it("Operations I19: every function the testing route exports is a door's", () => {
     expect(surfaceOf([["testing", Testing]]).stray).toEqual([]);
   });
 
-  it.fails("Operations R10: the testing route's defineConfig, Story.app, samplesOf, print and pairSweep given null each refuse with a FlowError, never a return", () => {
+  it("Operations R10: the testing route's defineConfig, Story.app, samplesOf, print and pairSweep given null each refuse with a FlowError, never a return", () => {
     const calls: ReadonlyArray<readonly [string, () => unknown]> = [
       ["defineConfig", () => Testing.defineConfig(loose(null))],
       ["Story.app", () => Testing.Story.app(loose(null), loose(null))],
@@ -303,7 +302,7 @@ describe("the testing route's doors (Operations R10, I19)", () => {
 });
 
 describe("a door refuses a wrong kind with every finding (Types R4, R11; Operations R10)", () => {
-  it.fails("Types R4, R11: machine() given neither a definition nor a body function raises once, naming both arguments", () => {
+  it("Types R4, R11: machine() given neither a definition nor a body function raises once, naming both arguments", () => {
     expect(reasons(() => Flow.machine(loose(7), loose(8)))).toEqual([
       ["WrongKind", "definition"],
       ["WrongKind", "body"],
@@ -330,7 +329,7 @@ describe("the marks are gone (Operations R10)", () => {
     expect(marked).toEqual([]);
   });
 
-  it.fails("Operations R10: no source disables flow-state/no-mark-probe", () => {
+  it("Operations R10: no source disables flow-state/no-mark-probe", () => {
     expect(
       sources()
         .filter(({ text }) => text.includes("flow-state/no-mark-probe"))

@@ -14,6 +14,7 @@ import {
 import type { Source, View } from "./run.ts";
 import { type Property, print, type Samples } from "./samples.ts";
 import { Step, StepData, StoryFailed, WorldWord } from "./steps.ts";
+import { entry } from "../../entry.ts";
 
 /**
  * The phases a write's head can stand in, as the pair sweep crosses them.
@@ -340,33 +341,36 @@ const cellOf = (
  * phase and a run that recorded nothing, as `propertyTest` judges them. Every cell is returned:
  * reached with its breaches, or unreached with why.
  */
-export const pairSweep = <Ds extends AnyDefinition>(
-  samples: Samples<Ds>,
-  options: {
-    readonly properties: ReadonlyArray<Property<string, Ds>>;
-    readonly seeds: ReadonlyArray<number>;
-    readonly stopAt: ReadonlyArray<Phase["_tag"]>;
+export const pairSweep = entry(
+  "pairSweep",
+  <Ds extends AnyDefinition>(
+    samples: Samples<Ds>,
+    options: {
+      readonly properties: ReadonlyArray<Property<string, Ds>>;
+      readonly seeds: ReadonlyArray<number>;
+      readonly stopAt: ReadonlyArray<Phase["_tag"]>;
+    },
+  ) => {
+    // SAFETY: each property reads runs drawn from samples of Ds, which is every run the sweep judges.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the sweep runs erased; its runs are the samples' own
+    const properties = options.properties as ReadonlyArray<Property>;
+    const found = new Map<string, Reach>();
+
+    for (const seed of options.seeds)
+      if (!options.stopAt.every((phase) => found.has(phase))) reachOf(samples, seed, found);
+
+    return PHASES.flatMap((phase) =>
+      FAULTS.map((fault) => {
+        const reach = found.get(phase);
+
+        return reach === undefined
+          ? ({
+              phase,
+              fault,
+              outcome: { _tag: "Unreached", why: "no write in the phase" },
+            } satisfies Cell)
+          : cellOf(samples, phase, fault, reach, properties);
+      }),
+    );
   },
-) => {
-  // SAFETY: each property reads runs drawn from samples of Ds, which is every run the sweep judges.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the sweep runs erased; its runs are the samples' own
-  const properties = options.properties as ReadonlyArray<Property>;
-  const found = new Map<string, Reach>();
-
-  for (const seed of options.seeds)
-    if (!options.stopAt.every((phase) => found.has(phase))) reachOf(samples, seed, found);
-
-  return PHASES.flatMap((phase) =>
-    FAULTS.map((fault) => {
-      const reach = found.get(phase);
-
-      return reach === undefined
-        ? ({
-            phase,
-            fault,
-            outcome: { _tag: "Unreached", why: "no write in the phase" },
-          } satisfies Cell)
-        : cellOf(samples, phase, fault, reach, properties);
-    }),
-  );
-};
+);

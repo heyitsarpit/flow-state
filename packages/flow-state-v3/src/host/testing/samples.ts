@@ -8,6 +8,7 @@ import type { AnyServer } from "./fake.ts";
 import type { StoryRun } from "./run.ts";
 import { scriptFault, Step, StepData, type StepOf, WorldWord } from "./steps.ts";
 import type { Story } from "./story.ts";
+import { entry } from "../../entry.ts";
 
 /**
  * A property of a run, as a run rule is: a name and a function from a finished run of the app's
@@ -67,38 +68,41 @@ export type Samples<Ds extends AnyDefinition = AnyDefinition> = {
  *
  * - A control word changes the server's truth; it never answers a call itself.
  */
-// RETURN_TYPE: the exported Samples contract, by the Story's app.
-export const samplesOf = <Ds extends AnyDefinition>(options: {
-  readonly id: string;
-  readonly story: Story<never, Ds>;
-  readonly names: { readonly setup: string; readonly fixtures: ReadonlyArray<string> };
-  readonly actors: Readonly<Record<string, ActorRef<Ds>>>;
-  readonly servers: Readonly<Record<string, { readonly "~server": AnyServer }>>;
-  readonly failures: ReadonlyArray<WorldWord>;
-  readonly landedFailures: ReadonlyArray<WorldWord>;
-  readonly controls: ReadonlyArray<WorldWord>;
-  readonly values: Readonly<Record<string, EventIn<Ds>>>;
-  readonly steps: (story: Story<never, Ds>) => Story<string, Ds>;
-}): Samples<Ds> => ({
-  id: options.id,
-  story: options.story,
-  setup: options.names.setup,
-  fixtures: options.names.fixtures,
-  steps: options.steps(options.story).steps,
-  actors: Object.entries(options.actors).map(([name, ref]) => ({
-    name,
-    actor: actorIdOf(ref),
-    context: overridesBy(ref, (_slot, p) => actorIdOf(p)),
-  })),
-  servers: Object.entries(options.servers).map(([name, server]) => ({
-    name,
-    server: server["~server"],
-  })),
-  failures: options.failures,
-  landedFailures: options.landedFailures,
-  controls: options.controls,
-  values: Object.entries(options.values).map(([name, value]) => ({ name, value })),
-});
+export const samplesOf = entry(
+  "samplesOf",
+  // RETURN_TYPE: the exported Samples contract, by the Story's app.
+  <Ds extends AnyDefinition>(options: {
+    readonly id: string;
+    readonly story: Story<never, Ds>;
+    readonly names: { readonly setup: string; readonly fixtures: ReadonlyArray<string> };
+    readonly actors: Readonly<Record<string, ActorRef<Ds>>>;
+    readonly servers: Readonly<Record<string, { readonly "~server": AnyServer }>>;
+    readonly failures: ReadonlyArray<WorldWord>;
+    readonly landedFailures: ReadonlyArray<WorldWord>;
+    readonly controls: ReadonlyArray<WorldWord>;
+    readonly values: Readonly<Record<string, EventIn<Ds>>>;
+    readonly steps: (story: Story<never, Ds>) => Story<string, Ds>;
+  }): Samples<Ds> => ({
+    id: options.id,
+    story: options.story,
+    setup: options.names.setup,
+    fixtures: options.names.fixtures,
+    steps: options.steps(options.story).steps,
+    actors: Object.entries(options.actors).map(([name, ref]) => ({
+      name,
+      actor: actorIdOf(ref),
+      context: overridesBy(ref, (_slot, p) => actorIdOf(p)),
+    })),
+    servers: Object.entries(options.servers).map(([name, server]) => ({
+      name,
+      server: server["~server"],
+    })),
+    failures: options.failures,
+    landedFailures: options.landedFailures,
+    controls: options.controls,
+    values: Object.entries(options.values).map(([name, value]) => ({ name, value })),
+  }),
+);
 
 // FLOW_STATE_ALLOW_UNKNOWN: an event or control input is any plain value of its own Schema.
 const literal = (value: unknown) => printValue(value, "literal");
@@ -170,11 +174,12 @@ const printStep = (samples: Samples, step: Step) =>
  *
  * - A step on an actor or server the samples do not name is a script fault.
  */
-export const print = (samples: Samples, id: string, steps: ReadonlyArray<Step>) =>
+export const print = entry("print", (samples: Samples, id: string, steps: ReadonlyArray<Step>) =>
   [
     `Story.app(${samples.setup}, { id: ${Formatter.formatJson(id)}, fixtures: [${samples.fixtures.join(", ")}] })`,
     ...steps.map((step) => `  ${printStep(samples, step)}`),
-  ].join("\n");
+  ].join("\n"),
+);
 
 /**
  * Prints the steps of a run of several fixtures in one Runtime, each by the name its fixture gives

@@ -23,6 +23,7 @@ import {
 } from "./run.ts";
 import { Step, StepData, type WorldWord } from "./steps.ts";
 import { overridesBy } from "../wiring.ts";
+import { entry } from "../../entry.ts";
 
 /**
  * A fixture: a Layer of the app's own services that may require only the run's fake servers.
@@ -207,24 +208,27 @@ export const storyOf = <Ds extends AnyDefinition = AnyDefinition>(
  * - A fixture must not resume a fiber from a host Promise: a run never yields to the host.
  */
 export const Story = {
-  // RETURN_TYPE: the exported Story contract with no checkpoints yet.
-  app: <R, A extends App, const Fx extends ReadonlyArray<Fixture>>(
-    setup: RuntimeSetup<R, A>,
-    options: {
-      readonly id: string;
-      readonly fixtures: Fx & Covering<R, Fx>;
-      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
-      readonly world?: ReadonlyArray<WorldWord>;
-    },
-  ): Story<never, DefsOf<A>> => {
-    const subject = {
-      config: configOf(setup),
-      fixtures: options.fixtures,
-      world: options.world ?? [],
-    };
+  app: entry(
+    "Story.app",
+    // RETURN_TYPE: the exported Story contract with no checkpoints yet.
+    <R, A extends App, const Fx extends ReadonlyArray<Fixture>>(
+      setup: RuntimeSetup<R, A>,
+      options: {
+        readonly id: string;
+        readonly fixtures: Fx & Covering<R, Fx>;
+        // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default
+        readonly world?: ReadonlyArray<WorldWord>;
+      },
+    ): Story<never, DefsOf<A>> => {
+      const subject = {
+        config: configOf(setup),
+        fixtures: options.fixtures,
+        world: options.world ?? [],
+      };
 
-    return storyOf<DefsOf<A>>(subject, options.id);
-  },
+      return storyOf<DefsOf<A>>(subject, options.id);
+    },
+  ),
 };
 
 /**
@@ -251,42 +255,41 @@ export const Story = {
  * - A fault of the Story's own run fails the whole call, at the step that faulted.
  * - A fork is a run of its own: it never changes the Story's own run or another fork.
  */
-export const forkReloads = Effect.fn("forkReloads")(function* <
-  Names extends string,
-  Ds extends AnyDefinition,
-  E,
->(
-  story: Story<Names, Ds>,
-  visit: (
-    at: number,
-    fork: (
-      reload: Reload,
-      rest: ReadonlyArray<Step>,
-    ) => Effect.Effect<StoryRun<never, Ds>, RunFault>,
-  ) => Effect.Effect<void, E>,
-) {
-  const subject = story[SubjectId];
+export const forkReloads = entry(
+  "forkReloads",
+  Effect.fn("forkReloads")(function* <Names extends string, Ds extends AnyDefinition, E>(
+    story: Story<Names, Ds>,
+    visit: (
+      at: number,
+      fork: (
+        reload: Reload,
+        rest: ReadonlyArray<Step>,
+      ) => Effect.Effect<StoryRun<never, Ds>, RunFault>,
+    ) => Effect.Effect<void, E>,
+  ) {
+    const subject = story[SubjectId];
 
-  const own = yield* attempt(() =>
-    startRun<Names>(subject, story.id, { seed: Option.none(), lenient: false }, Option.none()),
-  );
-
-  const forkAt = (at: number) => {
-    const saved = own.save();
-
-    return visit(at, (reload, rest) =>
-      attempt(() => runForked(subject, story.id, saved, reload, rest)),
+    const own = yield* attempt(() =>
+      startRun<Names>(subject, story.id, { seed: Option.none(), lenient: false }, Option.none()),
     );
-  };
 
-  for (const [at, step] of story.steps.entries()) {
-    yield* forkAt(at);
-    yield* attempt(() => own.step(step));
-  }
+    const forkAt = (at: number) => {
+      const saved = own.save();
 
-  yield* forkAt(story.steps.length);
+      return visit(at, (reload, rest) =>
+        attempt(() => runForked(subject, story.id, saved, reload, rest)),
+      );
+    };
 
-  const run: StoryRun<Names, Ds> = yield* attempt(() => own.finish().run);
+    for (const [at, step] of story.steps.entries()) {
+      yield* forkAt(at);
+      yield* attempt(() => own.step(step));
+    }
 
-  return run;
-});
+    yield* forkAt(story.steps.length);
+
+    const run: StoryRun<Names, Ds> = yield* attempt(() => own.finish().run);
+
+    return run;
+  }),
+);

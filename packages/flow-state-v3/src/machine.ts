@@ -1,7 +1,7 @@
 import { Option, Predicate, Result, Schema } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import { nameSchemaOf } from "./core/identity.ts";
-import type { Level, Node, Values } from "./core/compiled.ts";
+import { InternalsId, type Level, type Node, type Values } from "./core/compiled.ts";
 import { leafOf } from "./core/tree.ts";
 import {
   type AnyDefinition,
@@ -19,17 +19,22 @@ import {
   treeOfDefinition,
   type WritableOf,
 } from "./definition.ts";
-import { bodyFindings } from "./config.ts";
-import { codecOf } from "./events.ts";
-import { flowErrorOf, invalid, raise, refuse } from "./error.ts";
-import { builder, entry, inert } from "./entry.ts";
+import { bodyFindings, inDeclarationOrder } from "./config.ts";
+
+// A body's keys in the order its findings are reported.
+const BODY_KEYS = ["default", "on", "onContext", "states"];
+
+import { type Finding, flowErrorOf, invalid, raise, refuse } from "./error.ts";
+import { builder, entry } from "./entry.ts";
+import { internalsOf, type KindOf, made, madeOf } from "./made.ts";
+import { codecOf, endingOf } from "./events.ts";
+import { defect } from "./core/defect.ts";
 import { eventsOf, fieldOf, mappingOf, memoryCodec, operationOf } from "./compiled-parts.ts";
-import type { ErasedEnding } from "./contract.ts";
 import type { ActorId } from "./core/world.ts";
 import type { Change, ContextTokens, ErasedEntry } from "./tokens.ts";
 import { slotReadsOf } from "./flow.ts";
 import { nodesOf, tokenMaps } from "./compile-body.ts";
-import { type Compile, tokenOf } from "./compile-names.ts";
+import type { Compile } from "./compile-names.ts";
 
 type Parts<D> =
   D extends Definition<infer States, infer Ev, infer In, infer M, infer _O, infer Cx, infer Id>
@@ -112,55 +117,41 @@ type BodyOf<D> = [D] extends [AnyDefinition]
     }) => MachineBody<D>
   : never;
 
-// A reaction as the body's decode checked it.
-type Decoded = {
-  readonly when: Option.Option<
-    (current: never, previous: never, extra: { readonly memory: Values }) => boolean
-  >;
-  readonly event: ErasedEnding;
+/**
+ * What a reaction keeps for the core: when a change counts, and the event it sends.
+ */
+export type ChangeInternals = {
+  // FLOW_STATE_ALLOW_UNKNOWN: the authored when, decoded by the machine that receives it.
+  readonly when: Option.Option<unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: the authored event, decoded by the machine that receives it.
+  readonly event: unknown;
 };
 
-const decodedOf = (change: Change) =>
-  // SAFETY: the body's decode checked every reaction's when is an Option of a function and its event an ending.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a decoded reaction, its slot's value type erased
-  change as Decoded;
-
 // FLOW_STATE_ALLOW_UNKNOWN: a reaction's values, typed by its slot.
-const erasedWhen = (when: Option.Option.Value<Decoded["when"]>) =>
-  // SAFETY: when is written for its slot's values; the runtime passes exactly those.
+const erasedWhen = (when: unknown) =>
+  // SAFETY: the reaction's findings checked when is a function written for its slot's values; the runtime passes exactly those.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a slot's value type is erased in Compiled
   when as (current: unknown, previous: unknown, extra: { readonly memory: Values }) => boolean;
 
-// The `C` tokens of a definition's slots, one per slot with `.change`, and the reactions they made,
-// so a body's reaction is known to be this machine's by identity.
-const changeTokens = (slots: ReadonlyArray<string>) => {
-  const made = new WeakSet<Change>();
-
-  const tokens = Object.fromEntries(
+// The `C` tokens of a definition's slots, one per slot with `.change`, each reaction owned by this
+// machine's own owner, so a body's reaction is known to be this machine's.
+const changeTokens = (slots: ReadonlyArray<string>, owner: symbol) =>
+  Object.fromEntries(
     slots.map((slot) => [
       slot,
       {
         // FLOW_STATE_ALLOW_UNKNOWN: the authored spec, read by its fields and decoded with the body.
-        change: builder("C.change", (spec: unknown) => {
-          const change: Change = {
-            "~flow": "change",
-            slot,
+        change: builder("C.change", (spec: unknown) =>
+          made("change", owner, { slot }, {
             when: Option.fromUndefinedOr(
               Predicate.hasProperty(spec, "when") ? spec.when : undefined,
             ),
             event: Predicate.hasProperty(spec, "event") ? spec.event : undefined,
-          };
-
-          made.add(change);
-
-          return change;
-        }),
+          } satisfies ChangeInternals),
+        ),
       },
     ]),
   );
-
-  return { tokens, made };
-};
 
 const trustedTokens = <T>(tokens: Values) =>
   // SAFETY: one change token per declared slot, as ContextTokens types them.
@@ -176,6 +167,40 @@ const erasedBody = <B>(body: B) =>
 const handled = (root: Level, nodes: ReadonlyArray<Node>, tag: string) =>
   root.has(tag) || nodes.some((n) => n.on.has(tag));
 
+// The kinds of a reaction this machine's C made: a when that is no function and an event that is
+// no event token, judged with the body's kinds.
+const reactionKinds = (reactions: ReadonlyArray<Change>, owner: symbol) =>
+  reactions.flatMap((change, i) =>
+    Result.match(madeOf<ChangeInternals>("change", Option.some(owner))(change, ["onContext", i]), {
+      onFailure: () => [],
+      onSuccess: ({ internals: { when, event } }) => {
+        const found: Array<Finding> = [];
+
+        if (Option.exists(when, (w) => !Predicate.isFunction(w)))
+          found.push(
+            invalid(
+              ["onContext", i, "when"],
+              "WrongKind",
+              "the reaction's when is not a function",
+              "Write a reaction as C.slot.change({ when, event }).",
+            ),
+          );
+
+        if (Option.isNone(endingOf(event)))
+          found.push(
+            invalid(
+              ["onContext", i, "event"],
+              "WrongKind",
+              "the reaction's event is not an event token",
+              "Map to this definition's event: E.X, or E.X.from(f).",
+            ),
+          );
+
+        return found;
+      },
+    }),
+  );
+
 // Each reaction's refusal: one this machine's C did not make, an event of another definition or
 // one no state handles, and a second reaction of one slot sending one event, since a reaction is
 // named by its slot and event and its saved baseline finds it by them.
@@ -185,20 +210,15 @@ const reactionFindings = (
     readonly change: Change;
     readonly at: ReadonlyArray<string | number>;
   }>,
-  made: WeakSet<Change>,
+  owner: symbol,
   handles: (tag: string) => boolean,
 ) => {
   const named = new Set<string>();
 
   return reactions.flatMap(({ change, at }) => {
-    const { event } = decodedOf(change);
-    const tag = event.ending.event;
-    const name = `${change.slot}.${tag}`;
-    const twice = named.has(name);
+    const card = madeOf<ChangeInternals>("change", Option.some(owner))(change, at);
 
-    named.add(name);
-
-    if (!made.has(change))
+    if (Result.isFailure(card))
       return [
         invalid(
           at,
@@ -208,7 +228,17 @@ const reactionFindings = (
         ),
       ];
 
-    if (!compile.sends.has(tokenOf(event)))
+    const ending = endingOf(card.success.internals.event);
+
+    if (Option.isNone(ending)) return [];
+
+    const tag = ending.value.event;
+    const name = `${change.slot}.${tag}`;
+    const twice = named.has(name);
+
+    named.add(name);
+
+    if (!compile.sends.has(ending.value.token))
       return [
         invalid(
           [...at, "event"],
@@ -269,35 +299,38 @@ export const machine = entry(
   "machine",
   // RETURN_TYPE: the exported Machine keeps the definition's literal types.
   <D extends AnyDefinition>(definition: D, body: BodyOf<NoInfer<D>>): Machine<D> => {
-    // oxlint-disable-next-line flow-state/no-mark-probe -- construction still recognises its own definitions by mark until its decode checks them by identity
-    if (!Predicate.hasProperty(definition, "~owner"))
-      refuse([
-        invalid(
-          ["definition"],
-          "WrongKind",
-          "machine was given no definition",
-          "Pass machine the value definition({ ... }) returned.",
-        ),
-      ]);
+    const read = madeOf("definition")(definition, ["definition"]);
+
+    const wrong: Array<Finding> = Result.match(read, {
+      onFailure: (finding) => [finding],
+      onSuccess: () => [],
+    });
 
     if (!Predicate.isFunction(body))
-      refuse([
+      wrong.push(
         invalid(
           ["body"],
           "WrongKind",
           "machine was given no body function",
           "Pass machine a body: ({ S, E, O }) => ({ default, on, states }).",
         ),
-      ]);
+      );
 
-    const changes = changeTokens(Object.keys(definition.context));
+    refuse(wrong);
+
+    const owner = Result.getOrElse(
+      Result.map(read, (card) => card.owner),
+      () => defect("a refused definition"),
+    );
+
+    const reactor = Symbol(`${definition.id}/C`);
 
     const handed = {
       S: definition.S,
       E: definition.E,
       O: definition.O,
       C: trustedTokens<ContextTokens<D["context"], Parts<D>["Memory"], Parts<D>["Id"]>>(
-        changes.tokens,
+        changeTokens(Object.keys(definition.context), reactor),
       ),
     };
 
@@ -324,13 +357,19 @@ export const machine = entry(
 
     const config = erasedBody(written.success);
 
-    refuse(bodyFindings(config));
+    refuse(
+      inDeclarationOrder(BODY_KEYS, [
+        ...bodyFindings(config),
+        ...reactionKinds(Array.isArray(config.onContext) ? config.onContext : [], reactor),
+      ]),
+    );
 
     const tree = treeOfDefinition(definition);
     const { tokens, histories } = tokenMaps(definition, tree.nodes);
 
     const compile: Compile = {
       definition,
+      owner,
       nodes: new Map(tree.nodes.map((n) => [n.path, n])),
       tokens,
       histories,
@@ -348,7 +387,7 @@ export const machine = entry(
     }));
 
     compile.findings.push(
-      ...reactionFindings(compile, reactions, changes.made, (tag) =>
+      ...reactionFindings(compile, reactions, reactor, (tag) =>
         handled(compiledTree.root, compiledTree.nodes, tag),
       ),
     );
@@ -390,11 +429,8 @@ export const machine = entry(
       states,
       root: compiledTree.root,
       events: eventsOf(definition),
-      fields,
       memory,
       memoryJson,
-      walk: walkerOf(memoryJson),
-      identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
       operations: new Map(
         Object.entries(definition.operations).map(([name, bound]) => [
           name,
@@ -402,25 +438,34 @@ export const machine = entry(
         ]),
       ),
       context: new Map(context),
-      reactions: reactions.map(({ change, at }) => {
-        const { when, event } = decodedOf(change);
-        const place = at.join(".");
-
-        return {
-          slot: change.slot,
-          when: Option.map(when, (w) => ({
-            slot: `${place}.when`,
-            run: erasedWhen(w),
-          })),
-          event: mappingOf(event, `${place}.event`),
-        };
-      }),
       wiring: new Map<string, ActorId>(),
+      [InternalsId]: {
+        fields,
+        walk: walkerOf(memoryJson),
+        identity: walkerOf(codecOf<Values>(nameSchemaOf(fields))),
+        reactions: reactions.map(({ change, at }) => {
+          const { when, event } = internalsOf<ChangeInternals>("change", change);
+          const place = at.join(".");
+
+          return {
+            slot: change.slot,
+            when: Option.map(when, (w) => ({
+              slot: `${place}.when`,
+              run: erasedWhen(w),
+            })),
+            event: mappingOf(event, `${place}.event`),
+          };
+        }),
+      },
     };
 
-    return {
+    const face: Omit<Machine<D>, typeof KindOf> = {
       definition,
-      compiled: inert({ ...compiled, initial: leafOf(compiled, compiledTree.initial) }),
+      compiled: { ...compiled, initial: leafOf(compiled, compiledTree.initial) },
     };
+
+    // SAFETY: the face is every field of the machine but its kind, a phantom key the brand carries.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+    return made("machine", owner, face, {}) as Machine<D>;
   },
 );

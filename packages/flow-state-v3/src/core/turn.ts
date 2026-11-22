@@ -3,6 +3,7 @@ import { admitted } from "./boundary.ts";
 import { refName } from "./identity.ts";
 import type { ActivationId, ActorId } from "./world.ts";
 import {
+  InternalsId,
   Action,
   type Alternative,
   type Compiled,
@@ -413,7 +414,7 @@ const unchanged = (patch: Values, memory: Values) =>
 
 // Whether the machine may write a field: declared, and not an input field.
 const writableField = (compiled: Compiled, name: string) => {
-  for (const field of compiled.fields)
+  for (const field of compiled[InternalsId].fields)
     if (field.name === name) return field.source._tag !== "Input";
 
   return false;

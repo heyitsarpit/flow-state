@@ -1,10 +1,11 @@
-import { Option, Predicate, Schema } from "effect";
+import { Option, Predicate, Result, Schema } from "effect";
 import { admitted, walkerOf } from "./core/boundary.ts";
 import type { Values } from "./core/compiled.ts";
 import { isUncertain } from "./config.ts";
 import type { AnyDefinition, EventFields, Tokens } from "./definition.ts";
 import { flowError, raise } from "./error.ts";
 import { builder, entry } from "./entry.ts";
+import { type Container, made, madeCallable, madeOf } from "./made.ts";
 
 /**
  * An event's field Schemas, through its `Flow.uncertain` marker.
@@ -50,17 +51,31 @@ export const payloadOf = (fields: Schema.Struct.Fields) => {
   };
 };
 
-// How each event token Flow made admits its payload, by the token itself: a copy of a token is
-// not one.
-const admissions = new WeakMap<WeakKey, ReturnType<typeof payloadOf>>();
+/**
+ * What an event token keeps for the core: how it admits its payload, and its definition's id.
+ */
+export type EventInternals = {
+  readonly admission: ReturnType<typeof payloadOf>;
+  readonly definition: string;
+};
 
-// The definition each event token was made by, by the token itself.
-const definitions = new WeakMap<WeakKey, string>();
+/**
+ * What a mapping (`E.X.from(f)`) keeps for the core: its mapper and the token it maps onto.
+ */
+export type MappingInternals = {
+  // FLOW_STATE_ALLOW_UNKNOWN: a mapper's context is Flow's own and read by no mapper yet.
+  readonly map: (value: never, context: unknown) => Values;
+  readonly token: Container;
+};
 
-const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
-  const ending = { event: tag, from: Option.none() };
+const eventToken = (
+  definition: string,
+  owner: symbol,
+  tag: string,
+  fields: Schema.Struct.Fields,
+) => {
   const admission = payloadOf(fields);
-  const { payload, walk, names } = admission;
+  const { walk, names } = admission;
 
   const checks = Object.entries(fields).map(
     ([name, schema]) => [name, walkerOf(schema).is] as const,
@@ -88,20 +103,22 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
     });
   });
 
-  const token = Object.assign(make, {
-    "~flow": "event",
-    tag,
-    ending,
-    "~payload": payload,
-    "~walk": walk,
-    "~names": names,
-    from: builder(`E.${tag}.from`, (map: (value: never) => Values) => ({
-      ending: { event: tag, from: Option.some(map) },
-      "~token": token,
-    })),
-  });
-
-  admissions.set(token, admission);
+  const token: Container = madeCallable(
+    "event",
+    owner,
+    make,
+    {
+      tag,
+      ending: { event: tag },
+      from: builder(`E.${tag}.from`, (map: MappingInternals["map"]) =>
+        made("mapping", owner, { ending: { event: tag } }, {
+          map,
+          token,
+        } satisfies MappingInternals),
+      ),
+    },
+    { admission, definition } satisfies EventInternals,
+  );
 
   return token;
 };
@@ -111,16 +128,15 @@ const eventToken = (tag: string, fields: Schema.Struct.Fields) => {
  */
 export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>, Id extends string>(
   definition: Id,
+  owner: symbol,
   events: Ev,
 ) =>
   trusted<Tokens<Ev, Id>>(
     Object.fromEntries(
-      Object.entries(events).map(([tag, fields]) => {
-        const token = eventToken(tag, fieldsOf(fields));
-        definitions.set(token, definition);
-
-        return [tag, token];
-      }),
+      Object.entries(events).map(([tag, fields]) => [
+        tag,
+        eventToken(definition, owner, tag, fieldsOf(fields)),
+      ]),
     ),
   );
 
@@ -129,16 +145,50 @@ export const tokensOf = <Ev extends Readonly<Record<string, EventFields>>, Id ex
  */
 // FLOW_STATE_ALLOW_UNKNOWN: any value a caller passes as a token.
 export const definitionOfToken = (token: unknown) =>
-  Predicate.isFunction(token) ? Option.fromUndefinedOr(definitions.get(token)) : Option.none();
+  Option.map(
+    Result.getSuccess(madeOf<EventInternals>("event")(token, [])),
+    (card) => card.internals.definition,
+  );
 
 /**
  * How a definition admits one event's payload: the Struct and its type-side walker its token was
  * built with, so `E.X`, `send` and Compiled check a payload one way.
  */
-export const admissionOf = (definition: AnyDefinition, tag: string, fields: EventFields) => {
-  const token = definition.E[tag];
-
-  return (
-    (Predicate.isFunction(token) ? admissions.get(token) : undefined) ?? payloadOf(fieldsOf(fields))
+export const admissionOf = (definition: AnyDefinition, tag: string, fields: EventFields) =>
+  Option.getOrElse(
+    Option.map(
+      Result.getSuccess(madeOf<EventInternals>("event")(definition.E[tag], [])),
+      (card) => card.internals.admission,
+    ),
+    () => payloadOf(fieldsOf(fields)),
   );
-};
+
+/**
+ * Where an ending goes, as the core reads it: its event, its mapper when it is a mapping
+ * (`E.X.from(f)`), its owner and the token it maps onto; none for a value that is neither.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: an authored ending, read as made.
+export const endingOf = (value: unknown) =>
+  Option.orElse(
+    Option.map(Result.getSuccess(madeOf<EventInternals>("event")(value, [])), (card) => ({
+      event: tagOf(value),
+      from: Option.none<MappingInternals["map"]>(),
+      owner: card.owner,
+      token: value,
+    })),
+    () =>
+      Option.map(Result.getSuccess(madeOf<MappingInternals>("mapping")(value, [])), (card) => ({
+        event: tagOf(card.internals.token),
+        from: Option.some(card.internals.map),
+        owner: card.owner,
+        token: card.internals.token,
+      })),
+  );
+
+// FLOW_STATE_ALLOW_UNKNOWN: a made token or mapping, whose face names its event.
+const tagOf = (value: unknown) =>
+  Predicate.hasProperty(value, "ending") &&
+  Predicate.hasProperty(value.ending, "event") &&
+  Predicate.isString(value.ending.event)
+    ? value.ending.event
+    : "";

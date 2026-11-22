@@ -591,11 +591,14 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
   });
 
   it("an operation keyed by a field outside its input is refused at construction, before any Runtime", () => {
-    const bound = save.outcomes<"Compile/KeyOutside">(
+    const outside = transaction(
       loose({
-        success: { ending: { event: "Saved", from: Option.none() } },
-        failure: {},
-        unknown: { ending: { event: "Unsure", from: Option.none() } },
+        id: "Compile/KeyOutside/save",
+        input: { id: Schema.String },
+        key: ["missing"],
+        concurrency: "reject",
+        services: [],
+        commit: () => Effect.void,
       }),
     );
 
@@ -606,20 +609,22 @@ describe("operations map onto this definition's events (Compile R3, R17, I16)", 
           states: ["A"],
           events: {},
           internalEvents: { Saved: {}, Unsure: Flow.uncertain({}) },
-          operations: () => ({ save: { ...bound, key: ["missing"] } }),
+          operations: ({ E }) => ({
+            save: outside.outcomes(loose({ success: E.Saved, failure: {}, unknown: E.Unsure })),
+          }),
         }),
       ),
     ).toEqual([["InvalidConfiguration", "KeyOutsideInput", "operations.save.key.missing"]]);
   });
 
-  it("Compile R2, R4: a Flow.uncertain-shaped event with no fields is refused WrongKind, never a raw TypeError", () => {
+  it("Compile R2, R4: a hand-written Flow.uncertain lookalike is a payload whose field is no Schema, refused WrongKind there, never a raw TypeError", () => {
     expect(
       refusal(() =>
         definition(
           loose({ id: "Compile/NoFields", states: ["A"], events: { X: { "~flow": "uncertain" } } }),
         ),
       ),
-    ).toEqual([["InvalidConfiguration", "WrongKind", "events.X"]]);
+    ).toEqual([["InvalidConfiguration", "WrongKind", "events.X.~flow"]]);
   });
 
   it("Compile R4: a context slot that is not Flow.context's is refused WrongKind", () => {
@@ -845,7 +850,7 @@ describe("construction refuses every malformed form with one FlowError (Compile 
         ),
       ),
     ).toEqual([
-      ["InvalidConfiguration", "UnknownEvent", ["operations", "save", "failure", "Card.Declined"]],
+      ["InvalidConfiguration", "WrongKind", ["operations", "save", "failure", "Card.Declined"]],
     ]);
   });
 });
@@ -973,15 +978,12 @@ describe("partly built operations, endings and delays (Compile R2, R4; Turn R14)
       );
   });
 
-  it("Compile R12: a state named ~path or ~flow is refused ReservedStateName", () => {
+  it("Compile R12: a state named ~path or ~flow is an ordinary name: Flow's tokens carry no mark it could clash with", () => {
     expect(
       refusal(() =>
         definition(loose({ id: "Compile/Tilde", states: [{ A: ["~path", "~flow"] }], events: {} })),
       ),
-    ).toEqual([
-      ["ReservedStateName", null, "states.A.~path"],
-      ["ReservedStateName", null, "states.A.~flow"],
-    ]);
+    ).toEqual([]);
   });
 
   it("Compile R2, R4: machine given no body function, undefined or 5, is refused WrongKind at body", () => {

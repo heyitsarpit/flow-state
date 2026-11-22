@@ -17,6 +17,7 @@ import {
   WorldWord,
 } from "./steps.ts";
 import { SubjectId } from "./story.ts";
+import { entry } from "../../entry.ts";
 
 /**
  * The profiles a generated run draws with: `usual`, people on a healthy network; `stress`,
@@ -930,20 +931,23 @@ export const generateSource = (samples: Samples, drawing: Drawing, seed: number)
  * Runs one drawing of a fixture's samples, or of several fixtures' in one Runtime, from a seed and
  * returns the run it gives.
  */
-// RETURN_TYPE: the exported Generated contract, by the samples' app.
-export const generate = <Ds extends AnyDefinition>(
-  fixtures: Samples<Ds> | ReadonlyArray<Samples<Ds>>,
-  options: { readonly drawing: Drawing; readonly seed: number },
-): Generated<Ds> => {
-  const all = partsOf(fixtures);
+export const generate = entry(
+  "generate",
+  // RETURN_TYPE: the exported Generated contract, by the samples' app.
+  <Ds extends AnyDefinition>(
+    fixtures: Samples<Ds> | ReadonlyArray<Samples<Ds>>,
+    options: { readonly drawing: Drawing; readonly seed: number },
+  ): Generated<Ds> => {
+    const all = partsOf(fixtures);
 
-  // SAFETY: every step and record of a run drawn from samples of Ds names one of Ds's machines.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the drawing runs erased; its steps are the samples' own
-  return drawnRun(
-    { all, kept: all, drawing: options.drawing, seed: options.seed },
-    drawsFrom(options.drawing, options.seed),
-  ) as Generated<Ds>;
-};
+    // SAFETY: every step and record of a run drawn from samples of Ds names one of Ds's machines.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the drawing runs erased; its steps are the samples' own
+    return drawnRun(
+      { all, kept: all, drawing: options.drawing, seed: options.seed },
+      drawsFrom(options.drawing, options.seed),
+    ) as Generated<Ds>;
+  },
+);
 
 const LIMIT_RULE = "turn limit";
 
@@ -1193,101 +1197,104 @@ const inconclusive = (
  * - A property may not be named `turn limit` or `inconclusive`, Flow's own two rules: a type error,
  *   and untyped a script fault.
  */
-// RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
-export const propertyTest = <const R extends string, Ds extends AnyDefinition>(
-  fixtures: Samples<Ds> | ReadonlyArray<Samples<Ds>>,
-  options: {
-    readonly profile: Profile;
-    readonly properties: ReadonlyArray<Property<R, Ds>>;
-    readonly seeds: ReadonlyArray<number>;
-  } & NoOwnRule<R>,
-): ReadonlyArray<Failure<R>> => {
-  const all = partsOf(fixtures);
-  // SAFETY: each property reads runs drawn from samples of Ds, which is every run judged here.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the search runs erased; its runs are the samples' own
-  const check = { profile: options.profile, properties: options.properties } as Check<R>;
-  const own = check.properties.find((p) => p.rule === LIMIT_RULE || p.rule === HORIZON_RULE);
-
-  if (own !== undefined) scriptFault(`a property is named ${own.rule}, one of Flow's own rules`);
-
-  // RETURN_TYPE: one Failure list for every branch, which inference would split.
-  const shrinkFrom = (
-    seed: number,
-    first: Drawn,
-    draws: ReadonlyArray<Draw>,
-    target: R | OwnRule,
+export const propertyTest = entry(
+  "propertyTest",
+  // RETURN_TYPE: the exported Failure contract, which the shrunk run's branches would split.
+  <const R extends string, Ds extends AnyDefinition>(
+    fixtures: Samples<Ds> | ReadonlyArray<Samples<Ds>>,
+    options: {
+      readonly profile: Profile;
+      readonly properties: ReadonlyArray<Property<R, Ds>>;
+      readonly seeds: ReadonlyArray<number>;
+    } & NoOwnRule<R>,
   ): ReadonlyArray<Failure<R>> => {
-    // An inconclusive run judged nothing about any one fixture, so none is dropped. Otherwise
-    // fixtures are dropped over the first draws, the draws shrink, and fixtures are dropped again
-    // over the shrunk draws, where another fixture's work no longer stands in the way.
-    // RETURN_TYPE: the Drawn record both branches return.
-    const drop = (at: Drawn, over: ReadonlyArray<Draw>): Drawn =>
-      target === HORIZON_RULE ? at : { ...at, kept: dropped(at, check, target, over) };
+    const all = partsOf(fixtures);
+    // SAFETY: each property reads runs drawn from samples of Ds, which is every run judged here.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the search runs erased; its runs are the samples' own
+    const check = { profile: options.profile, properties: options.properties } as Check<R>;
+    const own = check.properties.find((p) => p.rule === LIMIT_RULE || p.rule === HORIZON_RULE);
 
-    const once = drop(first, draws);
-    const shrunk = search(once, check, Option.some(target), MAX_SHRINKS);
+    if (own !== undefined) scriptFault(`a property is named ${own.rule}, one of Flow's own rules`);
 
-    if (shrunk.result._tag !== "Falsified")
+    // RETURN_TYPE: one Failure list for every branch, which inference would split.
+    const shrinkFrom = (
+      seed: number,
+      first: Drawn,
+      draws: ReadonlyArray<Draw>,
+      target: R | OwnRule,
+    ): ReadonlyArray<Failure<R>> => {
+      // An inconclusive run judged nothing about any one fixture, so none is dropped. Otherwise
+      // fixtures are dropped over the first draws, the draws shrink, and fixtures are dropped again
+      // over the shrunk draws, where another fixture's work no longer stands in the way.
+      // RETURN_TYPE: the Drawn record both branches return.
+      const drop = (at: Drawn, over: ReadonlyArray<Draw>): Drawn =>
+        target === HORIZON_RULE ? at : { ...at, kept: dropped(at, check, target, over) };
+
+      const once = drop(first, draws);
+      const shrunk = search(once, check, Option.some(target), MAX_SHRINKS);
+
+      if (shrunk.result._tag !== "Falsified")
+        return [
+          inconclusive(
+            seed,
+            once.kept,
+            Arbitrary.formatCheckFailure(shrunk.result) ?? shrunk.result._tag,
+          ),
+        ];
+
+      const at = drop(once, shrunk.result.shrunkInput);
+      const parts = at.kept;
+      const id = idOf(at);
+      const last = judged(at, shrunk.result.shrunkInput, check.properties);
+      const steps = Option.match(last.generated, { onNone: () => [], onSome: (g) => g.steps });
+      const [only] = parts;
+
       return [
-        inconclusive(
+        {
           seed,
-          once.kept,
-          Arbitrary.formatCheckFailure(shrunk.result) ?? shrunk.result._tag,
-        ),
+          rule: target,
+          breaches: last.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
+          drawn: draws.length,
+          shrinks: shrunk.result.shrinks,
+          fixtures: parts.map((p) => p.id),
+          steps,
+          story:
+            parts.length === 1 && only !== undefined
+              ? print(only, id, steps)
+              : printMix(parts, mixOf(parts), id, steps),
+        },
+      ];
+    };
+
+    // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
+    const checked = (seed: number): ReadonlyArray<Failure<R>> => {
+      const first: Drawn = { all, kept: all, drawing: options.profile, seed };
+      const found = search(first, check, Option.none(), 0);
+
+      const judgedNothing = (result: Exclude<typeof found.result, { readonly _tag: "Passed" }>) => [
+        inconclusive(seed, all, Arbitrary.formatCheckFailure(result) ?? result._tag),
       ];
 
-    const at = drop(once, shrunk.result.shrunkInput);
-    const parts = at.kept;
-    const id = idOf(at);
-    const last = judged(at, shrunk.result.shrunkInput, check.properties);
-    const steps = Option.match(last.generated, { onNone: () => [], onSome: (g) => g.steps });
-    const [only] = parts;
+      return Match.valueTags(found.result, {
+        Passed: () => [],
+        Falsified: (falsified) =>
+          shrinkFrom(
+            seed,
+            first,
+            falsified.initialInput,
+            Option.getOrElse(found.rule, () => LIMIT_RULE),
+          ),
+        Exhausted: judgedNothing,
+        ReplayMismatch: judgedNothing,
+      });
+    };
 
-    return [
-      {
-        seed,
-        rule: target,
-        breaches: last.verdicts.filter((v) => v.rule === target).flatMap((v) => v.breaches),
-        drawn: draws.length,
-        shrinks: shrunk.result.shrinks,
-        fixtures: parts.map((p) => p.id),
-        steps,
-        story:
-          parts.length === 1 && only !== undefined
-            ? print(only, id, steps)
-            : printMix(parts, mixOf(parts), id, steps),
-      },
-    ];
-  };
+    for (const seed of options.seeds) {
+      const failed = checked(seed);
 
-  // RETURN_TYPE: one Failure list for the passed and the shrunk branch, which inference would split.
-  const checked = (seed: number): ReadonlyArray<Failure<R>> => {
-    const first: Drawn = { all, kept: all, drawing: options.profile, seed };
-    const found = search(first, check, Option.none(), 0);
+      if (failed.length > 0) return failed;
+    }
 
-    const judgedNothing = (result: Exclude<typeof found.result, { readonly _tag: "Passed" }>) => [
-      inconclusive(seed, all, Arbitrary.formatCheckFailure(result) ?? result._tag),
-    ];
-
-    return Match.valueTags(found.result, {
-      Passed: () => [],
-      Falsified: (falsified) =>
-        shrinkFrom(
-          seed,
-          first,
-          falsified.initialInput,
-          Option.getOrElse(found.rule, () => LIMIT_RULE),
-        ),
-      Exhausted: judgedNothing,
-      ReplayMismatch: judgedNothing,
-    });
-  };
-
-  for (const seed of options.seeds) {
-    const failed = checked(seed);
-
-    if (failed.length > 0) return failed;
-  }
-
-  return [];
-};
+    return [];
+  },
+);

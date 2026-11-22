@@ -289,7 +289,6 @@ export default defineConfig({
             "error",
             { only: ["src"], except: ["src/host"], exceptTests: true },
           ],
-          "flow-state/no-mark-probe": ["error", { only: ["src"], exceptTests: true }],
           // Decides by path itself: fixtures/<app>/stories and fixtures/<app>/machines only.
           "flow-state/no-raw-event": "error",
           // Decides by path itself: tests and fixtures only.

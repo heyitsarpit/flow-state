@@ -1,10 +1,11 @@
 import type { Duration, Option, Schedule, Schema } from "effect";
-import type { Action, Denial, Guard, Values } from "./core/compiled.ts";
+import type { Denial, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending } from "./contract.ts";
 import type { ChildrenOf, ContextOf, ContextSlot, NamesOf, PayloadOf } from "./definition.ts";
 import type { Entry } from "./flow.ts";
 import type { GuardArg, SelectArg } from "./handles.ts";
+import type { Branded } from "./made.ts";
 import type { SendToken } from "./send.ts";
 
 /**
@@ -28,9 +29,9 @@ export type StateToken<
   L extends string = string,
   C extends string = string,
   P = unknown,
-> = {
-  readonly "~flow": "state";
-  readonly "~path": Path;
+> = Branded<"state"> & {
+  // A phantom type: the state's path, so a token fits only where its path does.
+  readonly "~state"?: Path;
   // A phantom type: the definition that made the token, so it fits only that definition's body.
   readonly "~definition"?: Id;
   // A phantom type: the provider's state tree and memory, which a slot's wiring ref must have.
@@ -44,9 +45,12 @@ export type StateToken<
 /**
  * A compound's history as a target (`S.X.history`): its last active child, else its default.
  */
-export type HistoryToken<Path extends string = string, Id extends string = string> = {
-  readonly "~flow": "history";
-  readonly "~path": Path;
+export type HistoryToken<
+  Path extends string = string,
+  Id extends string = string,
+> = Branded<"history"> & {
+  // A phantom type: the compound's path.
+  readonly "~state"?: Path;
   // A phantom type: the definition that made the token.
   readonly "~definition"?: Id;
 };
@@ -75,11 +79,8 @@ type StateTokensLiteral<L, P extends string, Id extends string, Leaves extends s
 /**
  * A lane member or lookup in an alternative's `actions`.
  */
-export type ActionToken<P = unknown, Id extends string = string> = {
-  readonly "~flow": "action";
-  readonly "~owner": symbol;
+export type ActionToken<P = unknown, Id extends string = string> = Branded<"action"> & {
   readonly operation: string;
-  readonly make: (at: string) => Action;
   // A phantom type: the event its select reads, so it fits only a handler of that event.
   readonly "~event"?: (event: P) => void;
   // A phantom type: the definition whose operation it is.
@@ -89,11 +90,8 @@ export type ActionToken<P = unknown, Id extends string = string> = {
 /**
  * An operation's guard (`O.x.idle`, `O.x.retryable`) in an alternative's `guard`.
  */
-export type GuardToken<P = unknown, Id extends string = string> = {
-  readonly "~flow": "guard";
-  readonly "~owner": symbol;
+export type GuardToken<P = unknown, Id extends string = string> = Branded<"guard"> & {
   readonly operation: string;
-  readonly make: (at: string) => Guard;
   // A phantom type: the event its key reads, so it fits only a handler of that event.
   readonly "~event"?: (event: P) => void;
   // A phantom type: the definition whose operation it is.
@@ -378,9 +376,11 @@ export type RootToken<L extends string = string, C extends string = string> = {
  * A public memory field of a definition, read as context (`X.M.field`): its value's type `V`, its
  * definition's id `Id` and what a ref to its provider must have, `P`.
  */
-export type MemoryToken<V = unknown, Id extends string = string, P = unknown> = {
-  readonly "~flow": "memory";
-  readonly "~field": string;
+export type MemoryToken<
+  V = unknown,
+  Id extends string = string,
+  P = unknown,
+> = Branded<"memory"> & {
   // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a field's Schema is the field's own.
   readonly schema: Schema.Codec<V, unknown>;
   // A phantom type: the definition that made the token.
@@ -392,8 +392,11 @@ export type MemoryToken<V = unknown, Id extends string = string, P = unknown> = 
 /**
  * A definition's current state name, read as context (`X.state`): one of its leaf paths `L`.
  */
-export type StateNameToken<L extends string = string, Id extends string = string, P = unknown> = {
-  readonly "~flow": "stateName";
+export type StateNameToken<
+  L extends string = string,
+  Id extends string = string,
+  P = unknown,
+> = Branded<"stateName"> & {
   readonly schema: Schema.Codec<L, string>;
   // A phantom type: the definition that made the token.
   readonly "~definition"?: Id;
@@ -405,7 +408,7 @@ export type StateNameToken<L extends string = string, Id extends string = string
  * What a derived slot may read: a memory field, a state (true while the provider is in it or
  * below it) or the state's name.
  */
-export type ReadToken = { readonly "~flow": "memory" | "stateName" | "state" };
+export type ReadToken = Branded<"memory" | "stateName" | "state">;
 
 /**
  * The value a read gives a derived slot's select.
@@ -415,7 +418,7 @@ export type ValueOfRead<T> =
     ? V
     : T extends StateNameToken<infer L>
       ? L
-      : T extends { readonly "~flow": "state" }
+      : T extends Branded<"state">
         ? boolean
         : never;
 
@@ -457,14 +460,7 @@ export type ContextOfTokens = {
 /**
  * A reaction to a slot's change, as `C.slot.change` makes it.
  */
-export type Change = {
-  readonly "~flow": "change";
-  readonly slot: string;
-  // FLOW_STATE_ALLOW_UNKNOWN: the authored when, decoded by the machine that receives it.
-  readonly when: Option.Option<unknown>;
-  // FLOW_STATE_ALLOW_UNKNOWN: the authored event, decoded by the machine that receives it.
-  readonly event: unknown;
-};
+export type Change = Branded<"change"> & { readonly slot: string };
 
 /**
  * What `C.slot.change` takes: when a change of the slot's value `V` counts, and the event it

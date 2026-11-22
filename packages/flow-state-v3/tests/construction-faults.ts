@@ -6,12 +6,93 @@ const STANDING_ORDER = "tests/transfers/standing-order.test.ts";
 
 const TRUSTED_DEVICE = "tests/sign-in/trusted-device.test.ts";
 
+const DOORS = "tests/surface/doors.test.ts";
+
 /**
  * Wrong compilers of a definition's and machine's configuration: a raw TypeError before the
  * decode, a decode that trusts what it should refuse, a foreign token taken by name, a callback's
  * throw that escapes raw, and a payload kept whole.
  */
 export const constructionFaults: ReadonlyArray<Fault> = [
+  {
+    name: "copy-taken-as-made",
+    tests: [DOORS],
+    says: "a value without the brand is read as made, as a mark that a copy carries was",
+    rule: "Operations R10",
+    edits: [
+      {
+        file: "src/made.ts",
+        find: "      isContainer(value) && MadeTypeId in value ? cardOf(value) : undefined,",
+        replace:
+          '      isContainer(value) && MadeTypeId in value\n        ? cardOf(value)\n        : { kind, owner: Option.getOrElse(owner, () => Symbol("copy")), internals: {} },',
+      },
+    ],
+  },
+  {
+    name: "owner-compare-skipped",
+    tests: [DOORS, CONSTRUCTION, "tests/actors/context-slots.test.ts"],
+    says: "a door that names an owner takes another owner's made value",
+    rule: "Operations R10",
+    edits: [
+      {
+        file: "src/made.ts",
+        find: "    if (Option.exists(owner, (own) => card.owner !== own))",
+        replace: "    if (Option.exists(owner, () => false))",
+      },
+    ],
+  },
+  {
+    name: "throw-at-call-name",
+    tests: [DOORS],
+    says: "an argument whose read throws escapes the door's reader, so its Defect names the call, not the argument",
+    rule: "Operations R10",
+    edits: [
+      {
+        file: "src/made.ts",
+        find: "    if (Result.isFailure(read)) return Result.fail(defectAt(path));",
+        replace: "    if (Result.isFailure(read)) throw read.failure;",
+      },
+    ],
+  },
+  {
+    name: "raw-in-face",
+    tests: [DOORS],
+    says: "a machine's Compiled carries the memory walker on its face, a function no door registered",
+    rule: "Operations I19",
+    edits: [
+      {
+        file: "src/machine.ts",
+        find: "      [InternalsId]: {",
+        replace: "      walk: walkerOf(memoryJson),\n      [InternalsId]: {",
+      },
+    ],
+  },
+  {
+    name: "second-copy-refused",
+    tests: [DOORS],
+    says: "the brand is an unregistered symbol, so a second loaded copy of Flow reads the first copy's values as copies",
+    rule: "Operations R10, Q6",
+    edits: [
+      {
+        file: "src/made.ts",
+        find: 'export const MadeTypeId: unique symbol = Symbol.for("flow-state/Made");',
+        replace: 'export const MadeTypeId: unique symbol = Symbol("flow-state/Made");',
+      },
+    ],
+  },
+  {
+    name: "testing-route-unwrapped",
+    tests: [DOORS, "tests/surface/surface.test.ts"],
+    says: "the testing route's defineConfig is no door: given null it throws a raw TypeError",
+    rule: "Operations R10, I19",
+    edits: [
+      {
+        file: "src/host/testing/config.ts",
+        find: 'export const defineConfig = entry(\n  "defineConfig",',
+        replace: 'export const defineConfig = ((_: string, run: never) => run)(\n  "defineConfig",',
+      },
+    ],
+  },
   {
     name: "definition-null-raw",
     tests: [CONSTRUCTION, STANDING_ORDER],
@@ -74,8 +155,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: '  if (!Predicate.hasProperty(definition, "~owner"))',
-        replace: "  if (definition === undefined)",
+        find: '    const read = madeOf("definition")(definition, ["definition"]);',
+        replace: '    const read = Result.succeed({ owner: Symbol("unchecked") });',
       },
     ],
   },
@@ -126,7 +207,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-body.ts",
-        find: '    if (element["~owner"] !== compile.definition["~owner"])',
+        find: '    if (ownerOf("guard", element) !== compile.owner)',
         replace: "    if (!Object.hasOwn(compile.definition.operations, element.operation))",
       },
     ],
@@ -139,7 +220,7 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/compile-body.ts",
-        find: '    if (a["~owner"] !== compile.definition["~owner"]) {',
+        find: '    if (ownerOf("action", a) !== compile.owner) {',
         replace: "    if (!Object.hasOwn(compile.definition.operations, a.operation)) {",
       },
     ],
@@ -152,8 +233,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "    if (!compile.sends.has(tokenOf(event)))",
-        replace: "    if (tokenOf(event) === undefined)",
+        find: "    if (!compile.sends.has(ending.value.token))",
+        replace: "    if (ending.value.token === undefined)",
       },
     ],
   },
@@ -165,21 +246,9 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/operation-checks.ts",
-        find: '        ["operations", name, ...place],',
-        replace: '        ["operations", name, ...place.join(".").split(".")],',
-      },
-    ],
-  },
-  {
-    name: "mark-issue-per-key",
-    tests: [TRUSTED_DEVICE],
-    says: "a value without a slot's mark gives one finding per key",
-    rule: "Compile R2, R4",
-    edits: [
-      {
-        file: "src/config.ts",
-        find: "isWhole(all.ast) || all.issues.some(isMarkIssue)",
-        replace: "isWhole(all.ast) || (all.issues.some(isMarkIssue) && false)",
+        find: '        invalid(\n          ["operations", name, ...place],\n          "WrongKind",',
+        replace:
+          '        invalid(\n          ["operations", name, ...place.join(".").split(".")],\n          "WrongKind",',
       },
     ],
   },
@@ -210,16 +279,15 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "ending-mapper-optional",
+    name: "ending-kind-unchecked",
     tests: [CONSTRUCTION, STANDING_ORDER, "tests/compile/corruption.test.ts"],
-    says: "an ending with no from passes the decode",
+    says: "a hand-written ending passes the decode as a mapping",
     rule: "Compile R2, R4",
     edits: [
       {
         file: "src/config.ts",
-        find: "const EndingTarget = Schema.Struct({ event: Schema.String, from: Schema.Option(Fn) });",
-        replace:
-          "const EndingTarget = Schema.Struct({ event: Schema.String, from: Schema.optionalKey(Schema.Option(Fn)) });",
+        find: '  madeKind("mapping", "Map with E.X.from(f) of the machine body\'s tokens."),',
+        replace: "  Schema.Unknown,",
       },
     ],
   },
@@ -276,19 +344,6 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "tilde-state-names-free",
-    tests: [CONSTRUCTION],
-    says: "a state named ~path or ~flow is accepted",
-    rule: "Compile R12",
-    edits: [
-      {
-        file: "src/construction.ts",
-        find: '"__proto__", "~path", "~flow"]);',
-        replace: '"__proto__"]);',
-      },
-    ],
-  },
-  {
     name: "body-not-function-defect",
     tests: [CONSTRUCTION],
     says: "machine given no body function reports a Defect",
@@ -296,22 +351,8 @@ export const constructionFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/machine.ts",
-        find: "  if (!Predicate.isFunction(body))",
-        replace: "  if (body === null)",
-      },
-    ],
-  },
-  {
-    name: "token-checked-by-mark",
-    tests: ["tests/compile/corruption.test.ts"],
-    says: "a marked token is trusted by its mark, its other fields unchecked",
-    rule: "Compile R2, R4",
-    edits: [
-      {
-        file: "src/config.ts",
-        find: "        ? fits(Object.fromEntries(Object.entries(x)))\n        : Predicate.isObject(x) && fits(x),",
-        replace:
-          '        ? Predicate.hasProperty(x, "~flow")\n        : Predicate.isObject(x) && Predicate.hasProperty(x, "~flow"),',
+        find: "    if (!Predicate.isFunction(body))",
+        replace: "    if (body === null)",
       },
     ],
   },

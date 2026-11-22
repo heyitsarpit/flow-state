@@ -28,10 +28,11 @@ import {
   refuse,
 } from "../error.ts";
 import { entry, entryEffect } from "../entry.ts";
+import { made, madeOf } from "../made.ts";
 import { appFindings, malformedOf } from "../core/well-formed.ts";
 import { setupFindings } from "../config.ts";
 import { makeDriver, type Driver } from "./driver.ts";
-import { actorIdOf, type ActorRef } from "./refs.ts";
+import { actorIdOf, type ActorRef, refOf } from "./refs.ts";
 import { defect } from "../core/defect.ts";
 import { browserPlatform } from "./platform/browser.ts";
 import { Ending, makeOwner, makeRuntimeReport, type Traced } from "./owners/owners.ts";
@@ -92,6 +93,18 @@ export const app = entry(
     config: App<M> & { readonly machines: CheckedEntries<NoInfer<M>> },
   ): App<M> => {
     refuse(
+      Object.entries(config.machines).flatMap(([key, entry]) =>
+        Result.match(
+          madeOf("machine")(
+            machineOf(entry),
+            entry === machineOf(entry) ? ["machines", key] : ["machines", key, "machine"],
+          ),
+          { onFailure: (finding) => [finding], onSuccess: () => [] },
+        ),
+      ),
+    );
+
+    refuse(
       appFindings({
         ...config,
         machines: Object.fromEntries(
@@ -100,9 +113,12 @@ export const app = entry(
       }),
     );
 
-    return config;
+    return made("app", APPS, { ...config, machines: { ...config.machines } }, {});
   },
 );
+
+// The owner of every app: an app is compared by identity, never by owner.
+const APPS = Symbol("flow-state/app");
 
 /**
  * A handle to an actor: it follows the identity, not the incarnation.
@@ -523,8 +539,7 @@ export const buildRuntime = <R = never, A extends App = App>(
         const compiled = machine.compiled;
 
         // The input is checked by its Schemas before any work, as a value ref's is.
-        if (inputFieldsOf(compiled).length > 0)
-          actorIdOf({ machine, value: options.input, context: {} });
+        if (inputFieldsOf(compiled).length > 0) actorIdOf(refOf(machine, options.input, {}));
 
         const actor = { machine: compiled.id, name: `${LOCAL_PREFIX}${locals + 1}` };
         driver.offer(Input.Create({ actor, input: options.input }), `createActor ${compiled.id}`);

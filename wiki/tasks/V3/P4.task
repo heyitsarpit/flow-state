@@ -2682,7 +2682,7 @@ tasks
 
             **Supersedes:** code:packages/flow-state-v3/src/machine.ts#Parts,
             code:packages/flow-state-v3/src/machine.ts#BodyOf, code:packages/flow-state-v3/src/machine.ts#MachineBody,
-            code:packages/flow-state-v3/src/machine.ts#machine, code:packages/flow-state-v3/src/machine.ts#decodedOf,
+            code:packages/flow-state-v3/src/machine.ts#machine,
             code:packages/flow-state-v3/src/machine.ts#erasedBody,
             code:packages/flow-state-v3/src/machine.ts#erasedWhen,
             code:packages/flow-state-v3/src/machine.ts#trustedTokens,
@@ -2696,7 +2696,6 @@ tasks
             deletes them); code:packages/flow-state-v3/src/events.ts#codecOf,
             code:packages/flow-state-v3/src/events.ts#trusted;
             code:packages/flow-state-v3/src/contract.ts#trustedAttempt;
-            code:packages/flow-state-v3/src/compiled-parts.ts#endingValue;
             code:packages/flow-state-v3/src/compile-body.ts#childrenOf,
             code:packages/flow-state-v3/src/compile-body.ts#childNodes,
             code:packages/flow-state-v3/src/compile-body.ts#nodesOf,

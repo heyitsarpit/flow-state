@@ -1,5 +1,5 @@
 import { Equal, Option, Result } from "effect";
-import { callSlot, type Compiled, type ContextRead, type Values } from "./compiled.ts";
+import { InternalsId, callSlot, type Compiled, type ContextRead, type Values } from "./compiled.ts";
 import { sameValue } from "./same.ts";
 import { type Selected, sameSlot, selectedOf } from "./slots.ts";
 import { atOrBelow } from "./tree.ts";
@@ -158,7 +158,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   // Each reaction's baseline as it starts: its slot's value, silently; none for a slot whose select
   // failed, whose first value is then a change.
   const baselinesOf = (compiled: Compiled, incarnation: Incarnation) =>
-    compiled.reactions.map((reaction) =>
+    compiled[InternalsId].reactions.map((reaction) =>
       Option.fromUndefinedOr(incarnation.context.get(reaction.slot)),
     );
 
@@ -170,7 +170,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     return (
       compiled !== undefined &&
-      compiled.reactions.some((reaction, at) =>
+      compiled[InternalsId].reactions.some((reaction, at) =>
         differs(
           incarnation.baselines[at] ?? Option.none(),
           Option.fromUndefinedOr(incarnation.context.get(reaction.slot)),
@@ -263,10 +263,14 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
   // issue of its reaction and keeps its baseline.
   const react = (compiled: Compiled, read: Incarnation) => {
     let next: Incarnation = read;
-    const baselines = compiled.reactions.map((_, at) => read.baselines[at] ?? Option.none());
+
+    const baselines = compiled[InternalsId].reactions.map(
+      (_, at) => read.baselines[at] ?? Option.none(),
+    );
+
     const events: Array<{ readonly tag: string; readonly payload: Values }> = [];
 
-    for (const [at, reaction] of compiled.reactions.entries()) {
+    for (const [at, reaction] of compiled[InternalsId].reactions.entries()) {
       const current = read.context.get(reaction.slot);
       const previous = baselines[at] ?? Option.none();
 
@@ -385,7 +389,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
     if (compiled === undefined) return incarnation;
 
-    const baselines = compiled.reactions.map((_, at) =>
+    const baselines = compiled[InternalsId].reactions.map((_, at) =>
       Option.map(record.baselines[at] ?? Option.none(), (b) => ({
         ...b,
         value: tx.env.admit(b.value),

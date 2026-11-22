@@ -5,6 +5,7 @@ import type { AnyDefinition, ActorRef, LeavesOf, MemoryOf } from "../../definiti
 import { definitionOfToken } from "../../events.ts";
 import { actorIdOf } from "../runtime.ts";
 import { scriptFault } from "./steps.ts";
+import { entry } from "../../entry.ts";
 
 /**
  * What the selectors read: a run's evidence, in order.
@@ -215,7 +216,7 @@ const selector = <R extends EventRecord>(kept: (e: Evidence) => e is R): Selecto
  * const unheard = evidenceOf(run, Stepper.E.WheelDue).filter((e) => e._tag === "Unhandled")
  * ```
  */
-export const evidenceOf = selector(isEventRecord);
+export const evidenceOf = entry("evidenceOf", selector(isEventRecord));
 
 /**
  * Every turn one event of one definition ran, in order.
@@ -235,7 +236,7 @@ export const evidenceOf = selector(isEventRecord);
  * expect(turnsOf(run, Accounts.E.Unsure).map((t) => t.actor.name)).toEqual(["acct-1", "acct-2"])
  * ```
  */
-export const turnsOf = selector(isTurn);
+export const turnsOf = entry("turnsOf", selector(isTurn));
 
 /**
  * Every snapshot one actor published in a run, in order, its state and memory typed by its
@@ -246,16 +247,16 @@ export const turnsOf = selector(isTurn);
  * To assert on each memory an actor published between two steps, which a checkpoint, a single
  * cut, cannot show.
  */
-export const publishedOf = <D extends Ds, Ds extends AnyDefinition = AnyDefinition>(
-  run: Recorded<Ds>,
-  ref: ActorRef<D>,
-) => {
-  const id = actorIdOf(ref);
+export const publishedOf = entry(
+  "publishedOf",
+  <D extends Ds, Ds extends AnyDefinition = AnyDefinition>(run: Recorded<Ds>, ref: ActorRef<D>) => {
+    const id = actorIdOf(ref);
 
-  return run.evidence.filter(
-    // SAFETY: a Published record of this actor holds a leaf of its definition and the memory it declares, each field its decoded value.
-    // RETURN_TYPE: a type guard types the actor's records by its definition.
-    (e): e is PublishedOf<D> =>
-      e._tag === "Published" && e.actor.machine === id.machine && e.actor.name === id.name,
-  );
-};
+    return run.evidence.filter(
+      // SAFETY: a Published record of this actor holds a leaf of its definition and the memory it declares, each field its decoded value.
+      // RETURN_TYPE: a type guard types the actor's records by its definition.
+      (e): e is PublishedOf<D> =>
+        e._tag === "Published" && e.actor.machine === id.machine && e.actor.name === id.name,
+    );
+  },
+);

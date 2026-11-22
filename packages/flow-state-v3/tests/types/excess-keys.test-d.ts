@@ -214,8 +214,8 @@ describe("Compile R4, R14: a definition's literals are kept", () => {
     definition({ id: "types/Hoisted", states, events: { go: {} } });
 
     expectTypeOf(
-      definition({ id: "types/Literal", states: ["IDLE", "ON"], events: {} }).S.IDLE["~path"],
-    ).toEqualTypeOf<"IDLE">();
+      definition({ id: "types/Literal", states: ["IDLE", "ON"], events: {} }).S.IDLE["~state"],
+    ).toEqualTypeOf<"IDLE" | undefined>();
   });
 
   it("a duplicate state, an empty compound and an empty id", () => {
@@ -234,8 +234,8 @@ describe("Compile R4, R14: a definition's literals are kept", () => {
       events: {},
     } as const;
 
-    expectTypeOf(definition(right).S.P.B["~path"]).toEqualTypeOf<"P.B">();
-    expectTypeOf(definition(right).S.Q.B["~path"]).toEqualTypeOf<"Q.B">();
+    expectTypeOf(definition(right).S.P.B["~state"]).toEqualTypeOf<"P.B" | undefined>();
+    expectTypeOf(definition(right).S.Q.B["~state"]).toEqualTypeOf<"Q.B" | undefined>();
     expectTypeOf(definition(right).id).toEqualTypeOf<"types/Right">();
   });
 });

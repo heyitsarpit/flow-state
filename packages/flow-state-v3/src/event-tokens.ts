@@ -1,5 +1,5 @@
-import type { Option } from "effect";
 import type { Ending } from "./contract.ts";
+import type { Branded } from "./made.ts";
 import type { Envelope, PayloadOf } from "./definition.ts";
 import type { Uncertain } from "./flow.ts";
 
@@ -19,7 +19,8 @@ export type EventToken<
 ) => Envelope<Name, P>) &
   // A bare token fills no field, so it takes any value only when its payload has none.
   (Record<never, never> extends P ? Ending<unknown, Id> : Ending<never, Id>) &
-  UncertainMark<IsUncertain> & {
+  UncertainMark<IsUncertain> &
+  Branded<"event"> & {
     readonly tag: Name;
     readonly from: <V, R extends P>(
       map: (value: V) => R & { readonly [K in Exclude<keyof R, keyof P>]: never },
@@ -38,8 +39,15 @@ type UncertainMark<IsUncertain extends boolean> = IsUncertain extends true
  * An event token's mapping (`E.X.from(f)`): an ending's target, or a send's event, whose payload
  * `f` computes from a value of type `V`.
  */
-export type MappedEvent<Name extends string, V, P, Id extends string = string> = {
-  readonly ending: { readonly event: Name; readonly from: Option.Option<(value: V) => P> };
+export type MappedEvent<
+  Name extends string,
+  V,
+  P,
+  Id extends string = string,
+> = Branded<"mapping"> & {
+  readonly ending: { readonly event: Name };
+  // A phantom type: the value its mapper takes and the payload it computes.
+  readonly "~maps"?: (value: V) => P;
   // A phantom type: the definition whose event it is.
   readonly "~definition"?: Id;
 };

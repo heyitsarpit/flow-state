@@ -1,16 +1,29 @@
 import type { ActorRef, AnyDefinition, EventOf, MappedEvent, PayloadOf } from "./definition.ts";
 import type { SendArg } from "./handles.ts";
 import { builder } from "./entry.ts";
+import { type Branded, made } from "./made.ts";
 
 /**
  * A send in an alternative's `actions`: the target's ref, computed when the turn runs, and its
  * event in any of a send's three forms.
  */
-export type SendToken<M = never, P = never> = {
-  readonly "~flow": "send";
-  readonly to: (input: SendArg<M, P>) => ActorRef;
-  readonly event: SendEvent<SendArg<M, P>, AnyDefinition>;
+export type SendToken<M = never, P = never> = Branded<"send"> & {
+  // A phantom type: the memory and event its callbacks read, so it fits only a handler of them.
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- a phantom key no value holds: it types the token only
+  readonly "~reads"?: (input: SendArg<M, P>) => void;
 };
+
+/**
+ * What a send keeps for the core: its target's ref callback and its event in any of its forms.
+ */
+export type SendInternals = {
+  readonly to: (input: SendArg<never, never>) => ActorRef;
+  // FLOW_STATE_ALLOW_UNKNOWN: a send's event in any of its three forms, told apart when it compiles.
+  readonly event: unknown;
+};
+
+// The owner of every send: a send names its target by its callback, not by a definition's tokens.
+const SENDS = Symbol("flow-state/send");
 
 /**
  * A public event of `D` as a send takes it: a mapping of the target's token (`Target.E.X.from(f)`),
@@ -73,5 +86,8 @@ export const send = builder(
   <M, P, D extends AnyDefinition>(
     to: (input: NoInfer<SendArg<M, P>>) => ActorRef<D>,
     event: NoInfer<SendEvent<SendArg<M, P>, D>>,
-  ): SendToken<M, P> => ({ "~flow": "send", to, event }),
+  ): SendToken<M, P> =>
+    // SAFETY: a send's face is empty; its kind brand and the callbacks' types are phantoms.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the kind brand is a phantom key no value holds
+    made("send", SENDS, {}, { to, event } satisfies SendInternals) as SendToken<M, P>,
 );

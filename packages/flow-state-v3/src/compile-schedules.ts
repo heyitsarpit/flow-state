@@ -13,8 +13,9 @@ import { is } from "./config.ts";
 import { checkName } from "./construction.ts";
 import { invalid } from "./error.ts";
 import { erase } from "./handles.ts";
-import type { ErasedSchedule, ScheduleMetadata } from "./tokens.ts";
-import { type Compile, foreign, type Path, slotOf, tokenOf } from "./compile-names.ts";
+import type { ErasedSchedule } from "./tokens.ts";
+import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
+import { endingOf } from "./events.ts";
 
 /**
  * Compiling a state's schedules.
@@ -139,22 +140,27 @@ export const scheduleOf = (
     );
   else compile.scheduleNames.set(name, slotOf(at));
 
-  if (!compile.sends.has(tokenOf(config.send)))
+  const send = endingOf(config.send);
+
+  if (!Option.exists(send, (ending) => compile.sends.has(ending.token)))
     compile.findings.push(foreign([...at, "send"], "the send event"));
 
   const armOn = config.armOn ?? [];
   const { arming, disarming } = armingOf(compile, name, config, at);
 
   const slot = slotOf([...at, "schedule"]);
-  const from = config.send.ending.from;
+  const from = Option.flatMap(send, (ending) => ending.from);
 
   return {
     name,
     slot,
-    send: config.send.ending.event,
+    send: Option.getOrElse(
+      Option.map(send, (ending) => ending.event),
+      () => "",
+    ),
     from: Option.map(from, (map) => ({
       slot: slotOf([...at, "send"]),
-      run: erase<FiringMetadata, Values>((metadata: ScheduleMetadata) => map(metadata, undefined)),
+      run: erase<FiringMetadata, Values>((metadata: never) => map(metadata, undefined)),
     })),
     delay: delayOf(compile, config.schedule, slot, at),
     armOn: arming,

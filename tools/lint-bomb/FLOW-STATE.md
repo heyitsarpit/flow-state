@@ -184,11 +184,6 @@ on internal modules and `off` on public entrypoint modules.
     7 ns). Except `src/host` and tests (`*.test.ts`, `test/`).
   - Each also catches the name through `globalThis`, `global` and `window`; `Effect` is any binding of
     `effect/Effect`, or the `Effect` export of `effect`, under any name.
-  - `no-mark-probe`: `hasProperty(x, "~...")`, `Object.hasOwn(x, "~...")` and `"~..." in x`, in `src`
-    only, tests excepted. A `~` mark is copyable, so Flow recognises a value it made by identity (a
-    `WeakSet` or `WeakMap` filled where it makes the value). Each remaining probe carries a disable with
-    its reason: construction's own markers and tokens, until its decode checks identity, and the test
-    tooling's own read targets.
   - `no-raw-event`: a raw `{ _tag: ... }` literal in `fixtures/<app>/stories` (any), or inside a `send(...)`
     call in `fixtures/<app>/machines`. Build events with the definition's token (`Cart.E.Add({ ... })`); a
     helper returning tokens is fine. Fake servers, adapters, services and `tests/` are not covered.
