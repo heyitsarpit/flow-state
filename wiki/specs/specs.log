@@ -745,6 +745,19 @@ note 2026-11-21T23:12:22Z
     Operations, Changes, Types.md: schedule example declares schedules; Changes R12 cites Machines O3; Types.md H9
     marked superseded with an agent tag (the specs lead).
 
-note 2026-11-22T23:30:00Z
+note 2026-11-21T23:24:22Z
     Types: `ScheduleUndeclared` is a construction and `flow check` finding, not a type error, and R8 checks the body
     by type only where a key is required, as Q19 (option C) gives every unknown body key; slice T89's reconcile.
+
+note 2026-11-22T01:16:32Z
+    Operations, construction trust: a made function gets its own branded function prototype; a Map, Set or Date on a
+    public value gets a frozen prototype that refuses writes; the core's walkers sit under the internals symbol. Found
+    by slice T89's build.
+
+note 2026-11-22T01:16:33Z
+    Types, placement: one schedule placed in a state and in a state below it is refused DuplicateName, as the runtime
+    keeps one timer per name. Found by slice T89's build.
+
+note 2026-11-22T01:16:33Z
+    A note of T89's requirements reconcile was hand-stamped 2026-11-22T23:30Z; it now carries its commit time
+    (7069d46d). Logs are stamped only with wk log add.
