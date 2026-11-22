@@ -3493,6 +3493,94 @@ tasks
         comment     2026-11-22T04:54:12Z
             Extra files beyond May change: wiki/conventions/fixture-catalog.md (sign-in and transfers rows); the sign-in
             and transfers fixtures (new machines IdleSignOut and BillReminders, their grown apps and manifests).
+        comment     2026-11-22T05:13:16Z
+            Requirements review (Opus, 5 Haiku sidecars at effort high), revision `e89205fe`: PASS. No finding meets the
+            Stopping rule, so the build may start. Fold the accepted findings below into its first commit. Acceptance 1
+            to 7 map one to one to requirements 1 to 7. The cited reds were re-run: 9 files, 432 expected fails (415
+            sequence rows and 17 named tests), and nested placement passes. Uninverted copies failed for their stated
+            reasons: B1 held with `left`; B2 issues `[]`; NaN accepted; format 5 written with no outcomes; the creation
+            issue lost on reload; the key text; and every fixture red.
+
+            - Call 1, nested placement. Two traces of `Nest`: `tick` placed in `ON` at 1 s and in `ON.A` at 2 s.
+              - X, allowed: two timers fire at 1 s and 2 s. The snapshot's one unkeyed `tick` and its `schedule tick`
+                issue cannot say which placement they belong to.
+              - Y, built: construction refuses at `states.ON.states.A.schedules.tick`; siblings construct.
+              - Y is right. v3 has no parallel states, so a state and its descendant are the only pair active together.
+                It is red first and has a plant, so it may stay in this commit. It is production code ahead of the
+                build, though, so the next one goes in its own commit.
+            - Call 2, R2. Two traces of `selection throws / selection changes` from baseline 0.
+              - L, the lead's reading: `Failed(f, 0)`, then 1 differs from 0, so `good` restarts and fires once.
+              - R, R2 read literally: 1 is a silent baseline, so the restart is lost.
+              - L is right, by table Selection row 2, S-3 and ThrowingRead (3). R loses what R1 owes. R2's text still
+                reads R.
+
+            Accepted, non-blocking:
+
+            - Acceptance 1 still lacks the 2026-11-20 amendment (delete the wrong list; no `it.fails` stays). Flip B:
+              today's runtime passes every gate. Missed because `it.fails` passes on any failure and nothing counts
+              inversions. For the orchestrator: write the amendment in; the close review greps for `it.fails`.
+            - The format tag of 04:33:30 says "keeps today's record layout", but today's record is a flat `SavedTimer`
+              array. `savedAt` (`schedule-records.test.ts:195`) and `savedLounge` (`hub.test.ts:171`) read Records R12's
+              `schedules: {[statePath]: ScheduleMap}`, which is right. Correct the tag. Missed: no check reads a tag.
+            - R2's parenthesis, rewritten to say "the first clean read after a throw that left no baseline", with a
+              `specs.log` note. The user's 2026-11-21 answer covers only a new timer. Missed: the rows pin L, not
+              the text.
+            - Types Placement (`Types.spec:429`) still allows a name "in several states", with no construction-only row.
+              Add the exclusion and a `specs.log` note. The refusal reuses `DuplicateName`, the authored-name rule. Give
+              it its own reason in @task.V3.T100's closed set.
+            - Ten rows in the 110 class keep a selection or reason issue, not a refused arming (`alc`, `blc`, `lac`,
+              `lbc`, `ajc`, `jac`, `dgq`, `gdq`, `dlq`, `ldq`). Relabel the class "an issue kept after its key leaves,
+              Stop, exit or re-entry". Missed: the class is named after its majority.
+            - The build's first commit lands red, before runtime code, and gets a Flip A check:
+              - T3's nine atoms;
+              - T4's rows: `u` on a series reloaded, created with `u` out of range, re-entry with a reason's issue, out
+                of range, appears and reload, and context changed while away;
+              - one instance start refused (R11);
+              - one row with firing ahead of arming, which needs at least 4 steps.
+
+              Missed: the 3-step grid has no lanes, context, second schedule, series, same-turn Stop or instance (Blind
+              A, Blind B, Flip B).
+            - A send that writes a `restartOn` input restarts another timer through its own Turn (A2). R8's "a firing
+              never changes another's state" reads against that. Add the clause and one named row. Missed: `Tick` writes
+              only `ticks`.
+            - The format-5 record has three keyed timers, all at attempt 0. Add an unkeyed timer and a series at
+              attempt 2. Records R12 line 561 names a format-5 baseline and `refused` that `SavedTimer` never had:
+              delete it. The record rule `tests/rules/records.ts` gains format 6 with typed schedule fields, not
+              `Unknown`. Missed: one fixture shape.
+            - Requirement 3's lint plants name 2026-11-20 targets (`Plan.Held`, `Timing.Held`, `timed`, `issuesOf`) that
+              the v3 design drops. Restate them as I8: the `Decided` brand, and `Tracked` or `Scheduled` literals
+              outside `schedule-decision.ts`.
+            - Supersedes lacks `schedules.ts#fired`, a run writer exported in `ScheduleSteps`; add it with the
+              @task.V3.T119 seam. @task.V3.T56 supersedes `record-format.ts#FORMAT`, which this Task bumps: that seam is
+              the orchestrator's.
+            - Fixtures: `type Devices` (`hub.ts:7`) and `type Bills` (`bill-reminders.ts:6`) are written by hand beside
+              their Schema fields. "Started at the first change" (catalog line 573 and the reminders test title) should
+              say "on the next occasion" (R1).
+            - The 2026-11-20 note "`restartOn` for baseline-less timers ... against I38" is void: S-6 requires
+              that read.
+
+            Rejected:
+
+            - Flip A said the format reds can never pass. They can: they read Records' layout. Its `refused: true`
+              mismatch quotes the superseded 2026-11-20 list.
+            - Blind A, F2 against F3/F5: the first matching row wins. The issue order against R5's "shows" was settled
+              on 2026-11-20 by `scheduleIssues`.
+            - Blind A and Blind B, a format-5 idle key: the decode table gives `Idle`. Format 5 cannot tell a refused
+              key from a stopped one, and arming it would make up a firing.
+            - Blind B:
+              - entry arm refused: R11 refuses the turn, and `home/vacation-edges` covers it;
+              - keyed creation refusal: the refused-key rows cover it;
+              - key fields reordered: `schedule-declarations.test.ts:209`;
+              - zero delay: Changes owns the loop guard;
+              - minute-only time: `hub.test.ts` and `home/schedules.test.ts` check `dueAt`.
+            - Flip B:
+              - the faults runner credits a flipped `it.fails`: moot once the inversions go;
+              - one-sided pins: T7's pins land with the code.
+            - Cohesion:
+              - `plsk`, `etk` and `scheduleIssues` are Spec names, not temporary ones;
+              - `keyCodecOf` is earlier code, and requirement 6 covers it;
+              - `Decided` and `scheduleIssues` are Spec targets.
+            - Cohesion found no outside imports and no temporary names in `src/`.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
