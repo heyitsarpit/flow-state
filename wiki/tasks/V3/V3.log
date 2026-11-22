@@ -715,7 +715,7 @@ note 2026-11-22T10:56:53Z
 
 note 2026-11-22T11:00:21Z
     [decided: user 2026-11-22] Q5 A: machine captures the body's type (B & Exact<B, MachineBody<D>>) so misspelled body
-    keys show in the editor; reverses Types Q19 option C (@proposal.body-key-typos, +14% check time). Scope: T144.
+    keys show in the editor; reverses Types Q19 option C (`@proposal.body-key-typos`, +14% check time). Scope: T144.
 
 note 2026-11-22T11:30:32Z
     T113 built and in review (8a50ec08); close review started.
@@ -741,3 +741,7 @@ note 2026-11-22T13:59:12Z
 note 2026-11-22T14:07:39Z
     T144 done (close and seam review PASS, 03e59af3). A Sonnet cleanup (clients.ts factory-free, typo tests, Spec
     records, proposal deleted) runs before slice T142 closes.
+
+note 2026-11-22T14:10:55Z
+    Merged `@proposal.body-key-typos` deleted; last commit holding it: git show
+    77bd2f79:wiki/plans/flow/references/proposals/2026-11-22-body-key-typos.md
