@@ -5024,6 +5024,60 @@ tasks
             their track; a returning use passes no `Wake` or `Context`; `Silent` unjudged and alarms judged at cuts;
             `readsOf` by callback kind; `Published` carries the incarnation id and why. Earlier tags stand (Q9 1 A;
             `Collect` and `Release` with no writer; a send-woken actor stays asleep; I9 root form).
+        comment     2026-11-22T19:42:04Z
+            Close review: ISSUES at f3dda0f9. Two lost firings in range, each red on a scratch probe of current code;
+            the build is otherwise sound (check 0; stress 99 of 99; faults --only 72 of 72 caught by their targets;
+            coverage run 25,181 passed, 16 expected fail, 6 known instrumentation timeouts, no assertion failed).
+
+            Blocking:
+
+            1. The one wake strands an alarm set again at the deadline a Tick just took. Root cause: Flow code,
+               `tx.ts#wake` sends `Wake` only when the earliest deadline differs from the one before the step, but in a
+               Tick step that deadline was the host's wake, already spent. Traces: a state schedule `Schedule.recurs(3)`
+               (zero-ms steps) fires 2 of 3, its run left at dueAt 0 after 1 s; waking whenever the step took or set an
+               alarm fires 3 (pre-build code fired 1). Missed: I12 judges the alarm map, not the host's pending wake,
+               and no fixture has a zero-ms step after a firing (the catalog left zero delays out). The endless zero
+               series stays the open loop-guard item.
+            2. A `createActor` local actor gets no Schedule alarm. Root cause: Flow code, `incarnations.ts#createLocal`
+               writes its host use after `Begin` and applies no `Use`, so C5 saw it asleep. Traces: `Input.Create` of a
+               machine with a 1 s schedule; pre-build `Arm`, now no alarm, and `alarmDrift` says the schedule has no
+               alarm. Missed: no Story step creates a local actor.
+
+            For the fix round (T119, not blocking):
+
+            - R22's source check scans `turn.ts`; the guard and select builders moved to `walk.ts`, and T15's probe has
+              no action select.
+            - Unrouted fit items: `tree.ts` `chainOf` and `leafOf` keep callers (this Task deletes them);
+              `pendingOwners` still runs every turn; the mailbox takes by `shift()` with no head index.
+            - R10: no mailbox or wave bench case; the alarm scan in `earliest` and `takeDue` grows with every alarm,
+              unmeasured against the keyed-map decision.
+            - Catalog: the I12 row says every step (the harness judges at cuts); `session/avatar-wall` counts 65 items
+              and never crosses the yield (the hand test does); no left rows for X3, I9's halves, Collect and Release,
+              the R10 benches, the Silent judge.
+            - `publishedOnce` now filters by why, and the seed-15 `it.fails` to `it` rests on it; no plant covers
+              the filter.
+            - Runtime disposal's `clearMail` drops queued events unseen, unlike the `Unhandled` decision.
+            - House: `How` is a string union tested with `===`; Spec ids in `src` comments (`apply.ts` rows C1 to C7,
+              `walk.ts` R11, `alarm-drift.ts` and `run.ts` I12).
+            - Stale text: Supersedes cites `turn.ts#TurnInput` (now `walk.ts`); Changes.md section 5 deletes
+              `Change.Refused` and `Unturned`, which the Spec keeps.
+
+            Held: every builder decision (cuts not steps and Silent unjudged, the wave skip, `Unhandled`, no brand,
+            track, a returning use with no Wake) has its reason and, where a rule, a caught plant. The cart limit is
+            measured (2.4 s alone) and fair, and also settles the cart's coverage timeout routed to T97. The
+            `timers-decided` change only moves the issue writer to `apply.ts` and passes its test. No outside import,
+            read or temporary name; nothing re-creates Effect. The f3dda0f9 routes hold: props (T76), instances (T109,
+            T121), host track (T112).
+
+            Plan outcomes: Machines O3 (the walk and one applier at the root), O7 (front mail) and O8 (`Published` with
+            `why`) are delivered. O5's timers lose firings until 1 and 2 are fixed.
+
+            Sidecars (7 Haiku, high). Accepted: blind's queued-firing gap (noted); adversary's stranded wake (my trace)
+            and local start, which I probed; flip's R22 scan and why filter; cohesion's `How` and Spec ids; fixtures'
+            catalog rows and yield count; supersedes' `chainOf`, `pendingOwners` and head index. Rejected: blind's
+            missing raises, instances and props (routed to T109 and T76 by design); flip's `wake-not-moved` survives
+            (caught) and harness-thrown catches (I13's intended check); coverage's single-part dead arms
+            (fragments, T109).
 
     T120
         title       Declared schedules: the runtime half
