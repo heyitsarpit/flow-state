@@ -1,8 +1,14 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
 import { homeApp, homeSetup, roomOf } from "./app.ts";
-import { hubSamples, hubStories } from "./stories/hub.ts";
-import { loungeFormatFive, noSensors, reconnectBackoff, vacationEdges } from "./stories/edges.ts";
+import { hubManyDevices, hubSamples, hubStories, hubUsual } from "./stories/hub.ts";
+import {
+  loungeBeforeDevices,
+  loungeFormatFive,
+  noSensors,
+  reconnectBackoff,
+  vacationEdges,
+} from "./stories/edges.ts";
 import { manyRooms, seededStress } from "./stories/load.ts";
 import { samples } from "./stories/samples.ts";
 import {
@@ -34,6 +40,7 @@ export const home = manifest({
     reconnectBackoff,
     noSensors,
     loungeFormatFive,
+    loungeBeforeDevices,
     ...hubStories,
     manyRooms,
     seededStress,
@@ -56,6 +63,10 @@ export const home = manifest({
   bench: {
     probe: (n) => roomOf(n),
     persist: Option.some(() => stories.usual),
-    stories: [benchStress(benchTurn(() => manyRooms))],
+    stories: [
+      benchStress(benchTurn(() => manyRooms)),
+      benchTurn(() => hubUsual),
+      benchTurn(() => hubManyDevices),
+    ],
   },
 });

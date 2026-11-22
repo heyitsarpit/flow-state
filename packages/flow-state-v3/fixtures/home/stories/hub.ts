@@ -140,7 +140,7 @@ export const hubManyDevices = Array.from({ length: DEVICES }, (_, n) => n)
 /**
  * What a household can do around the hub, for generated runs: devices paired, updated with a new
  * major version, with unreadable or empty firmware, and with an interval at and past the longest
- * timer, unpaired and paired again; Quiet, a rescan, and the house leaving, arriving and going on
+ * timer, unpaired and paired again; Quiet, and the house leaving, arriving and going on
  * vacation.
  */
 export const hubSamples = samplesOf({
@@ -167,7 +167,6 @@ export const hubSamples = samplesOf({
       .send(hall, Room.E.Unpaired({ id: "cam" }))
       .send(hall, camera(2 ** 31))
       .send(hall, Room.E.Quiet())
-      .send(hall, Room.E.Rescan())
       .send(house, House.E.Leave())
       .send(house, House.E.StartVacation({ until: 36_000_000 }))
       .send(house, House.E.Arrive()),

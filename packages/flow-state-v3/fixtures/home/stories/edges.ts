@@ -53,9 +53,9 @@ export const noSensors = homeStory("home/no-sensors")
   .checkpoint("empty");
 
 /**
- * The lounge's record as the format-5 build saved it five seconds into the usual journey, after
- * the house left for a vacation: its temperature poll held by Vacation with 55 seconds left, its
- * motion poll due at 10 seconds.
+ * The lounge's record as a format-5 build that already had the hub's devices saved it five seconds
+ * into the usual journey, after the house left for a vacation: its temperature poll held by
+ * Vacation with 55 seconds left, its motion poll due at 10 seconds.
  */
 export const LOUNGE_FORMAT_FIVE =
   '{"baselines":{},"context":{"mode":{"machine":"Home/House","name":"home"}},"format":5,"gr' +
@@ -65,6 +65,25 @@ export const LOUNGE_FORMAT_FIVE =
   ',"attempt":0,"key":{"id":"t1"},"left":55000,"name":"poll","pausedBy":["Vacation"]},{"arm' +
   'edAt":0,"attempt":0,"dueAt":10000,"key":{"id":"m1"},"name":"poll"}],"seen":{"mode":"VACA' +
   'TION"},"state":"ONLINE.IDLE"}';
+
+/**
+ * The same record as an older build saved it, before the room had devices: its memory lacks
+ * `devices` and `pings`.
+ */
+export const LOUNGE_BEFORE_DEVICES = LOUNGE_FORMAT_FIVE.replace('"devices":[],', "").replace(
+  '"pings":{},',
+  "",
+);
+
+/**
+ * The lounge restored from the record an older build saved, before the room had devices.
+ */
+export const loungeBeforeDevices = homeStory("home/lounge-before-devices")
+  .world(Fake.storage.put('actor/Home/Room/{"room":"lounge"}', LOUNGE_BEFORE_DEVICES))
+  .reload()
+  .ensure(house)
+  .ensure(lounge)
+  .checkpoint("restored");
 
 /**
  * The lounge restored from its format-5 record at clock 0 with the house at home: the hold is

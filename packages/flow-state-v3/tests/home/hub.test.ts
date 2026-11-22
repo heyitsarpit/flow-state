@@ -1,7 +1,7 @@
 import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { hall } from "../../fixtures/home/app.ts";
-import { loungeFormatFive } from "../../fixtures/home/stories/edges.ts";
+import { loungeBeforeDevices, loungeFormatFive } from "../../fixtures/home/stories/edges.ts";
 import {
   DEVICES,
   hubFirmwareReload,
@@ -212,6 +212,20 @@ describe("a room saved by a format-5 build (Schedules R14, its decode table; Rec
         { m1: 10_000, m2: 10_000 },
         { m1: 50_000, m2: 50_000, t1: 55_000 },
       ],
+    });
+  });
+});
+
+// Owner: the full record decoding Task (Records R12's reference table). Today a record whose
+// memory lacks a field the definition has since added is quarantined and the room starts fresh.
+describe("a record saved before a memory field was added (Records R12, its reference table)", () => {
+  it.fails("Records R12: a memory field the record lacks starts at its declared initial value, and the rest of the record restores", async () => {
+    const run = await played(loungeBeforeDevices);
+    const snapshot = run.checkpoints.restored.read(lounge);
+
+    expect({ state: snapshot?.state, devices: snapshot?.memory.devices }).toEqual({
+      state: "ONLINE.IDLE",
+      devices: [],
     });
   });
 });

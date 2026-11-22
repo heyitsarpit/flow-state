@@ -3649,6 +3649,30 @@ tasks
             [decided: agent builder 2026-11-22] Not built here: `now` still reaches keys, reasons and restartOn through
             `readOf` (R10, the orchestrator's tag), and a resting record's snapshot shows no schedule issues. Why:
             neither is in this Task's acceptance; each is its own rule with its own check. Reverse: build them here.
+        comment     2026-11-22T06:32:36Z
+            [decided: agent builder 2026-11-22] Input gate (Q1): B, no gate. Measured (dev tier, 74675069 plus bench
+            rows): turn.home.hub-usual 0.10 ms per turn (2 devices), turn.home.hub-many-devices 0.31 ms (64 devices), so
+            a keyed schedule's reads are about 3 µs per key per turn; but every turn of the hub writes memory (a
+            pairing, a report, a ping's time), so a gate keyed on input identity would skip none of them. Why: the cache
+            saves nothing on the fixture's turns and adds a writer. Reverse: land A with its Level 0 check when a
+            fixture's turns leave a scope's inputs unchanged.
+        comment     2026-11-22T06:32:54Z
+            The Lanes occasion's one-shot Story is the room's Saving reason, which reads a lane row: `home/usual`
+            (tests/home/schedules.test.ts, "the save's ending is a lane change that re-checks paused" and the denied
+            ending's admission). No new Story was needed; this replaces the one-shot the lane-atoms tag named.
+        comment     2026-11-22T06:43:39Z
+            Fixtures moved into existing machines (the user's instruction of 2026-11-22): the idle sign-out into
+            `AuthSession` (SIGNED_IN), bill reminders into `Customer`, device pings into `Room` (ONLINE); every Story
+            kept, expected values re-derived (only state names, slot paths and a sign-in or connect at clock 0 changed);
+            catalog rows marked built. No separate machine is left. Review (Haiku, high, against @convention.fixtures):
+            accepted: Rescan dropped from Room (it reset heating and polls); the lounge's format-5 record now says it is
+            a build that had devices, and the restore of a record saved before a memory field was added lands inverted
+            in tests/home/hub.test.ts, owner @task.V3.T92 (Records R12: the field starts at its initial, today the
+            record is quarantined). Noted: a policy past the longest timer refuses the sign-in turn that enters
+            SIGNED_IN (R11; LOADING then waits for a redelivery); the trusted-device Story now also times its session
+            out, unseen by its test. Rejected: an interval change not followed (R11), a far bill armed only on an
+            occasion (R1, the user's answer), events in place of server reads and thin structure (as before the move),
+            Spec ids in titles (tests cite rules by id).
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -4677,3 +4701,44 @@ tasks
 
             Specs, helped or misled: the worklist's three passes were the real Spec here and held. No site was missed.
             The Types Q19 reconcile correctly withdrew a type pin that could never flip.
+
+    T141
+        title       Bench loads again: the testing entry imports no test runner
+        status      open
+        priority    high
+        description
+            The bench loads and records again: nothing the fixtures import pulls in the test runner at load time.
+
+            **Why now:** `nub run bench tooling --record` fails before running anything (`benches/index.ts did not load:
+            'vite-plus/test' does not provide an export named 'describe'`). The fixtures import
+            code:packages/flow-state-v3/src/host/testing/index.ts, which re-exports `storeContract`;
+            code:packages/flow-state-v3/src/host/testing/store-contract.ts imports `describe`, `expect` and `it` from
+            `vite-plus/test` at module load, which only exists inside the test runner. Broken since @task.V3.T58 added
+            it (2026-11-20); the last bench rows are from 2026-11-18 and 2026-11-19, so T120, T131 and T140
+            landed unmeasured.
+
+            **Read first:** @convention.bench;
+            code:packages/flow-state-v3/bench/list.ts; code:packages/flow-state-v3/src/host/testing/store-contract.ts.
+
+            **Build-time choice:** A: `storeContract` takes the runner's `describe`, `it` and `expect` as arguments (or
+            resolves them lazily inside the call), so loading the testing entry imports no runner. B: `storeContract`
+            moves to its own testing entry that fixtures never import. A keeps one public testing entry; B changes a
+            public path. Test: a check that imports `fixtures/index.ts` outside the runner (plain `node`) succeeds; pick
+            the option that passes it with the smaller public change, and tag it.
+
+            **Risk:** `storeContract` is public test tooling, used by the IndexedDB adapter's browser tests; its call
+            shape for users must stay readable.
+
+            May change: `packages/flow-state-v3/src/host/testing/`, `bench/`, `tests/`, `tools/browser/`.
+        acceptance
+            - A narrow bench run (`nub run bench --only <ids> --dev`, and `--only <ids> --record`) loads and writes its
+              rows; no full or tier-wide run is used to show it (the user, 2026-11-22).
+            - A guard in the default suite fails when anything reachable from `fixtures/index.ts` or `bench/` cannot
+              load the way the bench runner loads it; it was red before the fix.
+            - `storeContract`'s browser tests still pass (`nub run test:browser`, alone).
+            - `nub run check` at zero errors and warnings, and the package suite pass.
+        comment     2026-11-22T06:39:40Z
+            Correction (orchestrator): plain node imports both fixtures' testing index and bench/benches/index.ts fine;
+            the failure is only under bench/run.ts (reproduced twice at 74675069 plus the T118 working tree). The cause
+            is in how run.ts loads benches, not the import alone: name the wrong side before choosing A or B. The T118
+            lead reported dev-tier rows today, so check whether --dev loads.

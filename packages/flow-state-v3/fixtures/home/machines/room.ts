@@ -54,7 +54,6 @@ export const Room = definition({
     Reported: Device,
     Unpaired: { id: Schema.String },
     Quiet: {},
-    Rescan: {},
   },
   internalEvents: {
     Polled: { id: Schema.String, at: Schema.Number },
@@ -110,8 +109,8 @@ export const Room = definition({
  * reminds the owner to reconnect, an hour first and fifty times longer each time. Online, its hub
  * pings each paired device on the interval the device reports, from its pairing, and from the
  * start again when the device reports a new major firmware version; pings are held while the
- * house is away or on vacation. Quiet stops every ping until a device pairs or updates again; a
- * rescan listens afresh. An interval past the longest timer, or firmware text the room cannot
+ * house is away or on vacation. Quiet stops every ping until a device pairs or updates again. An
+ * interval past the longest timer, or firmware text the room cannot
  * read, is that device's issue until the device reports again.
  */
 export const RoomMachine = machine(Room, ({ S, E, O }) => {
@@ -204,7 +203,6 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
               pings: { ...memory.pings, [event.id]: event.at },
             }),
           },
-          Rescan: { target: S.ONLINE },
         },
         schedules: {
           poll: {

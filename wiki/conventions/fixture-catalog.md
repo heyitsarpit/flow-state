@@ -520,8 +520,8 @@ kamp.us for rows restored after a failure.
   - `Statement` (step 12), local, ⇠ `customer`.
   - `StandingOrder` (@task.V3.T81), shared, persisted, named by order, ⇠ `customer`, reading R `balance`; its
     `Plan.first` and `Pause.until` are `DateFromString` fields.
-  - `BillReminders` (@task.V3.T118), shared, persisted, named by customer: reminds each listed bill at its due date
-    (`remind`, keyed by payee, `pausedBy` Snoozed, `restartOn` the due date read from the bank's text).
+  - `Customer` grows bill reminders (@task.V3.T118): reminds each listed bill at its due date (`remind`, keyed by
+    payee, `pausedBy` Snoozed, `restartOn` the due date read from the bank's text); the customer owns their bills.
 - **Operations:**
   - T: `transfer` (have, `reject`; from step 4 it declares `idempotency` by transfer id, the one edit to an old
     contract, since a money write must name the server's key); `depositCheque` (step 4, `progress`).
@@ -564,16 +564,15 @@ kamp.us for rows restored after a failure.
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
     refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
-  - **BillReminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
+  - **Customer's bill reminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
     `tests/transfers/reminders.test.ts`):
-    - [ ] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. A guard.
-      Story: `transfers/reminders-usual`.
-    - [ ] Wrong ending: the reminder at the old date (unreadable date, reload, an earlier date). red today. Story:
+    - [x] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. built:
+      `transfers/reminders-usual`.
+    - [x] Wrong ending: the reminder at the old date (unreadable date, reload, an earlier date). built:
       `transfers/reminders-old-date`.
-    - [ ] A bill past the longest timer refused with an issue, kept across a reload, started at the first change
-      once in range; paid, its issue goes. red today. Stories: `transfers/reminders-far-bill`,
-      `transfers/reminders-far-paid`.
-    - [ ] S2 × 64 bills under L1 and L4 (two reloads in a snooze). Story: `transfers/reminders-many-bills`. Samples
+    - [x] A bill past the longest timer refused with an issue, kept across a reload, started on the next occasion
+      once in range; paid, its issue goes. built: `transfers/reminders-far-bill`, `transfers/reminders-far-paid`.
+    - [x] S2 × 64 bills under L1 and L4 (two reloads in a snooze). built: `transfers/reminders-many-bills`. Samples
       `bank-reminders`: E5 dates now, −1 ms, 2^31 − 1 ms, 2^31 ms; E1 no bills; an unreadable date.
   - **Context forms** (@task.V3.T107; tests in `tests/transfers/context.test.ts`):
     - [x] Usual: `when(current, previous, { memory })`. built: `transfers/switcher-recent`. No source.
@@ -691,9 +690,9 @@ not checked here).
   - `PasswordSignIn` (step 7), shared, release 2.
   - `TrustedDevice` (@task.V3.T81), shared, persisted, named by device, ⇠ `session`; its `Trust.until` and
     `Seen.at` are `DateFromString` fields, the second nullable.
-  - `IdleSignOut` (@task.V3.T118), shared, persisted, named by session: signs a session out once idle for the
-    organisation's policy (`idle`, unkeyed, armed on entry, `restartOn` the tabs' activity count, `disarmOn`
-    VideoStarted).
+  - `AuthSession` grows the idle sign-out (@task.V3.T118): signed in, a session is signed out once idle for the
+    organisation's policy (`idle` in SIGNED_IN, unkeyed, armed on entry, `restartOn` the tabs' activity count,
+    `disarmOn` VideoStarted); the session owns its own sign-out.
 - **Operations:** T `begin`, `verify` (have, `reject`); T `setUsername` (step 1); R `me` (step 1).
 - **Journeys:**
   1. Sign in: email → T `begin` → code → T `verify` → `SignedIn` → R `me`.
@@ -720,17 +719,17 @@ not checked here).
   - **@task.V3.T81:** an event field whose Schema transforms (`TrustedDevice`'s `DateFromString` dates);
     construction refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
-  - **IdleSignOut (@task.V3.T118),** no source (Schedules R1, R3, R5, R11, R14; tests in `tests/sign-in/idle.test.ts`):
-    - [ ] Usual: activity restarts the wait, idle time signs out, signing in again starts a new wait. A guard.
-      Story: `sign-in/idle-usual`.
-    - [ ] Wrong ending: the sign-out that never comes back (video, unreadable report, reload, activity). red today.
-      Story: `sign-in/idle-never-returns`.
-    - [ ] A policy past the longest timer refuses the next wait with an issue, kept across a reload, started by the
-      next policy; signing out takes the issue. red today. Stories: `sign-in/idle-policy-refused`,
-      `sign-in/idle-refused-sign-out`.
-    - [ ] S3 × 16 sessions under L1 and L4 (two reloads). Story: `sign-in/idle-many-sessions`. Samples
-      `auth-idle`: E5 policies −1, 0, 2^31 − 1, 2^31; unreadable and empty reports.
-    - [ ] Telling `AuthSession` to sign out: left: @task.V3.T96 or @task.V3.T77, needs `send(ref, event)` or emits.
+  - **AuthSession's idle sign-out (@task.V3.T118),** no source (Schedules R1, R3, R5, R11, R14; tests in
+    `tests/sign-in/idle.test.ts`):
+    - [x] Usual: activity restarts the wait, idle time signs out, signing in again starts a new wait. built:
+      `sign-in/idle-usual`.
+    - [x] Wrong ending: the sign-out that never comes back (video, unreadable report, reload, activity). built:
+      `sign-in/idle-never-returns`.
+    - [x] A policy past the longest timer refuses the next wait with an issue, kept across a reload, started by the
+      next policy; signing out takes the issue. built: `sign-in/idle-policy-refused`, `sign-in/idle-refused-sign-out`.
+    - [x] S3 × 16 sessions under L1 and L4 (two reloads). built: `sign-in/idle-many-sessions`. Samples `auth-idle`:
+      E5 policies −1, 0, 2^31 − 1, 2^31; unreadable and empty reports.
+    - [x] Telling `AuthSession` to sign out: built by the fold, the timer is the session's own (the same Stories).
   - **Context forms** (@task.V3.T107; tests in `tests/sign-in/context.test.ts`):
     - [x] Usual: state token and `X.state` reads. built: `sign-in/banner-signs-in`, `sign-in/banner-new-account`, a lost
       read `sign-in/banner-load-fails`; silent after a reload `sign-in/banner-reloaded` (a guard). No source.
@@ -1149,8 +1148,9 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - `Zone` (step 2), shared, named by zone, ⇠ `mode` ⇢ `zoneMode`.
   - `Room` (step 2), shared, named by room, ⇠ `zoneMode`, with `Panel` as a trait and `Sensor` ◂ `Room` via `.each`;
     sensors are `.resumable()` while offscreen.
-  - `Hub` (@task.V3.T118), shared, named by hub, ⇠ `mode`: pings each paired device on the interval the device
-    reports (`ping`, keyed by device, `pausedBy` Away, `restartOn` the firmware's major version, `disarmOn` Quiet).
+  - `Room` grows its hub's device pings (@task.V3.T118): online, pings each paired device on the interval the device
+    reports (`ping`, keyed by device, `pausedBy` Away, `restartOn` the firmware's major version, `disarmOn` Quiet);
+    the room owns its devices as it owns its sensors.
 - **Operations:** T `setTarget` (step 2, `latest` per room); R `readings` (step 4); S `liveReadings` (step 11).
 - **Journeys:**
   1. Set target: T `setTarget` → S `liveReadings` confirms the temperature.
@@ -1185,21 +1185,22 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - [ ] **Edges:** E1: no rooms; E5: −1, 0, 2^31 − 1, and 2^31 refused; pause reasons stacked and removed in turn; a key
     leaving and returning.
   - [ ] **Combinations:** `left` against `dueAt` across a reload (see @plan.Pending.D18); the stream (step 11).
-  - **Hub (@task.V3.T118),** no source (Schedules R1, R3, R5, R11, R14 are the rules):
-    - [ ] Usual: pings on each interval, held while away, restarted by a new major version, ended by unpairing.
-      red today: none (a guard). Story: `home/hub-usual`.
-    - [ ] Wrong ending: the ping that never comes back (Quiet, unreadable firmware, reload, update). red today.
-      Story: `home/hub-firmware-reload`.
-    - [ ] A refused interval kept across a reload and armed once valid; its issue gone with its device and by
-      Quiet. red today. Stories: `home/hub-interval-refused`, `home/hub-refused-gone`.
-    - [ ] E5: intervals 2^31 − 1 (armed) and 2^31 (refused); −1 and 0 are left out, since a spaced zero delay is an
+  - **Room's device pings (@task.V3.T118),** no source (Schedules R1, R3, R5, R11, R14 are the rules):
+    - [x] Usual: pings on each interval, held while away, restarted by a new major version, ended by unpairing.
+      built: `home/hub-usual`.
+    - [x] Wrong ending: the ping that never comes back (Quiet, unreadable firmware, reload, update). built:
+      `home/hub-firmware-reload`.
+    - [x] A refused interval kept across a reload and armed once valid; its issue gone with its device and by
+      Quiet. built: `home/hub-interval-refused`, `home/hub-refused-gone`.
+    - [x] E5: intervals 2^31 − 1 (armed) and 2^31 (refused); −1 and 0 are left out, since a spaced zero delay is an
       endless series whose bound is an open item of the turn walk, and `home/vacation-edges` has them on a computed
-      delay. Story: `home/hub-interval-edges`.
-    - [ ] S2 × 64 devices under L1 and L4 (two reloads in a hold). Story: `home/hub-many-devices`.
-    - [ ] The step from format 5: the lounge's format-5 record restores, frees a hold and saves as the current
-      format. red today. Story: `home/lounge-format-five`.
-    - [ ] Variety: the same feature in `sign-in` (`IdleSignOut`, unkeyed, a disarm, the Spec's sign-out Story) and
-      `transfers` (`BillReminders`, keyed with a computed delay, a snooze reason).
+      delay. built: `home/hub-interval-edges`.
+    - [x] S2 × 64 devices under L1 and L4 (two reloads in a hold). built: `home/hub-many-devices`, benched as
+      `turn.home.hub-many-devices`.
+    - [x] The step from format 5: the lounge's format-5 record restores, frees a hold and saves as the current
+      format. built: `home/lounge-format-five`.
+    - [x] Variety: the same feature in `sign-in` (`AuthSession`, unkeyed, a disarm, the Spec's sign-out Story) and
+      `transfers` (`Customer`, keyed with a computed delay, a snooze reason). built (rows above in each app).
   - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
     - [x] Pause reasons hold separately (`home/pause-reasons`). Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one
