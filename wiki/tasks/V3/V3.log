@@ -826,3 +826,7 @@ note 2026-11-22T20:20:20Z
 note 2026-11-22T21:12:30Z
     T92 requirements in (fc10aecb); orchestrator rulings on Q4, the Spec model and T28 in a T92 comment. Requirements
     review starts.
+
+note 2026-11-22T21:24:40Z
+    T92 requirements review: ISSUES (0248790a), three test blockers: corrupt judge passes out-of-form values silently;
+    no check for R17/I14/I17; bindings test not red for its reason. Fix round to the requirements lead.
