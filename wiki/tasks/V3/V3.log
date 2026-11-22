@@ -749,3 +749,21 @@ note 2026-11-22T14:10:55Z
 note 2026-11-22T14:13:57Z
     Slice T142 (the typed machine) closed. Page @page.T142-typed-machine written, unread; loop findings added. Next:
     T145.
+
+note 2026-11-22T14:14:07Z
+    Slice T145 (own slice, planted faults for runtime rules only) started: one lead writes the reds and builds, one
+    close review checks both, as the user allowed for T141's simple Task.
+
+note 2026-11-22T14:47:37Z
+    T145 built and in review (32e94fb0): 486 runtime faults, all caught by their targets; close review started.
+
+note 2026-11-22T15:04:18Z
+    T145 close review: ISSUES (0e85abec), two wrong fault calls; fix round to the lead.
+
+note 2026-11-22T15:15:32Z
+    T145 fix-round review: ISSUES (f835843c). Faults in uncompiled copies were caught by crashes; copies type-check
+    again (orchestrator's own mistake reversed); Actors R21 gets its first public test.
+
+note 2026-11-22T15:53:44Z
+    T145 second fix-round review: ISSUES (73fb1dc2), third mis-caught fault, threshold reached: a catch now counts only
+    when the failing test cites the fault's rule (structural guard). Third fix round to the lead.

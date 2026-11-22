@@ -6472,7 +6472,7 @@ tasks
 
     T145
         title       Planted faults: runtime rules only, judged by their targets
-        status      review
+        status      in_progress
         priority    high
         description
             Planted faults cover runtime rules only and are judged by their own target tests, so `nub run faults --only`
@@ -6712,3 +6712,13 @@ tasks
               Sidecar (1 Haiku, high, blind to comments): accepted the forget-before-boot trace (re-run in scratch), the
               worker-args change (read the source) and the name mismatch; changed resend's wider scope to a note; its
               equivalence list for the other rewrites matched my sample. Item 2 and the guard proposal are mine.
+        comment     2026-11-22T15:53:42Z
+            Rulings (orchestrator) on the second fix-round review (ISSUES, 73fb1dc2): a third fault caught for a reason
+            other than its rule reaches the convergence threshold (2), so the fix is structural, not one more re-aim.
+            [decided: agent orchestrator 2026-11-22] A catch counts only when a failing test's title cites the fault's
+            rule id (tests are titled by Spec rule); otherwise the verdict is caught-elsewhere, never caught. Why:
+            removes the class (crash, neighbour rule, compile) rather than its instances. Reverse: count any failing
+            target. Also: forget-before-boot plants the R10 breach and the !opened guard gets its test; owed-forgotten
+            checks R21's evidence and letGo closing; worker-takes-any-flag plants only what it describes. The guard
+            applies to --only runs; no whole faults run (the user's demand only), so other mis-caught faults surface as
+            later Tasks run theirs.
