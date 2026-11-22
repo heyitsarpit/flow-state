@@ -2823,7 +2823,7 @@ tasks
             gives this Task's applier.
     T113
         title       The typed machine (a): the face, derived types and no config echo
-        status      in_progress
+        status      review
         priority    high
         parent      [@T142]
 
@@ -3404,6 +3404,14 @@ tasks
             joins the option-bag exemption, as `machine.ts` had for `MachineBody`), four fault modules re-anchored.
             Faults `definition-echo-on-face`, `memory-token-schema-on-face`, `declaration-unfrozen`,
             `unkeyed-key-empty-record`: 4 of 4 caught by their targets.
+        comment     2026-11-22T11:29:52Z
+            Close (builder): every acceptance item holds; set to review. Gates: `nub run check` 0 errors and 0 warnings;
+            package suite 25074 passed, 18 expected fail (I1's inversion deleted), 0 type errors; `docs:build` exit 0;
+            faults 4 of 4 caught. Flip A: every T113 pin flipped and now asserts exactly, with a paired refusal; `rg
+            'it\.fails'` over T113's tests finds only T143's R13. Generated Stories with `FLOW_SEEDS=40`: one failure,
+            home-rooms seed 15, Turn I9 (a turn on AddSensor published twice). It fails the same on 77bd2f79, before
+            T113, so it predates this Task; it needs an owner and an inverted test (orchestrator to route). Stress runs
+            not run: no stress Story or sweep touched.
     T117
         title       Fast tests again: the home-rooms stress sweep back under its bound
         status      draft
