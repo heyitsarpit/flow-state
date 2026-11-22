@@ -767,3 +767,7 @@ note 2026-11-22T15:15:32Z
 note 2026-11-22T15:53:44Z
     T145 second fix-round review: ISSUES (73fb1dc2), third mis-caught fault, threshold reached: a catch now counts only
     when the failing test cites the fault's rule (structural guard). Third fix round to the lead.
+
+note 2026-11-22T15:57:00Z
+    [decided: user 2026-11-22] "just disable the fault tests we don't want": T145's third round stopped; faults not
+    cleanly caught are disabled, not fixed; no rule-cited guard. T145 closes on that. Scope: T145.
