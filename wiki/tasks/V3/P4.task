@@ -2851,6 +2851,10 @@ tasks
             Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
             without the host track: the driver's Owner per scope and owners.ts's fork-key map. Replace them against
             T119's one host wake.
+        comment     2026-11-22T20:00:35Z
+            Routed from @task.V3.T119's fix round: I12's Silent row is unjudged, since the store's unanswered batches
+            are not kept in the World; keep them (the host's store edge) so the harness's alarm judge
+            (src/host/testing/run.ts, the cut) can check a Silent alarm per awaited batch.
     T113
         title       The typed machine (a): the face, derived types and no config echo
         status      done
@@ -5082,6 +5086,48 @@ tasks
             Failure (2026-11-23): root cause: one wake sent only on an earliest-deadline change (tx.ts#wake), and a
             local actor's use not applied as a change (createLocal). Count: 1 each. Revision: f3dda0f9. Review: close
             review 5e7b27c4.
+        comment     2026-11-22T20:00:11Z
+            Fix round, root causes: (1) the host's wake was not a fact. `tx.ts#wake` compared the earliest deadline with
+            the one before the step, but in a Tick step that deadline was the wake the host had just spent, so an alarm
+            set again at it got none. The host's wake is now `World.wake`, spent by a Tick and set again (or dropped by
+            `Sleep`) at the end of a step that changed the alarms; the harness judges it beside the alarms at every cut.
+            Red first on `home/chime-rings-thrice` (1 ring of 3); plants `wake-spent-kept`, `wake-held-without-alarm`.
+            (2) Uses had two writers: `createLocal` wrote its host use with no `Use` change. Both now go through
+            `addUse`; red first on `home/chime-local` (a new Story `create` step), caught by the cut's alarm judge
+            itself; plant `local-use-unapplied`.
+        comment     2026-11-22T20:00:14Z
+            Zero-delay series, two traces. A (the Spec: "the loop guard does not count firings", Changes `algorithm`, a
+            zero delay): a series of zero-ms steps that never completes (`Schedule.spaced("0 millis")`) fires, its run
+            is due again at the same instant, the step ends with `Wake` at now, the host yields and ticks again; each
+            tick is its own admitted step, so the series runs as the author wrote it, like an interval of 0, and a
+            Story's settle ends it at its 100,000-task guard. B (count firings, or bound one instant): a firing follows
+            no chain, so a bound needs a new per-instant counter, and it would refuse a long finite series the author
+            wrote. A blind Haiku check: A is stated outright (Changes.spec 817-818, 741); the open line in
+            Schedules.spec 674 asks the question and no line closes it.
+        comment     2026-11-22T20:00:16Z
+            [decided: agent builder 2026-11-23] The loop guard does not bound an endless zero-delay series: each firing
+            is its own admitted step, and the host yields between ticks. Why: the Spec states the guard counts sends
+            only and never firings, a bound would need a new per-instant counter, and a finite series
+            (`home/chime-rings-thrice`) fires every step. Reverse: count firings toward a per-instant bound and end the
+            series Broken past it.
+        comment     2026-11-22T20:00:19Z
+            [decided: agent builder 2026-11-23] The mailbox keeps `shift()` with no head index, and the alarms keep
+            their scan. Why: measured with `--dev`: draining a mailbox of 1,000 costs 0.0275 ms per turn
+            (`turn.session.newsletter-run`), a wave to 100 consumers 0.082 (`turn.session.wall-100`), and
+            `turn.home.stress-many-rooms` with its many alarms 0.054; the earliest deadline is now scanned only in a
+            step that changed the alarms or spent the wake. Reverse: a head index, or a heap of deadlines, once a bench
+            shows either growing.
+        comment     2026-11-22T20:00:22Z
+            [decided: agent builder 2026-11-23] An event still queued when the Runtime's disposal starts is recorded
+            `Unhandled`, as at an actor's own disposal. Why: one rule for mail an end drops, and nothing is dropped
+            unseen; plant `disposal-mail-unseen`. Reverse: clear every mailbox with no evidence.
+        comment     2026-11-22T20:00:24Z
+            `publishedOnce` counts a turn start's publications by why (a turn's "Turn"; a start's "Begin" with its owed
+            wave's "Other"; an issue's "Other" or "Begin"); plant `turn-published-as-other` is caught by
+            `tests/shop/pay.test.ts`. The seed-15 test passes by Turn I9 as Changes I5 states it: the turn's own
+            publication is its why-Turn one; the second was the room's context update after it, a change of its own.
+            Done this round: `chainOf` and `leafOf` deleted; pending owners read only on a late turn's first question;
+            `How` a tag table (`ENDS`); Spec ids out of `src` comments; stale citations fixed.
 
     T120
         title       Declared schedules: the runtime half
