@@ -1,7 +1,8 @@
 import { Fake } from "../../../src/host/testing/index.ts";
-import { house } from "../app.ts";
+import { house, trip } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
+import { Trip } from "../machines/trip.ts";
 import { homeStory, lounge } from "./usual.ts";
 
 /**
@@ -102,3 +103,18 @@ export const loungeFormatFive = homeStory("home/lounge-format-five")
   .checkpoint("motion polled")
   .advance("45 seconds")
   .checkpoint("temperature polled");
+
+/**
+ * A sabbatical booked at clock 0 to return at 2^31 ms, a millisecond past the longest timer. The
+ * house hears the vacation from the trip, which has already sent it and will not send it again: the
+ * house goes on vacation and shows its homecoming refused as an issue. The same vacation sent by
+ * hand can be sent again, so it is refused whole and the house stays home.
+ */
+export const tripPastLongest = homeStory("home/trip-past-longest")
+  .ensure(house)
+  .ensure(trip("sabbatical"))
+  .send(trip("sabbatical"), Trip.E.Book({ returns: 2 ** 31 }))
+  .checkpoint("booked")
+  .send(house, House.E.Arrive())
+  .send(house, House.E.StartVacation({ until: 2 ** 31 }))
+  .checkpoint("sent by hand");

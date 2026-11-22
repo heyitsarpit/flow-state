@@ -1,6 +1,7 @@
 import { Effect, Option, Schema } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
+import { TraceRecord } from "../../src/host/trace.ts";
 import {
   mainAvatar,
   mainByline,
@@ -9,6 +10,7 @@ import {
   workspaceGrownSetup,
 } from "../../fixtures/session/app.ts";
 import {
+  acme,
   badge,
   coreTeam,
   guestTeam,
@@ -31,8 +33,10 @@ import {
   shellBeforeSession,
   signedOutReloaded,
   signedOutUndefined,
+  grownStory,
   teamForgotten,
 } from "../../fixtures/session/stories/structure.ts";
+import { Team } from "../../fixtures/session/machines/team.ts";
 import { attachInspector } from "../../src/host/inspect.ts";
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
@@ -103,6 +107,8 @@ describe("storage failures (Restore R5, R9)", () => {
     expect(run.checkpoints.healed.read(coreTeam)?.memory.name).toBe("Core");
   });
 });
+
+const grown = grownStory("session/rename-same").ensure(acme).ensure(mainSession).ensure(coreTeam);
 
 describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
   it("S2 x 64 under L5: a team renamed under 64 badges reaches each one once", async () => {
@@ -175,6 +181,93 @@ describe("the workspace's structures (fixtures.md S2, S6, S7; E1, E2)", () => {
       expect(run.checkpoints["signed in"].read(wallAvatar(n))?.context).toEqual({ user: "ada" });
       expect(run.checkpoints["signed in"].read(wallAvatar(n))?.memory.seen).toBe(1);
     }
+  });
+
+  it("Changes Q9: a team renamed to the name it holds changes no badge's view and no badge publishes, so skipping that turn's context wave keeps every view", async () => {
+    const story = [wallBadge(0), wallBadge(1)]
+      .reduce<typeof grown>((st, b) => st.ensure(b), grown)
+      .send(coreTeam, Team.E.Rename({ name: "Platform" }))
+      .checkpoint("renamed")
+      .send(coreTeam, Team.E.Rename({ name: "Platform" }))
+      .checkpoint("again");
+
+    const run = await played(story);
+    const last = run.steps.length - 2;
+    const stepOf = new Map<unknown, number>();
+    let at = -1;
+
+    for (const { record } of run.trace.events) {
+      if (TraceRecord.$is("Step")(record)) at = record.index;
+
+      if (TraceRecord.$is("Runtime")(record)) stepOf.set(record.evidence, at);
+    }
+
+    const badges = run.evidence.filter(
+      (e) =>
+        stepOf.get(e) === last && e._tag === "Published" && e.actor.machine === "Workspace/Badge",
+    );
+
+    expect({
+      published: badges.length,
+      views: [0, 1].map((n) => run.checkpoints.again.read(wallBadge(n))),
+    }).toEqual({
+      published: 0,
+      views: [0, 1].map((n) => run.checkpoints.renamed.read(wallBadge(n))),
+    });
+  });
+
+  it("Changes I17: the Runtime's disposal ends each badge before its team, the team before its session, the session before its organisation", async () => {
+    const run = await wall.disposeRuntime().run();
+
+    const ended = run.evidence.flatMap((e) => (e._tag === "Finished" ? [e.actor.machine] : []));
+    const last = (machine: string) => ended.lastIndexOf(machine);
+    const first = (machine: string) => ended.indexOf(machine);
+
+    expect({
+      badgesBeforeTeam: last("Workspace/Badge") < first("Workspace/Team"),
+      teamBeforeSession: last("Workspace/Team") < first("Workspace/Session"),
+      sessionBeforeOrg: last("Workspace/Session") < first("Workspace/Org"),
+      all: ended.length,
+    }).toEqual({
+      badgesBeforeTeam: true,
+      teamBeforeSession: true,
+      sessionBeforeOrg: true,
+      all: 67,
+    });
+  });
+
+  it.fails("Changes R21, I7: each avatar's context update is served with its reaction's turn, in one step, with no other actor's record between them", async () => {
+    const run = await avatarWall.run();
+    const signIn = run.steps.findIndex((s) => s._tag === "send");
+    const stepOf = new Map<unknown, number>();
+    let at = -1;
+
+    for (const { record } of run.trace.events) {
+      if (TraceRecord.$is("Step")(record)) at = record.index;
+
+      if (TraceRecord.$is("Runtime")(record)) stepOf.set(record.evidence, at);
+    }
+
+    const after = run.evidence.filter((e) => (stepOf.get(e) ?? -1) >= signIn);
+    const nameOf = (e: (typeof after)[number]) => ("actor" in e ? e.actor.name : "");
+
+    const apart = Array.from({ length: 65 }, (_, n) => `avatar-${String(n)}`).flatMap((name) => {
+      const update = after.findIndex((e) => e._tag === "Published" && nameOf(e) === name);
+
+      const reaction = after.findIndex(
+        (e, i) => i > update && e._tag === "Turn" && nameOf(e) === name,
+      );
+
+      const between = after
+        .slice(update + 1, reaction)
+        .filter((e) => "actor" in e && nameOf(e) !== name);
+
+      const sameStep = stepOf.get(after[update]) === stepOf.get(after[reaction]);
+
+      return update !== -1 && reaction !== -1 && between.length === 0 && sameStep ? [] : [name];
+    });
+
+    expect(apart).toEqual([]);
   });
 
   it("S7, Actors R5, Stories R3: a Story's second ref to the live badge naming another team is refused ConflictingActorRef", async () => {

@@ -12,6 +12,7 @@ import {
   roomsAddedMidTick,
   unusedOverdue,
   unusedReturn,
+  unusedWhileSaving,
   vacationEndedUnused,
 } from "../../fixtures/home/stories/structure.ts";
 import {
@@ -28,6 +29,7 @@ import { evidenceOf, publishedOf, Story, turnsOf } from "../../src/host/testing/
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 import { heldBy, timerNames, timersOf } from "../timers.ts";
+import { alarmsMatch } from "../turn/turn-invariants.ts";
 
 // A keyed poll timer of the lounge's sensor `id`, running or held.
 const running = (id: string, dueAt: number) => ({ key: { id }, dueAt });
@@ -744,5 +746,32 @@ describe("schedule functions that throw (Turn R19, R25)", () => {
     });
     expect(run.checkpoints.fixed.read(heater)?.issues).toEqual([]);
     expect(timersOf(run.checkpoints.fixed.read(heater))).toEqual({ check: { dueAt: 420_000 } });
+  });
+});
+
+describe("a room left unused while it saves (Changes C5 Use row, I12; Turn R17, I22)", () => {
+  it("Changes C5: used again, the lounge's overdue check and motion poll fire once and its next check is five minutes on", async () => {
+    const run = await played(unusedWhileSaving);
+    const awake = run.checkpoints.awake.read(lounge);
+
+    expect({
+      polled: awake?.memory.polls["m1"],
+      checks: awake?.memory.checks,
+      timers: timersOf(awake),
+    }).toEqual({
+      polled: 1_200_000,
+      checks: [1],
+      timers: expect.objectContaining({ check: { dueAt: 1_500_000 } }),
+    });
+  });
+
+  it.fails("Changes I12: while the lounge is unused its timers hold no alarm, and no grace runs while its save is on the wire", async () => {
+    const run = await played(unusedWhileSaving);
+
+    expect([
+      ...alarmsMatch(run.checkpoints.asleep, "asleep"),
+      ...alarmsMatch(run.checkpoints["still saving"], "still saving"),
+      ...alarmsMatch(run.checkpoints.awake, "awake"),
+    ]).toEqual([]);
   });
 });

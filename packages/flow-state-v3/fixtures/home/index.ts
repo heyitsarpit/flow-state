@@ -7,16 +7,18 @@ import {
   loungeFormatFive,
   noSensors,
   reconnectBackoff,
+  tripPastLongest,
   vacationEdges,
 } from "./stories/edges.ts";
 import { manyRooms, seededStress } from "./stories/load.ts";
-import { samples } from "./stories/samples.ts";
+import { samples, tripSamples } from "./stories/samples.ts";
 import {
   houseFirst,
   reloadedPaused,
   roomFirst,
   roomsAddedMidTick,
   unusedOverdue,
+  unusedWhileSaving,
   vacationEndedUnused,
 } from "./stories/structure.ts";
 import { stories } from "./stories/usual.ts";
@@ -35,8 +37,10 @@ export const home = manifest({
     houseFirst,
     roomsAddedMidTick,
     unusedOverdue,
+    unusedWhileSaving,
     vacationEndedUnused,
     vacationEdges,
+    tripPastLongest,
     reconnectBackoff,
     noSensors,
     loungeFormatFive,
@@ -45,8 +49,8 @@ export const home = manifest({
     manyRooms,
     seededStress,
   },
-  samples: [samples, hubSamples],
-  stressSamples: [samples, hubSamples],
+  samples: [samples, hubSamples, tripSamples],
+  stressSamples: [samples, hubSamples, tripSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -57,6 +61,10 @@ export const home = manifest({
     },
     {
       samples: hubSamples,
+      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+    },
+    {
+      samples: tripSamples,
       reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
     },
   ],

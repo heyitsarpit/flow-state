@@ -1,7 +1,8 @@
 import { Story } from "../../../src/host/testing/index.ts";
-import { homeSetup, house, room } from "../app.ts";
+import { homeSetup, house, room, trip } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
+import { Trip } from "../machines/trip.ts";
 import { ThermostatFake } from "../server/layer.ts";
 import { Thermostat } from "../server/thermostat.ts";
 
@@ -177,10 +178,23 @@ export const reachedWhileSaving = loungeWithSensors(homeStory("home/reached-whil
   .checkpoint("saved unheard");
 
 /**
+ * A summer trip is booked: the trip tells the house, which is on vacation until the trip returns
+ * and home again at that time.
+ */
+export const tripBooked = homeStory("home/trip-booked")
+  .ensure(house)
+  .ensure(trip("summer"))
+  .send(trip("summer"), Trip.E.Book({ returns: 10 * HOUR }))
+  .checkpoint("booked")
+  .advance("10 hours")
+  .checkpoint("back");
+
+/**
  * Every named Story of the home fixture.
  */
 export const stories = {
   usual,
+  tripBooked,
   pauseReasons,
   boost,
   heaterSteps,

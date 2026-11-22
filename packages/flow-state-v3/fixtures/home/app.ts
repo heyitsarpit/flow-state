@@ -6,6 +6,7 @@ import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { ThermostatHttp } from "./adapters/thermostat.ts";
 import { HouseMachine } from "./machines/house.ts";
 import { RoomMachine } from "./machines/room.ts";
+import { TripMachine } from "./machines/trip.ts";
 
 /**
  * The house.
@@ -28,13 +29,20 @@ export const roomOf = (n: number) => room(`room-${String(n)}`);
 export const hall = room("hall");
 
 /**
- * The home app: the house and its rooms, each reading the house's mode.
+ * A planned trip, named by its name.
+ */
+export const trip = (name: string) => actorRef(TripMachine, { name });
+
+/**
+ * The home app: the house and its rooms, each reading the house's mode, and the trips that put
+ * the house on vacation.
  */
 export const homeApp = app({
   id: "home",
   machines: {
     house: HouseMachine,
     rooms: { machine: RoomMachine, context: { mode: house } },
+    trips: TripMachine,
   },
 });
 

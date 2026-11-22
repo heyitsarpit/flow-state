@@ -4700,6 +4700,162 @@ tasks
             (Q1 B, R3) has no Story; its resendable flag is set apart at incarnations.ts#deliver
             (Option.isNone(sender)), so flipping it stays green. Add a Story driving an actor send into a bad delay,
             with a plant on that flag.
+        comment     2026-11-22T16:53:41Z
+            Requirements (lead, whole Task): 13 states, 4 tables, 12 rules A1 to A7. Reds: I7, I12, the one wake, R11's
+            one writer; holding rules each red on a named plant. X3 and Q9's first choice cannot be red at the root
+            (ruling below).
+
+            **State inventory** (state: values; inputs in one step; one owner after the build; today's writers)
+
+            - S1 walk accumulator: Walking, Refused(first). Inputs: each part (rows W1 to W3, W7, W8 and W13 at the
+              root; W4 to W6 and W9 to W12 come with fragments, @task.V3.T109). Owner `walk` in `runTurn`.
+              Today: `turn.ts#accept`.
+            - S2 the `Turn`: built once by `runTurn`, read by `apply`, then evidence. Today:
+              `TurnResult.Accepted` fields.
+            - S3 control and memory (state, activations, history, memory): `apply` C2 from `Begin`, `Turn` and `End`.
+              Today: 3 writers (`serve.ts#turn` accepted branch, `incarnations.ts#start`, `setIncarnation` at 8 sites).
+            - S4 context (values, slots, baselines); props (empty until @task.V3.T76): C2 from `Begin` and `Inputs`.
+              Today: `context.ts` `keep` and `needs.save`.
+            - S5 outcomes (absent, Failed per source): C2. Today 5 writers: `serve.ts#raised`, `context.ts` raise and
+              clear, `withoutIssue` in the accepted branch, start.
+            - S6 schedules per scope: `decide` (@task.V3.T118), called only from C5. Today: `turned`, `rechecked`,
+              `firingSettled` from serve, firings, incarnations and the context publish.
+            - S7 alarms (six kinds, at most one per owner fact): `tx.alarms.set` and `clear` by each fact's owner (C5,
+              grace view, disposal, tickets; Collect and Release have no writer before @task.V3.T122 and @task.V3.T123);
+              read by `tick` and the one wake. Today one fact has three homes (`world.timers`, `Incarnation.alarms`,
+              `Incarnation.grace`), and a schedule keeps its host timer while its actor sleeps: an implicit state
+              machine across `graces()` and `fired`.
+            - S8 mailbox per actor: empty, queue, at most one context update, front mail inside one serve. Owner: the
+              `tx` mail functions. Today 8 writers: enqueue, enqueueFirst, joinWave, takeOldest, unreference, clearMail,
+              dropMail and the deferred re-put.
+            - S9 loop-guard chain: Idle, Admitted, Chained (`following.ts`) and the chains map. Unchanged; read by C1.
+            - S10 publication per change: none or one `Published { actor, incarnation, why }`. Owner C6, one call site.
+              Today 9 publish calls.
+            - S11 owed rows at the root: rows are @task.V3.T121's; C4 makes the calls (`Begin` start, `End` suspend, an
+              ending `afterTry`).
+            - S12 indexes (`realization`, index layer): each written by its fact's writer; `indexDrift` rebuilds
+              every one.
+            - S13 the actor's end: `End { how }`, ordered by one `endOrder`. Today `disposal.ts#consumersFirst`,
+              `retire`, `end`, `dispose`.
+
+            **Transition tables** (states with two or more writers; every cell from @spec.Changes, none from a run)
+
+            - T-A incarnation (S3 to S5) and T-B publication (S10): @spec.Changes `algorithm` rows C2 and C6, taken
+              whole; `whyOf` total over the nine tags; "differs" is one identity comparison of before and after.
+            - T-C alarms (S7): Schedule: set when a scope's run is Armed(Due) and the scope is awake; cleared when the
+              last use is released, at Freeze, disarm, firing, exit or End; set again at first use, `Begin` from a
+              record or Thaw, each overdue timer firing once. Grace: set when an actor becomes free (unused, no lane in
+              flight, no mail), cleared when busy, due ends it (`End Grace`). Bound: set at disposal start, due passes
+              the bound. Silent: set when a ticket is awaited, cleared when answered, due reports. One instant: Bound,
+              Silent, Release, Collect, Grace, Schedule.
+            - T-D mailbox (S8): enqueue; `owe` (none waiting: enqueue; one waiting: keeps its place, follows the larger
+              chain); `front` (an `Inputs` change's reaction events); take (front first, then the queue; an update whose
+              providers have mail is passed over); a change is served with its front mail in the same call; the drain
+              yields after `drainYield` items, never between an item and its front mail; dispose removes.
+
+            **Rules, one to one with the acceptance** (check, then why it is red today)
+
+            - A1 sequence test: I5, I9, I12, I13, I15 to I17 in `tests/turn/sequence.test.ts` and
+              `tests/turn/turn-invariants.ts` (every 2-step sequence of 17 home atoms, 3 under the stress flag); I7 in
+              `src/core/turn-parts.test.ts`. Red: I12 (an unused actor keeps its Schedule alarms; also
+              `home/unused-while-saving`), I7 (the 100th item's reaction is left for the next step;
+              `session/avatar-wall` serves 65 updates before any reaction). Holding today, red on plants: I5, I9, I13,
+              I15, I16, I17.
+            - A2 `tick`, six kinds, one wake: source checks in `tests/surface/turn-parts.test.ts` (`Alarm` has the six
+              kinds; `Command.Wake` and `Input.Tick` exist and `Arm`, `Disarm`, `Fired` do not) and the one-wake check
+              in `turn-parts.test.ts` (a step arming two schedules returns two `Arm` and no `Wake`). The build replaces
+              the source checks with two-sided type pins once the types exist, the planted seventh kind among them.
+            - A3 X3: no check can be red at the root (ruling below); proposed for @task.V3.T109.
+            - A4 routed actor send: `home/trip-past-longest` in `tests/home/trips.test.ts`; holds today, red on
+              plant `actor-send-resendable`.
+            - A5 plants (`tests/turn-parts-faults.ts`): `actor-send-resendable`, `turn-unpublished-without-sends`,
+              `row-queued-for-absent`, `consumers-unindexed`, `refusal-writes-memory`, `context-update-writes-memory`,
+              `providers-finish-first`. The build adds a plant per new rule on the new code (`front-mail-yields`,
+              `second-applier`, `alarm-kept-asleep`, `index-stale:<name>`), and re-points every fault whose `find` sits
+              in superseded code; `tests/faults.test.ts` goes red on each moved `find`.
+            - A6 fixtures first: proof in the next comment.
+            - A7 Correctness: R11 one writer, read from the source (`tests/surface/turn-parts.test.ts`: `putIncarnation`
+              and `Act.Published` outside `apply.ts`; the replaced writers still declared; `Change` has nine tags;
+              `Published` carries `incarnation` and `why`); the wrong-ending Story is `session/avatar-wall` (a
+              publication between a context change and its reaction); Q9's second choice holds today (a cancel-policy
+              replace returns `Interrupt` before `Invoke`); its third keeps every view (`session/rename-same`; the bench
+              case `turn.wave-noop` decides whether to land it). The build also makes the Story harness judge I12 and
+              I13 on the world after every step of every Story (T14), which carries the checks to every fixture app.
+              Covered elsewhere and unchanged: R2 to R5, R14, R18, R24 and R26 by the existing suite on the new code;
+              R10 by `--dev` bench cases (mailbox of 1,000, wave to 100); R15, R17 and the instance halves of I9
+              by @task.V3.T109.
+
+            **Real resources.** Clock: one host wake replaces a sleep per timer; the Story clock must deliver one `Tick`
+            for alarms due together and drop a superseded `Wake`; the fake needs nothing more. Store: record format
+            unchanged; alarms, `grace` and `Mail.Firing.track` are not saved. Page and network: untouched (Q4). No
+            persisted shape changes, so no restore-after-edit case.
+        comment     2026-11-22T16:53:42Z
+            Fixtures first (@convention.fixtures): no new matrix cell; one new machine (`Home/Trip`) and two new Stories
+            carry the routed send and the sleep row; every other scenario is an existing step-1 app run unchanged.
+            Catalog items are in the `home` block.
+
+            - Actor's send into a bad delay (Schedules R11): fixture home (changed), machine `Trip` (new, persisted),
+              journey trips; usual `home/trip-booked`; load and structure none (one house takes few trips; a burst is no
+              product shape); samples E5 (−1, 0, 2^31 − 1, 2^31) in `home-trips`; combos pairs and mix (home persists);
+              sources none; red today: holds, red on plant `actor-send-resendable`.
+            - Front mail (R21, I7): fixture session (unchanged), machine `Avatar`, journey sign-in; usual and load
+              `session/avatar-wall` (S2 × 65 under L5, 130 items across the 100-item yield); the boundary item by hand
+              in `src/core/turn-parts.test.ts`; red today: both.
+            - Alarms per owner fact (I12, the C5 `Use` row): fixture home (changed), machine `Room`, journey "left
+              unused while saving"; `home/unused-while-saving` (a lane in flight keeps the room live and unused); load
+              `home/stress-many-rooms` (L1) and structure S6 (`home/house-first`, `home/room-first`,
+              `home/reloaded-paused`), unchanged; red today: I12 at "asleep" and across the sequence test.
+            - One publication, only turns write, end order (I5, I15 to I17): home (every 2-step sequence of 17 atoms)
+              and session (S1 × 64: badge, team, session, organisation, ended in order at disposal); red on plants.
+
+            Review (4 Haiku sidecars, high: registration and shape; expected results against rules; the invariant
+            checks; an adversary on coverage). Accepted: `onlyTurnsWrite` judged no step (wrong cut index; two plants
+            missed it, now caught); Trip persists; Story wording and checkpoints; catalog rows; a stale-incarnation
+            Schedule counts as an orphan; deep equality for memory; the one-wake case declares its later timer first;
+            the order check asserts order only; I7 gains a joining wave; I17 on the session chain; a sleeping room kept
+            live by a save; sensor, unplug atoms. Changed: the type pins became source checks (lint refuses an unpaired
+            refusal of a type that does not exist yet); the rename Story retitled as the wave skip's views half.
+            Rejected: Grace while mail waits (a Story step ends idle); `why` in I5 (needs Q5's field); trip E7, E8
+            (decoded at the door; no call); generic replaced names (`keep`, `raise`) dropped from the source check;
+            extra front-mail positions (the yield boundary is pinned by hand, the fixture crosses it).
+
+            Files beyond the Supersedes list: `fixtures/home/` (`app.ts`, `index.ts`, `machines/trip.ts`,
+            `stories/usual.ts`, `edges.ts`, `samples.ts`, `structure.ts`), `tests/turn-parts-faults.ts`,
+            `tests/faults.ts`, and the new or grown tests in `src/core/turn-parts.test.ts`, `tests/turn/`,
+            `tests/home/`, `tests/session/workspace.test.ts`, `tests/surface/turn-parts.test.ts`.
+        comment     2026-11-22T16:53:53Z
+            Ruling needed (orchestrator): move acceptance item 3 (X3) to @task.V3.T109. Row 7 and I10 resolve arms only
+            for a scope with no instance `End` in its turn; at the root nothing ends inside its own turn (a state exit
+            is not an `End`), and `schedules.turned` already drops an exited state's arms. Trace A, at the root
+            (`NUMBER-10`, a tick at the bound leaves HOLD_REPEAT, whose `repeat` lists Tick): right and planted builds
+            show the same views, so the plant `exited-state-armed` was missed by its target and is dropped. Trace B,
+            with `.each` (the Spec's atom): copy k's own event removes k and enters a state with a computed `after`;
+            right: accepted, k ends, the delay never runs; wrong: the delay runs on the ended scope and refuses the
+            turn. Only B can be red, and it needs @task.V3.T109's instances.
+        comment     2026-11-22T16:53:54Z
+            [decided: agent builder 2026-11-22] Q9's first choice keeps A (Bound, Silent, Release, Collect, Grace,
+            Schedule) as the stated total order. Why: in the four kinds that have writers now, no view shows the order
+            (Grace and Silent act at once, a Schedule only enqueues mail served after `tick`, a Bound ends the disposal,
+            which drops a firing either way), and the description keeps A when views agree; its unit check of
+            `takeDue`'s order is written with `alarms.ts`, and the Release-and-Schedule Story goes to @task.V3.T123.
+            Reverse: B, by deadline then admission.
+        comment     2026-11-22T16:53:54Z
+            [decided: agent builder 2026-11-22] `Collect` and `Release` join the union and `tick`'s match now, and no
+            code sets them until @task.V3.T122 and @task.V3.T123 add their writers and arms. Why: the acceptance names
+            six kinds, and a kind with no writer is unreachable. Reverse: four kinds now, each later Task adding
+            its own.
+        comment     2026-11-22T16:53:55Z
+            [decided: agent builder 2026-11-22] A send that wakes an unused actor leaves its schedules asleep: decided,
+            with no alarm, until a use returns. Why: I12's awake scope is a used actor's; views are unchanged (today the
+            alarm fires and is dropped). Reverse: count a send-woken actor awake.
+        comment     2026-11-22T16:53:56Z
+            [decided: agent builder 2026-11-22] I12's `Silent` row and the after-every-step form need the world, not a
+            cut: the build adds `alarmsMatch` over the heap to the Story harness after every step, with a plant. Why: a
+            cut shows no ticket. Reverse: show tickets in the cut.
+        comment     2026-11-22T16:53:57Z
+            [decided: agent builder 2026-11-22] I9's life-held and subject-held halves and R15, R17 are @task.V3.T109's;
+            here I9 is the root form (a row in a mailbox has a live actor). Why: both halves need instances. Reverse:
+            judge them here on root rows held by life or subject.
 
     T120
         title       Declared schedules: the runtime half

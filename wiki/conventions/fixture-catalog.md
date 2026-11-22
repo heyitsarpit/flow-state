@@ -1151,6 +1151,9 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   - `Room` grows its hub's device pings (@task.V3.T118): online, pings each paired device on the interval the device
     reports (`ping`, keyed by device, `pausedBy` Away, `restartOn` the firmware's major version, `disarmOn` Quiet);
     the room owns its devices as it owns its sensors.
+  - `Trip` (@task.V3.T119), shared, persisted, named by trip: booking it sends the house `StartVacation` until the
+    trip's return, an actor's send its sender cannot send again (Schedules R11). New, since no machine of the app
+    plans a trip; the send is a genuine command of the house's existing event.
 - **Operations:** T `setTarget` (step 2, `latest` per room); R `readings` (step 4); S `liveReadings` (step 11).
 - **Journeys:**
   1. Set target: T `setTarget` → S `liveReadings` confirms the temperature.
@@ -1159,6 +1162,7 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
   4. Reconnect: the connection drops → stale readings refetch.
   5. Pings: devices pair, report a new interval or firmware, and unpair; an interval past the longest timer or
      firmware the hub cannot read is that device's issue until it reports again.
+  6. Trips: a booked trip puts the house on vacation until it returns.
 - **Features by step:**
   - **used today:** compound `states` (`Room`'s heater cycle); `schedules` with `armOn`; `keys`, `paused`,
     `pausedBy`, `restartOn`, `disarmOn` (per-sensor polls, vacation and saving reasons, the boost); an Effect
@@ -1201,6 +1205,17 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
       format. built: `home/lounge-format-five`.
     - [x] Variety: the same feature in `sign-in` (`AuthSession`, unkeyed, a disarm, the Spec's sign-out Story) and
       `transfers` (`Customer`, keyed with a computed delay, a snooze reason). built (rows above in each app).
+  - **The turn's parts (@task.V3.T119),** no source (Changes R21, I5, I9, I12, I13, I15 to I17; Schedules R11):
+    - [x] Usual: a trip booked arms the homecoming at its return. built: `home/trip-booked`.
+    - [x] E5: a trip returning at 2^31 ms commits with its homecoming refused and shown; the same vacation sent by hand
+      is refused whole. built: `home/trip-past-longest`. −1, 0, 2^31 − 1 and 2^31 are in the `home-trips` samples.
+      E7 and E8 do not apply: `returns` is decoded at the door, and a booking starts no call.
+    - [x] A room left unused while it saves: its timers sleep and its overdue timers fire once on its return. built:
+      `home/unused-while-saving` (red for I12 until the build).
+    - [x] Every two-step sequence of 17 atoms (sends, a refused vacation, sensors, a failed save, detach, ensure,
+      time, dispose, reload, the Runtime's disposal), judged after every step for I5, I9, I12, I13 and I15 to I17.
+      built: `tests/turn/sequence.test.ts` (three-step under the stress flag).
+    - Load and structure: none new for trips; one house takes few trips, so a burst of trips is no product shape.
   - [ ] **Variety:** a multi-step `Schedule` against one delay; keyed against unkeyed.
   - **Findings:**
     - [x] Pause reasons hold separately (`home/pause-reasons`). Copies [toast.test.ts:247][ui-toast] "pause reasons hold separately: one

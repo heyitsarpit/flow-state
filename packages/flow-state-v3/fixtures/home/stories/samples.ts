@@ -1,7 +1,8 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
-import { house } from "../app.ts";
+import { house, trip } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
+import { Trip } from "../machines/trip.ts";
 import { Thermostat } from "../server/thermostat.ts";
 import { homeStory, lounge } from "./usual.ts";
 
@@ -45,6 +46,35 @@ export const samples = samplesOf({
       .send(house, House.E.StartVacation({ until: 2 ** 31 - 1 }))
       .send(house, House.E.StartVacation({ until: 2 ** 31 }))
       .send(house, House.E.StartVacation({ until: 10 * HOUR }))
+      .send(house, House.E.Leave())
+      .send(house, House.E.Arrive()),
+});
+
+const summer = trip("summer");
+
+/**
+ * What a household does with its trips, for generated runs: a trip booked to return a millisecond
+ * ago, now, at the longest delay, just past it and in ten hours, each telling the house, which is
+ * also left, come home to and sent on vacation by hand.
+ */
+export const tripSamples = samplesOf({
+  id: "home-trips",
+  story: homeStory("home-trips/samples"),
+  names: { setup: "homeSetup", fixtures: ["ThermostatFake"] },
+  actors: { house, summer },
+  servers: { Thermostat },
+  failures: [],
+  landedFailures: [],
+  values: {},
+  controls: [],
+  steps: (story) =>
+    story
+      .send(summer, Trip.E.Book({ returns: -1 }))
+      .send(summer, Trip.E.Book({ returns: 0 }))
+      .send(summer, Trip.E.Book({ returns: 2 ** 31 - 1 }))
+      .send(summer, Trip.E.Book({ returns: 2 ** 31 }))
+      .send(summer, Trip.E.Book({ returns: 10 * HOUR }))
+      .send(house, House.E.StartVacation({ until: 2 ** 31 }))
       .send(house, House.E.Leave())
       .send(house, House.E.Arrive()),
 });

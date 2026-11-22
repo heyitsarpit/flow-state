@@ -3,6 +3,7 @@ import { Flow, machine } from "../../../src/index.ts";
 import { house, roomOf } from "../app.ts";
 import { House } from "../machines/house.ts";
 import { Room } from "../machines/room.ts";
+import { Thermostat } from "../server/thermostat.ts";
 import { homeStory, lounge, loungeWithSensors } from "./usual.ts";
 
 const HOUR = 3_600_000;
@@ -83,6 +84,23 @@ export const unusedReturn = (id: string) =>
     .checkpoint("waiting")
     .ensure(lounge)
     .checkpoint("returned");
+
+/**
+ * The lounge is left unused while its new target is still saving, so it stays live with no use for
+ * twenty minutes: its timers sleep, the overdue check and motion poll fire once when it is used
+ * again, and the temperature poll stays held by the save until the thermostat answers.
+ */
+export const unusedWhileSaving = loungeWithSensors(homeStory("home/unused-while-saving"))
+  .world(Thermostat.setTarget.hold())
+  .send(lounge, Room.E.SetTarget({ celsius: 22 }))
+  .detach(lounge)
+  .checkpoint("asleep")
+  .advance("20 minutes")
+  .checkpoint("still saving")
+  .ensure(lounge)
+  .checkpoint("awake")
+  .world(Thermostat.setTarget.release())
+  .checkpoint("saved");
 
 /**
  * As {@link unusedReturn}, then the next check is five minutes from the overdue one's firing.

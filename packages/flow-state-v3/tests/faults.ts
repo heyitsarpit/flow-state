@@ -20,6 +20,7 @@ import { scheduleStateFaults } from "./schedule-state-faults.ts";
 import { doorFaults } from "./door-faults.ts";
 import { declarationFaults } from "./declaration-faults.ts";
 import { typedMachineFaults } from "./typed-machine-faults.ts";
+import { turnPartsFaults } from "./turn-parts-faults.ts";
 
 /**
  * A planted fault: a named wrong behaviour of the runtime, the test files that catch it, the Spec
@@ -303,6 +304,7 @@ const planted: ReadonlyArray<Fault> = [
   ...doorFaults,
   ...declarationFaults,
   ...typedMachineFaults,
+  ...turnPartsFaults,
   ...restoreFaults,
   ...ruleFaults,
   ...structureFaults,
