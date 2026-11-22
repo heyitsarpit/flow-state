@@ -744,6 +744,10 @@ tasks
         comment     2026-11-16T02:04:36Z
             Routed from P2's completion audit: nub run verify no longer runs any stress file; the full gate should
             include nub run test:stress.
+        comment     2026-11-22T12:44:02Z
+            Routed (orchestrator) from T143's close review: src/host/inspect.ts re-exports rebuilt (reruns a body
+            outside the machine door) beside InternalsId, compiledOf and dataView; before flow-state/inspect is
+            published, move test and bench reach off that route.
     T73
         title       UI primitives, third wave: combobox, tree and token input fixtures
         status      draft
@@ -5914,7 +5918,7 @@ tasks
 
     T143
         title       The typed machine (b): named crossings and Compiled's derived fields
-        status      review
+        status      done
         priority    high
         parent      [@T142]
 
@@ -6187,7 +6191,7 @@ tasks
               doc sample.
     T144
         title       The typed machine (c): every hand-typed site swept, and a lint rule keeps them gone
-        status      open
+        status      in_progress
         priority    high
         parent      [@T142]
         blocked_by  [@T113]
@@ -6320,3 +6324,7 @@ tasks
             construct.wide and construct.deep time small machines and T5 checks depth 2 only. Extend an existing machine
             where a real app would (width: a long wizard; depth: nested House modes); if none fits, rename those bench
             rows to what they measure.
+        comment     2026-11-22T12:44:03Z
+            Routed (orchestrator) from T143's close review: paused: { r: undefined } is accepted and never pauses
+            (predates T143); the body capture should refuse undefined there, with a type test; T118 is closed so it
+            lands here.

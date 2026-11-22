@@ -722,3 +722,9 @@ note 2026-11-22T11:30:32Z
 
 note 2026-11-22T11:43:46Z
     T113 done (close review PASS, 3b164cf6). Slice T142 continues: T143 build starts.
+
+note 2026-11-22T12:22:16Z
+    T143 built and in review (c5c3fe23); close review started.
+
+note 2026-11-22T12:44:06Z
+    T143 done (close review PASS, 192e55c1). Slice T142 continues: T144 (sweep, lint rule, body capture) build starts.
