@@ -803,3 +803,10 @@ note 2026-11-22T19:15:16Z
 note 2026-11-22T19:42:45Z
     T119 close review: ISSUES (5e7b27c4), two blockers: the one wake loses a same-instant re-arm; createActor locals get
     no Schedule alarm. Fix round to the builder.
+
+note 2026-11-22T20:04:33Z
+    [decided: agent orchestrator 2026-11-23] Story step create(machine, { input }) accepted as a small public API
+    addition (Epic Authority). Why: Stories must start local actors. Reverse: start them through a fixture event.
+
+note 2026-11-22T20:04:33Z
+    T119 fix round in review (6aab9c8b, 9d09f531); second close review starts.
