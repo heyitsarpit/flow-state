@@ -5915,6 +5915,25 @@ tasks
             (builds the publication that calls project), off T113 and T114. T143 blocked_by T113, with machine() named
             as a second seam. Non-blocking findings fold into T143 and T144 before their builds. T113 builds first; the
             body-key typo spike (proposal body-key-typos) may add scope to T144.
+        comment     2026-11-22T14:06:45Z
+            Slice seam review (reviewing lead, at ab64ce88): PASS for the seams, with records owed before the slice
+            closes. `machine()` keeps T113's face and T143's `door`; T144 added only `B` and `BodyOf<D, B>`
+            (`machine.ts:123`, `:414`), with no runtime change. `Parts`, `Declared`, `MachineBody`, `BodyTokens` and
+            `AnyBody` each have one home (`derive.ts`, `compile-body.ts`), read alike by all three Tasks. No `payBody`,
+            `PayBody`, `erasedBody`, `trustedTokens` or `ReturnType<typeof X.E.` is left in the package, and no outside
+            import or temporary name was added. `Exact` goes deeper than Effect's one-level `Types.NoExcessProperties`,
+            so it is no copy.
+
+            Owed to the records (the orchestrator's). Origin: the user's Q5 A reversed @spec.Types Q19, and no Task's
+            May change held the Spec.
+
+            1. @spec.Types R2 still says an unknown body key "is not a type error" and that no body type is captured,
+               Q19 still reads option C, and the realization says the capture is not built. Yet `excess-keys.test-d.ts`
+               cites Types R2 for the type refusals. `wiki/specs/v3/Types.md:105,145,257` describe the old state
+               (`payBody` at 257).
+            2. @proposal.body-key-typos was merged in ab64ce88. Delete it, and have its absorbing record name
+               the commit.
+            3. The `clients.ts` factory is the user's ruling (two traces on @task.V3.T144).
 
     T143
         title       The typed machine (b): named crossings and Compiled's derived fields
@@ -6388,6 +6407,55 @@ tasks
             1.00 s, 5.10 M instantiations, 941 k types, 1.17 GB; after the sweep 1.05 s, 5.11 M; after the capture 1.27
             s, 6.88 M, 1.21 M types, 1.48 GB (+27% time, +35% instantiations; the spike had +14%, +35%). Bench
             `startup.construct.most-states --dev` 0.28 ms. Not run: stress (no stress Story or sweep touched).
+        comment     2026-11-22T14:06:45Z
+            Close review (reviewing lead, at ab64ce88): PASS. No finding meets the Stopping rule, and every acceptance
+            item holds; type and lint faults are not owed (Q7 B). `nub run check` is at 0, and the rule's test passes.
+            The coverage run ran once: 25138 passed, 0 type errors, and 3 time limits in heavy files on a battery at 11%
+            (`home/schedules` 64 rooms, `shop/context` 1000 lines, `rules/seeds`). Its report was not written (the flag
+            sat after `--`); T144 changes no runtime line in coverage scope (`src`: types, one doc comment, `src`
+            tests), so no coverage reader ran. A scratch probe confirmed that `stopp` beside `go` under `on`, `tikc`
+            beside `tick` under `schedules`, and `paused: { Away, r: undefined }` are refused. The owed lines' comments
+            were rewritten.
+
+            Routed, non-blocking (origin; why the tests missed it):
+
+            1. An event or memory field named `pipe` turns the capture off for its record: `on: { pipe: S.ON, stopp:
+               S.IDLE }` compiles (probe). Origin: code:packages/flow-state-v3/src/machine.ts#Opaque matches Effect
+               values by a `pipe` key of any type. Missed: no type test names a `pipe` key. Fix: `{ readonly pipe:
+               Callable }`, and a pin.
+            2. Pins owed: the `on` event-key and schedule-name typos are refused but not pinned. `states: { ON: { onn:
+               {} } }` passes by weak-type detection, not by the capture (it needs a sibling). The title at
+               `excess-keys.test-d.ts:79` still says "refused today" for a typo it lacks.
+            3. `no-hand-typed-callback` misses an alias-typed parameter (`({ event }: Input)` with `type Input = {
+               readonly event: {...} }`; it reads only a `TSTypeLiteral`), function types, and a literal holding one
+               nested `typeof`. `tools/lint-bomb/FLOW-STATE.md` has no row for it, though `vite.config.ts` says to
+               change both. It is on at error in `vp check`; its test plants flagged and quiet shapes.
+            4. `Callable` is written twice (`machine.ts:66`, `entry.ts:39`).
+            5. Check time, +27% against the spike's +14%: the spike's own ranges (1.11-1.26 s to 1.33-1.38 s) give
+               6-24%, @spec.Types's realization measured +23%, and instantiations are +35% in both, so no extra work is
+               shown. Possibly avoidable, not measured: the `[MachineBody<D>] extends [B]` short-circuit (needed now
+               only by `derived.test-d.ts:141`) and a primitive guard before `Exact`'s distributive chain.
+
+            For the user, as two traces of `meeting("serialize")`: `clients.ts#clientUnder`. Root cause: the factory
+            returns one type, so Latest, Serialize and Cancel share it (id `Lanes/${Policy}`), and `clients[policy]` is
+            one `ActorRef<T>`. Written out, it is a union of three, and `Story.ensure` and `send` (`<D>(ref:
+            ActorRef<D>)`) infer no single `D`. The factory's price: `send(latestClient,
+            Cancel.E.Commit(...))` type-checks.
+
+            - Today: `ensure(clients.serialize)` infers `D = T`, and any client's event is accepted.
+            - Without a factory: three written definitions and machines, and a `satisfies Record<Policy, Row>` table
+              whose rows each call their own client (`ensure: (s) => s.ensure(serializeClient)`), so `D = T_S` and a
+              cross-client send is refused.
+
+            Rejected: the shared `pay` and `placeOrder` transactions (they live with the service and predate T144);
+            `onTheWire` (generic over an Effect, not over a handler input); `labelOf`'s `Pick<typeof
+            Player.Memory.Type>` (derived; two tests use it); `Flow.BodyTokens` in the doc (`import * as Flow`
+            resolves it).
+
+            For @task.V3.T145: `body-capture-dropped`, `sync-repo-renamed`, `account-renamed`, `receipt-renamed` and
+            `tools/faults/run.ts`'s typecheck block are type faults. `excess-keys.test-d.ts` also proves the capture,
+            but the three renames are the only proof that every helper breaks on a rename. `initial-first-state` is
+            runtime and stays.
 
     T145
         title       Planted faults: runtime rules only, judged by their targets
