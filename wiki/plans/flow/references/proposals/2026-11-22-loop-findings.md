@@ -19,6 +19,10 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
   and planted faults.
 - **A mechanical pass beside agent inventories** (slice T89): a draft lint rule cross-checked two independent
   inventories of a migration and found the cases both missed.
+- **Rulings asked as two traces get fast, good answers** (slice T118): Q1 (A refuses and sits in LOADING for good, B
+  commits with the timer Refused) took the user one line to decide.
+- **The blind requirements sidecar keeps its value** (slice T118): its re-derivation of the expected values matched, and
+  it found the order cells the Spec left open.
 
 ## Proposed changes
 
@@ -30,6 +34,17 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
    decisions landed during slice T89; reconciling then a scoped re-review kept the build honest without restarting.
 4. **A slice costs about 6% of the weekly limit** with two requirements reviews, one build, a close review and a fix
    round [proposed, as a planning figure]. Why: measured on slice T89 (55% to 61%).
+5. **An acceptance item stated as an absence gets a grep in the builder's close gates** [proposed]. Why: slice T118's
+   builder reported "no `it.fails` left", one was, and a whole close review and fix round went on it; `rg` would have
+   caught it in a second.
+6. **The requirements brief names the fixtures-first variety rule and the extend-first rule up front** [proposed]. Why:
+   slice T118's requirements lead built one app, was sent back for two more, then all three were folded into existing
+   machines: about an hour of rework.
+7. **Fix rounds carry blockers and the user's decisions; other routed items go to their owners unless they change the
+   same state** [proposed]. Why: slice T118's first fix round grew to six items around a one-line blocker.
+8. **A slice can still run long when its catalog step is large** [proposed, as a planning figure]: slice T118 took
+   about 61% to 70% of the weekly limit (9%), with three review rounds after the build. Why: the requirements rework
+   and two post-PASS rulings each added a round.
 
 ## Already merged
 

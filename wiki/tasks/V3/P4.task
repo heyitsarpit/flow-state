@@ -3007,7 +3007,7 @@ tasks
             (2026-11-22, P4 comment).
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
-        status      review
+        status      done
         priority    high
         blocked_by  [@T120]
         satisfies   [@plan.Machines.O5, @plan.Machines.O8]
@@ -4179,6 +4179,11 @@ tasks
         comment     2026-11-22T03:54:00Z
             Fix 2: `ledger.ts#start` and `#restore` removed from Supersedes; owed rows belong to @task.V3.T121. This
             Task owns only the actor's start that calls them. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-22T08:34:45Z
+            Routed (orchestrator) from T118's last-round review: an actor-to-actor send into a refused schedule start
+            (Q1 B, R3) has no Story; its resendable flag is set apart at incarnations.ts#deliver
+            (Option.isNone(sender)), so flipping it stays green. Add a Story driving an actor send into a bad delay,
+            with a plant on that flag.
 
     T120
         title       Declared schedules: the runtime half

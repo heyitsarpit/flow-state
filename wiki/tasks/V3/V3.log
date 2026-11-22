@@ -657,3 +657,7 @@ note 2026-11-22T08:08:50Z
 note 2026-11-22T08:18:53Z
     T118 follow-up close review: PASS (d33d24aa). One last round before close: the user's NaN removal, rulings R3 to R5
     (T118 comments); a narrow review of that diff follows, then the slice closes.
+
+note 2026-11-22T08:35:52Z
+    T118 done (last-round review PASS, 26853ee4). Page @page.T118-schedule-issues written, unread; loop findings
+    added. Slice close held: @page.T57-schedules and @page.T89-foundations are not marked read. Next: T141.

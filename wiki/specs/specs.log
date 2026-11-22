@@ -803,3 +803,7 @@ note 2026-11-22T08:26:13Z
     Schedules R11: an actor's send and an onContext reaction also commit when their own arm's delay is bad, as an
     outcome does (the orchestrator's ruling R3, 2026-11-22). R5: a resting record shows the issues of the entries its
     wake keeps (@task.V3.T118).
+
+note 2026-11-22T08:34:44Z
+    Turn R14 reworded: the raw non-finite refusal is the range check, not a kept NaN guard; the user's 2026-11-22
+    ruling credits only following Effect's Duration (a NaN part as zero).
