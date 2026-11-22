@@ -712,3 +712,7 @@ note 2026-11-22T10:43:34Z
 note 2026-11-22T10:56:53Z
     Slice T142 re-review: ISSUES, two blockers ruled (a111641f). Build starts with T113 (the face); the lead first folds
     the rulings into T143, T144 and T111.
+
+note 2026-11-22T11:00:21Z
+    [decided: user 2026-11-22] Q5 A: machine captures the body's type (B & Exact<B, MachineBody<D>>) so misspelled body
+    keys show in the editor; reverses Types Q19 option C (@proposal.body-key-typos, +14% check time). Scope: T144.
