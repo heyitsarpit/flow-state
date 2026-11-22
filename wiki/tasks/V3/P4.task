@@ -5253,8 +5253,8 @@ tasks
                became a plain space; the comment above still says "a line separator". Red at HEAD: a Map store that
                writes U+2028 as a space passes all 7 cases (`storeContract(..., { describe, it })` from `node:test`).
                Why the tests missed it: no test hands the contract a broken store, so `loadsExactly`/`loadsKey` never
-               fail in the suite. Fix: write it as `"a b"`, and add a test that a store mangling each listed text, or
-               dropping a record, fails the contract.
+               fail in the suite. Fix: write it as `"aU+2028b"`, and add a test that a store mangling each listed text,
+               or dropping a record, fails the contract.
             2. Root cause confirmed: nub 0.7.5 `transform-core.mjs` resolveSpec step 4 (`resolveTs`, tsconfig `paths`)
                runs before Node, and `tsconfig.base.json` maps `vite-plus/test` to the
                declare-module-only `types/vite-plus-test.d.ts`.
@@ -5278,12 +5278,13 @@ tasks
         comment     2026-11-22T09:32:01Z
             Fix round (builder): all four items done; `nub run check`, the suite and three planted faults pass.
 
-            1. The line separator is back, written `"a b"`. Origin: my Write-tool rewrite in d8c06dbf. The formatter
-               keeps the escape, and the tool's JSON input decodes an escape to the raw character. The new tests in
-               code:packages/flow-state-v3/tests/restore/store-contract.test.ts collect the cases through a recording
-               runner. A sound store fails none. Each mangled text (U+2028 to a space, astral to `?`, `""` dropped, cut
-               at 65,535) fails exactly "text and keys are kept exactly", and a dropped last record fails "what landed".
-               The U+2028 test went red on the space text. New fault `store-contract-passes-any-records` is caught.
+            1. The line separator is back, written `"aU+2028b"`. Origin: my Write-tool rewrite in d8c06dbf. The
+               formatter keeps the escape, and the tool's JSON input decodes an escape to the raw character. The new
+               tests in code:packages/flow-state-v3/tests/restore/store-contract.test.ts collect the cases through a
+               recording runner. A sound store fails none. Each mangled text (U+2028 to a space, astral to `?`, `""`
+               dropped, cut at 65,535) fails exactly "text and keys are kept exactly", and a dropped last record fails
+               "what landed". The U+2028 test went red on the space text. New fault `store-contract-passes-any-records`
+               is caught.
             2. The load guard now also runs a planted bench through a real worker and starts `backfill.ts` with no
                commits. A named runner import in `worker.ts` turns it red. `LIMITS.benchLoad` was re-measured at 0.58 s.
             3. Each verdict carries its position, so `differences` names the real one in replay form (checked by a
@@ -5295,8 +5296,8 @@ tasks
             the orchestrator.
 
             1. Line separator, accepted: code:packages/flow-state-v3/src/host/testing/store-contract.ts `texts` holds
-               the escape `"a b"`; the touched code files are otherwise ASCII except `é` and `…`, and d8c06dbf added no
-               other invisible character.
+               the escape `"aU+2028b"`; the touched code files are otherwise ASCII except `é` and `…`, and d8c06dbf
+               added no other invisible character.
             2. Broken stores, accepted: each text flaw reaches only "text and keys are kept exactly" and fails at its
                `loadsExactly`, asserted with `toEqual`; the planted fault turns them red. Nit: the dropped-record test
                uses `toContain`, and that flaw also fails 5 other cases (same cause, so not incidental). Nit: `failedBy`
