@@ -5094,7 +5094,7 @@ tasks
 
     T141
         title       Bench loads again: the testing entry imports no test runner
-        status      open
+        status      in_progress
         priority    high
         description
             The bench loads and records again: nothing the fixtures import pulls in the test runner at load time.
@@ -5103,18 +5103,21 @@ tasks
             'vite-plus/test' does not provide an export named 'describe'`). The fixtures import
             code:packages/flow-state-v3/src/host/testing/index.ts, which re-exports `storeContract`;
             code:packages/flow-state-v3/src/host/testing/store-contract.ts imports `describe`, `expect` and `it` from
-            `vite-plus/test` at module load, which only exists inside the test runner. Broken since @task.V3.T58 added
-            it (2026-11-20); the last bench rows are from 2026-11-18 and 2026-11-19, so T120, T131 and T140
-            landed unmeasured.
+            `vite-plus/test` at module load. Under `nub run`, nub applies the root tsconfig's `paths`, which map that
+            specifier to a declarations-only file, so the import is empty there (plain node loads the real vitest).
+            Broken since @task.V3.T58 added it (2026-11-20); the last bench rows are from 2026-11-18 and 2026-11-19, so
+            T120, T131 and T140 landed unmeasured.
 
             **Read first:** @convention.bench;
             code:packages/flow-state-v3/bench/list.ts; code:packages/flow-state-v3/src/host/testing/store-contract.ts.
 
-            **Build-time choice:** A: `storeContract` takes the runner's `describe`, `it` and `expect` as arguments (or
-            resolves them lazily inside the call), so loading the testing entry imports no runner. B: `storeContract`
-            moves to its own testing entry that fixtures never import. A keeps one public testing entry; B changes a
-            public path. Test: a check that imports `fixtures/index.ts` outside the runner (plain `node`) succeeds; pick
-            the option that passes it with the smaller public change, and tag it.
+            **Build-time choice:** A: `storeContract` takes the runner's `describe` and `it` as an argument, so loading
+            the testing entry imports no runner. B: `storeContract` moves to its own testing entry that fixtures never
+            import. A keeps one public testing entry and changes one call; B adds a public entry name, which is a phase
+            stop. Resolving the runner lazily inside the call is out: a dynamic import is async, and `describe` must
+            register while the file is collected. Test: code:packages/flow-state-v3/tests/bench/load.test.ts, which
+            loads `fixtures/index.ts` and `bench/` under nub, as the bench runner does, and records every runner import;
+            pick the option that passes it with the smaller public change, and tag it.
 
             **Risk:** `storeContract` is public test tooling, used by the IndexedDB adapter's browser tests; its call
             shape for users must stay readable.
@@ -5127,6 +5130,8 @@ tasks
               load the way the bench runner loads it; it was red before the fix.
             - `storeContract`'s browser tests still pass (`nub run test:browser`, alone).
             - `nub run check` at zero errors and warnings, and the package suite pass.
+            - Each stress reload-sweep shard passes alone under its limit, the shards split or the limit set from a
+              measured run, never raised blind (the orchestrator's comment of 2026-11-22).
         comment     2026-11-22T06:39:40Z
             Correction (orchestrator): plain node imports both fixtures' testing index and bench/benches/index.ts fine;
             the failure is only under bench/run.ts (reproduced twice at 74675069 plus the T118 working tree). The cause
@@ -5136,3 +5141,76 @@ tasks
             Added (orchestrator), test tooling in the same spirit: the stress reload-sweep shards abort-0, land-0 and
             unattached-0 time out at 164 s even alone (abort-0 before T118 too; T118 made it about a third slower).
             Split the shards or set their limit from a measured run, never by raising it blind.
+        comment     2026-11-22T08:43:11Z
+            [decided: user 2026-11-22] The requirements lead also builds T141 (reds first, then the fix, in one run);
+            one close review checks the requirements mapping and the build together.
+        comment     2026-11-22T08:47:35Z
+            Root cause (builder): nub applies tsconfig `paths` at run time, and `tsconfig.base.json` maps
+            `vite-plus/test` to the declarations-only `types/vite-plus-test.d.ts`, so under `nub run bench` the import
+            becomes an empty module. The trigger is code:packages/flow-state-v3/src/host/testing/store-contract.ts, the
+            only non-test module reachable from `fixtures/index.ts` that imports the runner (`describe`, `expect`, `it`)
+            at load. `run.ts` and `list.ts` are not at fault: `node bench/run.ts --list` and `nub run --node bench
+            --list` load; `nub run bench --list` fails.
+
+            - Origin: nub 0.7.5's preload (`~/.cache/nub/runtime-0.7.5-*/transform-core.mjs`, "the ADDITIVE TS
+              resolution — tsconfig `paths` aliases") resolves before Node. Installed `vite-plus` 1.7.0 `./test` is
+              `export * from 'vitest'` (vitest 5.1.0 `dist/index.js`, which exports `describe`); plain node takes
+              that path.
+            - Workers inherit it: code:packages/flow-state-v3/bench/workers.ts#spawnWorker spawns `process.execPath`
+              with the parent's env, so its `NODE_OPTIONS` (nub's `--require preload.cjs`) too.
+            - `--dev` does not load either: `nub run bench --only turn.cells.long.per-turn-ms --dev` exits 1 with the
+              same `did not load`. The T118 dev rows can't have come from `nub run bench` at this tree.
+
+            Two traces, one resolve hook recording runner imports, importing `fixtures/index.ts`
+            and `src/host/testing/index.ts`:
+
+            ```text
+            node:  runner  vite-plus/test <- src/host/testing/store-contract.ts
+                           vitest <- node_modules/vite-plus/dist/test/index.js
+                   failed  none          (loads, but pulls the whole vitest graph into the process)
+            nub:   resolve vite-plus/test -> types/vite-plus-test.d.ts   (node: node_modules/vite-plus/dist/test/index.js)
+                   runner  vite-plus/test <- src/host/testing/store-contract.ts
+                   failed  fixtures/index.ts, testing/index.ts: 'vite-plus/test' does not provide an export named 'describe'
+            ```
+
+            Which side is wrong: Flow's code. A runner-agnostic testing entry needs the runner at load: under plain node
+            it loads vitest into every bench worker, and fails for a user with no vitest. The `paths` shim only turns
+            that into a load error; it is root tooling outside this Task and stays, and the load guard catches any later
+            runner import it would break.
+        comment     2026-11-22T08:47:53Z
+            [decided: agent builder 2026-11-22] Amended (small, delegated): the Build-time choice's test now loads under
+            nub, the way the bench runner does, since plain node passes today; lazy resolution is dropped from A;
+            acceptance gains item 5, the stress shards, from the orchestrator's comment. Why: the cause above; the old
+            test could not go red. Reverse: restore the plain-node test and four acceptance items.
+        comment     2026-11-22T08:47:53Z
+            Requirements (builder), one per acceptance item; each fails today for the reason given.
+
+            1. A narrow run loads and writes rows: `nub run bench --only turn.cells.long.per-turn-ms --dev`, then the
+               same id with `--record`, exit 0 with its row. Red: exit 1, `did not load` (run above). Checked by those
+               two commands at the close; no suite test, since `--record` writes the real history and refuses on a
+               busy machine.
+            2. The load guard, code:packages/flow-state-v3/tests/bench/load.test.ts, two inverted checks under a real
+               nub process: (a) "the bench runner lists its benches": `nub bench/run.ts --list` exits 0 and lists only
+               known ids; (b) "nothing reachable from fixtures/index.ts or bench/benches/index.ts imports the test
+               runner": its probe imports both under a resolve hook and expects no failure and no `vite-plus/test`,
+               `vitest` or `@vitest/` resolved. Red: (a) `did not load`; (b) runner `vite-plus/test from
+               store-contract.ts`, both modules failed. (b) is what holds when the shim is absent (a faults copy has no
+               `types/`), so the planted fault for the guard targets it.
+            3. `storeContract` keeps a readable call and passes in a real browser: `nub run test:browser`, alone, at the
+               close; its type pin in code:packages/flow-state-v3/tests/types/persistence.test-d.ts states the shape the
+               choice picks. Not red today: it guards the change.
+            4. `nub run check` at zero and the package suite. Not red today: it guards the change.
+            5. Each stress sweep shard passes alone under `LIMITS.stressReloadSweep`. Red: the existing
+               `tests/rules/sweep-stress-{abort,land,unattached}-0.stress.test.ts` time out. Origin: `shardOf` deals
+               whole Stories, and `home/stress-many-rooms` alone is the shard. Measured at ed72619a, plain node, abort
+               mode: it took 228.2 s of shard 0's 228.4 s (492 positions); the shard's two other Stories took 0.1 s
+               each. Its `(steps + 1)²` cost is 24x theirs, its time about 2000x, so no Story-level split fits it in 164
+               s. The limit's 41 s (land shard 2) predates that growth, which @task.V3.T117 owns (per-firing cost);
+               raising the limit to absorb it would hide that.
+
+            State inventory: the testing entry's load-time imports (owner: `store-contract.ts`); which reload positions
+            each stress shard sweeps (owner: `sweepShard`); the shard limit (owner: `LIMITS`). No state has two writers.
+            Real resources, none faked: `nub` processes from `PATH` (nub 0.7.5 and its preload), installed `vite-plus`
+            1.7.0 and vitest 5.1.0, the bench's worker processes and `bench/history/` (item 1), real Chrome and Safari
+            (item 3). Overlap: @task.V3.T117 also names the land-0 bound; this Task changes the shards and the limit's
+            measurement only.
