@@ -599,3 +599,8 @@ note 2026-11-22T03:55:08Z
 note 2026-11-22T04:00:19Z
     [decided: user 2026-11-22] "new order": the 2026-11-22 Order supersedes T92's 2026-11-19 deferral; T92 runs sixth.
     Scope: P4 (T92, T56, the T21 slice). Answers R48 fix 13.
+
+note 2026-11-22T04:40:57Z
+    Daily faults (background, 2026-11-22): 463 of 463 caught, 8 only by the whole suite; none missed. Its unchanged run
+    failed 14 browser-store tests (no browser in the scratch copy) and 3 stress sweeps (home-rooms generated, abort and
+    land shard 0): routed to T118's close stress run to replay and name the wrong side.
