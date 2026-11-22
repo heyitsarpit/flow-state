@@ -604,3 +604,9 @@ note 2026-11-22T04:40:57Z
     Daily faults (background, 2026-11-22): 463 of 463 caught, 8 only by the whole suite; none missed. Its unchanged run
     failed 14 browser-store tests (no browser in the scratch copy) and 3 stress sweeps (home-rooms generated, abort and
     land shard 0): routed to T118's close stress run to replay and name the wrong side.
+
+note 2026-11-22T04:55:14Z
+    T118 requirements review started (Opus lead, medium, five fixed Haiku sidecars incl. two blind) on bad06723.
+
+note 2026-11-22T05:13:54Z
+    T118 requirements review: PASS (bb7e9bc5). Acceptance 1 amended per the 2026-11-20 ruling; build lead starts.

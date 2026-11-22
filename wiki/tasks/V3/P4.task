@@ -3086,7 +3086,8 @@ tasks
             refused start marked in the record and retried on restore, format 6).
         acceptance
             - The sequence test exists, every 3-step sequence on one two-key fixture checked after each step against the
-              Spec's ledger of owed firings, and was red on the code before this Task's build.
+              Spec's ledger of owed firings, and was red on the code before this Task's build; every row passes: the
+              wrong list is deleted, and no `it.fails` is left in the schedule tests.
             - T57's fourth-review B1 (a hold restored with no reasons left) and B2 (an arming issue replaced, then
               cleared while unarmed) pass, each first landed as an inverted test.
             - No schedule issue is stored: a type cannot hold one, a lint rule refuses one, and four planted faults (a
@@ -3581,6 +3582,9 @@ tasks
               - `keyCodecOf` is earlier code, and requirement 6 covers it;
               - `Decided` and `scheduleIssues` are Spec targets.
             - Cohesion found no outside imports and no temporary names in `src/`.
+        comment     2026-11-22T05:13:47Z
+            Acceptance 1 amended (orchestrator), per the 2026-11-20 ruling and the requirements review's finding: every
+            row passes, the wrong list is deleted, no it.fails left in the schedule tests.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
