@@ -1877,6 +1877,11 @@ tasks
             Orphan) reports RecordUndecodable until @task.V3.T56 brings RecordKept. Why: a report points at the bytes it
             keeps (I4), and corrupt.test.ts asks each mutant outside the writer's form to be reported for its key.
             Reverse: one report per machine with a count, its keys in the reason.
+        comment     2026-11-22T21:36:28Z
+            [decided: agent orchestrator 2026-11-23] The lead's per-key record report stands: one report per key per
+            boot, where @spec.Records gives one per machine with a count. It's a small change to an evidence field (Epic
+            Authority), noted for the user's read. Why: 'reported for its key' must be testable, and a boot reports each
+            bad key once. Reverse: one report per machine carrying the keys.
     T95
         title           Callback results checked before they enter a turn
         status          tombstone

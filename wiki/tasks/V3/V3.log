@@ -830,3 +830,7 @@ note 2026-11-22T21:12:30Z
 note 2026-11-22T21:24:40Z
     T92 requirements review: ISSUES (0248790a), three test blockers: corrupt judge passes out-of-form values silently;
     no check for R17/I14/I17; bindings test not red for its reason. Fix round to the requirements lead.
+
+note 2026-11-22T21:36:29Z
+    T92 requirements fix round in (c74cdad2); per-key record report accepted (orchestrator, T92 comment). Fresh builder
+    (medium) starts; weekly ~93%.
