@@ -12,7 +12,8 @@ import {
   textOf,
 } from "./record-format.ts";
 import { readSelected, sameForm, type Selected, selectedOf } from "./slots.ts";
-import { type ReadFailure, SavedTimer } from "./vocabulary.ts";
+import { SavedTimerFive, timerFromFive } from "./actor-record-five.ts";
+import { type ReadFailure, SavedSchedules, type SavedTimer } from "./vocabulary.ts";
 import { chainOf } from "./tree.ts";
 import type { ActorId, ActorRecord, Wiring } from "./world.ts";
 
@@ -44,7 +45,17 @@ const BaselinesJson = Schema.Record(Schema.String, Schema.Record(Schema.String, 
 const ActorRecordJson = Schema.Struct({
   ...RecordHead,
   format: Schema.Literal(FORMAT),
-  schedules: Schema.Array(SavedTimer),
+  schedules: SavedSchedules,
+  seen: Schema.Record(Schema.String, Schema.Json),
+  baselines: BaselinesJson,
+  graph: Schema.Record(Schema.String, WiredJson),
+});
+
+// Format 5: the current record with each schedule's timers as one list of names.
+const ActorRecordFiveJson = Schema.Struct({
+  ...RecordHead,
+  format: Schema.Literal(5),
+  schedules: Schema.Array(SavedTimerFive),
   seen: Schema.Record(Schema.String, Schema.Json),
   baselines: BaselinesJson,
   graph: Schema.Record(Schema.String, WiredJson),
@@ -353,6 +364,14 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
   const stepsTo = (format: typeof Format.Type, value: unknown) => {
     if (format === FORMAT) return decodeBy(ActorRecordJson, "schema")(value);
 
+    return Result.flatMap(stepsToFive(format, value), stepFive);
+  };
+
+  // A record of format 1 to 5, in format 5.
+  // FLOW_STATE_ALLOW_UNKNOWN: one stored value, decoded by the Schema its format names.
+  const stepsToFive = (format: Exclude<typeof Format.Type, typeof FORMAT>, value: unknown) => {
+    if (format === 5) return decodeBy(ActorRecordFiveJson, "schema")(value);
+
     if (format === 4)
       return Result.flatMap(decodeBy(ActorRecordFourJson, "schema")(value), stepFour);
 
@@ -374,7 +393,40 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
     return Result.flatMap(stepOne(value), stepFour);
   };
 
-  // A format-4 actor record in the current format: each deadline is a timer armed at it with no
+  // A format-5 actor record in the current format: each saved timer filed under the state on the
+  // record's chain that declares its schedule (a name no state on the chain declares is dropped,
+  // as the decoder drops it), keyed ones as a list; `dueAt` is a due run, `left` a held one,
+  // neither an idle timer; `pausedBy` is its reasons; no baseline was saved.
+  const stepFive = (five: typeof ActorRecordFiveJson.Type) =>
+    Result.map(machineOf(five), (compiled) => {
+      const pathOf = new Map(
+        chainOf(five.state).flatMap((path) =>
+          (compiled.states.get(path)?.schedules ?? []).map((s) => [s.name, path] as const),
+        ),
+      );
+
+      const schedules: Record<string, Record<string, SavedTimer | Array<SavedTimer>>> = {};
+
+      for (const timer of five.schedules) {
+        const path = pathOf.get(timer.name);
+
+        if (path === undefined) continue;
+
+        const saved = timerFromFive(timer);
+        const byName = schedules[path] ?? {};
+        const was = byName[timer.name];
+        const listed = Array.isArray(was) ? was : [];
+
+        byName[timer.name] = timer.key === undefined ? saved : [...listed, saved];
+        schedules[path] = byName;
+      }
+
+      const stepped: typeof ActorRecordJson.Type = { ...five, format: FORMAT, schedules };
+
+      return stepped;
+    });
+
+  // A format-4 actor record in format 5: each deadline is a timer armed at it with no
   // firing yet; its send, which the definition declares, is dropped. A schedule its state's entry
   // arms that has no deadline had ended or was disarmed, so it is saved idle, and a restore does
   // not start it again.
@@ -388,9 +440,9 @@ export const decodeActor = (machines: ReadonlyMap<string, Compiled>) => {
           .map((s) => ({ name: s.name })),
       );
 
-      const stepped: typeof ActorRecordJson.Type = {
+      const stepped: typeof ActorRecordFiveJson.Type = {
         ...four,
-        format: FORMAT,
+        format: 5,
         schedules: [
           ...four.schedules.map((d) => ({
             name: d.name,

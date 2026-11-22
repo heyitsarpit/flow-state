@@ -302,6 +302,9 @@ describe("paused and the snapshot's timers (Turn R27; Machines O8)", () => {
         >;
         readonly check: Due | Paused<"Vacation">;
         readonly boost: Due | Paused<never>;
+        readonly ping: ReadonlyArray<
+          { readonly key: { readonly id: string } } & (Due | Paused<"Away">)
+        >;
       }>
     >();
   });

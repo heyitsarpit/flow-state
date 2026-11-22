@@ -16,6 +16,7 @@ import { stepFaults } from "./step-faults.ts";
 import { writeAheadFaults } from "./write-ahead-faults.ts";
 import { typedCoreFaults } from "./typed-core-faults.ts";
 import { scheduleFaults } from "./schedule-faults.ts";
+import { scheduleStateFaults } from "./schedule-state-faults.ts";
 import { doorFaults } from "./door-faults.ts";
 import { declarationFaults } from "./declaration-faults.ts";
 
@@ -312,6 +313,7 @@ export const faults: ReadonlyArray<Fault> = [
   ...writeAheadFaults,
   ...typedCoreFaults,
   ...scheduleFaults,
+  ...scheduleStateFaults,
   ...doorFaults,
   ...declarationFaults,
   ...restoreFaults,
@@ -425,9 +427,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/schedule-decision.ts",
-        find: "    w.start = w.start || Option.isSome(given) || (keyedSchedule && w.fresh) || (adds && w.fresh);",
+        find: "    Option.exists(turn, (t) => Option.isSome(t.started)) ||",
         replace:
-          "    w.start =\n      w.start ||\n      (Option.isSome(given) && Option.isNone(w.track.run)) ||\n      (keyedSchedule && w.fresh) ||\n      (adds && w.fresh);",
+          '    Option.exists(turn, (t) => Option.isSome(t.started) && !Arming.$is("Armed")(timer.arming)) ||',
       },
     ],
   },
@@ -443,9 +445,9 @@ export const faults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/schedules.ts",
-        find: "    for (const tracked of undeclared) Option.map(tracked.run, disarmRun);",
+        find: "    changed = changed || [...before.keys()].some((name) => !after.has(name));",
         replace:
-          "    for (const tracked of undeclared) timers.set(trackOf(tracked.name, tracked.key), tracked);",
+          "    for (const [name, kept] of before) if (!after.has(name)) after.set(name, kept);\n\n    changed = changed || [...before.keys()].some((name) => !after.has(name));",
       },
     ],
   },

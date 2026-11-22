@@ -208,8 +208,8 @@ const restoredWatch = (frame: string) =>
   decodeRecords(watchMachines, new Map([["actor/Test/Watch/w", formatThree(frame)]]));
 
 describe("a reaction's baseline is its slot's value (Actors R18, Turn R22, Restore R5)", () => {
-  it("Restore R5, Actors R18, Turn R17: the record format is 5, which saves each reaction's baseline as its slot's value only and each schedule's timers", () => {
-    expect(FORMAT).toBe(5);
+  it("Restore R5, Actors R18, Turn R17: the record format is 6, which saves each reaction's baseline as its slot's value only and each schedule's timers", () => {
+    expect(FORMAT).toBe(6);
   });
 
   it("Restore R5, Actors R18: the format-3 step reads a reaction's baseline from its frame's value of the reaction's slot, so a kept baseline is neither lost nor made up", () => {
@@ -238,7 +238,7 @@ describe("format 4 saves a reaction's baseline only where it differs from its sl
     '"graph":{},"machine":"Test/Watch","memory":{"heard":0},"name":"w","schedules":[],' +
     '"seen":{"count":2},"state":"SHOWN"}';
 
-  it("Restore R5, Actors R18: a slot whose baselines equal it is left out, a baseline that differs is saved under its slot and event by its value, and none as an empty object; each reads back and writes the same text in format 5", () => {
+  it("Restore R5, Actors R18: a slot whose baselines equal it is left out, a baseline that differs is saved under its slot and event by its value, and none as an empty object; each reads back and writes the same text in format 6", () => {
     for (const [baselines, value] of [
       ["{}", 2],
       ['{"count":{"Heard":{"value":1}}}', 1],
@@ -251,7 +251,11 @@ describe("format 4 saves a reaction's baseline only where it differs from its sl
       expect(valuesOf(restored.records)).toEqual([value]);
       expect(
         record === undefined ? Result.fail("none") : encodeActor(compiledOf(WatchMachine), record),
-      ).toEqual(Result.succeed(text.replace('"format":4', '"format":5')));
+      ).toEqual(
+        Result.succeed(
+          text.replace('"format":4', '"format":6').replace('"schedules":[]', '"schedules":{}'),
+        ),
+      );
     }
   });
 });

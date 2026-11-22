@@ -5,7 +5,6 @@ import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { ThermostatHttp } from "./adapters/thermostat.ts";
 import { HouseMachine } from "./machines/house.ts";
-import { HubMachine } from "./machines/hub.ts";
 import { RoomMachine } from "./machines/room.ts";
 
 /**
@@ -24,19 +23,18 @@ export const room = (name: string) => actorRef(RoomMachine, { room: name });
 export const roomOf = (n: number) => room(`room-${String(n)}`);
 
 /**
- * The hall's hub.
+ * The hall, whose hub pings its paired devices.
  */
-export const hall = actorRef(HubMachine, { hub: "hall" });
+export const hall = room("hall");
 
 /**
- * The home app: the house, its rooms and its hub, each room and the hub reading the house's mode.
+ * The home app: the house and its rooms, each reading the house's mode.
  */
 export const homeApp = app({
   id: "home",
   machines: {
     house: HouseMachine,
     rooms: { machine: RoomMachine, context: { mode: house } },
-    hubs: { machine: HubMachine, context: { mode: house } },
   },
 });
 

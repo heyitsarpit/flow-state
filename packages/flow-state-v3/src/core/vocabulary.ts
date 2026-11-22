@@ -80,24 +80,51 @@ export const IssueCode = Schema.Literals([
  */
 export type IssueCode = typeof IssueCode.Type;
 
+const FailureJson = Schema.Struct({ code: IssueCode, slot: Schema.String });
+
 /**
- * A schedule's saved timer, as an actor record holds it: its name, a keyed one's key, while armed
- * its arming time, its firings since and its `dueAt` or its `left`, and the pause reasons it last
- * read true, armed or idle. A timer with neither `dueAt` nor `left` is idle: its entry armed it
- * once and it has ended or was disarmed.
+ * A schedule's saved timer, as an actor record holds it: a keyed one's key as its declared key
+ * Schema encodes it, its `restartOn` baseline as its declared codec's text and that check's last
+ * failure, the pause reasons it last read true, its arming (idle, refused with its failure, or a
+ * run due or held), and its last firing's failure. Absent fields are the clean outcomes.
  */
 export const SavedTimer = Schema.Struct({
-  name: Schema.String,
-  // FLOW_STATE_ALLOW_UNKNOWN: a key's values are the application's; the canonical encoder checks them.
-  key: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
-  armedAt: Schema.optionalKey(Schema.Number),
-  attempt: Schema.optionalKey(Schema.Number),
-  dueAt: Schema.optionalKey(Schema.Number),
-  left: Schema.optionalKey(Schema.Number),
-  pausedBy: Schema.optionalKey(Schema.Array(Schema.String)),
+  key: Schema.optionalKey(Schema.Json),
+  selection: Schema.optionalKey(Schema.String),
+  selectionFailed: Schema.optionalKey(FailureJson),
+  reasons: Schema.optionalKey(Schema.Array(Schema.String)),
+  arming: Schema.Union([
+    Schema.TaggedStruct("Idle", {}),
+    Schema.TaggedStruct("Refused", { code: IssueCode, slot: Schema.String }),
+    Schema.TaggedStruct("Due", {
+      armedAt: Schema.Number,
+      attempt: Schema.Number,
+      dueAt: Schema.Number,
+    }),
+    Schema.TaggedStruct("Held", {
+      armedAt: Schema.Number,
+      attempt: Schema.Number,
+      left: Schema.Number,
+    }),
+  ]),
+  firing: Schema.optionalKey(FailureJson),
 });
 
 /**
  * The decoded {@link SavedTimer}.
  */
 export type SavedTimer = typeof SavedTimer.Type;
+
+/**
+ * An actor record's schedules: by the state path of the scope, then by name, an unkeyed
+ * schedule's one timer or a keyed one's timers in key-text order.
+ */
+export const SavedSchedules = Schema.Record(
+  Schema.String,
+  Schema.Record(Schema.String, Schema.Union([SavedTimer, Schema.Array(SavedTimer)])),
+);
+
+/**
+ * The decoded {@link SavedSchedules}.
+ */
+export type SavedSchedules = typeof SavedSchedules.Type;

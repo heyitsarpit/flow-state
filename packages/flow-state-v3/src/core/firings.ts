@@ -1,17 +1,10 @@
 import { Option, Result } from "effect";
 import { callSlot, type Schedule, type Values } from "./compiled.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
-import { type Failure, type Firing, Occasion } from "./schedule-decision.ts";
+import { type Firing, Next, Occasion } from "./schedule-decision.ts";
 import type { Tx } from "./tx.ts";
-import {
-  type ActorId,
-  type ArmingId,
-  type IncarnationId,
-  type Incarnation,
-  type Run,
-  Timing,
-  type Tracked,
-} from "./world.ts";
+import type { ActorId, ArmingId, IncarnationId, Incarnation } from "./world.ts";
+import type { Failure, Run, Tracked } from "./timers.ts";
 
 /**
  * Firings and lane re-checks: what a schedule's timer does when it fires, and the keys and
@@ -31,17 +24,18 @@ export const makeFirings = (
 ) => {
   const { schedules, setIncarnation, publish } = incarnations;
 
-  // A timer's firing: its next step is taken from now, then its send runs as a turn; a mapper that
-  // throws refuses that turn. A send that does not commit is decided here, with its refusal and a
-  // next step past the timer limit, and a refused or ended one publishes once.
-  const fire = (incarnation: Incarnation, schedule: Schedule, tracked: Tracked, run: Run) => {
-    const dueAt = Timing.$is("Running")(run.timing) ? run.timing.dueAt : tx.env.now;
-    const metadata = schedules.metadataOf(tracked, run, dueAt);
-    const next = schedules.fired(incarnation, tracked, run);
-    const left = next.incarnation;
-    const firing: Firing = { name: schedule.name, key: tracked.key, over: next.over };
-
-    setIncarnation(left);
+  // A timer's firing, one synchronous step with no write before its send: its next step is read,
+  // then its send runs as a turn carrying the firing; a mapper that throws refuses that turn. A
+  // send that does not commit is decided here, with its refusal, and a refused or ended one
+  // publishes once.
+  const fire = (
+    incarnation: Incarnation,
+    schedule: Schedule,
+    due: { readonly tracked: Tracked; readonly run: Run; readonly dueAt: number },
+  ) => {
+    const metadata = schedules.metadataOf(due.tracked, due.run, due.dueAt);
+    const next = schedules.nextOf(incarnation, due.tracked, due.run);
+    const firing: Firing = { name: schedule.name, arming: due.run.arming, next };
 
     const payload = Option.match(schedule.from, {
       onNone: () => Result.succeed<Values>({}),
@@ -53,7 +47,7 @@ export const makeFirings = (
         committed: false,
         refused: Option.some<Failure>({ code: "InvalidTurn", slot }),
       }),
-      onSuccess: (event) => turn(left, schedule, event, firing),
+      onSuccess: (event) => turn(incarnation, schedule, event, firing),
     });
 
     const after = tx.incarnationOf(incarnation.actor);
@@ -64,7 +58,7 @@ export const makeFirings = (
 
     if (settled !== after) setIncarnation(settled);
 
-    if (Option.isSome(sent.refused) || next.over) publish(settled);
+    if (Option.isSome(sent.refused) || Next.$is("Over")(next)) publish(settled);
   };
 
   /**
@@ -81,11 +75,11 @@ export const makeFirings = (
 
     if (incarnation === undefined || incarnation.id !== mail.incarnation) return;
 
-    const live = schedules.firingRun(incarnation, mail.track, mail.arming);
+    const live = schedules.firingRun(incarnation, mail.schedule, mail.arming);
     const declared = schedules.scheduleNamed(incarnation, mail.schedule);
 
     if (Option.isSome(live) && Option.isSome(declared))
-      fire(incarnation, declared.value, live.value.tracked, live.value.run);
+      fire(incarnation, declared.value, live.value);
   };
 
   /**

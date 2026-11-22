@@ -7,7 +7,6 @@ import { CustomerMachine } from "./machines/customer.ts";
 import { AccountSwitcherMachine } from "./machines/account-switcher.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
 import { StandingOrderMachine } from "./machines/standing-order.ts";
-import { BillRemindersMachine } from "./machines/bill-reminders.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
@@ -175,14 +174,14 @@ export const bankSwitchingSetup = runtimeSetup({
 /**
  * The main customer's bill reminders.
  */
-export const myBills = actorRef(BillRemindersMachine, { customer: "me" });
+export const myBills = mainCustomer;
 
 /**
  * The switching bank app grown with each customer's bill reminders.
  */
 export const bankReminding = app({
   id: "bank",
-  machines: { ...bankSwitching.machines, reminders: BillRemindersMachine },
+  machines: bankSwitching.machines,
 });
 
 /**

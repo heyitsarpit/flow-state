@@ -5,7 +5,7 @@ import type { Rule } from "./rules.ts";
 // Formats 1 and 2 are read through their steps, so a store may still hold them until the record is
 // written again.
 const Actor = {
-  format: Schema.Literals([1, 2, 3, 4, 5]),
+  format: Schema.Literals([1, 2, 3, 4, 5, 6]),
   machine: Schema.String,
   name: Schema.String,
 };
@@ -37,12 +37,46 @@ const Timer = Schema.Union([
   Schema.Struct({ ...TimerHead, pausedBy: Schema.NonEmptyArray(Schema.String) }),
 ]);
 
+// Format 6's timer, as Records R12 spells `TimerShape`: an absent field is a clean outcome; its
+// arming is exactly one of idle, refused, due or held (Schedules R14, SavedForm).
+const Failed = Schema.Struct({ code: Schema.String, slot: Schema.String });
+
+const TimerSix = Schema.Struct({
+  key: Schema.optionalKey(Schema.Record(Schema.String, Schema.Json)),
+  selection: Schema.optionalKey(Schema.String),
+  selectionFailed: Schema.optionalKey(Failed),
+  reasons: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)),
+  arming: Schema.Union([
+    Schema.Struct({ _tag: Schema.Literal("Idle") }),
+    Schema.Struct({ _tag: Schema.Literal("Refused"), code: Schema.String, slot: Schema.String }),
+    Schema.Struct({
+      _tag: Schema.Literal("Due"),
+      armedAt: Schema.Number,
+      attempt: Schema.Number,
+      dueAt: Schema.Number,
+    }),
+    Schema.Struct({
+      _tag: Schema.Literal("Held"),
+      armedAt: Schema.Number,
+      attempt: Schema.Number,
+      left: Schema.Number,
+    }),
+  ]),
+  firing: Schema.optionalKey(Failed),
+});
+
+// Format 6's schedules: by state path, then name, a keyed schedule's timers as a list.
+const SchedulesSix = Schema.Record(
+  Schema.String,
+  Schema.Record(Schema.String, Schema.Union([TimerSix, Schema.Array(TimerSix)])),
+);
+
 const KINDS = {
   "actor/": Schema.Struct({
     ...Actor,
     state: Schema.String,
     memory: Schema.Json,
-    schedules: Schema.Array(Timer),
+    schedules: Schema.Union([Schema.Array(Timer), SchedulesSix]),
   }),
   "lane/": Schema.Struct({
     ...Actor,
@@ -161,8 +195,12 @@ const FLAW_TEXT: Record<Flaw, string> = {
 // makes it none.
 const hasExactTimers = (json: Schema.Json) =>
   Predicate.hasProperty(json, "schedules") &&
+  Predicate.hasProperty(json, "format") &&
   Option.isSome(
-    Schema.decodeUnknownOption(Schema.Array(Timer))(json.schedules, { onExcessProperty: "error" }),
+    Schema.decodeUnknownOption(json.format === 6 ? SchedulesSix : Schema.Array(Timer))(
+      json.schedules,
+      { onExcessProperty: "error" },
+    ),
   );
 
 const IS_KIND = {

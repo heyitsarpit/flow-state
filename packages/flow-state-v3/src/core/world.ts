@@ -2,9 +2,10 @@ import { Brand, Data, Equal, Option } from "effect";
 import type { Evidence } from "./evidence.ts";
 import type { Ledger, OwedId } from "./ledger.ts";
 import { Life } from "./life.ts";
-import type { IssueCode, ReadFailure, SavedTimer } from "./vocabulary.ts";
-import type { Series, Values } from "./compiled.ts";
+import type { IssueCode, ReadFailure, SavedSchedules } from "./vocabulary.ts";
+import type { Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
+import type { Alarm, Scheduled, TimerKey } from "./timers.ts";
 
 /**
  * An actor's identity: its machine and its name.
@@ -134,56 +135,6 @@ export type Ticket =
 export type Write = { readonly key: string; readonly record: Option.Option<string> };
 
 /**
- * Where an armed timer is: running to `dueAt` on a host timer (a fired one waits while its actor is
- * unused), or held by its timer's pause reasons with `left` milliseconds to go.
- */
-export type Timing = Data.TaggedEnum<{
-  Running: { dueAt: number; timer: TimerId };
-  Held: { left: number };
-}>;
-
-/**
- * Constructors and matchers for {@link Timing}.
- */
-export const Timing = Data.taggedEnum<Timing>();
-
-/**
- * A timer's live arming: its arming number (a firing of an older arming is discarded), when it was
- * armed, how many times it has fired since, the Effect Schedule it steps with that step's output
- * (none for a Duration), and its timing.
- */
-export type Run = {
-  readonly arming: ArmingId;
-  readonly armedAt: number;
-  readonly attempt: number;
-  readonly series: Option.Option<Series>;
-  // FLOW_STATE_ALLOW_UNKNOWN: an Effect Schedule step's output, whatever its type.
-  readonly output: unknown;
-  readonly timing: Timing;
-};
-
-/**
- * A keyed schedule's key: the record `keys` returned and its canonical text, by which it is told
- * apart and ordered.
- */
-export type TimerKey = { readonly text: string; readonly value: Values };
-
-/**
- * One timer of an active schedule, a keyed schedule's per key: its `restartOn` baseline, the pause
- * reasons it last read true, in declaration order, whether armed or idle (a held run is held by
- * them, and a reason that throws keeps them), and its run while armed (none while idle, disarmed or
- * done).
- */
-export type Tracked = {
-  readonly name: string;
-  readonly key: Option.Option<TimerKey>;
-  // FLOW_STATE_ALLOW_UNKNOWN: a restart selection of any type, compared by Equal.equals.
-  readonly baseline: Option.Option<unknown>;
-  readonly pausedBy: ReadonlyArray<string>;
-  readonly run: Option.Option<Run>;
-};
-
-/**
  * The key a tracked timer has in its incarnation: its schedule's name, and a keyed one's key text.
  */
 export const trackOf = (name: string, key: Option.Option<TimerKey>) =>
@@ -200,7 +151,10 @@ export const trackOf = (name: string, key: Option.Option<TimerKey>) =>
  * context slot, `context` holds each slot's selection and `baselines` each `onContext` reaction's
  * baseline: the value of its slot it last compared. `grace` is the timer of a free incarnation's
  * grace.
- * `started` is the mint's count when it started: live incarnations are ordered by it.
+ * `started` is the mint's count when it started: live incarnations are ordered by it. `schedules`
+ * holds each active schedule's state by name and `alarms` the host alarm of each due run, by
+ * arming id. `issues` holds the open issues of every source but a schedule's, which are read from
+ * `schedules`.
  */
 export type Incarnation = {
   readonly id: IncarnationId;
@@ -210,8 +164,9 @@ export type Incarnation = {
   readonly activations: ReadonlyArray<ActivationId>;
   readonly history: ReadonlyMap<string, string>;
   readonly memory: Values;
-  readonly schedules: ReadonlyMap<string, Tracked>;
-  readonly issues: ReadonlyArray<Issue>;
+  readonly schedules: ReadonlyMap<string, Scheduled>;
+  readonly alarms: ReadonlyMap<ArmingId, Alarm>;
+  readonly issues: ReadonlyArray<StoredIssue>;
   readonly bound: ReadonlyMap<string, ActorId>;
   readonly context: ReadonlyMap<string, Selected>;
   // None for a reaction that has not been live while its slot had a value.
@@ -259,8 +214,8 @@ export const sourceText = (source: IssueSource) =>
 
 /**
  * An incarnation's open issue: the source that raised it, its code and the callback slot that
- * failed, if one did. Only its own source clears it: a later accepted turn of that source, or, for
- * a schedule's check, that check running clean for that key.
+ * failed, if one did. A schedule's issues are read from its timers' check outcomes; every other
+ * source's is stored, and only its own source clears it: a later accepted turn of that source.
  */
 export type Issue = {
   readonly source: IssueSource;
@@ -269,9 +224,19 @@ export type Issue = {
 };
 
 /**
+ * The sources whose issues are stored: every source but a schedule's.
+ */
+export type StoredSource = Exclude<IssueSource, { readonly _tag: "Schedule" }>;
+
+/**
+ * A stored issue: one of a {@link StoredSource}.
+ */
+export type StoredIssue = Issue & { readonly source: StoredSource };
+
+/**
  * An incarnation with one more open issue, in place of any its source raised before.
  */
-export const withIssue = (incarnation: Incarnation, issue: Issue) => ({
+export const withIssue = (incarnation: Incarnation, issue: StoredIssue) => ({
   ...incarnation,
   issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, issue.source)), issue],
 });
@@ -279,31 +244,15 @@ export const withIssue = (incarnation: Incarnation, issue: Issue) => ({
 /**
  * An incarnation with more open issues appended, each its own source's.
  */
-export const withIssues = (incarnation: Incarnation, issues: ReadonlyArray<Issue>) =>
+export const withIssues = (incarnation: Incarnation, issues: ReadonlyArray<StoredIssue>) =>
   issues.length === 0
     ? incarnation
     : { ...incarnation, issues: [...incarnation.issues, ...issues] };
 
 /**
- * An incarnation whose issues of the sources `owns` names are `issues`, in place of the ones those
- * sources held; the same incarnation when they are the same issues.
- */
-export const withIssuesOf = (
-  incarnation: Incarnation,
-  owns: (source: IssueSource) => boolean,
-  issues: ReadonlyArray<Issue>,
-) => {
-  const held = incarnation.issues.filter((i) => owns(i.source));
-
-  return held.length === issues.length && held.every((i, n) => i === issues[n])
-    ? incarnation
-    : { ...incarnation, issues: [...incarnation.issues.filter((i) => !owns(i.source)), ...issues] };
-};
-
-/**
  * An incarnation with its source's issue cleared; the same incarnation when it had none.
  */
-export const withoutIssue = (incarnation: Incarnation, source: IssueSource) =>
+export const withoutIssue = (incarnation: Incarnation, source: StoredSource) =>
   incarnation.issues.some((i) => Equal.equals(i.source, source))
     ? { ...incarnation, issues: incarnation.issues.filter((i) => !Equal.equals(i.source, source)) }
     : incarnation;
@@ -486,7 +435,7 @@ export type ActorRecord = {
   readonly actor: ActorId;
   readonly state: string;
   readonly memory: Values;
-  readonly schedules: ReadonlyArray<SavedTimer>;
+  readonly schedules: SavedSchedules;
   readonly context: ReadonlyMap<string, ActorId>;
   // Each slot's last selection; a slot never selected has none.
   readonly seen: ReadonlyMap<string, Selected>;

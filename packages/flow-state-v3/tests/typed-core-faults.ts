@@ -185,10 +185,10 @@ export const typedCoreFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14",
     edits: [
       {
-        file: "src/core/schedule-restore.ts",
-        find: "    const byName = new Map(declared.map((s) => [s.name, s]));",
+        file: "src/core/schedules.ts",
+        find: "    const declared = declaredOn(tx.machines, incarnation);",
         replace:
-          "    const byName = new Map([...(tx.machines.get(incarnation.actor.machine)?.states.values() ?? [])].flatMap((n) => n.schedules).map((s) => [s.name, s]));",
+          "    const declared = [...(tx.machines.get(incarnation.actor.machine)?.states.values() ?? [])].flatMap((n) => n.schedules);",
       },
     ],
   },

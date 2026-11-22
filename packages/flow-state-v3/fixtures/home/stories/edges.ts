@@ -59,8 +59,8 @@ export const noSensors = homeStory("home/no-sensors")
  */
 export const LOUNGE_FORMAT_FIVE =
   '{"baselines":{},"context":{"mode":{"machine":"Home/House","name":"home"}},"format":5,"gr' +
-  'aph":{"Home/House/home":{}},"machine":"Home/Room","memory":{"boosts":0,"checks":[],"noti' +
-  'ce":"","polls":{},"room":"lounge","sensors":[{"id":"t1","kind":"temperature"},{"id":"m1"' +
+  'aph":{"Home/House/home":{}},"machine":"Home/Room","memory":{"boosts":0,"checks":[],"devi' +
+  'ces":[],"notice":"","pings":{},"polls":{},"room":"lounge","sensors":[{"id":"t1","kind":"temperature"},{"id":"m1"' +
   ',"kind":"motion"}],"target":20},"name":"{\\"room\\":\\"lounge\\"}","schedules":[{"armedAt":0' +
   ',"attempt":0,"key":{"id":"t1"},"left":55000,"name":"poll","pausedBy":["Vacation"]},{"arm' +
   'edAt":0,"attempt":0,"dueAt":10000,"key":{"id":"m1"},"name":"poll"}],"seen":{"mode":"VACA' +

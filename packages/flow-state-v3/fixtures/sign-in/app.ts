@@ -7,7 +7,6 @@ import { ReturnToMachine } from "./machines/return-to.ts";
 import { AuthSessionMachine } from "./machines/session.ts";
 import { TrustedDeviceMachine } from "./machines/trusted-device.ts";
 import { SessionBannerMachine } from "./machines/session-banner.ts";
-import { IdleSignOutMachine } from "./machines/idle-sign-out.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
@@ -161,20 +160,19 @@ export const authBanneredSetup = runtimeSetup({
 /**
  * The main session's idle sign-out.
  */
-export const mainIdle = actorRef(IdleSignOutMachine, { session: "elif" });
+export const mainIdle = mainSession;
 
 /**
  * The `n`th of many sessions' idle sign-outs.
  */
-export const idleOf = (n: number) =>
-  actorRef(IdleSignOutMachine, { session: `session-${String(n)}` });
+export const idleOf = sessionOf;
 
 /**
  * The sign-in app grown with each session's idle sign-out.
  */
 export const authIdle = app({
   id: "auth",
-  machines: { ...authBannered.machines, idle: IdleSignOutMachine },
+  machines: authBannered.machines,
 });
 
 /**

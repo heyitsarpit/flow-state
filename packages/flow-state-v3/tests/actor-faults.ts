@@ -120,10 +120,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     rule: "Diagnostics R5",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: '          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),',
-        replace:
-          '          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.none() }),',
+        file: "src/core/schedule-decision.ts",
+        find: "    return Arming.Refused({ failure: first.failure });",
+        replace: '    return Arming.Refused({ failure: { ...first.failure, slot: "" } });',
       },
     ],
   },
@@ -135,8 +134,8 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/host/snapshot.ts",
-        find: "schedules: timersOf(savedTimersOf(live, () => false)),",
-        replace: "schedules: {},",
+        find: "      schedules: liveTimersOf(live),",
+        replace: "      schedules: NO_TIMERS,",
       },
     ],
   },

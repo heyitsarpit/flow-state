@@ -6,7 +6,7 @@ import type { Snapshot } from "../../src/index.ts";
 // Schedule readers are typed from the declaration: each narrow assertion beside its misspelt line,
 // the refused side.
 
-type Names = "reconnect" | "poll" | "check" | "boost";
+type Names = "reconnect" | "poll" | "check" | "boost" | "ping";
 
 describe("schedule readers are typed from the declaration (Types R8; Schedules R16)", () => {
   it("Schedules R16: a snapshot's timers are keyed by the declared schedule names", () => {
@@ -18,7 +18,7 @@ describe("schedule readers are typed from the declaration (Types R8; Schedules R
     type Paused = Extract<Recorded<typeof Room>["evidence"][number], { readonly _tag: "Paused" }>;
 
     expectTypeOf<Paused["schedule"]>().toEqualTypeOf<Names>();
-    expectTypeOf<Paused["reasons"][number]>().toEqualTypeOf<"Vacation" | "Saving">();
+    expectTypeOf<Paused["reasons"][number]>().toEqualTypeOf<"Vacation" | "Saving" | "Away">();
     expectTypeOf<"Vacaton">().not.toExtend<Paused["reasons"][number]>();
   });
 });

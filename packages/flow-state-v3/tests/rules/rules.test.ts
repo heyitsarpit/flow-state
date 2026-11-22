@@ -581,17 +581,23 @@ describe("run rules over crafted runs, each rule seen firing", () => {
           ...end.records,
           stored: new Map([
             ...end.records.stored,
-            [key, text.replace(/"schedules":\[[^\]]*\]/u, `"schedules":[${timers}]`)],
+            [
+              key,
+              text.replace(
+                /"schedules":\{[^]*?\},"seen"/u,
+                `"schedules":{"ON":{"t":${timers}}},"seen"`,
+              ),
+            ],
           ]),
         },
       }));
 
-    const both = '{"armedAt":0,"attempt":0,"dueAt":5,"left":5,"name":"t","pausedBy":[]}';
+    const both = '{"arming":{"_tag":"Due","armedAt":0,"attempt":0,"dueAt":5,"left":5}}';
 
-    expect(/"schedules":\[[^\]]*\]/u.test(text)).toBe(true);
+    expect(text.includes('"format":6')).toBe(true);
     expect(key.startsWith("actor/")).toBe(true);
     expect(recordKinds.breaches(withTimers(both))).toHaveLength(1);
-    expect(recordKinds.breaches(withTimers('{"name":"t"}'))).toEqual([]);
+    expect(recordKinds.breaches(withTimers('{"arming":{"_tag":"Idle"}}'))).toEqual([]);
   });
 
   it("WriteAhead I21: an UnencodableValue naming a lane record is a breach; one naming an actor record is not", async () => {

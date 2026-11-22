@@ -272,7 +272,7 @@ const holdSetup = (withPause: boolean) =>
   });
 
 describe("a hold restored under a build without pause reasons (Schedules R6, R14)", () => {
-  it.fails("Schedules R14, I3: a hold restored under a build with every pause reason removed resumes from its left and fires once", async () => {
+  it("Schedules R14, I3: a hold restored under a build with every pause reason removed resumes from its left and fires once", async () => {
     const held = actorRef(HoldPaused, "hold");
     const plain = actorRef(HoldPlain, "hold");
 
@@ -331,15 +331,23 @@ describe("the step up from record format 4 (Turn R17)", () => {
 
     const saved = Schema.decodeUnknownSync(
       Schema.fromJsonString(
-        Schema.Struct({ format: Schema.Number, schedules: Schema.Array(Schema.Unknown) }),
+        Schema.Struct({
+          format: Schema.Number,
+          schedules: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
+        }),
       ),
     )(run.checkpoints.saved.records.stored.get(RECORD) ?? "{}");
 
-    expect(saved.format).toBe(5);
-    expect(saved.schedules).toEqual([
-      expect.objectContaining({ name: "expire", armedAt: 600_000, dueAt: 600_000, attempt: 0 }),
-      expect.objectContaining({ name: "warn" }),
-    ]);
+    // Records R12: format 6 files each timer under the state path that declares it, then its name.
+    const byName = Object.fromEntries(
+      Object.values(saved.schedules).flatMap((names) => Object.entries(names)),
+    );
+
+    expect(saved.format).toBe(6);
+    expect(byName).toEqual({
+      expire: { arming: { _tag: "Due", armedAt: 600_000, attempt: 0, dueAt: 600_000 } },
+      warn: expect.objectContaining({ arming: expect.objectContaining({}) }),
+    });
   });
 
   it("Turn R17: a format-4 record saved after its warning fired restores with that warning ended, so it does not fire again", async () => {

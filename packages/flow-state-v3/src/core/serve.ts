@@ -3,7 +3,7 @@ import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
 import { defect } from "./defect.ts";
 import type { Member } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
-import type { Failure, Firing } from "./schedule-decision.ts";
+import type { Firing } from "./schedule-decision.ts";
 import { Resolved, runTurn, TurnResult } from "./turn.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { chainOf, historyAfter } from "./tree.ts";
@@ -14,14 +14,16 @@ import {
   type LaneId,
   actorKey,
   type Incarnation,
-  type Issue,
   IssueSource,
   type Lane,
   Mail,
   OwnedBy,
+  type StoredIssue,
+  type StoredSource,
   withIssue,
   withoutIssue,
 } from "./world.ts";
+import type { Failure } from "./timers.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 import { makeFirings } from "./firings.ts";
@@ -43,7 +45,8 @@ export type Trigger = Data.TaggedEnum<{
 export const Trigger = Data.taggedEnum<Trigger>();
 
 // The source an ending's turn raises or clears its issue on: its operation.
-const endingSource = (row: Owed) => IssueSource.Operation({ name: row.operation });
+// RETURN_TYPE: a stored source, never a schedule's.
+const endingSource = (row: Owed): StoredSource => IssueSource.Operation({ name: row.operation });
 
 // What a turn's trigger decides: the activation it is late for, the lane it acts on as owner, the
 // row it hears, and the source whose issue it raises or clears; a firing's issues are its
@@ -54,14 +57,14 @@ const routeOf = (trigger: Trigger) =>
       late: Option.none<ActivationId>(),
       own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
-      source: Option.some(IssueSource.Event({ tag })),
+      source: Option.some<StoredSource>(IssueSource.Event({ tag })),
       firing: Option.none<Firing>(),
     }),
     Firing: ({ firing }) => ({
       late: Option.none<ActivationId>(),
       own: Option.none<LaneId>(),
       ending: Option.none<Owed>(),
-      source: Option.none<IssueSource>(),
+      source: Option.none<StoredSource>(),
       firing: Option.some(firing),
     }),
     Ending: ({ row, late }) => ({
@@ -150,7 +153,7 @@ export const makeServe = (
 
   // A refusal raises its source's issue, replacing that source's earlier one. Issues are not part
   // of the record, so raising one writes nothing.
-  const raised = (incarnation: Incarnation, issue: Issue) => {
+  const raised = (incarnation: Incarnation, issue: StoredIssue) => {
     const next = withIssue(incarnation, issue);
 
     tx.putIncarnation(next);

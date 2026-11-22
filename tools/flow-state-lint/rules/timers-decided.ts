@@ -4,14 +4,16 @@ import { appliesTo, propertyName, relativePath } from "./shared.ts";
 
 import type { ESTree } from "@oxlint/plugins";
 
-// An incarnation's timers and schedule issues change only through the schedule decision: one
-// function decides each schedule's timers and issues for an occasion, src/core/schedules.ts, the
-// one timer writer, applies it, and src/core/world.ts holds the only raw issue writes, its issue
-// helpers. A timer or issue written anywhere else is a schedule input combined outside that
-// decision, the freedom behind timers that disarm, restart or pause in the wrong order and issues
-// one key clears for another. Decides by path itself: src outside test files. A new incarnation's
-// empty `new Map()` and `[]` are not writes, and a `schedules` array is a record's saved timers,
-// not an incarnation's.
+// An incarnation's timers change only through the schedule decision, and a schedule's issues are
+// never stored: `decide` (src/core/schedule-decision.ts) is the one code that builds a timer or a
+// schedule's state (the `Decided` brand: no `Brand.nominal` of it and no cast to `Tracked`,
+// `Scheduled` or `Decided` elsewhere), src/core/schedules.ts, the one timer writer, installs it,
+// and a schedule issue's source is built only where its issues are read from state. Every other
+// source's issue is written only by src/core/world.ts's helpers. A timer or issue written anywhere
+// else is a schedule input combined outside that decision, the freedom behind timers that disarm,
+// restart or pause in the wrong order and issues one key clears for another. Decides by path
+// itself: src outside test files. A new incarnation's empty `new Map()` and `[]` are not writes,
+// and a literal with a `format` is a record's saved timers, not an incarnation's.
 const TIMER_WRITER = "src/core/schedules.ts";
 
 const ISSUE_WRITER = "src/core/world.ts";
@@ -21,6 +23,12 @@ const DECISION = "src/core/schedule-decision.ts";
 // Fields only an incarnation has: a literal with one of them and `schedules` or `issues` builds
 // an incarnation.
 const INCARNATION_FIELDS = new Set(["activations"]);
+
+// The decided types: only the decision may make one.
+const DECIDED = new Set(["Tracked", "Scheduled", "Decided"]);
+
+const typeNameOf = (node: ESTree.Node | null | undefined) =>
+  node?.type === "TSTypeReference" && node.typeName.type === "Identifier" ? node.typeName.name : "";
 
 const isEmptyMap = (node: ESTree.Node) =>
   node.type === "NewExpression" &&
@@ -67,6 +75,8 @@ export const timersDecidedRule = defineRule({
         "An incarnation's timers and schedule issues are written only where the schedule decision is applied.",
     },
     messages: {
+      decided:
+        "{{what}} makes a decided timer or schedule state outside `decide`. Build it in src/core/schedule-decision.ts.",
       write:
         "{{what}} writes an incarnation's timers outside the schedule decision. Decide the change in `decide` (src/core/schedule-decision.ts) and apply it through src/core/schedules.ts.",
       issue:
@@ -109,6 +119,8 @@ export const timersDecidedRule = defineRule({
       // built as a literal.
       ObjectExpression(node: ESTree.ObjectExpression) {
         if (isSchemaFields(node)) return;
+
+        if (node.properties.some((p) => keyName(p) === "format")) return;
 
         const spread = node.properties.some((p) => p.type === "SpreadElement");
         const incarnation = node.properties.some((p) => INCARNATION_FIELDS.has(keyName(p)));
@@ -154,8 +166,30 @@ export const timersDecidedRule = defineRule({
 
         if (propertyName(node.left) === "issues") reportIssues(node, "`.issues =`");
       },
+      // `value as Tracked`: a cast around the decision's brand.
+      TSAsExpression(node: ESTree.TSAsExpression) {
+        const name = typeNameOf(node.typeAnnotation);
+
+        if (DECIDED.has(name) && rel !== DECISION)
+          context.report({ node, messageId: "decided", data: { what: `\`as ${name}\`` } });
+      },
       CallExpression(node: ESTree.CallExpression) {
         const callee = node.callee;
+
+        // `Brand.nominal<Tracked>()`: the decision's brand constructor.
+        const [typed] = node.typeArguments?.params ?? [];
+
+        if (
+          callee.type === "MemberExpression" &&
+          propertyName(callee) === "nominal" &&
+          DECIDED.has(typeNameOf(typed)) &&
+          rel !== DECISION
+        )
+          context.report({
+            node,
+            messageId: "decided",
+            data: { what: `\`Brand.nominal<${typeNameOf(typed)}>\`` },
+          });
 
         // `IssueSource.Schedule(…)`: a schedule issue's source, built only by the decision.
         if (

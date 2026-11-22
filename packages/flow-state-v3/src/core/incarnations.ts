@@ -7,6 +7,7 @@ import { armingsOf } from "./turn.ts";
 import { Occasion } from "./schedule-decision.ts";
 import { makeSchedules } from "./schedules.ts";
 import { makeScheduleRestore } from "./schedule-restore.ts";
+import { sameForm } from "./slots.ts";
 import { chainOf, create } from "./tree.ts";
 import { Act } from "./evidence-of.ts";
 import type { LedgerSteps } from "./ledger.ts";
@@ -21,7 +22,6 @@ import {
   type LaneId,
   Command,
   type Incarnation,
-  IssueSource,
   Mail,
   Quarantine,
   quarantineText,
@@ -31,7 +31,6 @@ import {
   byStart,
   type Use,
   type Wiring,
-  withIssues,
 } from "./world.ts";
 import type { Persistence } from "./persist.ts";
 
@@ -39,7 +38,6 @@ import type { Persistence } from "./persist.ts";
  * Incarnations: creation, restore, uses, the grace and the end, with their schedules.
  */
 // The source of an issue raised while an incarnation is created.
-const CREATION = IssueSource.Creation();
 
 // What an ended incarnation leaves for its handles to read.
 const terminal = (incarnation: Incarnation) => ({
@@ -110,6 +108,7 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
       history: new Map(),
       memory: tx.env.admit(memory),
       schedules: new Map(),
+      alarms: new Map(),
       issues: [],
       bound: new Map(),
       // A start from a record keeps its saved selections while a selector throws.
@@ -178,22 +177,27 @@ export const makeIncarnations = (tx: Tx, persistence: Persistence, ledger: Ledge
           (name, series, attempt) => schedules.stepper(actor, name, tx.env.now)(series, attempt),
         );
 
-        // A delay refused at creation has no turn to refuse: it is an issue of the creation, named
-        // by its schedule's slot, and the rest arm.
-        const issues = arm.refused.map((slot) =>
-          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),
-        );
-
-        const created = withIssues(bound, issues);
-
-        return schedules.turned(created, created.schedules, {
+        // A delay refused at creation has no turn to refuse: its timer's start is refused, with
+        // its issue, and the rest arm.
+        return schedules.turned(bound, bound.schedules, {
           exits: [],
           arms: arm.armed,
           disarms: [],
           fired: Option.none(),
         });
       },
-      onSome: (record) => restore(bound, record.schedules),
+      // A wake decides every schedule silently; when the context differs from what the record
+      // last heard, the schedules then hear it as a context change.
+      onSome: (record) => {
+        const woken = restore(bound, record.schedules);
+
+        const moved = [...bound.context].some(
+          ([slot, now]) =>
+            !sameForm(Option.fromUndefinedOr(record.seen.get(slot)), Option.some(now)),
+        );
+
+        return moved ? schedules.rechecked(woken, Occasion.Context()) : woken;
+      },
     });
 
     setIncarnation(incarnation);

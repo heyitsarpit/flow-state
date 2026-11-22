@@ -1,18 +1,24 @@
 import { samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { authIdleSetup, idleOf, mainIdle } from "../app.ts";
-import { IdleSignOut } from "../machines/idle-sign-out.ts";
+import { AuthSession } from "../machines/session.ts";
+import { Profiles } from "../server/profiles.ts";
 import { AuthFake, ProfileFake } from "../server/layer.ts";
 
+const ELIF = "elif@kamp.us";
+
 /**
- * The sign-in app with each session's idle sign-out over its port fakes, the main session's
- * idle sign-out started at clock 0.
+ * The sign-in app over its port fakes, Elif's account holding a saved handle, so signing in at
+ * clock 0 lands signed in and starts her session's idle wait.
  */
 export const idleStory = (id: string) =>
-  Story.app(authIdleSetup, { id, fixtures: [AuthFake, ProfileFake] }).ensure(mainIdle);
+  Story.app(authIdleSetup, { id, fixtures: [AuthFake, ProfileFake] })
+    .world(Profiles.saved({ email: ELIF, handle: "elif" }))
+    .ensure(mainIdle)
+    .send(mainIdle, AuthSession.E.SignedIn());
 
-const activity = (report: string) => IdleSignOut.E.Activity({ report });
+const activity = (report: string) => AuthSession.E.Activity({ report });
 
-const policy = (idleMs: number) => IdleSignOut.E.PolicyLoaded({ idleMs });
+const policy = (idleMs: number) => AuthSession.E.PolicyLoaded({ idleMs });
 
 /**
  * Activity ten minutes in starts the fifteen-minute wait again; fifteen idle minutes later the
@@ -25,7 +31,7 @@ export const idleUsual = idleStory("sign-in/idle-usual")
   .checkpoint("active")
   .advance("15 minutes")
   .checkpoint("signed out")
-  .send(mainIdle, IdleSignOut.E.SignInAgain())
+  .send(mainIdle, AuthSession.E.SignedIn())
   .checkpoint("signed in again");
 
 /**
@@ -37,7 +43,7 @@ export const idleUsual = idleStory("sign-in/idle-usual")
  */
 export const idleNeverReturns = idleStory("sign-in/idle-never-returns")
   .advance("1 minute")
-  .send(mainIdle, IdleSignOut.E.VideoStarted())
+  .send(mainIdle, AuthSession.E.VideoStarted())
   .checkpoint("watching")
   .send(mainIdle, activity("2,"))
   .checkpoint("unreadable")
@@ -74,7 +80,7 @@ export const idleRefusedSignOut = idleStory("sign-in/idle-refused-sign-out")
   .send(mainIdle, policy(2 ** 31))
   .send(mainIdle, activity("1"))
   .checkpoint("refused")
-  .send(mainIdle, IdleSignOut.E.SignOut())
+  .send(mainIdle, AuthSession.E.SignOut())
   .checkpoint("signed out");
 
 /**
@@ -87,12 +93,22 @@ const sessions = Array.from({ length: SESSIONS }, (_, n) => idleOf(n));
 const ensured = (story: ReturnType<typeof idleStory>) =>
   sessions.reduce((s, ref) => s.ensure(ref), story);
 
+// Each of the many accounts holds a saved handle and signs in at clock 0.
+const signedIn = (story: ReturnType<typeof idleStory>) =>
+  sessions.reduce(
+    (s, ref, n) =>
+      s
+        .world(Profiles.saved({ email: `user${String(n)}@kamp.us`, handle: `user${String(n)}` }))
+        .send(ref, AuthSession.E.SignedIn()),
+    ensured(story),
+  );
+
 /**
  * Many sessions idle at once, each with its own wait, through two reloads, all signed out together
  * when their waits end (S3 × 16 sessions under L1 and L4).
  */
 export const idleManySessions = ensured(
-  ensured(ensured(idleStory("sign-in/idle-many-sessions")).advance("5 minutes").reload()).reload(),
+  ensured(signedIn(idleStory("sign-in/idle-many-sessions")).advance("5 minutes").reload()).reload(),
 )
   .checkpoint("reloaded")
   .advance("10 minutes")
@@ -125,9 +141,9 @@ export const idleSamples = samplesOf({
       .send(mainIdle, policy(60_000))
       .send(mainIdle, policy(2 ** 31 - 1))
       .send(mainIdle, policy(2 ** 31))
-      .send(mainIdle, IdleSignOut.E.VideoStarted())
-      .send(mainIdle, IdleSignOut.E.SignOut())
-      .send(mainIdle, IdleSignOut.E.SignInAgain()),
+      .send(mainIdle, AuthSession.E.VideoStarted())
+      .send(mainIdle, AuthSession.E.SignOut())
+      .send(mainIdle, AuthSession.E.SignedIn()),
 });
 
 /**

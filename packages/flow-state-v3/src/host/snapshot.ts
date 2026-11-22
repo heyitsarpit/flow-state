@@ -1,6 +1,6 @@
-import { Option, Result } from "effect";
-import { encodeCanonical } from "../core/codec.ts";
-import { operationsOf, savedTimersOf } from "../core/schedule-plan.ts";
+import { Option, Predicate } from "effect";
+import { scheduleIssues } from "../core/schedule-decision.ts";
+import { operationsOf } from "../core/schedule-plan.ts";
 import { publicMemory } from "../core/compiled.ts";
 import type { Compiled, Values } from "../core/compiled.ts";
 import { inputOfName } from "../core/identity.ts";
@@ -9,16 +9,18 @@ import { create } from "../core/tree.ts";
 import { actorLifecycleOf, type Lifecycle, restingLifecycleOf } from "../core/life.ts";
 import type { Row } from "../core/rows.ts";
 import type { Machines } from "../core/tx.ts";
-import type { IssueCode, SavedTimer } from "../core/vocabulary.ts";
+import type { IssueCode, SavedSchedules, SavedTimer } from "../core/vocabulary.ts";
 import {
   type ActorId,
   actorKey,
   byCodeUnits,
+  type Incarnation,
   type Issue,
   quarantineText,
   sourceText,
   type World,
 } from "../core/world.ts";
+import { Arming, timersIn, Timing, type Tracked, valueOf } from "../core/timers.ts";
 import type {
   AnyDefinition,
   ContextOf,
@@ -97,56 +99,99 @@ export type Timers = Readonly<
   Record<string, TimerView | ReadonlyArray<{ readonly key: Values } & TimerView>>
 >;
 
-// What a saved or live timer shows.
-// RETURN_TYPE: the snapshot's TimerView union, whichever branch builds it.
-const viewOf = (timer: SavedTimer): Option.Option<TimerView> =>
-  timer.left === undefined
-    ? Option.map(Option.fromUndefinedOr(timer.dueAt), (dueAt) => ({ dueAt }))
-    : Option.some({ left: timer.left, pausedBy: timer.pausedBy ?? [] });
+// What a live timer shows while armed: its deadline, or its time left and the reasons holding it.
+const liveViewOf = (tracked: Tracked) =>
+  Arming.$is("Armed")(tracked.arming)
+    ? Option.some<TimerView>(
+        Timing.$match(tracked.arming.run.timing, {
+          Due: ({ dueAt }) => ({ dueAt }),
+          Held: ({ left }) => ({ left, pausedBy: valueOf(tracked.reasons) }),
+        }),
+      )
+    : Option.none<TimerView>();
+
+// What a saved timer shows while armed.
+const savedViewOf = (saved: SavedTimer) => {
+  switch (saved.arming._tag) {
+    case "Due":
+      return Option.some<TimerView>({ dueAt: saved.arming.dueAt });
+    case "Held":
+      return Option.some<TimerView>({ left: saved.arming.left, pausedBy: saved.reasons ?? [] });
+    case "Idle":
+    case "Refused":
+      return Option.none<TimerView>();
+  }
+};
 
 type KeyedView = { readonly key: Values } & TimerView;
 
-type Listed = KeyedView & { readonly text: string };
+type Shown = TimerView | ReadonlyArray<KeyedView>;
 
-// The armed timers of a saved list by schedule name, keyed ones listed with their key text.
-const viewsOf = (saved: ReadonlyArray<SavedTimer>) => {
-  const views = new Map<string, TimerView | Array<Listed>>();
-
-  for (const timer of saved)
-    for (const view of Option.toArray(viewOf(timer)))
-      if (timer.key === undefined) views.set(timer.name, view);
-      else {
-        const before = views.get(timer.name);
-        const text = Result.getOrElse(encodeCanonical(timer.key), () => "");
-        views.set(timer.name, [
-          ...(Array.isArray(before) ? before : []),
-          { key: timer.key, text, ...view },
-        ]);
-      }
-
-  return views;
-};
-
-// A keyed list in key order, without the key text it was ordered by.
-const inKeyOrder = (list: ReadonlyArray<Listed>) =>
-  list
-    .toSorted((a, b) => byCodeUnits(a.text, b.text))
-    .map(({ key, text: _text, ...view }) => ({ key, ...view }));
-
-// The armed timers of a saved list, by schedule name in code-unit order, keyed ones in key order.
-const timersOf = (saved: ReadonlyArray<SavedTimer>) => {
-  const views = viewsOf(saved);
-
-  return Object.fromEntries<TimerView | ReadonlyArray<KeyedView>>(
-    [...views.keys()]
-      .toSorted(byCodeUnits)
-      .flatMap((name) =>
-        Option.toArray(Option.fromUndefinedOr(views.get(name))).map(
-          (view) => [name, Array.isArray(view) ? inKeyOrder(view) : view] as const,
-        ),
-      ),
+// The timers that show, by schedule name in code-unit order; a schedule with none is absent.
+const shownBy = (entries: ReadonlyArray<readonly [string, Option.Option<Shown>]>) =>
+  Object.fromEntries<Shown>(
+    entries
+      .flatMap(([name, shown]) => Option.toArray(Option.map(shown, (v) => [name, v] as const)))
+      .toSorted(([a], [b]) => byCodeUnits(a, b)),
   ) satisfies Timers;
+
+// A keyed list, or none when no timer of it shows.
+const listed = (views: ReadonlyArray<KeyedView>) =>
+  views.length === 0 ? Option.none<Shown>() : Option.some<Shown>(views);
+
+// The armed timers of a live incarnation, keyed ones in key order.
+const liveTimersOf = (incarnation: Incarnation) =>
+  shownBy(
+    [...incarnation.schedules].map(([name, scheduled]) => {
+      if (scheduled._tag === "Single") return [name, liveViewOf(scheduled.timer)] as const;
+
+      const views = timersIn(scheduled).flatMap((tracked) =>
+        Option.toArray(
+          Option.map(Option.all([tracked.key, liveViewOf(tracked)]), ([key, view]) => ({
+            key: key.value,
+            ...view,
+          })),
+        ),
+      );
+
+      return [name, listed(views)] as const;
+    }),
+  );
+
+// FLOW_STATE_ALLOW_UNKNOWN: a saved key is JSON; a snapshot of a resting record shows it as saved.
+const keyValuesOf = (key: unknown) =>
+  Predicate.isReadonlyObject(key) ? { ...key } : ({} satisfies Values);
+
+const savedShownOf = (entry: SavedTimer | ReadonlyArray<SavedTimer>) => {
+  if (!isList(entry)) return savedViewOf(entry);
+
+  return listed(
+    entry.flatMap((saved) =>
+      Option.toArray(
+        Option.map(savedViewOf(saved), (view) => ({ key: keyValuesOf(saved.key), ...view })),
+      ),
+    ),
+  );
 };
+
+// FLOW_STATE_ALLOW_UNKNOWN: a saved entry, one timer or a keyed list.
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isList = (entry: unknown): entry is ReadonlyArray<SavedTimer> => Array.isArray(entry);
+
+// The armed timers of a saved record, keyed ones in key order.
+const savedTimersOf = (saved: SavedSchedules) =>
+  shownBy(
+    Object.values(saved)
+      .flatMap((byName) => Object.entries(byName))
+      .map(([name, entry]) => [name, savedShownOf(entry)] as const),
+  );
+
+// Every open issue of a live incarnation: the stored ones, then each schedule's, read from its
+// state.
+const issuesOf = (incarnation: Incarnation) => [
+  ...incarnation.issues,
+  ...[...incarnation.schedules].flatMap(([name, scheduled]) => scheduleIssues(name, scheduled)),
+];
 
 const NO_TIMERS: Timers = {};
 
@@ -196,8 +241,8 @@ export const snapshotIn = (
       operations,
       lifecycle: actorLifecycleOf(world.life),
       context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
-      issues: live.issues.map((issue) => issueOf(actor, issue)),
-      schedules: timersOf(savedTimersOf(live, () => false)),
+      issues: issuesOf(live).map((issue) => issueOf(actor, issue)),
+      schedules: liveTimersOf(live),
     });
 
   if (record !== undefined)
@@ -208,7 +253,7 @@ export const snapshotIn = (
       lifecycle: restingLifecycleOf(world.life, "active"),
       context: {},
       issues: [],
-      schedules: timersOf(record.schedules),
+      schedules: savedTimersOf(record.schedules),
     });
 
   const compiled = machines.get(actor.machine);

@@ -22,8 +22,8 @@ import { timersOf } from "../timers.ts";
 // by hand at each checkpoint.
 
 const SLOT = {
-  arming: "states.LISTENING.schedules.ping.schedule",
-  restartOn: "states.LISTENING.schedules.ping.restartOn",
+  arming: "states.ONLINE.schedules.ping.schedule",
+  restartOn: "states.ONLINE.schedules.ping.restartOn",
 } as const;
 
 // FLOW_STATE_ALLOW_UNKNOWN: one timer as a snapshot shows it.
@@ -95,7 +95,7 @@ describe("the hub's pings (Schedules R1, R3, R5, R11, R14)", () => {
     ]);
   });
 
-  it.fails("Schedules R3, T4: the ping that never comes back: a firmware version read before an unreadable report and a reload still restarts the lock's pings when it updates", async () => {
+  it("Schedules R3, T4: the ping that never comes back: a firmware version read before an unreadable report and a reload still restarts the lock's pings when it updates", async () => {
     const run = await played(hubFirmwareReload);
 
     expect(["quiet", "unreadable", "reloaded", "updated", "pinged"].map((n) => at(run, n))).toEqual(
@@ -109,7 +109,7 @@ describe("the hub's pings (Schedules R1, R3, R5, R11, R14)", () => {
     );
   });
 
-  it.fails("Schedules R1, R14: a refused interval keeps its issue across a reload and is armed once the camera reports a valid one", async () => {
+  it("Schedules R1, R14: a refused interval keeps its issue across a reload and is armed once the camera reports a valid one", async () => {
     const run = await played(hubIntervalRefused);
 
     expect(["refused", "reloaded", "valid", "pinged"].map((n) => at(run, n))).toEqual([
@@ -120,7 +120,7 @@ describe("the hub's pings (Schedules R1, R3, R5, R11, R14)", () => {
     ]);
   });
 
-  it.fails("Schedules R5, R11: a refused start's issue goes when its device is unpaired, and Quiet ends a refused start with its issue", async () => {
+  it("Schedules R5, R11: a refused start's issue goes when its device is unpaired, and Quiet ends a refused start with its issue", async () => {
     const run = await played(hubRefusedGone);
 
     expect(["refused", "unpaired", "refused again", "quiet"].map((n) => at(run, n))).toEqual([
@@ -182,7 +182,7 @@ const savedLounge = (run: StoryRun<string>, name: string) => {
 };
 
 describe("a room saved by a format-5 build (Schedules R14, its decode table; Records R12)", () => {
-  it.fails("Schedules R14: the lounge's format-5 record restores its held and due polls, frees the hold the house no longer holds, and is next saved as format 6", async () => {
+  it("Schedules R14: the lounge's format-5 record restores its held and due polls, frees the hold the house no longer holds, and is next saved as format 6", async () => {
     const run = await played(loungeFormatFive);
     const timers: unknown = timersOf(run.checkpoints.restored.read(lounge));
 

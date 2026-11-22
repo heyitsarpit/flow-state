@@ -376,11 +376,14 @@ const LAST = {
 } as const satisfies Record<Before, ReadonlyArray<string>>;
 
 // Turn R27, R19: the reasons in declaration order; the first that throws raises its issue and the
-// timer keeps its last reasons, which a run armed or restarted in that turn takes too.
+// timer keeps its last reasons, which a run armed or restarted in that turn takes too. A re-entered
+// state's timer is new and inherits none (Schedules R11, I17).
 const reasonsOf = (row: Row) => {
-  if (row.a === "x") return { reasons: LAST[row.before], raised: [SLOTS.A] };
+  const last = reenters(row) ? [] : LAST[row.before];
 
-  if (row.b === "x") return { reasons: LAST[row.before], raised: [SLOTS.B] };
+  if (row.a === "x") return { reasons: last, raised: [SLOTS.A] };
+
+  if (row.b === "x") return { reasons: last, raised: [SLOTS.B] };
 
   const active: Array<string> = [];
 
@@ -444,13 +447,12 @@ const timerAfter = (row: Row, reasons: ReadonlyArray<string>) => {
  * - Turn R19: a check that throws raises one issue (the first in check order) and keeps its
  *   previous value: a selection keeps its baseline, a reason keeps the timer's last reasons.
  * - Turn R25: the issue A raised clears only when A ran and succeeded and no check raised another.
+ * - Schedules R5, R11: a key that leaves takes its issues; a re-entered timer inherits nothing.
  */
 // RETURN_TYPE: the Outcome a run is compared with, whichever branch builds it.
 const expected = (row: Row): Outcome => {
-  const prior =
-    row.before === "running, A threw" || row.before === "idle, A threw" ? [SLOTS.A] : [];
-
-  if (row.key === "leave") return { timer: Option.none(), issues: prior, evidence: [] };
+  // Schedules R5: a key that leaves takes its timer's issues with it.
+  if (row.key === "leave") return { timer: Option.none(), issues: [], evidence: [] };
 
   const selected = hasRestart(row.kind) && row.restart === "throws" ? [SLOTS.restartOn] : [];
   const paused = reasonsOf(row);

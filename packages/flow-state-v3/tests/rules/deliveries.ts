@@ -107,9 +107,14 @@ export const noteSteps = (run: StoryRun) => {
   stepsOfRuns.set(run.evidence, steps);
 };
 
-// Whether a turn is still open after a record: a Turn opens one, its Published closes it.
+// Whether a turn is still open after a record: a Turn opens one, as do an incarnation's start,
+// whose schedules wake before it first publishes, and a refused firing, whose schedules settle
+// before it publishes; its Published closes it.
 const stillOpen = (open: boolean, e: Evidence) =>
-  e._tag === "Turn" || (open && e._tag !== "Published");
+  e._tag === "Turn" ||
+  e._tag === "Incarnated" ||
+  e._tag === "Issue" ||
+  (open && e._tag !== "Published");
 
 // An issue no delivered ending's turn raised: a schedule's decision never names an ending.
 const unowned = (e: Evidence) => e._tag === "Issue" && Option.isNone(e.ending);

@@ -63,6 +63,7 @@ const live = (world: World): World => ({
         grace: Option.none(),
         memory: {},
         schedules: new Map(),
+        alarms: new Map(),
       },
     ],
   ]),

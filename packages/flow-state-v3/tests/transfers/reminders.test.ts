@@ -21,8 +21,8 @@ import { timersOf } from "../timers.ts";
 const DAY = 86_400_000;
 
 const SLOT = {
-  arming: "states.ON.schedules.remind.schedule",
-  restartOn: "states.ON.schedules.remind.restartOn",
+  arming: "states.ACTIVE.schedules.remind.schedule",
+  restartOn: "states.ACTIVE.schedules.remind.restartOn",
 } as const;
 
 // FLOW_STATE_ALLOW_UNKNOWN: one timer as a snapshot shows it.
@@ -77,7 +77,7 @@ describe("the bill reminders (Schedules R1, R3, R5, R14)", () => {
     ]);
   });
 
-  it.fails("Schedules R3, T4: the reminder at the old date: a date read before an unreadable one and a reload still starts the reminder again when the date moves", async () => {
+  it("Schedules R3, T4: the reminder at the old date: a date read before an unreadable one and a reload still starts the reminder again when the date moves", async () => {
     const run = await played(remindersOldDate);
 
     expect(["unreadable", "reloaded", "moved", "reminded"].map((n) => at(run, n))).toEqual([
@@ -96,7 +96,7 @@ describe("the bill reminders (Schedules R1, R3, R5, R14)", () => {
     ]);
   });
 
-  it.fails("Schedules R1, R14: a reminder past the longest timer is refused with an issue, kept across a reload, and started at the first change once in range", async () => {
+  it("Schedules R1, R14: a reminder past the longest timer is refused with an issue, kept across a reload, and started on the next occasion once in range", async () => {
     const run = await played(remindersFarBill);
 
     expect(["refused", "reloaded", "in range", "reminded"].map((n) => at(run, n))).toEqual([
@@ -111,7 +111,7 @@ describe("the bill reminders (Schedules R1, R3, R5, R14)", () => {
     ]);
   });
 
-  it.fails("Schedules R5: a refused reminder's issue goes with its bill when it is paid", async () => {
+  it("Schedules R5: a refused reminder's issue goes with its bill when it is paid", async () => {
     const run = await played(remindersFarPaid);
 
     expect(["refused", "paid"].map((n) => at(run, n))).toEqual([

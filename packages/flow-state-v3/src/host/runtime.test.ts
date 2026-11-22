@@ -536,7 +536,7 @@ describe("a Runtime a defect stopped (Actors R25)", () => {
             actor: saved,
             state: "COUNTING",
             memory: { count: 1 },
-            schedules: [],
+            schedules: {},
             context: new Map(),
             seen: new Map(),
             baselines: [],

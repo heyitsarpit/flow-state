@@ -1,4 +1,4 @@
-import { savedTimersOf } from "./schedule-plan.ts";
+import { savedSchedulesOf } from "./schedule-restore.ts";
 import { Duration, Option, Result } from "effect";
 import { Act } from "./evidence-of.ts";
 import { Audience, Delivery, IN_MAILBOX, type Owed, rowsOf } from "./ledger.ts";
@@ -102,11 +102,7 @@ export const makePersistence = (tx: Tx) => {
     actor: incarnation.actor,
     state: incarnation.state,
     memory: incarnation.memory,
-    schedules: savedTimersOf(incarnation, (name) =>
-      [...(tx.machines.get(incarnation.actor.machine)?.states.values() ?? [])].some((node) =>
-        node.schedules.some((s) => s.name === name && s.onEntry),
-      ),
-    ),
+    schedules: savedSchedulesOf(tx.machines, incarnation),
     context: incarnation.bound,
     seen: new Map([...incarnation.context].filter(([slot]) => incarnation.bound.has(slot))),
     baselines: incarnation.baselines,

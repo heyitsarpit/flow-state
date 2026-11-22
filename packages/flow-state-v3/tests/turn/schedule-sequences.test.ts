@@ -16,7 +16,6 @@ import {
   viewsOf,
   type World,
 } from "./schedule-ledger.ts";
-import { WRONG_NAMED, WRONG_TODAY } from "./schedule-sequences-wrong.ts";
 
 // Every sequence of three steps on one machine with a two-key schedule `t` and an unkeyed series
 // `u`, each step's timers, issues and firings checked against the ledger of owed firings and owed
@@ -258,11 +257,6 @@ const SEQUENCES: ReadonlyArray<Sequence> = [
 ];
 
 const titleOf = (s: Sequence) => s.atoms.map((a) => a.title).join(" / ");
-
-const wrongToday = (s: Sequence) =>
-  s.letters.length === 3 && LETTERS.includes(s.letters[1] ?? "#")
-    ? (WRONG_TODAY.get(s.letters.slice(0, 2)) ?? "").includes(s.letters.slice(2))
-    : WRONG_NAMED.has(s.letters);
 
 // The worlds a sequence writes, one per step: a write's after the previous one.
 const worldsOf = (atoms: ReadonlyArray<Atom>) => {
@@ -557,7 +551,7 @@ describe("every three-step sequence on two schedules, and the named deeper rows 
 
     describe(pattern, () => {
       for (const [n, s] of group.entries())
-        (wrongToday(s) ? it.fails : it)(
+        it(
           titleOf(s),
           async () => {
             const once = await runOnce();

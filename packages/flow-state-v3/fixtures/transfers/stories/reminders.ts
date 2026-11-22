@@ -1,6 +1,6 @@
 import { samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { bankRemindingSetup, myBills } from "../app.ts";
-import { BillReminders } from "../machines/bill-reminders.ts";
+import { Customer } from "../machines/customer.ts";
 import { AccountsFake, BankFake } from "../server/layer.ts";
 
 /**
@@ -11,7 +11,7 @@ export const remindersStory = (id: string) =>
   Story.app(bankRemindingSetup, { id, fixtures: [BankFake, AccountsFake] }).ensure(myBills);
 
 const listed = (...bills: ReadonlyArray<readonly [string, string]>) =>
-  BillReminders.E.BillsListed({ bills: bills.map(([payee, due]) => ({ payee, due })) });
+  Customer.E.BillsListed({ bills: bills.map(([payee, due]) => ({ payee, due })) });
 
 /**
  * Power is due in a day and water in two: power is reminded at its date; a snooze holds water's
@@ -23,14 +23,14 @@ export const remindersUsual = remindersStory("transfers/reminders-usual")
   .checkpoint("listed")
   .advance("1 day")
   .checkpoint("power reminded")
-  .send(myBills, BillReminders.E.Snooze())
+  .send(myBills, Customer.E.Snooze())
   .checkpoint("snoozed")
   .advance("1 hour")
-  .send(myBills, BillReminders.E.Unsnooze())
+  .send(myBills, Customer.E.Unsnooze())
   .checkpoint("unsnoozed")
   .send(myBills, listed(["power", "1970-01-02"], ["water", "1970-01-04"]))
   .checkpoint("moved")
-  .send(myBills, BillReminders.E.Paid({ payee: "water" }))
+  .send(myBills, Customer.E.Paid({ payee: "water" }))
   .checkpoint("paid");
 
 /**
@@ -75,7 +75,7 @@ export const remindersFarBill = remindersStory("transfers/reminders-far-bill")
 export const remindersFarPaid = remindersStory("transfers/reminders-far-paid")
   .send(myBills, listed(["tax", "1970-02-01"]))
   .checkpoint("refused")
-  .send(myBills, BillReminders.E.Paid({ payee: "tax" }))
+  .send(myBills, Customer.E.Paid({ payee: "tax" }))
   .checkpoint("paid");
 
 /**
@@ -91,14 +91,14 @@ const payees = Array.from({ length: BILLS }, (_, n) => `payee-${String(n)}`);
  */
 export const remindersManyBills = remindersStory("transfers/reminders-many-bills")
   .send(myBills, listed(...payees.map((p) => [p, "1970-01-02"] as const)))
-  .send(myBills, BillReminders.E.Snooze())
+  .send(myBills, Customer.E.Snooze())
   .checkpoint("held")
   .reload()
   .ensure(myBills)
   .reload()
   .ensure(myBills)
   .checkpoint("reloaded")
-  .send(myBills, BillReminders.E.Unsnooze())
+  .send(myBills, Customer.E.Unsnooze())
   .advance("1 day")
   .checkpoint("reminded");
 
@@ -128,9 +128,9 @@ export const reminderSamples = samplesOf({
       .send(myBills, listed(["late", "1969-12-31"]))
       .send(myBills, listed(["rent", "the third"]))
       .send(myBills, listed())
-      .send(myBills, BillReminders.E.Paid({ payee: "power" }))
-      .send(myBills, BillReminders.E.Snooze())
-      .send(myBills, BillReminders.E.Unsnooze()),
+      .send(myBills, Customer.E.Paid({ payee: "power" }))
+      .send(myBills, Customer.E.Snooze())
+      .send(myBills, Customer.E.Unsnooze()),
 });
 
 /**

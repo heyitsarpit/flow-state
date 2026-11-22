@@ -270,10 +270,9 @@ export const structureFaults: ReadonlyArray<Fault> = [
     rule: "Turn R14, T6",
     edits: [
       {
-        file: "src/core/incarnations.ts",
-        find: '          tx.refuse(actor, { source: CREATION, code: "InvalidTurn", slot: Option.some(slot) }),',
-        replace:
-          '          ({ source: CREATION, code: "InvalidTurn" as const, slot: Option.some(slot) }),',
+        file: "src/core/schedules.ts",
+        find: "      tx.refuse(incarnation.actor, issueOf(schedule.name, failure.key, failure));",
+        replace: "      void issueOf(schedule.name, failure.key, failure);",
       },
     ],
   },

@@ -98,6 +98,7 @@ const stepOver = (
           grace: Option.none(),
           memory,
           schedules: new Map(),
+          alarms: new Map(),
         },
       ],
     ]),
@@ -400,6 +401,7 @@ const twoOver = (memory: Readonly<Record<string, unknown>>) => {
     grace: Option.none(),
     memory: { count: 5 },
     schedules: new Map(),
+    alarms: new Map(),
   });
 
   return first;

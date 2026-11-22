@@ -17,8 +17,8 @@ import { timersOf } from "../timers.ts";
 // R14). Expected views are the Spec's tables, worked by hand at each checkpoint.
 
 const SLOT = {
-  arming: "states.ACTIVE.schedules.idle.schedule",
-  restartOn: "states.ACTIVE.schedules.idle.restartOn",
+  arming: "states.SIGNED_IN.schedules.idle.schedule",
+  restartOn: "states.SIGNED_IN.schedules.idle.restartOn",
 } as const;
 
 // The idle sign-out at a checkpoint: its state, its timer and its issues as `source slot`.
@@ -39,46 +39,46 @@ describe("the idle sign-out (Schedules R1, R3, R5, R11, R14)", () => {
     const run = await played(idleUsual);
 
     expect(["started", "active", "signed out", "signed in again"].map((n) => at(run, n))).toEqual([
-      { state: "ACTIVE", timers: { idle: { dueAt: 900_000 } }, issues: [] },
-      { state: "ACTIVE", timers: { idle: { dueAt: 1_500_000 } }, issues: [] },
+      { state: "SIGNED_IN", timers: { idle: { dueAt: 900_000 } }, issues: [] },
+      { state: "SIGNED_IN", timers: { idle: { dueAt: 1_500_000 } }, issues: [] },
       { state: "SIGNED_OUT", timers: {}, issues: [] },
-      { state: "ACTIVE", timers: { idle: { dueAt: 2_400_000 } }, issues: [] },
+      { state: "SIGNED_IN", timers: { idle: { dueAt: 2_400_000 } }, issues: [] },
     ]);
   });
 
-  it.fails("Schedules R3, T4: the sign-out that never comes back: a count read before an unreadable report and a reload still restarts the wait when the user is active again", async () => {
+  it("Schedules R3, T4: the sign-out that never comes back: a count read before an unreadable report and a reload still restarts the wait when the user is active again", async () => {
     const run = await played(idleNeverReturns);
 
     expect(
       ["watching", "unreadable", "reloaded", "active again", "signed out"].map((n) => at(run, n)),
     ).toEqual([
-      { state: "ACTIVE", timers: {}, issues: [] },
-      { state: "ACTIVE", timers: {}, issues: [`schedule idle ${SLOT.restartOn}`] },
-      { state: "ACTIVE", timers: {}, issues: [`schedule idle ${SLOT.restartOn}`] },
-      { state: "ACTIVE", timers: { idle: { dueAt: 960_000 } }, issues: [] },
+      { state: "SIGNED_IN", timers: {}, issues: [] },
+      { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.restartOn}`] },
+      { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.restartOn}`] },
+      { state: "SIGNED_IN", timers: { idle: { dueAt: 960_000 } }, issues: [] },
       { state: "SIGNED_OUT", timers: {}, issues: [] },
     ]);
   });
 
-  it.fails("Schedules R1, R11, R14: a policy past the longest timer refuses the next wait with an issue, kept across a reload, and the next policy starts it", async () => {
+  it("Schedules R1, R11, R14: a policy past the longest timer refuses the next wait with an issue, kept across a reload, and the next policy starts it", async () => {
     const run = await played(idlePolicyRefused);
 
     expect(["policy", "refused", "reloaded", "valid", "signed out"].map((n) => at(run, n))).toEqual(
       [
-        { state: "ACTIVE", timers: { idle: { dueAt: 900_000 } }, issues: [] },
-        { state: "ACTIVE", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
-        { state: "ACTIVE", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
-        { state: "ACTIVE", timers: { idle: { dueAt: 1_860_000 } }, issues: [] },
+        { state: "SIGNED_IN", timers: { idle: { dueAt: 900_000 } }, issues: [] },
+        { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
+        { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
+        { state: "SIGNED_IN", timers: { idle: { dueAt: 1_860_000 } }, issues: [] },
         { state: "SIGNED_OUT", timers: {}, issues: [] },
       ],
     );
   });
 
-  it.fails("Schedules R5, R13: a refused wait's issue goes with the active state when the session signs out", async () => {
+  it("Schedules R5, R13: a refused wait's issue goes with the active state when the session signs out", async () => {
     const run = await played(idleRefusedSignOut);
 
     expect(["refused", "signed out"].map((n) => at(run, n))).toEqual([
-      { state: "ACTIVE", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
+      { state: "SIGNED_IN", timers: {}, issues: [`schedule idle ${SLOT.arming}`] },
       { state: "SIGNED_OUT", timers: {}, issues: [] },
     ]);
   });
@@ -95,7 +95,7 @@ describe("the idle sign-out (Schedules R1, R3, R5, R11, R14)", () => {
 
     expect([all("reloaded"), all("signed out")]).toEqual([
       Array.from({ length: SESSIONS }, () => ({
-        state: "ACTIVE",
+        state: "SIGNED_IN",
         timers: { idle: { dueAt: 900_000 } },
       })),
       Array.from({ length: SESSIONS }, () => ({ state: "SIGNED_OUT", timers: {} })),

@@ -111,8 +111,8 @@ export const writeAheadFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/firings.ts",
-        find: "    setIncarnation(left);\n\n    const payload",
-        replace: "    tx.putIncarnation(left);\n\n    const payload",
+        find: "    if (settled !== after) setIncarnation(settled);",
+        replace: "    if (settled !== after) tx.putIncarnation(settled);",
       },
     ],
   },

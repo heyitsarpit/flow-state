@@ -3025,37 +3025,37 @@ tasks
 
             **Supersedes:** code:packages/flow-state-v3/src/core/schedule-decision.ts#Occasion,
             code:packages/flow-state-v3/src/core/schedule-decision.ts#Firing,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#isScheduleSource,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#issuesAfter,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#plannedOf,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#plannedTrack,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#isScheduleSource`,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#issuesAfter`,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#plannedOf`,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#plannedTrack`,
             code:packages/flow-state-v3/src/core/schedule-decision.ts#ran,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#lastReasonsOf,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#checked,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#lastReasonsOf`,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#checked`,
             code:packages/flow-state-v3/src/core/schedule-decision.ts#paused,
-            code:packages/flow-state-v3/src/core/schedule-decision.ts#heldOrResumed,
+            `packages/flow-state-v3/src/core/schedule-decision.ts#heldOrResumed`,
             code:packages/flow-state-v3/src/core/schedule-decision.ts#decide;
             code:packages/flow-state-v3/src/core/schedules.ts#readOf,
             code:packages/flow-state-v3/src/core/schedules.ts#contextOf,
             code:packages/flow-state-v3/src/core/schedules.ts#pass,
             code:packages/flow-state-v3/src/core/schedules.ts#stopAll,
-            code:packages/flow-state-v3/src/core/schedules.ts#unchanged,
-            code:packages/flow-state-v3/src/core/schedules.ts#disarmRun,
-            code:packages/flow-state-v3/src/core/schedules.ts#runningTimer,
-            code:packages/flow-state-v3/src/core/schedules.ts#runningTo,
-            code:packages/flow-state-v3/src/core/schedules.ts#trackedOf,
-            code:packages/flow-state-v3/src/core/schedules.ts#applied,
+            `packages/flow-state-v3/src/core/schedules.ts#unchanged`,
+            `packages/flow-state-v3/src/core/schedules.ts#disarmRun`,
+            `packages/flow-state-v3/src/core/schedules.ts#runningTimer`,
+            `packages/flow-state-v3/src/core/schedules.ts#runningTo`,
+            `packages/flow-state-v3/src/core/schedules.ts#trackedOf`,
+            `packages/flow-state-v3/src/core/schedules.ts#applied`,
             code:packages/flow-state-v3/src/core/schedules.ts#fired (its run write; the next step becomes data the
             firing's occasion carries, and @task.V3.T119 only swaps `fired` for `tick`);
-            code:packages/flow-state-v3/src/core/schedule-plan.ts#savedTimersOf,
+            `packages/flow-state-v3/src/core/schedule-plan.ts#savedTimersOf`,
             code:packages/flow-state-v3/src/core/schedule-plan.ts#declaredOn,
             code:packages/flow-state-v3/src/core/schedule-plan.ts#dueOf,
             code:packages/flow-state-v3/src/core/schedule-plan.ts#dueIn;
-            code:packages/flow-state-v3/src/core/schedule-restore.ts#trackedOf,
+            `packages/flow-state-v3/src/core/schedule-restore.ts#trackedOf`,
             code:packages/flow-state-v3/src/core/schedule-restore.ts#restore;
-            code:packages/flow-state-v3/src/core/firings.ts#fire; code:packages/flow-state-v3/src/core/world.ts#Timing,
-            code:packages/flow-state-v3/src/core/world.ts#Run, code:packages/flow-state-v3/src/core/world.ts#Tracked,
-            code:packages/flow-state-v3/src/core/world.ts#withIssuesOf;
+            code:packages/flow-state-v3/src/core/firings.ts#fire; `packages/flow-state-v3/src/core/world.ts#Timing`,
+            code:packages/flow-state-v3/src/core/world.ts#Run, `packages/flow-state-v3/src/core/world.ts#Tracked`,
+            `packages/flow-state-v3/src/core/world.ts#withIssuesOf`;
             code:packages/flow-state-v3/src/host/owners/schedule-steps.ts; the schedule part of the issue read in
             code:packages/flow-state-v3/src/host/snapshot.ts (`scheduleIssues`, C5b of @proposal.algo-resolutions); the
             five stored-issue faults in `tests/schedule-faults.ts` (re-pointed, not deleted) and
@@ -3624,6 +3624,31 @@ tasks
             `IssueSource.Schedule` value in `Incarnation.issues`; the 2026-11-20 targets (`Plan.Held`, `Timing.Held`,
             `timed`, `issuesOf`) go with the code. Routed: the nested-placement refusal's own reason in @task.V3.T100's
             closed set (it reuses DuplicateName).
+        comment     2026-11-22T06:30:00Z
+            [decided: agent builder 2026-11-22] The owner's map stays keyed by schedule name, not by activation; a
+            re-entered or entered state's schedules are decided from no state (`before` none), so nothing is inherited
+            (R11, R13, I17). Why: names are unique on a chain once nested placement is refused, and re-entry gives the
+            same views. Reverse: key the map by activation id.
+        comment     2026-11-22T06:30:00Z
+            [decided: agent builder 2026-11-22] Host alarms are a view kept beside the timers, `Incarnation.alarms` by
+            arming id with its deadline, written only by the owner's reconcile; no host timer id is inside a timer
+            (I14). The host stepper stays keyed by series id (actor, timer, armedAt). Why: the smallest change that
+            makes `decide` the one writer of runs. Reverse: an alarm heap in the world and an arming-keyed stepper.
+        comment     2026-11-22T06:30:01Z
+            [decided: agent builder 2026-11-22] The saved timer keeps the name `SavedTimer` (Records spells it
+            `TimerShape`), because lint refuses "Shape" in symbol names; the step 5 to 6 reads the definition to file
+            each timer under the state on the record's chain that declares it (Records R12 says a step reads none), as
+            the step from 4 already does. Why: a format-5 timer names no state. Reverse: save the state path in format
+            5's step table by another means.
+        comment     2026-11-22T06:30:02Z
+            [decided: agent builder 2026-11-22] After a restore, the schedules hear `Context` when a slot's restored
+            selection differs from the record's `seen` (R3's "differs from what the scope last heard"); the onContext
+            wave's own `owes` check is unchanged. Why: the reactions' check reads their baselines, which say nothing of
+            schedules. Reverse: run Context after every wake.
+        comment     2026-11-22T06:30:10Z
+            [decided: agent builder 2026-11-22] Not built here: `now` still reaches keys, reasons and restartOn through
+            `readOf` (R10, the orchestrator's tag), and a resting record's snapshot shows no schedule issues. Why:
+            neither is in this Task's acceptance; each is its own rule with its own check. Reverse: build them here.
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
@@ -3957,7 +3982,7 @@ tasks
             code:packages/flow-state-v3/src/core/serve.ts#endingSource;
             code:packages/flow-state-v3/src/core/answers.ts#settled;
             code:packages/flow-state-v3/src/core/world.ts#IssueSource;
-            code:packages/flow-state-v3/src/core/incarnations.ts#CREATION;
+            `packages/flow-state-v3/src/core/incarnations.ts#CREATION`;
             code:packages/flow-state-v3/src/contract.ts#Ending; code:packages/flow-state-v3/src/compiled-parts.ts;
             code:packages/flow-state-v3/src/host/owners/schedule-steps.ts. Do not delete it before its replacement lands
             and the suite passes.
@@ -3996,6 +4021,10 @@ tasks
         comment     2026-11-22T03:54:51Z
             Seam (orchestrator, R48 follow-up): host/owners/schedule-steps.ts is T118's first (timer and check-outcome
             writes); T121 supersedes only the ending-path parts left after T118 lands.
+        comment     2026-11-22T06:14:50Z
+            Supersedes: `incarnations.ts#CREATION` is gone; @task.V3.T118 removed it when a start refused at creation
+            became that timer's Refused arming with its schedule issue, so no Creation issue is raised any more. The
+            link is now plain text; nothing of it is left for this Task to supersede.
     T122
         title       Read entries and read slots
         status      draft

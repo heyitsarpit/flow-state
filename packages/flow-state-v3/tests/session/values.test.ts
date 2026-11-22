@@ -156,7 +156,7 @@ describe("saved records of context consumers (Restore R5; Codec R3)", () => {
     expect(run.checkpoints["signed out"].read(mainAvatar)?.memory).toEqual({ seen: 2 });
     expect(
       run.checkpoints["signed out"].records.stored.get("actor/Workspace/Avatar/avatar"),
-    ).toContain('"format":5');
+    ).toContain('"format":6');
   });
 });
 

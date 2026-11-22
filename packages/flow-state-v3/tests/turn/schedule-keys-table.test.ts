@@ -184,16 +184,6 @@ const LAST = {
   "running, A threw": [],
 } as const satisfies Record<Start, ReadonlyArray<string>>;
 
-// The issue each start leaves on its key: a refused arming's at the schedule's slot, A's when it
-// threw.
-const PRIOR = {
-  absent: [],
-  running: [],
-  held: [],
-  refused: [SLOT],
-  "running, A threw": [SLOT_A],
-} as const satisfies Record<Start, ReadonlyArray<string>>;
-
 // One key's expected timer, issues and evidence.
 //
 // - Turn R16: a key appearing arms its timer from step one; a key leaving cancels it; a staying
@@ -205,7 +195,8 @@ const PRIOR = {
 // - Turn R19: A throwing raises its issue and the timer keeps its last reasons.
 // - Turn R25: each key's issue is its own source. The first failure of the turn is its issue,
 //   replacing the earlier one; with none, a check's issue clears only when that check ran clean
-//   for that key; an accepted firing clears no check's issue, and a key leaving keeps its issues.
+//   for that key; an accepted firing clears no check's issue. Schedules R5 replaces the rest: a
+//   key leaving takes its issues, and the shown issue is the first failed outcome in check order.
 // The reasons a present key reads: A when true; when A throws, the timer's last ones (a key that
 // appears has none).
 const NO_REASONS: ReadonlyArray<string> = [];
@@ -218,14 +209,19 @@ const reasonsOf = (row: KeyRow) => {
   return LAST[row.start];
 };
 
-// A present key's issues: its first failure (an appearing key's arming, then A); with none, a
-// staying key's arming issue, since its arming did not run, while A's clears since A ran.
+// Schedules R1: a refused start is tried again on every occasion, so a staying refused key
+// starts like an appearing one.
+const starts = (row: KeyRow) =>
+  row.change === "appear" || (row.change === "stay" && row.start === "refused");
+
+// A present key's issue, the first failed outcome in check order (Schedules R5): its arming when
+// its start is refused, then A when it threw.
 const issuesOf = (row: KeyRow) => {
-  if (row.change === "appear" && row.far) return [SLOT];
+  if (starts(row) && row.far) return [SLOT];
 
   if (row.a === "x") return [SLOT_A];
 
-  return PRIOR[row.start].filter((s) => s === SLOT);
+  return [];
 };
 
 const NONE = { timer: Option.none<TimerView>(), issues: [], evidence: [] };
@@ -283,13 +279,13 @@ type KeyOutcome = {
 const keyExpected = (key: Key, row: KeyRow, now: number, fired: boolean): KeyOutcome => {
   if (row.change === "absent") return NONE;
 
-  if (row.change === "leave") return { ...NONE, issues: PRIOR[row.start] };
+  // Schedules R5: a key that leaves takes its timer's issues with it.
+  if (row.change === "leave") return NONE;
 
   const reasons = reasonsOf(row);
   const issues = issuesOf(row);
 
-  if (row.change === "appear")
-    return row.far ? { ...NONE, issues } : { ...newRun(key, now, reasons), issues };
+  if (starts(row)) return row.far ? { ...NONE, issues } : { ...newRun(key, now, reasons), issues };
 
   return { ...keptRun(key, fired ? Option.none() : RUN[row.start], now, reasons), issues };
 };
@@ -307,7 +303,8 @@ const expected = (row: Row): Outcome => {
       ...Option.match(j.timer, { onNone: () => ({}), onSome: (t) => ({ j: t }) }),
     },
     issues: [...k.issues.map((s) => `k ${s}`), ...j.issues.map((s) => `j ${s}`)].toSorted(),
-    evidence: [...k.evidence, ...j.evidence],
+    // A keyed schedule's timers are decided in key-text order (Schedules representation).
+    evidence: [...j.evidence, ...k.evidence],
   };
 };
 
@@ -479,7 +476,7 @@ describe("two keys of one keyed schedule in one turn (Turn R14, R16, R19, R25, R
 });
 
 describe("an arming refused for one key across occasions (Schedules R5, R4)", () => {
-  it.fails("Schedules R5, R4: an arming refused for one key keeps its issue while that key stays unarmed, through another check's throw on it and that check's recovery", async () => {
+  it("Schedules R5, R4: an arming refused for one key keeps its issue while that key stays unarmed, through another check's throw on it and that check's recovery", async () => {
     const ref = refOf(0);
     const keys = ["k", "j"];
 

@@ -9,12 +9,30 @@ type Sensors = ReadonlyArray<{ readonly id: string; readonly kind: "temperature"
 
 const POLL_EVERY = { temperature: Duration.minutes(1), motion: Duration.seconds(10) } as const;
 
+const Device = { id: Schema.String, every: Schema.Number, firmware: Schema.String };
+
+const Devices = Schema.Array(Schema.Struct(Device));
+
+const deviceOf = (devices: typeof Devices.Type, id: string) => devices.find((d) => d.id === id);
+
+// The major version of a device's firmware text, such as 3 for "3.1.4"; a report the room cannot
+// read throws, as a parser does.
+const majorOf = (firmware: string) => {
+  const major = /^(\d+)\./.exec(firmware)?.[1];
+
+  if (major === undefined) throw new Error(`unreadable firmware "${firmware}"`);
+
+  return Number(major);
+};
+
 const kindOf = (sensors: Sensors, id: string) =>
   sensors.find((s) => s.id === id)?.kind ?? "temperature";
 
 /**
  * A room, named by its name: its sensors and when each was last polled, its target temperature,
- * how many heating checks and boosts it has run, and the house's mode, read as context.
+ * how many heating checks and boosts it has run, the devices paired with its hub (each as the
+ * device reports itself: how often it asks to be pinged, in milliseconds, and its firmware text)
+ * and when each was last pinged, and the house's mode, read as context.
  */
 export const Room = definition({
   id: "Home/Room",
@@ -32,6 +50,11 @@ export const Room = definition({
     CancelBoost: {},
     WindowOpened: {},
     RetrySave: {},
+    Paired: Device,
+    Reported: Device,
+    Unpaired: { id: Schema.String },
+    Quiet: {},
+    Rescan: {},
   },
   internalEvents: {
     Polled: { id: Schema.String, at: Schema.Number },
@@ -41,6 +64,7 @@ export const Room = definition({
     Saved: {},
     Refused: {},
     Unsure: Flow.uncertain({}),
+    Pinged: { id: Schema.String, at: Schema.Number },
   },
   memory: {
     room: Flow.input(Schema.String),
@@ -50,6 +74,8 @@ export const Room = definition({
     checks: Flow.initial(Schema.Array(Schema.Number), []),
     boosts: Flow.initial(Schema.Number, 0),
     notice: Flow.initial(Schema.String, ""),
+    devices: Flow.initial(Devices, []),
+    pings: Flow.initial(Schema.Record(Schema.String, Schema.Number), {}),
   },
   context: { mode: Flow.context(House.state) },
   operations: ({ E }) => ({
@@ -68,6 +94,7 @@ export const Room = definition({
     },
     check: { pausedBy: ["Vacation"], restartOn: Schema.Number },
     boost: {},
+    ping: { key: { id: Schema.String }, pausedBy: ["Away"], restartOn: Schema.Number },
   },
 });
 
@@ -80,7 +107,12 @@ export const Room = definition({
  * five minutes apart, from each new target; an open window stops the checks. A boost runs for
  * half an hour until cancelled. A save that lands after the room reached its target is not heard;
  * one that lands while heating clears a notice, and with none shown it is denied. Offline, it
- * reminds the owner to reconnect, an hour first and fifty times longer each time.
+ * reminds the owner to reconnect, an hour first and fifty times longer each time. Online, its hub
+ * pings each paired device on the interval the device reports, from its pairing, and from the
+ * start again when the device reports a new major firmware version; pings are held while the
+ * house is away or on vacation. Quiet stops every ping until a device pairs or updates again; a
+ * rescan listens afresh. An interval past the longest timer, or firmware text the room cannot
+ * read, is that device's issue until the device reports again.
  */
 export const RoomMachine = machine(Room, ({ S, E, O }) => {
   const saveTarget = {
@@ -108,6 +140,21 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
       AddSensor: {
         updateMemory: ({ event, memory }) => ({
           sensors: [...memory.sensors, { id: event.id, kind: event.kind }],
+        }),
+      },
+      Paired: {
+        updateMemory: ({ event, memory }) => ({
+          devices: [...memory.devices.filter((d) => d.id !== event.id), event],
+        }),
+      },
+      Reported: {
+        updateMemory: ({ event, memory }) => ({
+          devices: memory.devices.map((d) => (d.id === event.id ? event : d)),
+        }),
+      },
+      Unpaired: {
+        updateMemory: ({ event, memory }) => ({
+          devices: memory.devices.filter((d) => d.id !== event.id),
         }),
       },
       RemoveSensor: {
@@ -152,6 +199,12 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
               polls: { ...memory.polls, [event.id]: event.at },
             }),
           },
+          Pinged: {
+            updateMemory: ({ event, memory }) => ({
+              pings: { ...memory.pings, [event.id]: event.at },
+            }),
+          },
+          Rescan: { target: S.ONLINE },
         },
         schedules: {
           poll: {
@@ -170,6 +223,16 @@ export const RoomMachine = machine(Room, ({ S, E, O }) => {
                 ),
             },
             send: E.Polled.from(({ key, firedAt }) => ({ id: key.id, at: firedAt })),
+          },
+          ping: {
+            keys: ({ memory }) => memory.devices.map((d) => ({ id: d.id })),
+            schedule: ({ key, memory }) =>
+              Schedule.spaced(Duration.millis(deviceOf(memory.devices, key.id)?.every ?? 0)),
+            restartOn: ({ key, memory }) =>
+              majorOf(deviceOf(memory.devices, key.id)?.firmware ?? ""),
+            disarmOn: [E.Quiet],
+            paused: { Away: ({ context }) => context.mode !== "HOME" },
+            send: E.Pinged.from(({ key, firedAt }) => ({ id: key.id, at: firedAt })),
           },
         },
         states: {

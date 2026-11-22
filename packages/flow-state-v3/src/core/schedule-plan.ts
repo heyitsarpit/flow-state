@@ -18,13 +18,11 @@ import {
   actorKey,
   byCodeUnits,
   type Incarnation,
-  type Run,
   Timer,
   type TimerId,
-  Timing,
-  type Tracked,
   type World,
 } from "./world.ts";
+import { Arming, type Run, timersIn, Timing, type Tracked } from "./timers.ts";
 
 /**
  * Schedules' plans: delays, steps, the order timers fire in and what a record saves of them.
@@ -131,43 +129,8 @@ export const firstStep = (schedule: Schedule, read: ScheduleInput, step: Steppin
       }),
   );
 
-// A saved timer's run, as the record holds it.
-const savedRun = (run: Run) => ({
-  armedAt: run.armedAt,
-  attempt: run.attempt,
-  ...Timing.$match(run.timing, {
-    Running: ({ dueAt }) => ({ dueAt }),
-    Held: ({ left }) => ({ left }),
-  }),
-});
-
 /**
- * A record's timers: each armed timer of the incarnation, each idle one a restore would otherwise
- * start (a keyed one, or one its state's entry arms), so a restore tells a schedule that ended from
- * one the definition added, and each idle one with pause reasons, which a reason that throws after
- * the restore keeps. `armsOnEntry` names the schedules their entry arms.
- */
-export const savedTimersOf = (incarnation: Incarnation, armsOnEntry: (name: string) => boolean) =>
-  [...incarnation.schedules.values()]
-    .filter(
-      (t) =>
-        Option.isSome(t.run) ||
-        Option.isSome(t.key) ||
-        t.pausedBy.length > 0 ||
-        armsOnEntry(t.name),
-    )
-    .map((tracked) => {
-      const saved = {
-        name: tracked.name,
-        ...Option.match(tracked.key, { onNone: () => ({}), onSome: (k) => ({ key: k.value }) }),
-        ...Option.match(tracked.run, { onNone: () => ({}), onSome: savedRun }),
-      };
-
-      return tracked.pausedBy.length === 0 ? saved : { ...saved, pausedBy: tracked.pausedBy };
-    });
-
-/**
- * A timer due, with the incarnation it belongs to.
+ * A run due, with the incarnation, the schedule and the timer it belongs to.
  */
 export type Due = {
   readonly incarnation: Incarnation;
@@ -194,18 +157,28 @@ const byDue = (machines: Machines) => {
     byCodeUnits(keyTextOf(a.tracked), keyTextOf(b.tracked));
 };
 
-// A running timer of an incarnation, with its deadline.
-const runningOf = (incarnation: Incarnation, tracked: Tracked) =>
-  Option.flatMap(tracked.run, (run) =>
-    Timing.$match(run.timing, {
-      Running: ({ dueAt, timer }) => Option.some({ incarnation, tracked, run, dueAt, timer }),
-      Held: () => Option.none(),
-    }),
+// A timer's run while it is due, with its deadline.
+const dueRunOf = (incarnation: Incarnation, tracked: Tracked) =>
+  Arming.$is("Armed")(tracked.arming) && Timing.$is("Due")(tracked.arming.run.timing)
+    ? Option.some({
+        incarnation,
+        tracked,
+        run: tracked.arming.run,
+        dueAt: tracked.arming.run.timing.dueAt,
+      })
+    : Option.none<Due>();
+
+/**
+ * Every due run of an incarnation, in its schedules' order.
+ */
+export const dueRunsOf = (incarnation: Incarnation) =>
+  [...incarnation.schedules.values()].flatMap((scheduled) =>
+    timersIn(scheduled).flatMap((tracked) => Option.toArray(dueRunOf(incarnation, tracked))),
   );
 
 /**
- * The running timers of an incarnation whose deadline has passed with no live host timer: those
- * that came due while it was unused, in firing order.
+ * The due runs of an incarnation whose deadline has passed with no live host alarm: those that
+ * came due while it was unused, in firing order.
  */
 export const waitingIn = (
   world: World,
@@ -213,23 +186,34 @@ export const waitingIn = (
   incarnation: Incarnation,
   now: number,
 ) =>
-  [...incarnation.schedules.values()]
-    .flatMap((tracked) => Option.toArray(runningOf(incarnation, tracked)))
-    .filter((d) => !world.timers.has(d.timer) && d.dueAt <= now)
+  dueRunsOf(incarnation)
+    .filter(
+      (d) =>
+        d.dueAt <= now &&
+        !Option.exists(Option.fromUndefinedOr(incarnation.alarms.get(d.run.arming)), (alarm) =>
+          world.timers.has(alarm.timer),
+        ),
+    )
     .toSorted(byDue(machines));
 
-// The running timer a live host timer stands for, when it is still that timer's.
-const dueOf = (world: World, id: TimerId, timer: Timer) =>
-  Timer.$is("Schedule")(timer)
-    ? Option.filter(
-        Option.flatMap(Option.fromUndefinedOr(world.incarnations.get(actorKey(timer.actor))), (i) =>
-          Option.flatMap(Option.fromUndefinedOr(i.schedules.get(timer.track)), (t) =>
-            runningOf(i, t),
+// The due run a live host alarm stands for, while it is still that run's.
+const dueOf = (world: World, id: TimerId, timer: Timer) => {
+  if (!Timer.$is("Schedule")(timer)) return Option.none();
+
+  return Option.flatMap(
+    Option.fromUndefinedOr(world.incarnations.get(actorKey(timer.actor))),
+    (incarnation) =>
+      Option.map(
+        Option.fromUndefinedOr(
+          dueRunsOf(incarnation).find(
+            (d) =>
+              d.run.arming === timer.arming && incarnation.alarms.get(timer.arming)?.timer === id,
           ),
         ),
-        (d) => d.timer === id,
-      ).pipe(Option.map((d) => ({ ...d, id, fired: timer })))
-    : Option.none();
+        (d) => ({ ...d, id, fired: timer }),
+      ),
+  );
+};
 
 /**
  * Every live schedule timer due by now, across actors, in firing order: a host timer firing

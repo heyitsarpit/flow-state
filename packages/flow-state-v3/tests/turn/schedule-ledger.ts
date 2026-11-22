@@ -269,7 +269,13 @@ const armed = (w: Working, o: Occasion): Timer => {
 };
 
 // The reason `t` declares under a build, if any.
-const reasonOfT = (build: Build) => ({ paused: ["A"], plain: [], renamed: ["Z"] })[build];
+const REASONS_OF_T: Readonly<Record<Build, ReadonlyArray<string>>> = {
+  paused: ["A"],
+  plain: [],
+  renamed: ["Z"],
+};
+
+const reasonOfT = (build: Build) => REASONS_OF_T[build];
 
 // Schedules R4, R6, R14 and table Reasons: every occasion reads each timer's reasons, armed or
 // idle; A (or Z) true holds, false frees, a throw keeps the last reasons and fails the check. A
@@ -384,8 +390,18 @@ const minute = (l: Ledger) => {
 
 const bumped = (w: World) => ({ ...w, sel: w.sel + 1 });
 
-const woken = (l: Ledger, build: Build) =>
-  decided({ ...l, build }, { ...turn(l.world), compares: false });
+// A wake under a build: a saved reason the build does not declare is dropped first (the decoder
+// table), then every check reads silently.
+const woken = (l: Ledger, build: Build) => {
+  const declared = reasonOfT(build);
+
+  const timers = l.timers.map((t) => ({
+    ...t,
+    reasons: t.reasons.filter((r) => declared.includes(r)),
+  }));
+
+  return decided({ ...l, build, timers }, { ...turn(l.world), compares: false });
+};
 
 /**
  * One step: the ledger after it, and the timers whose firings committed in it.

@@ -1,7 +1,7 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
 import { hall, house } from "../app.ts";
 import { House } from "../machines/house.ts";
-import { Hub } from "../machines/hub.ts";
+import { Room } from "../machines/room.ts";
 import { homeStory } from "./usual.ts";
 
 /**
@@ -12,17 +12,18 @@ export const DEVICES = 64;
 
 const LONGEST = 2 ** 31 - 1;
 
-const lock = (firmware: string, every = 30_000) => Hub.E.Paired({ id: "lock", every, firmware });
+const lock = (firmware: string, every = 30_000) => Room.E.Paired({ id: "lock", every, firmware });
 
 const lockReport = (firmware: string, every = 30_000) =>
-  Hub.E.Reported({ id: "lock", every, firmware });
+  Room.E.Reported({ id: "lock", every, firmware });
 
-const camera = (every: number) => Hub.E.Paired({ id: "cam", every, firmware: "1.0" });
+const camera = (every: number) => Room.E.Paired({ id: "cam", every, firmware: "1.0" });
 
 /**
  * The hall's hub with the house, at clock 0.
  */
-const hubStory = (id: string) => homeStory(id).ensure(house).ensure(hall);
+const hubStory = (id: string) =>
+  homeStory(id).ensure(house).ensure(hall).send(hall, Room.E.Connected());
 
 /**
  * The hub pings a lock every 30 seconds and a camera every minute; leaving the house holds both,
@@ -44,7 +45,7 @@ export const hubUsual = hubStory("home/hub-usual")
   .checkpoint("home")
   .send(hall, lockReport("3.0"))
   .checkpoint("updated")
-  .send(hall, Hub.E.Unpaired({ id: "cam" }))
+  .send(hall, Room.E.Unpaired({ id: "cam" }))
   .advance("2 minutes")
   .checkpoint("unpaired");
 
@@ -57,7 +58,7 @@ export const hubUsual = hubStory("home/hub-usual")
 export const hubFirmwareReload = hubStory("home/hub-firmware-reload")
   .send(hall, lock("2.1"))
   .advance("10 seconds")
-  .send(hall, Hub.E.Quiet())
+  .send(hall, Room.E.Quiet())
   .checkpoint("quiet")
   .send(hall, lockReport("beta-2"))
   .checkpoint("unreadable")
@@ -81,7 +82,7 @@ export const hubIntervalRefused = hubStory("home/hub-interval-refused")
   .ensure(house)
   .ensure(hall)
   .checkpoint("reloaded")
-  .send(hall, Hub.E.Reported({ id: "cam", every: 60_000, firmware: "1.0" }))
+  .send(hall, Room.E.Reported({ id: "cam", every: 60_000, firmware: "1.0" }))
   .checkpoint("valid")
   .advance("1 minute")
   .checkpoint("pinged");
@@ -93,11 +94,11 @@ export const hubIntervalRefused = hubStory("home/hub-interval-refused")
 export const hubRefusedGone = hubStory("home/hub-refused-gone")
   .send(hall, camera(2 ** 31))
   .checkpoint("refused")
-  .send(hall, Hub.E.Unpaired({ id: "cam" }))
+  .send(hall, Room.E.Unpaired({ id: "cam" }))
   .checkpoint("unpaired")
   .send(hall, camera(2 ** 31))
   .checkpoint("refused again")
-  .send(hall, Hub.E.Quiet())
+  .send(hall, Room.E.Quiet())
   .checkpoint("quiet");
 
 /**
@@ -105,8 +106,8 @@ export const hubRefusedGone = hubStory("home/hub-refused-gone")
  * refused with its issue.
  */
 export const hubIntervalEdges = hubStory("home/hub-interval-edges")
-  .send(hall, Hub.E.Paired({ id: "longest", every: LONGEST, firmware: "1.0" }))
-  .send(hall, Hub.E.Paired({ id: "past", every: 2 ** 31, firmware: "1.0" }))
+  .send(hall, Room.E.Paired({ id: "longest", every: LONGEST, firmware: "1.0" }))
+  .send(hall, Room.E.Paired({ id: "past", every: 2 ** 31, firmware: "1.0" }))
   .checkpoint("paired")
   .advance(LONGEST)
   .checkpoint("longest pinged");
@@ -119,7 +120,7 @@ export const hubIntervalEdges = hubStory("home/hub-interval-edges")
 export const hubManyDevices = Array.from({ length: DEVICES }, (_, n) => n)
   .reduce(
     (story, n) =>
-      story.send(hall, Hub.E.Paired({ id: `d${String(n)}`, every: 10_000, firmware: "1.0" })),
+      story.send(hall, Room.E.Paired({ id: `d${String(n)}`, every: 10_000, firmware: "1.0" })),
     hubStory("home/hub-many-devices"),
   )
   .advance("5 seconds")
@@ -154,18 +155,19 @@ export const hubSamples = samplesOf({
   controls: [],
   steps: (story) =>
     story
+      .send(hall, Room.E.Connected())
       .send(hall, lock("2.1"))
       .send(hall, camera(60_000))
       .send(hall, lockReport("3.0"))
       .send(hall, lockReport("beta-2"))
       .send(hall, lockReport(""))
-      .send(hall, Hub.E.Reported({ id: "cam", every: LONGEST, firmware: "1.0" }))
-      .send(hall, Hub.E.Reported({ id: "cam", every: 2 ** 31, firmware: "1.0" }))
-      .send(hall, Hub.E.Reported({ id: "cam", every: 60_000, firmware: "1.0" }))
-      .send(hall, Hub.E.Unpaired({ id: "cam" }))
+      .send(hall, Room.E.Reported({ id: "cam", every: LONGEST, firmware: "1.0" }))
+      .send(hall, Room.E.Reported({ id: "cam", every: 2 ** 31, firmware: "1.0" }))
+      .send(hall, Room.E.Reported({ id: "cam", every: 60_000, firmware: "1.0" }))
+      .send(hall, Room.E.Unpaired({ id: "cam" }))
       .send(hall, camera(2 ** 31))
-      .send(hall, Hub.E.Quiet())
-      .send(hall, Hub.E.Rescan())
+      .send(hall, Room.E.Quiet())
+      .send(hall, Room.E.Rescan())
       .send(house, House.E.Leave())
       .send(house, House.E.StartVacation({ until: 36_000_000 }))
       .send(house, House.E.Arrive()),

@@ -231,7 +231,7 @@ const SLOTS = {
 } as const;
 
 describe("the saved timer of format 6 (Schedules R3, R14; Records R12)", () => {
-  it.fails("Schedules R14: a refused start, a baseline and a refused firing are saved in the timer of a format-6 record", async () => {
+  it("Schedules R14: a refused start, a baseline and a refused firing are saved in the timer of a format-6 record", async () => {
     const lamp = lampRef(LampMachine);
 
     const run = await played(
@@ -256,7 +256,7 @@ describe("the saved timer of format 6 (Schedules R3, R14; Records R12)", () => {
     });
   });
 
-  it.fails("Schedules R14 decode table: a format-5 record restores due, held and idle keyed timers and an unkeyed series at its third step as they were, reads its first baseline silently, and saves as format 6", async () => {
+  it("Schedules R14 decode table: a format-5 record restores due, held and idle keyed timers and an unkeyed series at its third step as they were, reads its first baseline silently, and saves as format 6", async () => {
     const lamp = lampRef(LampMachine);
 
     const run = await played(
@@ -418,7 +418,7 @@ const FarMachine = machine(Far, ({ S, E }) => ({
 }));
 
 describe("a start refused at creation (Schedules R1, R11, R14)", () => {
-  it.fails("Schedules R11: a start refused at creation is its timer's Refused arming with its issue, kept across a reload, and armed once its delay reads valid", async () => {
+  it("Schedules R11: a start refused at creation is its timer's Refused arming with its issue, kept across a reload, and armed once its delay reads valid", async () => {
     const far = actorRef(FarMachine, "far");
 
     const run = await played(
@@ -482,7 +482,7 @@ const CodedMachine = machine(Coded, ({ S, E }) => ({
 }));
 
 describe("a key saved by its declared Schema (Schedules R14, selectionCodec)", () => {
-  it.fails("Schedules R14: a timer's key is saved as its declared key Schema encodes it, and restores as the same timer", async () => {
+  it("Schedules R14: a timer's key is saved as its declared key Schema encodes it, and restores as the same timer", async () => {
     const coded = actorRef(CodedMachine, "coded");
 
     const setup = runtimeSetup({
@@ -544,7 +544,7 @@ const SeriesMachine = machine(Series, ({ S, E }) => ({
 }));
 
 describe("a series whose delay throws at a wake (Schedules R4, R14, its decode table)", () => {
-  it.fails("Schedules R4: a series whose delay throws at the wake keeps its deadline with its issue, fires once, then is idle with the firing's issue", async () => {
+  it("Schedules R4: a series whose delay throws at the wake keeps its deadline with its issue, fires once, then is idle with the firing's issue", async () => {
     const lamp = actorRef(SeriesMachine, "series");
 
     const run = await played(

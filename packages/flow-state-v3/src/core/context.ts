@@ -9,7 +9,7 @@ import {
   type ActorRecord,
   actorKey,
   type Incarnation,
-  type Issue,
+  type StoredIssue,
   IssueSource,
   Mail,
   withIssue,
@@ -72,7 +72,7 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
 
   // An issue of a context source, replacing that source's earlier one; the same issue still open
   // is raised once, not at every wave. Context is not part of the record, so this writes nothing.
-  const raise = (incarnation: Incarnation, issue: Issue) => {
+  const raise = (incarnation: Incarnation, issue: StoredIssue) => {
     const open = incarnation.issues.some(
       (i) =>
         Equal.equals(i.source, issue.source) &&

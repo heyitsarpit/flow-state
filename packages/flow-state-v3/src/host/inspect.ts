@@ -1,4 +1,3 @@
-import { Timing } from "../core/world.ts";
 import { Option } from "effect";
 import { operationOf } from "../core/compiled.ts";
 import { Evidence } from "../core/evidence.ts";
@@ -128,15 +127,11 @@ const cutOf = (driver: Driver): RuntimeCut => {
 
   const dueOf = (timer: Timer) =>
     Timer.$match(timer, {
-      Schedule: ({ actor, incarnation, track, arming }) =>
+      Schedule: ({ actor, incarnation, arming }) =>
         Option.flatMap(Option.fromUndefinedOr(world.incarnations.get(actorKey(actor))), (live) =>
-          Option.flatMap(Option.fromUndefinedOr(live.schedules.get(track)), (tracked) =>
-            Option.flatMap(tracked.run, (run) =>
-              live.id === incarnation && run.arming === arming && Timing.$is("Running")(run.timing)
-                ? Option.some(run.timing.dueAt)
-                : Option.none(),
-            ),
-          ),
+          live.id === incarnation
+            ? Option.map(Option.fromUndefinedOr(live.alarms.get(arming)), (alarm) => alarm.dueAt)
+            : Option.none(),
         ),
       Grace: () => Option.none<number>(),
       Silent: () => Option.none<number>(),

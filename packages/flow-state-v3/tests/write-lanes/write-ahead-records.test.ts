@@ -15,9 +15,25 @@ import { checked } from "../rules/rules.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 // The fields of an actor record and a lane record these tests read (Codec R5).
+// An actor record's schedules (Records R12, format 6): by state path, then name, each timer with
+// its arming.
+const Armed = Schema.Struct({ arming: Schema.Struct({ _tag: Schema.String }) });
+
 const ActorRecord = Schema.fromJsonString(
-  Schema.Struct({ schedules: Schema.Array(Schema.Unknown) }),
+  Schema.Struct({
+    schedules: Schema.Record(
+      Schema.String,
+      Schema.Record(Schema.String, Schema.Union([Armed, Schema.Array(Armed)])),
+    ),
+  }),
 );
+
+// How many of a record's timers are armed, due or held.
+const armedIn = (record: typeof ActorRecord.Type) =>
+  Object.values(record.schedules)
+    .flatMap((byName) => Object.values(byName))
+    .flatMap((entry) => ("arming" in entry ? [entry] : entry))
+    .filter((t) => t.arming._tag === "Due" || t.arming._tag === "Held").length;
 
 const LaneRecord = Schema.fromJsonString(
   Schema.Struct({ inFlight: Schema.Boolean, retryCount: Schema.Number }),
@@ -198,7 +214,7 @@ const lampSetup = runtimeSetup({
 });
 
 describe("what a step touched is written (WriteAhead I21)", () => {
-  it("WriteAhead I21: a schedule's firing that no state handles still rewrites the actor record without the schedule", async () => {
+  it("WriteAhead I21: a schedule's firing that no state handles still rewrites the actor record with the schedule idle", async () => {
     const run = checked(
       await Story.app(lampSetup, { id: "WRITE-AHEAD/unhandled-firing", fixtures: [] })
         .ensure(lamp)
@@ -210,7 +226,7 @@ describe("what a step touched is written (WriteAhead I21)", () => {
     );
 
     const schedulesAt = (cut: Cut) =>
-      Option.map(actorRecord(cut, "actor/WriteAhead/Lamp/hall"), (r) => r.schedules.length);
+      Option.map(actorRecord(cut, "actor/WriteAhead/Lamp/hall"), armedIn);
 
     expect(schedulesAt(run.checkpoints.armed)).toEqual(Option.some(1));
     expect(run.evidence.some((e) => e._tag === "Unhandled")).toBe(true);
