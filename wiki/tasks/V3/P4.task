@@ -6388,3 +6388,35 @@ tasks
             1.00 s, 5.10 M instantiations, 941 k types, 1.17 GB; after the sweep 1.05 s, 5.11 M; after the capture 1.27
             s, 6.88 M, 1.21 M types, 1.48 GB (+27% time, +35% instantiations; the spike had +14%, +35%). Bench
             `startup.construct.most-states --dev` 0.28 ms. Not run: stress (no stress Story or sweep touched).
+
+    T145
+        title       Planted faults: runtime rules only, judged by their targets
+        status      open
+        priority    high
+        description
+            Planted faults cover runtime rules only and are judged by their own target tests, so `nub run faults --only`
+            stays fast and no fault duplicates what a two-sided type or lint test already proves.
+
+            **Why now:** the user's ruling (2026-11-22, Q7 B; Epic, "Building a Task"): a fault's whole-suite fallback
+            cost a full suite run per mis-aimed fault, and faults for type and lint rules repeat their own
+            `@ts-expect-error` and must-flag tests. @task.V3.T144 also made the runner type-check its scratch copies
+            only so type faults could be caught.
+
+            **Read first:** code:tools/faults/run.ts, code:packages/flow-state-v3/tests/faults.ts and the per-area fault
+            lists it gathers.
+
+            **Approach:** the runner judges a named fault by its target files only and reports a miss as missed (no
+            whole-suite run); the scratch copies drop the type-check T144 added; every fault whose target is a type or
+            lint rule is deleted with its list entry, each named in a Task comment with the two-sided test that already
+            covers it.
+
+            May change: `tools/faults/`, `packages/flow-state-v3/tests/*faults*.ts`, the Epic's glossary line on
+            planted faults.
+        acceptance
+            - `nub run faults --only <name>` never runs the whole suite: a fault its targets miss is reported missed (a
+              runner test shows it).
+            - The scratch copies run no type-check; no planted fault targets a type or lint rule (an `rg` over the fault
+              lists shows none), and each deleted one names its covering two-sided test.
+            - Every remaining runtime fault is caught by its own targets, checked with `--only` in groups, never the
+              whole run.
+            - `nub run check` at zero and the package suite pass.

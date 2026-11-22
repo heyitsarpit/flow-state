@@ -227,11 +227,11 @@ instructions
       that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the
       apps and how to build them); a Story tests that fixture's feature, plus the Spec's Story of the wrong ending; a
       test runs the Story; type tests show the feature is typed fully and correctly, the way a user would expect
-      (two-sided pins, and no annotations needed in user code); each new rule has a planted fault that `nub run faults`
-      catches. See the existing tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. The
-      item's last line names the Spec Requirements this Task's tests cover and the Invariants they check after every
-      step, with the Spec tests that check them, by @spec id. A new Task inherits this rule and states it in the
-      same item.
+      (two-sided pins, and no annotations needed in user code); each new runtime rule has a planted fault its own target
+      tests catch (type and lint rules have none; the user, 2026-11-22). See the existing tests
+      (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. The item's last line names the Spec
+      Requirements this Task's tests cover and the Invariants they check after every step, with the Spec tests that
+      check them, by @spec id. A new Task inherits this rule and states it in the same item.
     - Requirements first (the user, 2026-11-12), by skill:execute-task step 2. The requirements list is in the Task's
       comments, each rule with its source, mapped one to one to the Task's acceptance. The lead may gather it with
       read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary).
@@ -260,9 +260,11 @@ instructions
     - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
       fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
       inverted test with its owner Task, and is fixed by that owner against the full coverage.
-    - A new rule is shown red on a planted fault: add the fault to `tests/faults.ts`, and `nub run faults --only
-      <names>` must catch it; a Task plants only its own faults, by name, never the whole list. Plants go in a scratch
-      copy, never the live tree.
+    - A new runtime rule is shown red on a planted fault (the user, 2026-11-22, Q7 B): add the fault to
+      `tests/faults.ts`, and `nub run faults --only <names>` must catch it with its own target tests; a fault its
+      targets miss is re-aimed, never judged by the whole suite. Type and lint rules get no planted fault: their tests
+      are two-sided (`@ts-expect-error`, a rule's must-flag cases). A Task plants only its own faults, by name, never
+      the whole list. Plants go in a scratch copy, never the live tree.
     - Lint-driven refactors (the user, 2026-11-22): to find an old pattern to migrate or delete, plain search (`rg`) and
       search-and-replace are the first choice and suit most cases: names, imports, strings, small changes. A temporary
       lint rule is used only when the lead names why it is the right tool for this job: the pattern is structural (a
