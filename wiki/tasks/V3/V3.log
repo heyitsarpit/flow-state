@@ -661,3 +661,22 @@ note 2026-11-22T08:18:53Z
 note 2026-11-22T08:35:52Z
     T118 done (last-round review PASS, 26853ee4). Page @page.T118-schedule-issues written, unread; loop findings
     added. Slice close held: @page.T57-schedules and @page.T89-foundations are not marked read. Next: T141.
+
+note 2026-11-22T08:36:02Z
+    Slice T141 (own slice, bench loads again) started: requirements lead (Opus, high).
+
+note 2026-11-22T08:43:11Z
+    [decided: user 2026-11-22] "this task probably is simple enough that a separate builder is not needed, the
+    requirements guy should be able to fix it": T141's requirements lead also builds it; its close review also checks
+    the requirements mapping, in place of a separate requirements review. Scope: T141.
+
+note 2026-11-22T09:14:00Z
+    T141 built and in review (138c80e4); close review started (it also checks the requirements). The Safari half of
+    test:browser waits for the user's Safari to close; the orchestrator re-runs it alone.
+
+note 2026-11-22T09:26:28Z
+    T141 close review: ISSUES, one blocker (storeContract's line-separator text became a space; e9b8b36e). Fix round to
+    the lead; Package.plan's old storeContract call waits for the user's yes.
+
+note 2026-11-22T09:35:56Z
+    [decided: user 2026-11-22] Q1 A: Package.plan shows storeContract(name, layer, { describe, it }) (T141's choice A).

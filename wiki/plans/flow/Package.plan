@@ -28,9 +28,9 @@ outcomes
           is typed by the machines' R, read from the contracts' services lists (@plan.Runtime.O2).
         - flow-state/react: FlowProvider, `useActorByRef`, `useActor`, `useView`, `useNow`, Hydrate.
         - flow-state/testing: Story, Fake (with Fake.server, Fake.storage and the answer classes Fake.Lost, Fake.Refused
-          and Fake.Closed), `storeContract(name, layer)`, `propertyTest`, `domainPropertyOptions`, `defineConfig`,
-          StoryFrame, StoryPlayer, `definePresentation`, the error class PropertyTestFailed; types StoryRun. There is no
-          test-runner adapter package (proposed).
+          and Fake.Closed), `storeContract(name, layer, { describe, it })`, `propertyTest`, `domainPropertyOptions`,
+          `defineConfig`, StoryFrame, StoryPlayer, `definePresentation`, the error class PropertyTestFailed; types
+          StoryRun. There is no test-runner adapter package (proposed).
         - flow-state/inspect: inspect, render, `attachInspector`, trace (an object with only import and export); types
           Model and Trace.
         - flow-state/server: dehydrate; type Hydration.
