@@ -1,13 +1,4 @@
-import {
-  type Context,
-  Duration,
-  type Effect,
-  Option,
-  Predicate,
-  Result,
-  Schema,
-  Struct,
-} from "effect";
+import { type Context, Duration, type Effect, Option, Result, Schema, Struct } from "effect";
 import { type Walker, walkerOf } from "./core/boundary.ts";
 import { writeJson } from "./core/codec.ts";
 import type { NotSentWhy } from "./core/cells.ts";
@@ -342,10 +333,10 @@ const keyTextBy =
   (key: Walker<unknown, unknown>, fields: ReadonlyArray<string>) => (value: Values) =>
     Result.getSuccess(Result.flatMap(key.encode(Struct.pick(value, fields)), writeJson));
 
-// A write's data as the update of the read's current data: a function is one; a value replaces it.
-// RETURN_TYPE: every write's data becomes the core's one update shape, erased to the read's value.
-const updateOf = <A>(name: string, data: A | ((current: A) => A)): ReadWrite["update"] =>
-  Predicate.isFunction(data) ? slot<ReadWrite["update"]>(name, data).run : () => data;
+/**
+ * A key record with no field beyond `T`'s: each extra field must be `never`.
+ */
+export type Exactly<K, T> = { readonly [P in Exclude<keyof K, keyof T>]: never };
 
 /**
  * The codecs a bound contract carries: its input, its input as JSON, and its key's text (its key
@@ -401,7 +392,7 @@ export type Transaction<
 
 /**
  * A write operation's options: `writes`, the read changes its success makes, from its answer and
- * input, each named by `resource.write(key, data)`.
+ * input, each named by `resource.set(key, value)` or `resource.update(key, update)`.
  */
 export type WriteOptions<A, I> = {
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an operation without writes changes no read on success
@@ -455,10 +446,30 @@ export type Resource<
   ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id> &
     (X extends { readonly value: unknown } ? Placed<A> : LookedUp);
   /**
-   * A change of this read's entry at a key, for a commit's `optimistic` or an operation's
-   * `writes`: the new data, or an update of the current data.
+   * A change of this read's entry at a key that replaces its data, for a commit's `optimistic` or
+   * an operation's `writes`, as `Ref.set` replaces a Ref's value.
+   *
+   * **Gotchas**
+   *
+   * - The key holds exactly the read's key fields.
    */
-  readonly write: (key: KeyRecord<F, Key>, data: A | ((current: A) => A)) => ReadWrite;
+  readonly set: <const K extends KeyRecord<F, Key>>(
+    key: K & Exactly<K, KeyRecord<F, Key>>,
+    value: A,
+  ) => ReadWrite;
+  /**
+   * A change of this read's entry at a key that derives its data from the current data, as
+   * `Ref.update` does: the update returns the new data and never changes the current.
+   *
+   * **Gotchas**
+   *
+   * - The key holds exactly the read's key fields.
+   * - An update never declines: it returns the new data whatever the current is.
+   */
+  readonly update: <const K extends KeyRecord<F, Key>>(
+    key: K & Exactly<K, KeyRecord<F, Key>>,
+    update: (current: Readonly<A>) => A,
+  ) => ReadWrite;
 };
 
 /**
@@ -597,13 +608,19 @@ export const resource = entry(
         staleTime: config.staleTime,
         gcTime: config.gcTime,
         lookup: entry(`${config.id}.lookup`, config.lookup),
-        write: entry(
-          `${config.id}.write`,
-          (key: KeyRecord<F, Key>, data: A | ((current: A) => A)) => ({
+        set: entry(`${config.id}.set`, (key: KeyRecord<F, Key>, value: A) => ({
+          contract: config.id,
+          keyText: codecs.textOfKey(key),
+          update: () => value,
+          replaces: true,
+        })),
+        update: entry(
+          `${config.id}.update`,
+          (key: KeyRecord<F, Key>, update: (current: Readonly<A>) => A) => ({
             contract: config.id,
             keyText: codecs.textOfKey(key),
-            update: updateOf(`${config.id}.write`, data),
-            replaces: !Predicate.isFunction(data),
+            update: slot<ReadWrite["update"]>(`${config.id}.update`, update).run,
+            replaces: false,
           }),
         ),
         outcomes: entry(

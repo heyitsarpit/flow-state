@@ -283,7 +283,7 @@ export const readsFaults: ReadonlyArray<Fault> = [
     name: "invalid-write-applied",
     tests: ["tests/chat/reads.test.ts"],
     says: "a success write with no valid key goes unreported",
-    rule: "Plan Operations O3 (InvalidWrite)",
+    rule: "Plan Operations O3 (InvalidUpdate)",
     edits: [
       {
         file: "src/core/entry-writes.ts",

@@ -166,14 +166,14 @@ describe("a send's success write on the history (Plan Operations O3; entry table
 
     expect(historyCalls(sent, "general")).toHaveLength(2);
     expect(sent.read(hub)?.memory.preview).toBe("hello");
-    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidWrite"))).toEqual([]);
+    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidUpdate"))).toEqual([]);
   });
 
-  it("Plan Operations O3 (InvalidWrite): a write whose thread the answer leaves empty applies nothing, is reported once, and the send succeeds", async () => {
+  it("Plan Operations O3 (InvalidUpdate): a write whose thread the answer leaves empty applies nothing, is reported once, and the send succeeds", async () => {
     const run = await sentWriteInvalid.run();
     const { sent } = run.checkpoints;
 
-    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidWrite"))).toHaveLength(1);
+    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidUpdate"))).toHaveLength(1);
     expect(sent.read(hub)?.memory.preview).toBe("");
     expect(sent.read(general)?.memory.pending).toEqual([]);
     expect(sent.read(general)?.memory.sent).toEqual({ "c-1": "m-3" });

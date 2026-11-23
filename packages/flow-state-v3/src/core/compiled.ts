@@ -465,9 +465,9 @@ export type Commit = (
 ) => Effect.Effect<unknown, unknown, unknown>;
 
 /**
- * One change of a read's entry, as `resource.write(key, data)` names it: the read's contract, its
- * key's canonical text (none when the key has no valid form), the update of its current value, and
- * whether the write gives the data itself, so it needs no current value to apply.
+ * One change of a read's entry, as `resource.set` or `resource.update` names it: the read's
+ * contract, its key's canonical text (none when the key has no valid form), the update of its
+ * current value, and whether it replaces the data (`set`), so it needs no current value to apply.
  */
 export type ReadWrite = {
   readonly contract: string;

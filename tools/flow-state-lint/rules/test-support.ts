@@ -30,7 +30,11 @@ export type Workdir = {
   readonly lines: (found: ReadonlyArray<Diagnostic>, file: string, rule: string) => ReadonlyArray<number>;
 };
 
-export const inWorkdir = (body: (dir: Workdir) => void) => {
+// `extra` adds rules vite.config.ts does not run, such as an on-demand finder.
+export const inWorkdir = (
+  body: (dir: Workdir) => void,
+  extra: Readonly<Record<string, unknown>> = {},
+) => {
   const workdir = mkdtempSync(join(tmpdir(), "flow-state-lint-"));
 
   const write = (path: string, text: string) => {
@@ -44,7 +48,7 @@ export const inWorkdir = (body: (dir: Workdir) => void) => {
       JSON.stringify({
         jsPlugins: [{ name: "flow-state", specifier: join(root, "tools/flow-state-lint/index.ts") }],
         categories: { correctness: "off" },
-        rules: given,
+        rules: { ...given, ...extra },
       }),
     );
 
@@ -106,7 +110,10 @@ export type Plant = {
 
 // Plants each rule's samples in every place and asserts the rule reports exactly its `fires` lines where it
 // applies and nothing where it is silent.
-export const plantRules = (plants: Readonly<Record<string, Plant>>) =>
+export const plantRules = (
+  plants: Readonly<Record<string, Plant>>,
+  extra: Readonly<Record<string, unknown>> = {},
+) =>
   inWorkdir(({ pkg, write, lint, lines }) => {
     const planted = new Map<string, { rule: string; path: string }>();
     const importLines = imports.split("\n").length;
@@ -135,4 +142,4 @@ export const plantRules = (plants: Readonly<Record<string, Plant>>) =>
 
       assert.deepEqual(lines(found, file, rule), want, `${rule} in ${path}`);
     }
-  });
+  }, extra);

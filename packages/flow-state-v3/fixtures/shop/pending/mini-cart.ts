@@ -168,7 +168,7 @@ export const MiniCartMachine = machine(MiniCart, ({ S, O }) => ({
               }),
               {
                 optimistic: ({ memory, event }) => [
-                  cart.write({ cartId: memory.cartId }, (current) => ({
+                  cart.update({ cartId: memory.cartId }, (current) => ({
                     lines: {
                       ...current.lines,
                       [event.lineId]: { variantId: event.variantId, quantity: 1 },

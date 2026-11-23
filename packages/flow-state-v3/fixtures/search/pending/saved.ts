@@ -34,7 +34,7 @@ export const Saved = definition({
         notSent: E.SaveRefused.from((n) => ({ why: n.why })),
         unknown: E.SaveUnsure,
       },
-      { writes: ({ value, input }) => [saved.write({ shopper: input.shopper }, value)] },
+      { writes: ({ value, input }) => [saved.set({ shopper: input.shopper }, value)] },
     ),
   }),
 });

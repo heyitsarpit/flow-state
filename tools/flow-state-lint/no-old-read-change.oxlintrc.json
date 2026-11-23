@@ -1,0 +1,15 @@
+{
+  "jsPlugins": [
+    {
+      "name": "flow-state",
+      "specifier": "./index.ts"
+    }
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "plugins": [],
+  "rules": {
+    "flow-state/no-old-read-change": "error"
+  }
+}

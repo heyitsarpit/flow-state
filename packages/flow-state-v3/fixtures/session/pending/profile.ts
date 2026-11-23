@@ -239,8 +239,8 @@ export const Shell = definition({
       { success: E.Renamed, failure: {}, unknown: E.RenameUnsure },
       {
         writes: ({ value }) => [
-          // @ts-expect-error a legacy answer may leave out its org, which the write's key needs: InvalidWrite at run time
-          teams.write({ org: value.org }, (current) => ({
+          // @ts-expect-error a legacy answer may leave out its org, which the update's key needs: InvalidUpdate at run time
+          teams.update({ org: value.org }, (current) => ({
             ...current,
             names: { ...current.names, [value.team]: value.name },
           })),
@@ -273,7 +273,7 @@ export const ShellMachine = machine(Shell, ({ S, O }) => ({
               ({ memory, event }) => ({ org: memory.org, team: event.team, name: event.name }),
               {
                 optimistic: ({ memory, event }) => [
-                  teams.write({ org: memory.org }, (current) => ({
+                  teams.update({ org: memory.org }, (current) => ({
                     ...current,
                     names: { ...current.names, [event.team]: event.name },
                   })),

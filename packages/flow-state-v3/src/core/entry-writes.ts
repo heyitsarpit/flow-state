@@ -110,7 +110,7 @@ export const makeEntryWrites = (tx: Tx, apply: (key: EntryKey, cue: Cue) => void
         () => undefined,
       );
 
-      const invalid = () => tx.act(Act.InvalidWrite({ actor, operation: operation.name }));
+      const invalid = () => tx.act(Act.InvalidUpdate({ actor, operation: operation.name }));
 
       if (!isReadWrites(writes)) invalid();
       else

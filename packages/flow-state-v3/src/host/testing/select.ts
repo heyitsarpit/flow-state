@@ -162,7 +162,7 @@ const NAMES_EVENT = {
   Recorded: false,
   Unhandled: true,
   InvalidInput: false,
-  InvalidWrite: false,
+  InvalidUpdate: false,
   SendTargetAbsent: true,
   Denied: true,
   Paused: false,

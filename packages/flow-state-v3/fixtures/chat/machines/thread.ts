@@ -63,7 +63,7 @@ export const Thread = definition({
       {
         // The sent message joins the history of the thread the server names.
         writes: ({ value, input }) => [
-          history.write({ thread: value.thread }, (current) => ({
+          history.update({ thread: value.thread }, (current) => ({
             messages: [
               ...current.messages.filter((m) => m.id !== value.id),
               { id: value.id, author: value.author, text: input.text },
@@ -143,7 +143,7 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
                 // The echo: the thread's history shows the message this turn added under its client
                 // id at once.
                 optimistic: ({ memory, event }) => [
-                  history.write({ thread: memory.thread }, (current) => ({
+                  history.update({ thread: memory.thread }, (current) => ({
                     messages: [
                       ...current.messages,
                       ...memory.messages.filter((m) => m.id === event.clientId),

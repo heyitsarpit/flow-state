@@ -45,7 +45,7 @@ export const Document = definition({
       {
         // A save the server took is written into the read, so the document shows it as fresh.
         writes: ({ value, input }) => [
-          document.write({ id: input.id }, (current) => ({
+          document.update({ id: input.id }, (current) => ({
             ...current,
             body: input.body,
             revision: value.revision,

@@ -143,7 +143,8 @@ export type WriteHandle<
 
 /**
  * A commit's one option: `optimistic`, the read changes readers see from its start, read from the
- * starting turn's memory and event, each named by `resource.write(key, data)`.
+ * starting turn's memory and event, each named by `resource.set(key, value)` or
+ * `resource.update(key, update)`.
  */
 export type CommitOptions<M, P> = {
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: a commit without optimistic changes no read at start

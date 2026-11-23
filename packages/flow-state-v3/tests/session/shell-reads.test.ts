@@ -5,7 +5,7 @@ import type { Cut } from "../../src/host/testing/index.ts";
 // The workspace shell's placed profile and teams. Expected results: a refetch on a placed read asks
 // its entry again (Operations, entry table: Ask Refetch); a commit's optimistic value shows at start
 // and the operation's `writes` lands on success (Plan Operations O3, O5); a write with no valid key
-// applies nothing and reports InvalidWrite while the commit succeeds (Plan Operations O3); signing
+// applies nothing and reports InvalidUpdate while the commit succeeds (Plan Operations O3); signing
 // out clears the profile (Operations, Clear). The shell uses members not yet built, so its fixture
 // loads inside each test.
 
@@ -36,11 +36,11 @@ describe("the shell's reads (Operations entry table; Plan Operations O3, O5)", (
     expect(run.checkpoints.renamed.read(Workspace.teams)).toHaveLength(1);
   });
 
-  it("Plan Operations O3 (InvalidWrite): a write whose key the answer leaves out applies nothing, is reported, and the rename succeeds", async () => {
+  it("Plan Operations O3 (InvalidUpdate): a write whose key the answer leaves out applies nothing, is reported, and the rename succeeds", async () => {
     const { invalidWrite, shell } = await load();
     const run = await invalidWrite.run();
 
-    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidWrite"))).toHaveLength(1);
+    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidUpdate"))).toHaveLength(1);
     expect(run.checkpoints.renamed.read(shell)?.memory.notice).toBe("");
   });
 
