@@ -5,7 +5,6 @@ import { derivedReportsRule } from "./rules/derived-reports.ts";
 import { noHandOptionRule } from "./rules/no-hand-option.ts";
 import { noHandTypedCallbackRule } from "./rules/no-hand-typed-callback.ts";
 import { noIdTextRule } from "./rules/no-id-text.ts";
-import { noOldReadChangeRule } from "./rules/no-old-read-change.ts";
 import { noTagChainRule } from "./rules/no-tag-chain.ts";
 import { noUndeclaredScheduleRule } from "./rules/no-undeclared-schedule.ts";
 import { noEventNameFilterRule } from "./rules/no-event-name-filter.ts";
@@ -25,7 +24,6 @@ const flowStateLintPlugin = eslintCompatPlugin({
     "no-hand-option": noHandOptionRule,
     "no-hand-typed-callback": noHandTypedCallbackRule,
     "no-id-text": noIdTextRule,
-    "no-old-read-change": noOldReadChangeRule,
     "no-tag-chain": noTagChainRule,
     "no-undeclared-schedule": noUndeclaredScheduleRule,
     "owners-only": ownersOnlyRule,
