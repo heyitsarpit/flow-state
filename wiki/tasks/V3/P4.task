@@ -521,6 +521,10 @@ tasks
             parent. The unwritten catalog rows (shop stale overlapping adds, transfers deposit S6, E8, failing part,
             abort/resume, chat upload progress, idempotency and optimistic echo, draft uploads) are each builder's first
             step, red before any code.
+        comment     2026-11-23T06:32:26Z
+            [decided: agent orchestrator 2026-11-23] T121 and T122 get their close review now, before T123 and T124 are
+            built; the slice review checks the seams at the end. Why: the Epic's R2 addition puts a Task in review
+            first, and T123 builds on T122's request-placement deviation. Reverse: none needed.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -676,6 +680,9 @@ tasks
             Routed from @task.V3.T92's close review (orchestrator, 2026-11-23): R12's FORMAT pin and the Shapes' hash
             (after the codecSig spike), R21's records-boot bench row, and the 1,300-row durability stress time (6.4 s
             alone; likely the whole work text rewritten per capture and the ledger's per-row copies).
+        comment     2026-11-23T06:55:48Z
+            Routed from slice T21's close review (orchestrator, 2026-11-23): the bigint key "$1n" row, and the two
+            inverted tests in cells/structure.test.ts (a row parked at disposal is never saved).
     T22
         title       CLI check, explain and graph
         status      draft
@@ -2370,6 +2377,9 @@ tasks
             Routed (orchestrator) from T113's close: home-rooms seed 15 (FLOW_SEEDS=40) breaks Turn I9, an AddSensor
             turn published twice, red before T113 too; same class as this Task's Turn I9 item. Trace its origin with
             the rest.
+        comment     2026-11-23T06:55:49Z
+            Routed from slice T21's close review (orchestrator, 2026-11-23): chat's pair sweep stays inverted because
+            one sweep cell never fires; no rule breaks.
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
         status      done
@@ -4084,6 +4094,14 @@ tasks
         comment     2026-11-22T03:54:10Z
             Fix 8: owns the `test:coverage` items alone; @task.V3.T97's copy of them was dropped. R48 breakdown review
             (2026-11-22, P4 comment).
+        comment     2026-11-23T06:32:27Z
+            Routed from slice T21 (orchestrator, 2026-11-23): two stress tests time out at about 3x their recorded
+            limits (the 1,300 owed rows and 4,200 cancels tests; about 6.5 s and 23.5 s alone against 2.4 s and 7.9 s),
+            red already at ce69f1ba. The limits stay; relaxing them is the user's.
+        comment     2026-11-23T06:40:02Z
+            [decided: user 2026-11-23] Relax LIMITS.durability and LIMITS.laneBound to a recorded re-measurement now;
+            getting them back under the old bounds stays this Task's work. The re-measurement lands with the T123/T124
+            build lead.
     T118
         title       Schedule issues derived from timer state, proven by sequence tests
         status      done
@@ -5889,7 +5907,7 @@ tasks
             (tests/turn/nested-placement.test.ts: the inner placement's timer is lost today, inner 0 for 1).
     T121
         title       Operation endings and the retry guards
-        status      review
+        status      done
         priority    high
         parent      [@T21]
 
@@ -6152,9 +6170,37 @@ tasks
             --only`; stress has 3 failures that fail the same at ce69f1ba (durability and lane-bound timeouts, draft
             saved stress Story), not this build. Left: the items in the previous comment, and moving
             `chat/pending/attachment.ts` and `transfers/pending/deposit*.ts` out of pending with registration.
+        comment     2026-11-23T06:55:00Z
+            Close review (independent reviewer, 2026-11-23) at 4dc210eb (build fe4a387b, ed8973bc): PASS. Every
+            acceptance item holds: the mapper context is typed with no annotation; guards read `lanes.viewOf`, with
+            `retryable-ignores-count` caught; the R16 ledger test is green; Audience and locate are gone and the pipe
+            pin flipped; a mapper throw is refused, then Kept; MissingService is refused at boot by name; progress,
+            declared idempotency (chat) and late endings are green. The R16 test now disposes instead of detaching,
+            because Operations Rows tries a Kept row again at the next start. Its 10 faults are caught by faults --only;
+            check is 0. Routed (none blocks; this build made no lost, doubled or wrong ending):
+            - `tests/cells/structure.test.ts:25, :37` are untouched since before the build. The next incarnation hears
+              unknown Restored, not the parked Disposed row; for :37, a charge never sent is told unsure. Origin: a row
+              parked at an actor's disposal is not saved, so admit derives a Restored unknown. Proposed owner
+              @task.V3.T56; the orchestrator confirms. Operations.spec's list of four inverts waiting on the one-unknown
+              rule (:629, :1076) is stale: restore:86 and bank-app:79 are green, restore:96 is T56's displaced Attempt,
+              and structure:25 waits on this save.
+            - The chat pair sweep stays inverted (OnWire x lost answer is never reached; no rule breaks): @task.V3.T97.
+              Draft has no pair sweep either.
+            - `chat/pending/attachment.ts` and `transfers/pending/deposit*.ts` load with no suppression but are
+              unregistered, so generators, sweeps and bench never run progress or idempotency. Owner @task.V3.T123's
+              builder, which registers transfers when `pending/balance.ts` loads; `transfers/reads.test.ts:105`
+              flips then.
+            - Record drift: `Unturned` closes heard (the builder's tag), and a restored Kept row has no refusal, against
+              I13. Neither is in specs.log; the orchestrator logs both against Operations Rows and I13.
+            - Notes for the slice review: R7/I14 has no planted fault; `admit-work.ts:399` names a Spec section;
+              `contract.ts:375`, `handles.ts:118` and `rows.ts:14` say "the Plan's"; the mapper context has two names
+              (`MapperContext`, `EndingContext`). Stress: all 3 failures predate the build. The two limit tests pass
+              alone in 24.4 s at both ce69f1ba and 4dc210eb, and time out only under the full stress load (the user
+              relaxed those limits). Draft's saved stress Story fails the same at ce69f1ba (archive copy) and did not
+              exist at 47556c2f, so it has failed since f8422ce8: owner @task.V3.T124 (draft's fixture).
     T122
         title       Read entries and read slots
-        status      review
+        status      in_progress
         priority    high
         parent      [@T21]
 
@@ -6300,6 +6346,56 @@ tasks
             lane-bound timeouts, draft saved stress Story); search saved stress Story regenerated from seed 36. Left:
             the items in the earlier left comment (writes, InvalidWrite, Invalidate/Written/Clear cells, freeze, "$1n",
             optimistic typing).
+        comment     2026-11-23T06:55:00Z
+            Close review (independent reviewer, 2026-11-23) at 4dc210eb: ISSUES, three blockers, each in range with a
+            check red now.
+            - B1, a shared read ends Interrupted for a holder still waiting (Operations T4.3, R3; Occasions: a read's
+              request belongs to its entry and runs on while any hold remains). Origin: `entries.ts#start` gives
+              `Command.Lookup` `owner: by.life`, `driver.ts` forks the call under that life's Owner, so the asker's end
+              interrupts it and `landed` owes every waiter `Interrupted`. Red: chat one-reader-left with the order
+              swapped (thread joins, sidebar opens, thread closed). Today: the call ends `handled`, the sidebar shows
+              `offline`. Spec: the call runs on, ends `answered`, preview `standup at ten`. Missed because
+              `oneReaderLeft` closes only the second asker. The trailing and unknown-refetch starts (`firstHolder`)
+              carry the same owner. System-wide: every shared entry (chat sidebar and thread, search's 64 ResultLists
+              under one read, T123's placements, T124's saved data) loses its answer when the first asker leaves first,
+              and T123's Releases assume the request is the entry's. It is a wrong ending, not waste. Fix: fork under
+              the Runtime work as the Spec says; route a read's cleanup failure through Releases, revising Actors R23's
+              read case and the `cleanups.test.ts` cases it moves; land the swapped Story red first.
+            - B2, acceptance items 1 and 3 unmet: `tests/generated/entries.test.ts` is still `it.fails`; Invalidate,
+              Written and Clear do not exist; nothing writes `staleAt` above 0, so Behind, `again` and Settled-behind
+              are dead code; `entries.refetch` has no caller; `entries.freeze` (item 3: built here) does not exist.
+              "Their members belong to T123" does not hold: T123's acceptance names placements, release and placeholder
+              only, and the slice inventory gives every entry cue to T122's `entries.ts`. Build them (a loadable fixture
+              such as chat can drive the generator and Spec T4.4), or the orchestrator moves them into T123's acceptance
+              in writing.
+            - B3, acceptance item 6 unmet: `writes` and InvalidWrite are unbuilt (`session/shell-reads.test.ts` red);
+              `optimistic` is untyped (`fixtures/chat/machines/thread.ts:123-135` still need `@ts-expect-error`; check
+              passes with them); removal on failure or NotSent has no green check (shop reds); a displaced or cancelled
+              commit never removes its layer (`lanes.ts#settle` returns at `applyDisplaced` before
+              `entries.attemptEnded`), so a made-up value stays while the entry is held: write that red first. Carried
+              with B2 (same state): one cue x phase table, the inventory's `entries.ts#apply` (each cue now switches on
+              a string phase; `landed` and `collectDue` compare `"Behind"` and `"Idle"`; `again` sits beside the
+              Request, not in `Running`); the issue view's `entryIssue` part (`Entry.last` is written, never read). Not
+              blocking: "$1n" is in no acceptance line, and its Reverse to @task.V3.T56 fits (canonical key text is
+              Records format). Choice B was decided on a generator that cannot run; re-decide on B2's. Rewritten pins
+              hold: PAY-15, PAY-16 and the cleanups join follow OneWait; slots-usual's 5 minutes follows the booking
+              fake's absolute hold time; search's saved stress Story is a change detector only; the deleted
+              `newer-lookup-unsuperseded` targeted gone code, so its Superseded assertion has no fault now. Runs: faults
+              --only 17 of 17 caught; check 0; coverage run exit 1 on 8 instrumentation timeouts, no assertion failed
+              (no report on failure, T97's item; a targeted coverage run fed the sidecar); stress: 3 failures, all
+              predate (T121's comment). Sidecars (blind, flip A, cohesion, coverage, fixtures; a hygiene sweep).
+              Accepted: B1 (blind, coverage; a probe Story confirmed it), B2, B3, the layer leak (read in code), the
+              missing table. Changed: the implicit state machine becomes "carried", since the phase is derived and the
+              missing piece is the table. Rejected: `callHome` and `holders` as caches (I25 and the dispatch need them);
+              I8 for `cancel` (cancelRead owes no row); the unknown refetch against NoRetryLoop (acceptance asks for
+              it); faults' `Number.isNaN(0)` guards (style only).
+        comment     2026-11-23T06:55:47Z
+            [decided: agent orchestrator 2026-11-23] Fix round in this Task: B1 a read's request runs under the Runtime,
+            its cleanup failure goes through Releases (the reading that loses no ending wins over the superseded core
+            Actors R23); B2 Invalidate, Written, Clear and the generated entries test; B3 writes, InvalidWrite, the
+            optimistic type, and a displaced or cancelled commit removes its optimistic value (red first).
+            entries.freeze stays with @task.V3.T109. Why: all three are in this Task's acceptance and the slice owners.
+            Reverse: none for B1 without losing the second holder's ending.
     T123
         title       Placements and release
         status      in_progress
@@ -6393,6 +6489,9 @@ tasks
             (`tests/shop/mini-cart.test.ts`, red). Fault listed: `placeholder-unmarked`. `subscribe.each` rows are left
             with @task.V3.T25 (the orchestrator, 2026-11-23); plain `O.x.subscribe` placements stay here, as this Task's
             acceptance says.
+        comment     2026-11-23T06:55:50Z
+            Routed from slice T21's close review (orchestrator, 2026-11-23): register chat's attachment and the
+            transfers deposit modules now out of pending/ only by load, not registration.
     T124
         title       Persisted resources
         status      in_progress
@@ -6477,6 +6576,9 @@ tasks
             [decided: agent requirements 2026-11-23] A saved entry under a contract no build declares is discarded at
             the boot. Why: a cache record carries no obligation (Records R18) and nothing can read it. Reverse: keep and
             report it, as R8 does for a machine's record.
+        comment     2026-11-23T06:55:51Z
+            Routed from slice T21's close review (orchestrator, 2026-11-23): draft's saved stress Story has failed since
+            f8422ce8; owned here.
     T127
         title       Declared emits at the root
         status      draft

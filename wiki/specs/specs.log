@@ -825,3 +825,7 @@ note 2026-11-22T23:01:37Z
     Records: built by @task.V3.T92 (format 6, full decode). Deviations and silences are tagged decisions in that Task's
     comments (2026-11-23): HeldAtStart gone, rows keep their input, keyless Unencodable declines read, kept keys never
     written, brands at the admission boundary, no pin or bench row yet.
+
+note 2026-11-23T06:55:52Z
+    Operations deviations from T121's build (orchestrator, 2026-11-23): an unhandled ending closes as heard; a restored
+    kept row carries no refusal. Recorded on @task.V3.T121; Spec text unchanged.

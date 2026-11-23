@@ -917,3 +917,19 @@ note 2026-11-23T04:21:28Z
 note 2026-11-23T04:35:06Z
     T21 requirements closed at 0e0e5c03. Build runs as two leads in turn (T121+T122, then T123+T124), each writing its
     Tasks' remaining catalog rows red first; see T21's comment.
+
+note 2026-11-23T04:35:49Z
+    Build lead started on T121 and T122 (Opus, medium); T123 and T124 follow with a fresh lead.
+
+note 2026-11-23T06:32:28Z
+    T121 and T122 in review (build 4dc210eb). Close review started before the T123/T124 build. Two stress timeouts
+    routed to T117; their limits stay unless the user relaxes them.
+
+note 2026-11-23T06:40:02Z
+    [decided: user 2026-11-23] "willing to relax now so we can focus on feature instead of performance now": the
+    durability and laneBound stress limits are re-measured and raised. Scope: those two limits; T117 keeps the speed
+    work.
+
+note 2026-11-23T06:55:52Z
+    T121 done (close review PASS at 4dc210eb). T122 ISSUES, three blockers; fix round goes to its builder, B1 runs a
+    read's request under the Runtime. Five items routed (T56, T97, T123, T124, specs.log).
