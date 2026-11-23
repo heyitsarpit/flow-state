@@ -575,6 +575,14 @@ tasks
             key already in memory; (7) update this Task's entries.ts owner table (entry-placements.ts,
             entry-releases.ts, entry-store.ts now own placements, releasing and saved entries). Gates as before; freeze
             and thaw stay with T109.
+        comment     2026-11-23T10:36:16Z
+            Owner table update (building lead, 2026-11-23): entries.ts#apply owns entries (cells) and holds, now
+            counting live optimistic layers (put judges a layer's arrival and leaving); entry-slots.ts owns slots
+            (lookup, serve, wait, owe, cancel, end); entry-placements.ts owns placements; entry-releases.ts owns
+            releasing, callHome drops at release and the Release alarm, with Released and ReleaseOverdue evidence;
+            entry-writes.ts owns layers and success writes, through entries' put and apply; entry-store.ts owns saved
+            entries and install (in-memory install is T48's); read-rows.ts derives the snapshot's read rows;
+            issues-of.ts derives the issues. Lane heads' other writers remain T121's open item.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -6540,7 +6548,7 @@ tasks
             zero hits); setData moved to writes in 7867b2a4.
     T123
         title       Placements and release
-        status      in_progress
+        status      review
         priority    medium
         parent      [@T21]
 
@@ -6717,9 +6725,39 @@ tasks
             target applies nothing (@plan.Operations.O5 wins over the build); the routed evidence lines, string
             comparisons, R11 throwing-select Story and the placeholder-unmarked fault edit. Freeze and thaw placement go
             to @task.V3.T109. Why: each is in the slice's acceptance and owners. Reverse: none.
+        comment     2026-11-23T10:34:47Z
+            [decided: agent builder 2026-11-23] A writes batch is checked whole before any target applies (Plan O5 wins
+            over the build): one invalid target, or writes that throw or return no list, applies nothing and records one
+            InvalidUpdate; each entry is judged once per batch, its updates applied in order, so two targets on one
+            entry no longer Invalidate the second. Why: red chat/sent-write-invalid with a second target (applied
+            'hello'), and chat/usual R4 reds once the batch named one entry twice. Reverse: per-target apply.
+        comment     2026-11-23T10:34:48Z
+            [decided: agent builder 2026-11-23] Read rows: a snapshot's operations map holds each slot's and placement's
+            entry row (ReadRow: Pending, Ready, Refreshing, Failure, Defect, Interrupted, with data seen through live
+            layers, predicted and key), exported as a type; O.x.get filters write rows. The three optimistic Stories
+            read the row, not value (the orchestrator's ruling). Release evidence: Lane Released when a released call
+            ends, Issue ReleaseOverdue at its alarm; Releasing keeps the read's operation, which outlives the entry.
+            ReadEnding is tagged (Landed, Failed, Defect, Interrupted) and placeholder rows carry Origin.Placeholder, so
+            no reason string is compared. Why: Plan O6 and the close review's carried items. Reverse: per item. Left:
+            the row's placeholder flag and a typed O.x.get for reads (no Story needs them yet).
+        comment     2026-11-23T10:34:54Z
+            [decided: agent builder 2026-11-23] A live optimistic layer holds its entry: entries.ts#put clears Collect
+            when a layer arrives on an unheld entry and marks Last hold left for judgment when one leaves; unheldNow
+            counts layers. An unknown's layer is settled at its ending, so the refetch asked after it confirms or drops
+            the look (Plan O5: the refetch is a read). Why: red shop/closed-add-unsure (alarm drift: a Collect alarm
+            with no owner fact, then a stranded unheld entry); without settling, a layer-hold pins an unknown's entry
+            for good. Reverse: drop layers from holds and route the unknown refetch to displayed entries only.
+        comment     2026-11-23T10:36:17Z
+            Routed finding (building lead, 2026-11-23): the paired-refusals lint rule
+            (code:tools/flow-state-lint/rules/paired-refusals.ts subjectsOf) recurses without end on an @ts-expect-error
+            inside an array an arrow returns; the session fixture avoids it with a block body. Owner: the lint tooling's
+            next Task; no Flow rule is affected.
+        comment     2026-11-23T10:36:55Z
+            To review at 7ce526a3 (fix round 5ad6dc52, 443ef841, 7ce526a3): check's code parts 0/0, suite 25428 passed,
+            stress 129/129, 25 own faults caught by --only, rg absences clean, catalog marked.
     T124
         title       Persisted resources
-        status      in_progress
+        status      review
         priority    medium
         parent      [@T21]
 
@@ -6858,6 +6896,18 @@ tasks
             saved entry when one is already in memory, unless the builder shows with evidence that this is adoption
             (@task.V3.T48). Why: both are in this Task's acceptance. Reverse: move the Install cell to T48 if it
             is adoption.
+        comment     2026-11-23T10:36:15Z
+            [decided: agent builder 2026-11-23] Install meeting an entry already in memory is adoption, so its cell
+            stays with @task.V3.T48. Evidence: install's one caller is incarnations.ts#boot on Input.Boot, which runs
+            only while Booting, and Ensure, Create and Send are not ready there (the life table in
+            code:packages/flow-state-v3/src/core/life.test.ts), so no hold and no entry exists at boot. Draft's Document
+            is registered with a persisted pair (samples draft-document, with a Retry of an unsure save so Recapturing
+            is reached), so the corruption and literal-swap tests reach entry/ records; the judge meets an unreadable
+            saved entry as Records R18 says (deleted, no report) and counts a read's ending as new work, not owed. Why:
+            close review B1 and B2. Reverse: build the Install cue now with a core test.
+        comment     2026-11-23T10:36:49Z
+            To review at 7ce526a3: draft's Document registered with a persisted pair, corruption tests reach entry/
+            records; the in-memory Install cell is T48's by evidence (decision above); gates as T123's.
     T127
         title       Declared emits at the root
         status      draft
