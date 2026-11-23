@@ -46,6 +46,10 @@ How to use it:
   A decision has one home record; elsewhere leave a pointer (`wk log add --decision @item`).
 - Delete a merged or rejected proposal; never summarise it in place. The absorbing record names the commit
   that holds it (skill:policy-records#deleting-absorbed-records). Compaction is for histories only.
+- A proposal's status changes in the same commit as the change that accepts, merges or rejects it:
+  `wk edit @proposal.<name> --status merged --by user --into @spec.X` (or `accepted`, `rejected`), and each of
+  its items is tagged as decided. A record left `proposed` after its content landed is a defect; `wk lint`
+  reports it as `STATUS_DRIFT` or `STATUS_ITEMS_MISMATCH`, and the commit's author fixes it before committing.
 - Work the whole Task at once (skill:execute-task): state inventory, a transition table where two or more
   rules write one state, one owner per state; never item by item (skill:to-task, skill:build-a-loop R48).
 - Keep every note, comment, log and status entry short, with the bottom line first: the decision or result in

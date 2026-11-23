@@ -597,3 +597,12 @@ note 2026-11-23T09:59:48Z
 note 2026-11-23T10:09:40Z
     [decided: user 2026-11-23] "proposal frontmatter should get a description field which the wk cli uses": records get
     a one-line description in frontmatter; wk prints it; existing proposals are backfilled once wk supports it.
+
+note 2026-11-23T10:29:41Z
+    Trap (orchestrator, 2026-11-23): a plain git commit takes every staged path in the shared index, so 3317e15a swept
+    the T123 builder's staged pending/ moves. Commit with git commit -- <paths> when another agent works in the
+    checkout.
+
+note 2026-11-23T10:37:09Z
+    [decided: user 2026-11-23] "we need to mention a line in AGENTS.md to make sure this doesn't happen again": a
+    proposal's status changes in the commit that accepts, merges or rejects it (AGENTS.md, Workflow).
