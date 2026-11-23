@@ -13,10 +13,6 @@ note 2026-11-15T17:59:19Z
     Stories R3, R10, R12, R13: reload({ reattach: false }) (Pending D10), a step index on each call and the cut's calls,
     for T64's rules; disposeRuntime keeps the Story's uses (R13's "disposed" is disposeActor). Reverse: drop them.
 
-note 2026-11-15T17:59:19Z
-    Stories I7 reworded: a run cannot cut a synchronous chain short, so it rejects past 10,000 turns with the evidence
-    cut at the 10,000th; the old "no 10,001st turn runs" was unbuildable without a driver slice. Reverse: restore it.
-
 note 2026-11-15T18:07:07Z
     Stories R16, I20, I21, T14 added for the trace (Inspection O4's first slice): run.trace with a run-wide sequence
     stamped by the run's sink, and render(trace, "text"); R4 lists trace. Reverse: drop them.
@@ -122,7 +118,6 @@ note 2026-11-16T11:14:10Z
     all dropped). Reverse: drop the sentences (T17).
 
 note 2026-11-16T11:14:10Z
-    Compile R5: a computed start reading a computed field is a CallbackDefect issue and no actor (was: NaN stored).
     Compile R9: endings map to declared internal events (UnknownEvent) and keys lie inside the input (KeyOutsideInput)
     at construction. Why: T17 close review. Reverse: drop them.
 
@@ -139,10 +134,6 @@ note 2026-11-16T13:09:50Z
     Merged the user's UI-primitives decisions (props, emits, paused and keyed schedules, fan-out, R5 delays) into Turn,
     Actors, Compile, StaticCli, WriteAhead, Restore and Codec; new Turn R27-R30, I37-I39, T25-T27. Source:
     `ui-primitives-merge-guide` (deleted; last at commit 3a84b878). Reverse: git revert this commit.
-
-note 2026-11-16T13:15:20Z
-    Actors R13: the 65th follow-up of an admitted event is refused, not the turn that would add it; endings and firings
-    never are. Why: a turn already committed cannot be refused afterwards. Reverse: roll back the adding turn.
 
 note 2026-11-16T13:52:46Z
     Compile R1 and R4 follow the UI-primitives examples review: the machine callback receives { S, E, O, emits }, and
@@ -165,17 +156,9 @@ note 2026-11-16T14:24:40Z
     Restore R5, R10 after T20's adversary pass: a quarantined record's bytes stay until the identity writes that record
     again; a forget by a Runtime that never booted or failed its load fails, with no I/O.
 
-note 2026-11-16T14:38:44Z
-    Actors R13 restored to Runtime O4: the turn that would add the 65th follow-up is refused and undone; only events and
-    context updates count. Why: T9 review; the earlier edit dropped a context update. Reverse: none.
-
 note 2026-11-16T14:57:40Z
     Stories R11 adds Fake.storage.refuseLoad() and put(key, text), with raw keys: put stands for records Flow's key
     builder never makes (foreign, corrupt, other formats). Reverse: drop the two words.
-
-note 2026-11-16T14:58:46Z
-    Codec R4: a commit declines Unencodable when its persisted lane's record, with it queued, would pass a bound; owed
-    rows past a bound together save their largest values as null. Only an actor record withholds (WriteAhead I21).
 
 note 2026-11-16T15:15:28Z
     Actors R9, R13; WriteAhead R4: an actor record saves each slot's last-seen value and a return waves only when a
@@ -193,10 +176,6 @@ note 2026-11-16T19:51:55Z
     T20's convergence, @plan.Pending.D23 and @plan.Pending.D24. Reverse: restore these texts from commit `47c900b8`.
 
 note 2026-11-16T23:25:25Z
-    @spec.Actors R13, I20: only events sent by turns count toward the 64 follow-ups (@plan.Pending.D13). Why: context
-    updates are never dropped and ContextCycle bounds them. Reverse: restore R13 from e1b9f1ab.
-
-note 2026-11-16T23:25:25Z
     @spec.Actors R9, R18: a start from a record publishes current context once; its owed wave re-runs reactions only;
     slots are saved apart, an unencodable one unknown and waving. Why: Turn I9, withheld records. Reverse: e1b9f1ab.
 
@@ -208,10 +187,6 @@ note 2026-11-16T23:54:10Z
     @spec.Actors R9, R18; @spec.Restore R2: undefined and Options are saved as last-seen values, unknown is kept for
     values that cannot encode and slots never selected, and a reload or a return waves only on a difference. Why: a
     reload invented an onContext event. Reverse: 2878d90d.
-
-note 2026-11-16T23:54:10Z
-    @spec.Actors R13, I20: the 64-event follow-up limit is proposed until an actor-to-actor send action exists; no code,
-    check or fault holds it today. Why: no turn sends an event (T9 review). Reverse: drop the proposed marks.
 
 note 2026-11-16T23:54:24Z
     @spec.Actors R18: a provider a consumer starts binds the overrides its own ref gave, not its entry's defaults. Why:
@@ -464,11 +439,6 @@ note 2026-11-19T19:39:58Z
     misspelt key fails to compile; decode drops an unknown key and refuses a wrong value. Source: @task.V3.T104.
     Reverse: the open string-keyed record.
 
-note 2026-11-19T21:32:35Z
-    Restore R5: a quarantined actor whose fresh start is refused has no snapshot (none); RecordUndecodable names it and
-    a Story's read fails. Code since T104 (src/host/snapshot.ts); R5 said every quarantined actor reads lifecycle
-    quarantined.
-
 note 2026-11-19T23:47:55Z
     @spec.Compile: R19 and I18 built and no longer proposed; R19 names the identity check, the not-a-token and no-spec
     refusals and the data view's reads; R16 lists slot reads and reaction slots (@task.V3.T107). Reverse: restore the
@@ -657,8 +627,8 @@ note 2026-11-21T21:23:43Z
     Schedules.spec and Types.spec: the user's 2026-11-22 decision voids the body Flow.keyed form (see @task.V3.T120).
 
 note 2026-11-21T21:26:21Z
-    Types: compiled Schedule drops its codecs (read by name from Compiled.schedules); G8 erased; Q19 proposes a narrow
-    body capture. Declared schedules leave no generic to carry.
+    Types: compiled Schedule drops its codecs (read by name from Compiled.schedules); G8 erased. Declared schedules
+    leave no generic to carry.
 
 note 2026-11-21T21:26:22Z
     Schedules: ScheduleReads is not generic (the core is erased; the typed face is the declaration's lookup).
@@ -744,16 +714,13 @@ note 2026-11-22T07:49:33Z
 
 note 2026-11-22T08:20:33Z
     Turn R14: a fixed Duration input is read as Effect reads it, a NaN part as zero; Flow's NaN-part guards are removed
-    (the user, 2026-11-22). A raw NaN number and a computed NaN delay still refuse (@task.V3.T118).
+    (the user, 2026-11-22, credits only following Effect's Duration). The raw non-finite refusal is the range check, so
+    a raw NaN number and a computed NaN delay still refuse (@task.V3.T118).
 
 note 2026-11-22T08:26:13Z
     Schedules R11: an actor's send and an onContext reaction also commit when their own arm's delay is bad, as an
     outcome does (the orchestrator's ruling R3, 2026-11-22). R5: a resting record shows the issues of the entries its
     wake keeps (@task.V3.T118).
-
-note 2026-11-22T08:34:44Z
-    Turn R14 reworded: the raw non-finite refusal is the range check, not a kept NaN guard; the user's 2026-11-22
-    ruling credits only following Effect's Duration (a NaN part as zero).
 
 note 2026-11-22T10:22:41Z
     [deferred: agent orchestrator 2026-11-22] @spec.Types G1, exporting Reads: outside-body callbacks name per-part
@@ -762,11 +729,8 @@ note 2026-11-22T10:22:41Z
 
 note 2026-11-22T11:00:21Z
     Types Q19 reversed by the user (2026-11-22, Q5 A): the body's type is captured and checked exactly
-    (`@proposal.body-key-typos`); construction's strict decode stays as the runtime backstop. Built by T144.
-
-note 2026-11-22T14:10:48Z
-    Types R2 and Q19 rewritten: the body's type is captured and checked exactly (Q5 A); Types.md's payBody gap now says
-    inline.
+    (`@proposal.body-key-typos`); construction's strict decode stays as the runtime backstop. Built by T144. Types R2
+    and Q19 rewritten to say so; Types.md's payBody gap now says inline.
 
 note 2026-11-22T23:01:37Z
     Records: built by @task.V3.T92 (format 6, full decode). Deviations and silences are tagged decisions in that Task's
@@ -778,10 +742,6 @@ note 2026-11-23T06:55:52Z
     kept row carries no refusal. Recorded on @task.V3.T121; Spec text unchanged.
 
 note 2026-11-23T07:41:58Z
-    Operations deviations from T122's fix round: read changes are `resource.write(key, data)`; Written applies an update
-    to data asked before the commit started, else Invalidate; a throwing `writes` is InvalidWrite. Recorded on
-    @task.V3.T122; Spec text unchanged.
-
-note 2026-11-23T10:03:12Z
-    Superseded (2026-11-23): the read change named resource.write in the T121 and T122 notes is now read.set(key, value)
-    and read.update(key, f), with InvalidUpdate (@plan.Pending D41).
+    Operations deviations, T122's fix round: read changes are `read.set(key, value)` and `read.update(key, f)`, with
+    InvalidUpdate (@plan.Pending D41; first `resource.write`, still in T121's and T122's notes); Written applies an
+    update to data asked before the commit, else Invalidate; a throwing `writes` is InvalidWrite. Spec text unchanged.

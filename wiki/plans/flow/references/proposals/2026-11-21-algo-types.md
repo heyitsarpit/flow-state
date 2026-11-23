@@ -771,9 +771,10 @@ seven in `boundary.ts`), 1 deleted by AT (`tx.ts:380`), 1 unverified (`refs.ts:6
 
 Recommendation first. Every departure from TM, SC, a Plan, the code or an accepted answer is here.
 
-1. **Construction returns a value.** [open: 2026-11-21; recommend A] Nothing raises for a finding until a
+1. **Construction returns a value.** [accepted: user 2026-11-23] Nothing raises for a finding until a
    Runtime starts or a Story runs. Departs from `machine()` throwing (@plan.Machines, `machine.ts:265`), SC 3.2
    ("keep throwing") and AO 6.9. R2 Q11 asks for exit 1 with findings.
+   Why: recorded in @spec.Types.Q1 (the user, 2026-11-22).
    - A: 5.9, 7.1, 7.2. Trace: `flow.config.ts` imports two machines, one with a negative delay. The import
      completes; `flow check` prints both machines' findings; exit 1.
    - B: keep the throw; an import that fails with a `FlowError` exits 1 and prints that error's findings. Trace:
@@ -790,38 +791,44 @@ Recommendation first. Every departure from TM, SC, a Plan, the code or an accept
    //                    starting a Runtime from its setup, or running a Story, raises one FlowError
    //                    that holds every finding of the app
    ```
-2. **`Machine<D, R>`'s default for `R`.** [open: 2026-11-21; recommend A] R2 Q3 says an annotated `Machine<typeof
+2. **`Machine<D, R>`'s default for `R`.** [accepted: user 2026-11-23] R2 Q3 says an annotated `Machine<typeof
    X>` "defaults its names". A: `never`, so `M.rules.Typo` on an annotated machine is an error. B: `string`, so it
    is `RuleToken | undefined` and the refusal happens only where a `RuleToken` is required. Both compiled.
+   Why: recorded in @spec.Types.Q2 (default never) (the user, 2026-11-22).
 3. **The body gives the machine's type only its rule names; `turn` is a body token.** [open: 2026-11-21;
    recommend A] R2 Q1's snippet (`body: B & Exact<...>` with no conditional, "`const B`") is corrected to 5.3:
    the conditional is required and `const` is inert. A: as 5.3. B: `Flow.turn` imported (compiles too, but its
    memory type rests on the surrounding record).
-4. **Every declared pause reason has a callback in every placement.** [open: 2026-11-21; recommend A] A:
+4. **Every declared pause reason has a callback in every placement.** [accepted: user 2026-11-23] A:
    required; a declared reason with no callback is a type error. B: optional; then `pausedBy` may name a reason
    that can never hold at that placement. Both compile.
+   Why: recorded in @spec.Types.Q4 (the user, 2026-11-22).
 5. **A rule has no `enabled`.** [open: 2026-11-21; recommend A] Departs from SC 3.4. Trace today's text:
    `enabled: import.meta.env.DEV` is evaluated in the body at import; under the plain CLI `import.meta.env` is
    undefined, the body throws, and the machine is refused. A: rules are always in `Compiled`; the Runtime setup
    chooses whether to judge (`rules: "judge" | "off"`, read from the app's own environment at the host edge);
    Stories and the CLI always judge. B: keep `enabled` as a plain boolean the user computes.
-6. **Terminals are proved by `flow check` only, as `TerminalLeft`.** [open: 2026-11-21; recommend A] SC Ask 1.
+6. **Terminals are proved by `flow check` only, as `TerminalLeft`.** [accepted: user 2026-11-23] SC Ask 1.
    A: no run-time terminal rule exists, so `RuleBroken` never names a terminal. B: also judge at run time.
+   Why: recorded in @spec.Types.Q6 (the user, 2026-11-22).
 7. **Source locations: the CLI's adapter, resolving file and export by identity, the line when it can.** [open:
    2026-11-21; recommend A] SC Ask 5. A: `discover` knows which module exported which machine; the adapter adds
    the line by reading that file along the definition path. B: capture at `machine()` from a stack (breaks I9).
    The adapter's algorithm is not spiked (H7).
-8. **`Compiled` holds the saved codecs and the schedule codecs.** [open: 2026-11-21; recommend A] Departs from
+8. **`Compiled` holds the saved codecs and the schedule codecs.** [accepted: user 2026-11-23] Departs from
    TM:285 ("Compiled gains nothing"); AR Q8. A: 5.2 and 5.6. B: codecs stay on the definition; the core cannot
    then decode a saved key.
-9. **A schedule's `key` is declared as a field record.** [open: 2026-11-21; recommend A] TM section 7. A: `key:
+   Why: recorded in @spec.Types.Q8 (the user, 2026-11-22).
+9. **A schedule's `key` is declared as a field record.** [accepted: user 2026-11-23] TM section 7. A: `key:
    { id: Schema.String }`, always a struct with one canonical text. B: any Schema.
+   Why: recorded in @plan.Machines.O5 declared form and @spec.Types.Q9 (the user, 2026-11-22).
 10. **A schedule's `send` mapper takes one argument, the firing's metadata, without `name`.** [open: 2026-11-21;
     recommend A] TM-3. A: `({ key, attempt, armedAt, dueAt, firedAt, output })`. B: `(value, { input, key })`
     like an ending, where `value` and `input` have no meaning for a firing.
-11. **The metadata's `output` stays `unknown`.** [open: 2026-11-21; recommend A] AS RT6. A: 5.5. B: declare
+11. **The metadata's `output` stays `unknown`.** [accepted: user 2026-11-23] AS RT6. A: 5.5. B: declare
     `output: Schema` on the schedule, typed and checked at the firing; one more declared field for a value no
     fixture reads.
+    Why: recorded in @spec.Types.Q11 (the user, 2026-11-22).
 
 ## 15. Process notes
 

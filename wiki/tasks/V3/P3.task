@@ -100,20 +100,15 @@ tasks
               endings routed against Turn R20 and I26) are fixed, and their inverted tests are flipped.
             - `nub run faults` catches every named fault; `vp test` and `nub run check` pass.
         comment     2026-11-16T02:36:10Z
-            Done 2026-11-16: owed-endings ledger, one start, diff-written records; PASS at a3345224 after one fix round.
-            User's page: @page.T54-core-consolidation, read 2026-11-16. History in git at 3a84b878.
-        comment     2026-11-16T02:36:11Z
-            [decided: agent builder 2026-11-16] `isSaved` stays: at a step's end only Waiting, Kept and unknown Restored
-            rows exist, all saved, so the owed record lists every owed row (WriteAhead I20; run rule ownedRowsSaved).
-            Why: the premise holds except for mail past the step's drain cap, which @task.V3.T19 saves. Reverse: drop
-            `isSaved` and save rows by state.
-        comment     2026-11-16T02:36:12Z
-            Traps: a run rule cannot see a second record writer (the edge keys pending writes by record), so one writer
-            and one report builder are structural checks in
-            code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts (reads source, runs no core, so the faults
-            runner lets it stay green under the dead core); generate.ts's `mix` got a hash finalizer because its draws
-            were correlated (agent decision; reverse: drop it and re-paste saved stress Stories). The acceptance's
-            "Actors R20" means Turn R20 and I26.
+            User's page: @page.T54-core-consolidation. [decided: agent builder 2026-11-16] `isSaved` stays: at a step's
+            end only Waiting, Kept and unknown Restored rows exist, all saved, so the owed record lists every owed row
+            (WriteAhead I20; run rule ownedRowsSaved). Why: the premise holds except for mail past the step's drain cap,
+            which @task.V3.T19 saves. Reverse: drop `isSaved` and save rows by state. Traps: a run rule cannot see a
+            second record writer (the edge keys pending writes by record), so one writer and one report builder are
+            structural checks in code:packages/flow-state-v3/tests/write-lanes/one-builder.test.ts (reads source, runs
+            no core, so the faults runner lets it stay green under the dead core); generate.ts's `mix` got a hash
+            finalizer because its draws were correlated (agent decision; reverse: drop it and re-paste saved stress
+            Stories). The acceptance's "Actors R20" means Turn R20 and I26.
     T18
         title       Lane policies: latest, serialize and cancel, and endings split by origin (slice 1)
         status      done
@@ -129,11 +124,8 @@ tasks
             - An operation's row reads `waiting` while commits wait behind its head.
             - Each new rule has a planted fault that `nub run faults` catches.
         comment     2026-11-16T03:23:40Z
-            Done 2026-11-16: lane policies (latest, serialize, cancel) and endings split by origin; PASS at e08f59fe
-            after two fix rounds. User's page: @page.T18-lane-policies, accepted. Failure count 2 with one root cause: a
-            lost ending written into a Spec as a stated limit (queued commits, then displaced Attempts across a reload);
-            both now end NotSent or unknown Restored. History in git at 3a84b878.
-        comment     2026-11-16T03:23:41Z
+            User's page: @page.T18-lane-policies, accepted. Trap: a lost ending was written into a Spec as a stated
+            limit (queued commits, then displaced Attempts across a reload); both now end NotSent or unknown Restored.
             [decided: user 2026-11-16] Under `cancel` a new commit lets the older commit's Kept rows go (recorded
             `letGo`), then mints (WriteLanes R6). It loses no ending but departs from @plan.Operations.O3's literal "a
             commit declines"; the user accepted it with T18's page. The `notSent:` key is O3's, not new API.
@@ -159,19 +151,14 @@ tasks
               with its test.
             - Each new rule has a planted fault that `nub run faults` catches.
         comment     2026-11-16T08:33:50Z
-            Done 2026-11-16: Life and admit replace Disposal; the final write and its 5 s bound; independent check-task
-            PASS at b5b5b174. Left: the verdict-to-FlowError text is built twice (driver.ts, runtime.ts), owner
-            @task.V3.T98. History in git at 3a84b878.
-        comment     2026-11-16T08:33:51Z
-            [decided: agent builder 2026-11-16] Disposal writes every change made within its 5 s bound (Actors R23, I36,
-            I43, I44). Why: a one-try final write turned a call settling within the bound into unknown Restored.
-            Reverse: one batch at the disposal's start. Also small API calls (user-delegated): `disposeActor` before
-            ready throws RuntimeNotReady; the disposal batch carries a flush ticket the edge answers as landed when
-            nothing is left to write.
-        comment     2026-11-16T08:33:52Z
-            Trap: the old Actors I43 inverted test looked for a Lane fact but the Spec's report is an Issue (the test
-            side was wrong); host life tests sit in `src/host/life.test.ts` because tests/ may not import the seam,
-            until @task.V3.T97 deletes it.
+            Left: the verdict-to-FlowError text is built twice (driver.ts, runtime.ts), owner @task.V3.T98. [decided:
+            agent builder 2026-11-16] Disposal writes every change made within its 5 s bound (Actors R23, I36, I43,
+            I44). Why: a one-try final write turned a call settling within the bound into unknown Restored. Reverse: one
+            batch at the disposal's start. Also small API calls (user-delegated): `disposeActor` before ready throws
+            RuntimeNotReady; the disposal batch carries a flush ticket the edge answers as landed when nothing is left
+            to write. Trap: the old Actors I43 inverted test looked for a Lane fact but the Spec's report is an Issue
+            (the test side was wrong); host life tests sit in `src/host/life.test.ts` because tests/ may not import the
+            seam, until @task.V3.T97 deletes it.
     T19
         title       Durability: persistence edge, write-ahead and the driver (slice 2)
         status      done
@@ -193,10 +180,8 @@ tasks
               more queued serialize commits, a refused or hung store write, a reload between acknowledge and send; the
               generator, the reload sweep and the app mix reach it, and those Stories fail before the build.
         comment     2026-11-16T10:03:00Z
-            Done 2026-11-16: persistence edge, write-ahead and the driver; PASS at 8c02753e after a requirements review
-            and two close rounds. User's page: @page.T19-durability-write-ahead, read 2026-11-16. Left: the hide and
-            pagehide flush had no check (the Fake host stubs visibility), built in @task.V3.T58. History in git
-            at 3a84b878.
+            User's page: @page.T19-durability-write-ahead. The hide and pagehide flush had no check (the Fake host stubs
+            visibility); built in @task.V3.T58.
         comment     2026-11-16T10:03:01Z
             [decided: agent builder 2026-11-16] The lane and incarnation setters note every change, so a step writes all
             it touched; putting a head on the wire (`sendLane`) is the one unnoted move. Why: a write per send doubled
@@ -258,17 +243,12 @@ tasks
             the sweep refused a later batch): Stories R11 adds `Fake.storage.refuseHeld()`; the old
             refused-capture-left-in-flight plant was equivalent, now a head left Recapturing. Records forged only on
             their own identity and key miss body fields naming another identity (an actor record's context and graph
-            bindings), the review's blocker, now an inverted Restore R5 test owned by @task.V3.T92.
-        comment     2026-11-18T07:16:32Z
-            Still open (unverified at compaction): `it.fails` owned by @task.V3.T56: Restore R3 (a Held head heard again
-            at each start), Restore R8 (a lane whose input no longer decodes), WriteAhead I17; Restore R3 says once
-            while Restore I6 and WriteLanes I15 say once per incarnation, a Spec contradiction T56 settles first;
-            Restore R5's exact lane key quarantines R6's key#identityTag lanes and R8's OpRenamed must re-key (T56);
-            session's boot-queue item is @task.V3.T28.
-        comment     2026-11-18T07:16:40Z
-            Done by the user's call 2026-11-18, parked at the failure limit: the record-trust class is structural
-            (shape-only record Schemas checked by hand, identity stored twice); diagnosis and redesign are @task.V3.T92,
-            before T56. User's page: @page.T20-durability-restore, read 2026-11-18. History in git at 3a84b878.
+            bindings), the review's blocker, owned by @task.V3.T92 (done). Still open (unverified at compaction): the
+            `it.fails` "WriteAhead I17" owned by @task.V3.T56 (the other `it.fails` once listed here, Restore R3 and R8,
+            are gone from tests/restore); the session boot-queue item is @task.V3.T28. Done by the user's call
+            2026-11-18, parked at the failure limit: the record-trust class is structural (shape-only record Schemas
+            checked by hand, identity stored twice); diagnosis and redesign went to @task.V3.T92, before T56. User's
+            page: @page.T20-durability-restore.
     T17
         title       Machine structure: Compiled, compound states, history and fields (slice 3a)
         status      done
@@ -304,20 +284,17 @@ tasks
               sub-state; the generator, the reload sweep and the app mix reach them, and those Stories fail before
               the build.
         comment     2026-11-16T11:25:40Z
-            Done 2026-11-16: machine structure (Compiled, compound states, history, fields); PASS at 59cb006e after one
-            fix round. User's page: @page.T17-machine-structure, read 2026-11-16. History in git at 3a84b878.
-        comment     2026-11-16T11:25:41Z
-            [decided: agent builder 2026-11-16] Turn R14 changed: armOn's implicit self applies only where no level
-            writes a handler for the event (two traces in specs.log; @plan.Machines.O3); history (Turn R4) is the last
-            active direct child; a fixed delay outside 0 to 2^31 - 1 ms is InvalidConfiguration DelayOutOfRange; at
-            creation valid schedules arm and an out-of-range computed delay is an InvalidTurn issue. Why: one bad delay
-            had silenced every initial schedule. Reverse: edit Turn R14 and R4.
-        comment     2026-11-16T11:25:42Z
-            Trap: the faults runner applied only the last edit when a fault edited one file twice (it applies every edit
-            now); the fault state-move-copies-memory was removed (a shallow copy keeps each field's identity, which Turn
-            R24 allows; restore from 64a35a19). Out of this slice and owed: Compile R8 (RestoreMissingInput, unbuilt)
-            and history across a reload to @task.V3.T56; fragments R10, R11, R13 to @task.V3.T57 (then T109);
-            Diagnostics R8 to R10 to @task.V3.T100; a nested leaf's schedule types (built in T57).
+            User's page: @page.T17-machine-structure. [decided: agent builder 2026-11-16] Turn R14 changed: armOn's
+            implicit self applies only where no level writes a handler for the event (two traces in specs.log;
+            @plan.Machines.O3); history (Turn R4) is the last active direct child; a fixed delay outside 0 to 2^31 - 1
+            ms is InvalidConfiguration DelayOutOfRange; at creation valid schedules arm and an out-of-range computed
+            delay is an InvalidTurn issue. Why: one bad delay had silenced every initial schedule. Reverse: edit Turn
+            R14 and R4. Trap: the faults runner applied only the last edit when a fault edited one file twice (it
+            applies every edit now); the fault state-move-copies-memory was removed (a shallow copy keeps each field's
+            identity, which Turn R24 allows; restore from 64a35a19). Out of this slice and owed: Compile R8
+            (RestoreMissingInput, unbuilt) and history across a reload to @task.V3.T56; fragments R10, R11, R13 to
+            @task.V3.T57 (then T109); Diagnostics R8 to R10 to @task.V3.T100; a nested leaf's schedule types (built
+            in T57).
     T9
         title       Actor identity: refs by value, lifetime, mailboxes and context (slice 4)
         status      done
@@ -335,8 +312,7 @@ tasks
               user, many consumers, a persisted consumer, a reload mid-way; the generator, the reload sweep and the app
               mix reach them, and those Stories fail before the build.
         comment     2026-11-17T10:45:30Z
-            Done 2026-11-17: refs by value, lifetime, mailboxes and context; PASS at f8c7e247 after a convergence and
-            five review rounds. User's page: @page.T9-actor-identity, read 2026-11-18. History in git at 3a84b878.
+            User's page: @page.T9-actor-identity.
         comment     2026-11-17T10:45:31Z
             [decided: user 2026-11-17; Q11 B; @plan.Pending.D27] Build compiled stack-safe walkers from each Schema in
             Compiled at one value boundary, benchmark equality, and lift D26's limit once every path holds at depth
@@ -383,16 +359,12 @@ tasks
             - A planted fault that needs two fixtures (a batch refusal hitting another machine's capture) is found from
               a seed and shrunk.
         comment     2026-11-16T14:30:40Z
-            Done 2026-11-16: several fixtures in one Runtime; PASS after one fix round (the planted fault splits a
-            refused batch by namespace, so no single fixture shows it). Leftovers (`shrinks` counts accepted shrinks;
-            failure words and write salts leak across dropped fixtures) moved to @task.V3.T97. History in git
-            at 3a84b878.
-        comment     2026-11-16T14:30:41Z
-            [decided: agent builder 2026-11-16] Dropped fixtures keep their pool slots, so a shrink does not remap
-            draws; in a mix, answers key to a drawn world digit, the endpoint and its call count; single-fixture runs
-            keep cursor-keyed digits. Why: the shrink had stalled at three of four fixtures, and endpoint keying changed
-            every saved stress Story. Failure gained `fixtures` and `shrinks` (small API, user-delegated). Reverse:
-            cursor-keyed digits everywhere.
+            Leftovers (`shrinks` counts accepted shrinks; failure words and write salts leak across dropped fixtures)
+            moved to @task.V3.T97. [decided: agent builder 2026-11-16] Dropped fixtures keep their pool slots, so a
+            shrink does not remap draws; in a mix, answers key to a drawn world digit, the endpoint and its call count;
+            single-fixture runs keep cursor-keyed digits. Why: the shrink had stalled at three of four fixtures, and
+            endpoint keying changed every saved stress Story. Failure gained `fixtures` and `shrinks` (small API,
+            user-delegated). Reverse: cursor-keyed digits everywhere.
 
     T79
         title       Code convergence: tx edit operations, lifecycle unions, one home for diagnostics and keys, host
@@ -424,10 +396,8 @@ tasks
               goes through T9's compiled boundary walkers, never `Schema.is` on a value's path, and `boundary.ts` is the
               home for codecs and keys (@plan.Pending.D27).
         comment     2026-11-17T13:23:30Z
-            Done 2026-11-17: code convergence (tx edit operations, lifecycle unions, one home for diagnostics); PASS at
-            e6fac51d after two fix rounds. Bench per turn median: session/long 0.161 to 0.108 ms. Leftovers fixed in
-            @task.V3.T85, @task.V3.T94 and @task.V3.T84; the construction checks and review items routed to T81 (now
-            @task.V3.T98) and test items to T80 (now @task.V3.T97). History in git at 3a84b878.
+            Leftovers were fixed in @task.V3.T85, @task.V3.T94 and @task.V3.T84; the construction checks and review
+            items went to @task.V3.T98 and test items to @task.V3.T97 (their old ids T81 and T80 are tombstones).
         comment     2026-11-17T13:23:31Z
             [decided: user 2026-11-17; Q17 A] A local actor of a persisted machine in a Runtime without persistence
             sends its commit (Actors R6).
@@ -534,19 +504,15 @@ tasks
               sources of their rows; each scenario red before the build, and the step's cells marked used at the close.
             - No existing machine id, persisted id or Story id changes; every existing test still passes unchanged.
         comment     2026-11-16T22:30:50Z
-            Done at 7d9385bf: fixtures grow into their catalog apps; review ISSUES with none blocking, fix round landed.
             Left, each with the feature it needs: send action (@task.V3.T96), local-actor Story word (@task.V3.T76),
             `otherwise`, `Flow.ignore`, mapper Defect and a missing service at boot (@task.V3.T21), `unsettledWrites`
-            (@task.V3.T99), slow reads and a non-durable store (@task.V3.T28), `.each` keys (@task.V3.T57). History in
-            git at 3a84b878.
-        comment     2026-11-16T22:30:51Z
-            [decided: agent builder 2026-11-16] `samples`, `stressSamples` and `pairs` are lists, so apps grow new sets
-            without moving saved seeds; a mix takes one chosen set per app; each grown app is a new App of the old id
-            beside the old one. Why: saved seeds must not move. Reverse: single sets.
-        comment     2026-11-16T22:30:52Z
-            Trap: consumers mirror context by onContext, whose admission baseline is silent (Turn R22), so a consumer
-            bound after its provider changed reads stale; inverted tests (Turn R12) shop/flow-bound-late,
-            transfers/form-bound-late, sync/repo-opened-in-backoff, sign-in/return-saved-late, later closed in T57.
+            (@task.V3.T99), slow reads and a non-durable store (@task.V3.T28), `.each` keys (@task.V3.T57). [decided:
+            agent builder 2026-11-16] `samples`, `stressSamples` and `pairs` are lists, so apps grow new sets without
+            moving saved seeds; a mix takes one chosen set per app; each grown app is a new App of the old id beside the
+            old one. Why: saved seeds must not move. Reverse: single sets. Trap: consumers mirror context by onContext,
+            whose admission baseline is silent (Turn R22), so a consumer bound after its provider changed reads stale;
+            inverted tests (Turn R12) shop/flow-bound-late, transfers/form-bound-late, sync/repo-opened-in-backoff,
+            sign-in/return-saved-late, later closed in T57.
 
     T83
         title       Fast test commands again: suite, stress and faults with no regression from the baseline
@@ -574,8 +540,7 @@ tasks
         comment     2026-11-18T04:50:00Z
             Done by the user's call 2026-11-18: suite 36 s, stress 61 s and faults 243 s alone are the new baseline
             (from 75, 112 and 220 s at 26ad0259); review blockers fixed in 849bbbe2 without a re-review. Left:
-            QUIET_LIMIT, stressSeed and nothingInvokedDisposing to @task.V3.T29. History in git at 3a84b878.
-        comment     2026-11-18T04:50:01Z
+            QUIET_LIMIT, stressSeed and nothingInvokedDisposing to @task.V3.T29 (code:wiki/tasks/V3/P3-routing.md).
             [decided: user 2026-11-18] Scope widened (@review.test-efficacy): the pair sweep stops at the reachable
             phases in the default suite and keeps 1,000 seeds in stress (Q1 B); faults copies sized to the cores; double
             reload only in hold windows and at the end; the CLI runs one Story per fixture; every cut test, shard or
@@ -615,7 +580,7 @@ tasks
               `wall-64`, `avatar-wall-65`, `stress-wall-1024`).
             - The caps Q10 A added are gone the same way: the server-rendering payload's `maxBytes` and the 1,024-item
               `Stream.callback` queue, each past its old cap in a Story, sized and timed; the inspector ring's default
-              capacity is a named default from the bench (@plan.Pending.D24, D25).
+              capacity is a named default from the bench (@plan.Pending.D24, @plan.Pending.D25).
             - Rework routed from @convention.fixture-catalog (items marked "rework: @task.V3.T84"): the built Stories
               and tests that assert an old cap (`lanes/serialize-at-cap`, the 1,025th `AdmissionOverloaded` runtime
               tests of lanes and workspace, `cells/key-at-bound` and `key-past-bound`, `sign-in/email-at-bound`,
@@ -628,15 +593,13 @@ tasks
               interval via Effect's `Schedule`; the 2^31 - 1 ms timer limit is a real platform limit given one source,
               not a D25 knob.
         comment     2026-11-17T16:20:50Z
-            Done 2026-11-17: no size or queue caps, one loop guard, a slow-work warning; PASS at 7bc218ee. Per-turn cost
-            growing 4.9x with 5,000 saved identities is the Story harness's eager view(), not the runtime. Leftovers
-            (RuntimeDefaults internal or frozen, loopGuard's reader in @task.V3.T96) in
-            code:wiki/tasks/V3/P3-routing.md. History in git at 3a84b878.
-        comment     2026-11-17T16:20:51Z
-            [decided: agent builder 2026-11-17] From the bench at 6ff0da92: slowWorkBudget 16 ms (one 60 Hz frame, about
-            100x the slowest ordinary turn), drainYield 100, loopGuard 5,000 (built with the send action, D13). SlowWork
-            is a deterministic runtime test; in-step Capture is not built (its saving is bounded by T85's 4 to 8%). Why:
-            measured values, not guesses. Reverse: edit each in src/core/defaults.ts.
+            Trap: per-turn cost growing 4.9x with 5,000 saved identities is the Story harness's eager view(), not the
+            runtime. Leftovers (RuntimeDefaults internal or frozen, loopGuard's reader in @task.V3.T96) are in
+            code:wiki/tasks/V3/P3-routing.md. [decided: agent builder 2026-11-17] From the bench at 6ff0da92:
+            slowWorkBudget 16 ms (one 60 Hz frame, about 100x the slowest ordinary turn), drainYield 100, loopGuard
+            5,000 (built with the send action, D13). SlowWork is a deterministic runtime test; in-step Capture is not
+            built (its saving is bounded by T85's 4 to 8%). Why: measured values, not guesses. Reverse: edit each
+            in src/core/defaults.ts.
 
     T85
         title       Records captured on issue (D30), plus compiled lookups
@@ -658,9 +621,7 @@ tasks
             - Findings 12 and 15 are built, each with a bench line before and after.
             - The same Story ids, test counts and fault caught list hold; `nub run check` passes.
         comment     2026-11-17T15:28:20Z
-            Done 2026-11-17: records captured on issue (@plan.Pending.D30) plus compiled lookups; PASS at d22e51e6
-            (stored records identical at all 474 cuts of 152 Stories). Owed (unverified): acceptance 3's Chromium and
-            Safari timing, routed to @task.V3.T58 (built there). History in git at 3a84b878.
+            Owed (unverified): acceptance 3's Chromium and Safari timing, routed to @task.V3.T58 (done).
         comment     2026-11-17T15:28:21Z
             [decided: user 2026-11-17; Q13 A, Q14 A] Build @plan.Pending.D30, capture on issue, which supersedes D28,
             after T9's memoised walkers; findings 6, 7, 10 and 11 moved to @task.V3.T79's step edit operations.
@@ -690,9 +651,8 @@ tasks
             - The test count, the Story id list and the fault caught list match before and after; `nub run check` and
               the package suite pass.
         comment     2026-11-17T14:02:10Z
-            Done 2026-11-17: every pay/<name> Story id is shop/<name> (machine, persisted and service ids unchanged);
-            PASS at 2516fb44, follow-ups f676dc0a. Left: renaming the ShopApi, CartApi and GitApi keys and placing
-            commands.ts, contracts.ts and the cells' Pay base, @task.V3.T72. History in git at 3a84b878.
+            Left: renaming the ShopApi, CartApi and GitApi keys and placing commands.ts, contracts.ts and the cells' Pay
+            base, @task.V3.T72.
 
     T87
         title       One bench tool, split by concern: filterable runs, CSV history by commit, compare with noise bands
@@ -723,8 +683,7 @@ tasks
               Amendment note, the user's request).
             - `nub run check` passes; the package stays self-contained.
         comment     2026-11-17T20:48:40Z
-            Done 2026-11-17: one bench tool split by concern (filterable runs, CSV history by commit, compare); PASS at
-            72c0c209 after two fix rounds. Leftovers: @task.V3.T35. History in git at 3a84b878.
+            Leftovers: @task.V3.T35 (code:wiki/tasks/V3/P3-routing.md).
         comment     2026-11-17T20:48:41Z
             [decided: user 2026-11-17; Q24 A] The bench is manifest-driven, importing nothing from fixtures but
             fixtures/index.ts, with subjects derived per manifest and run counts from a time budget; raw samples stay
@@ -763,9 +722,6 @@ tasks
             - If anything is lost (a diagnostic, a test, a plugin), the live tree is left unchanged and the gap is
               reported instead.
         comment     2026-11-18T10:14:50Z
-            Done 2026-11-18: vite-plus 1.7.0, oxlint and plugins 1.94.0, vitest 5.1.0, tsrs 7.1.0-beta.tsrs2, pinned
-            exactly; the planted errors fail before and after; PASS (fc434446..ff59919d). History in git at 3a84b878.
-        comment     2026-11-18T10:14:51Z
             [decided: user 2026-11-17] A Sonnet builder and a Sonnet reviewer for this Task, not the usual Opus review.
             Orchestrator call 2026-11-18: the no-large-production-file test's expected line goes 2 to 1 (oxlint 1.94
             reports a whole-file rule on line 1; the rule still fires); nub's release-age gate is waited out,
@@ -788,18 +744,14 @@ tasks
             - The replay form stays in the tree, disabled with a comment on how to turn it back on.
             - The suite's wall time, alone, is recorded before and after; `nub run check` passes.
         comment     2026-11-18T09:59:30Z
-            Done 2026-11-18: reload sweep forked from a saved cut, same verdicts; PASS at 333d0ea4 after one fix round
-            on the faults runner. Leftovers in revisit.md (the faults runner's leftovers). History in git at 3a84b878.
-        comment     2026-11-18T09:59:31Z
-            [decided: agent builder 2026-11-18] A fork begins with a reload, since a reload abandons the tab; the replay
-            form stays behind FLOW_REPLAY_SWEEP=true, which runs both and fails on any differing position. Why: 142
-            Stories x 3 modes, 2,567 positions each, every verdict equal; they differ only under faults that make a dead
-            tab run again (Stories R13). Reverse: replay only.
-        comment     2026-11-18T09:59:32Z
-            Added by the user: `nub run faults --background` runs at nice 19 on 2 copies x 2 workers, 600 s per tier,
-            and tees its output to a temp-dir log named on its first line. Trap: each run now has its own process group
-            (tools/faults/group.ts), killed on timeout, exit and signals, and a judged run first runs the unchanged
-            whole suite.
+            Leftovers in revisit.md (the faults runner's leftovers). [decided: agent builder 2026-11-18] A fork begins
+            with a reload, since a reload abandons the tab; the replay form stays behind FLOW_REPLAY_SWEEP=true, which
+            runs both and fails on any differing position. Why: 142 Stories x 3 modes, 2,567 positions each, every
+            verdict equal; they differ only under faults that make a dead tab run again (Stories R13). Reverse: replay
+            only. Added by the user: `nub run faults --background` runs at nice 19 on 2 copies x 2 workers, 600 s per
+            tier, and tees its output to a temp-dir log named on its first line. Trap: each run now has its own process
+            group (tools/faults/group.ts), killed on timeout, exit and signals, and a judged run first runs the
+            unchanged whole suite.
 
     T91
         title       Stress pair sweep at 200 seeds; duplicate planted faults merged
@@ -818,10 +770,9 @@ tasks
             - `nub run faults` time and the stress time, alone, before and after; the caught list is otherwise
               unchanged; `nub run check` passes.
         comment     2026-11-18T07:48:50Z
-            Done 2026-11-18: the stress pair sweep runs 200 seeds from one source (pairs.ts), except shop-store and
-            auth-session, which first reach Recapturing at seed 362 and Held with Recapturing at 955, so keep 1,000. No
-            fault merged: 14 groups with equal rule and catch set each plant a distinct mistake one test happens to
-            catch. History in git at 3a84b878.
+            The stress pair sweep runs 200 seeds from one source (pairs.ts), except shop-store and auth-session, which
+            first reach Recapturing at seed 362 and Held with Recapturing at 955, so keep 1,000. No fault merged: 14
+            groups with equal rule and catch set each plant a distinct mistake one test happens to catch.
 
     T93
         title       Effect 4.1.4: one effect copy, effect/cli and the Node platform working
@@ -839,10 +790,8 @@ tasks
             - Every breaking change that touches this code is fixed; `nub run check`, `nub run lint:rules`, the suite
               and `nub run test:stress` exit 0; the suite's test count matches before.
         comment     2026-11-18T10:48:40Z
-            Done 2026-11-18: effect, platform-node, platform-node-shared and @effect/vitest pinned at 4.1.4 as root
-            devDependencies, the rc.112 override gone; effect/cli with NodeServices.layer finds FileSystem, Terminal and
-            ChildProcessSpawner (only fix needed: Terminal.make's size). Installed copies: root 4.1.4 (the only one v3
-            uses), flow-state rc.112, flow-state-rewrite 4.0.5 (frozen).
+            Installed copies: root 4.1.4 (the only one v3 uses), flow-state rc.112, flow-state-rewrite 4.0.5 (frozen).
+            The only breaking fix needed was Terminal.make's size.
 
     T94
         title       Every public entry point refuses with a FlowError; a surface test finds any that doesn't
@@ -862,9 +811,8 @@ tasks
             - @convention.boundaries stays current: any source this Task adds or moves changes its row.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
         comment     2026-11-18T18:56:20Z
-            Done 2026-11-19: every public entry point refuses with a FlowError; closed with nine inverted Diagnostics R1
-            tests in code:packages/flow-state-v3/tests/surface/surface.test.ts and tests/compile/authoring-gaps.test.ts.
-            User's page: @page.T94-public-entry-points, read 2026-11-19. History in git at 3a84b878.
+            Closed with nine `it.fails` Diagnostics R1 tests (code:packages/flow-state-v3/tests/surface/surface.test.ts,
+            tests/compile/authoring-gaps.test.ts). User's page: @page.T94-public-entry-points.
         comment     2026-11-18T18:56:21Z
             [decided: user 2026-11-19] The raw-throw class is parked in @task.V3.T98; the review's blocker (functions
             Flow hands out inside inert data are public by type, unregistered, and throw raw) and routed items move
@@ -896,7 +844,7 @@ tasks
             - The coverage record is updated and lists no unexplained gap.
             - `nub run check`, the suite and stress pass.
         comment     2026-11-18T20:15:10Z
-            Done 2026-11-18: 38 of 58 gap rules caught by named faults in
-            code:packages/flow-state-v3/tests/rule-faults.ts; the other 20 deferred by the user's time cap (2026-11-19),
-            4 not built in P3. CHECK-TASK PASS at d8a8343a; sent-without-persistence plants no WriteLanes R12 breach, so
-            R12 joins the deferred gaps (@task.V3.T56). Corrected coverage record: code:wiki/tasks/V3/P3-coverage.md.
+            38 of 58 gap rules are caught by named faults in code:packages/flow-state-v3/tests/rule-faults.ts; the other
+            20 were deferred by the user's time cap (2026-11-19), 4 of them not built in P3. Trap: sent-without-
+            persistence plants no WriteLanes R12 breach, so R12 joins the deferred gaps (@task.V3.T56). Coverage
+            record: code:wiki/tasks/V3/P3-coverage.md.

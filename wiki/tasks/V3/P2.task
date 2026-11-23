@@ -118,31 +118,25 @@ description
     - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained;
     - the project's `effect-api-documentation` skill for every Effect API.
 comment 2026-11-16T02:04:13Z
-    Done 2026-11-16: completion audit PASS at eff65a6b (code as 96ef4847), on T75 set done. Every Task done,
-    `tests/bridge/` deleted, the dead core and 52 of 52 named faults caught. No P2 Task satisfies a Plan outcome whole:
-    the first slices of Testing O1 to O4 and O6 and Inspection O1 and O4 are delivered; the rest stays with @task.V3.T29
-    and @task.V3.T49. For the user: `nub run verify` no longer runs stress files. Coverage record and the close-out
-    findings are in git at 3a84b878.
-comment 2026-11-16T02:04:14Z
-    Coverage record of the P2 suite at eff65a6b, proposed to the user as a verification entry of @plan.Runtime (a Plan
-    edit, the user's yes; until then it lives here). Covers @plan.Runtime, @plan.Operations, @plan.Persistence,
-    @plan.Testing and first-slice @plan.CommandLine outcomes as tests cite them, and the Spec rules named in test
-    titles. Suite: `packages/flow-state-v3/tests/` and host tests in `src/` (fast suite 452 plus 8 `it.fails`; stress 23
-    in the `*.stress.test.ts` files, run by `nub run test:stress`); mutants: the dead core and 52 named faults of
-    code:packages/flow-state-v3/tests/faults.ts and code:packages/flow-state-v3/tests/tooling-faults.ts, run by `nub run
-    faults`. Excluded: real browsers and storage (P4), reads (T21), the rest of Story and Fake (T29), and the bugs held
-    as `it.fails` (Turn I9, Turn I14 twice, WriteAhead R5 and I23, WriteLanes I7, Actors I43, Compile T11).
+    Audit PASS at eff65a6b (2026-11-16): no P2 Task satisfies a Plan outcome whole; first slices of Testing O1 to O4 and
+    O6 and Inspection O1 and O4 are delivered, the rest stays with @task.V3.T29 and @task.V3.T49. For the user: `nub run
+    verify` no longer runs stress files. Coverage record (proposed as a verification entry of @plan.Runtime, the user's
+    yes pending; its counts are superseded by code:wiki/tasks/V3/P3-coverage.md) and the close-out findings are in git
+    at 3a84b878. Excluded from it: real browsers and storage (P4), reads (@task.V3.T21), the rest of Story and
+    Fake (@task.V3.T29).
 comment 2026-11-16T02:04:15Z
-    Deferrals from the close-out audit, each handed an owner: D1 every `it.fails` passes on any failure, so pin the
-    observed wrong value as each bug is fixed (T17, T19, T20, T57); D2 generated runs draw an answer only for an
-    endpoint's first call and mixes are checked on the generator's tally (T29); D3 the pair sweep's phases come from the
-    app's own lanes() and unreachable cells rest on hand-set flags (T19, T29); D4 disposal must interrupt in-flight
-    reads (T21); D5 the dead-core excuse in tools/faults/run.ts matches any title starting with a rule id (T22); D6
-    `config.ts` promises two Stories with one id fail the command, untested (T22); D7 rule harness: places.ts matches
-    actor keys by prefix, one-sided rule tests for Turn I9, I14 and WriteLanes I6 (T29). Agent calls that narrow a user
-    decision, for the user's read: NUMBER-10 commits on release, the stress profile's first-call draws and answer
-    mappings, WriteLanes I3, I15, I16 forgetting unsaved endings across a crash, and the new words `heldWrites land`,
-    `tab`, `lose()`, `Fake.network.offline()`, the 8 by 7 pair grid, DRIVE, WriteAhead I23, inspect lanes contract and
+    Deferrals from the close-out audit, each handed an owner (unverified at compaction; D5 may be stale, since
+    tools/faults/run.ts now excuses by the `mayStayGreen` file patterns): D1 every `it.fails` passes on any failure, so
+    pin the observed wrong value as each bug is fixed (@task.V3.T17, @task.V3.T19, @task.V3.T20, @task.V3.T57); D2
+    generated runs draw an answer only for an endpoint's first call and mixes are checked on the generator's tally
+    (@task.V3.T29); D3 the pair sweep's phases come from the app's own lanes() and unreachable cells rest on hand-set
+    flags (@task.V3.T19, @task.V3.T29); D4 disposal must interrupt in-flight reads (@task.V3.T21); D5 the dead-core
+    excuse matches any title starting with a rule id (@task.V3.T22); D6 `config.ts` promises two Stories with one id
+    fail the command, untested (@task.V3.T22); D7 rule harness: places.ts matches actor keys by prefix, one-sided rule
+    tests for Turn I9, I14 and WriteLanes I6 (@task.V3.T29). Agent calls that narrow a user decision, for the user's
+    read: NUMBER-10 commits on release, the stress profile's first-call draws and answer mappings, WriteLanes I3, I15,
+    I16 forgetting unsaved endings across a crash, and the new words `heldWrites land`, `tab`, `lose()`,
+    `Fake.network.offline()`, the 8 by 7 pair grid, DRIVE, WriteAhead I23, inspect lanes contract and
     state, `lastCommit.seq`.
 tasks
     T62
@@ -262,9 +256,6 @@ tasks
             the core, so the dead core fails each; the bank contract test checks the fake alone and stays green on a
             dead core by design. Finding: the `refused-turn-reported` core fault is missed by the suite; it is not a
             tooling rule and predates this Task (no deleted test exercised a refused turn). Left for T64's run rules.
-        comment     2026-11-15T17:24:43Z
-            Done 2026-11-15: Story, Fake and the run over the real Runtime; independent review PASS at 5425505d.
-            Delivered the first slice of @plan.Testing.O1 to O4 and @plan.Inspection.O1. History in git at 3a84b878.
     T64
         title       Rules checked on every run, and a reload at every step
         status      done
@@ -296,10 +287,9 @@ tasks
               to wake owed identities shows.
             - `nub run faults` catches every named fault, the 23 there today included.
         comment     2026-11-15T18:15:39Z
-            Done 2026-11-15: the run rules and the reload sweep; review PASS at bdd85075. Turn I14 (a refusal publishes
-            no issue-only snapshot) and Turn I9 (serve.ts publishes only on change) were kept as `it.fails` with the
-            runtime as the wrong side, routed to @task.V3.T17. Trap: the sweep asserted no skip count, so a dead core
-            passed it with most rows skipped. History in git at 3a84b878.
+            Turn I14 (a refusal publishes no issue-only snapshot) and Turn I9 (serve.ts publishes only on change) were
+            kept as `it.fails` with the runtime as the wrong side, routed to @task.V3.T17 (done). Trap: the sweep
+            asserted no skip count, so a dead core passed it with most rows skipped (since bounded: T70 G1).
     T65
         title       A run prints as a text trace
         status      done
@@ -317,10 +307,9 @@ tasks
               by the host's evidence sink (the core stays unchanged); T65 owns it.
             - A text snapshot of that trace is kept as a change detector only.
         comment     2026-11-15T18:26:53Z
-            Done 2026-11-15: `run.trace` and `render(trace, "text")`; review PASS at 0ed1e89d. Delivered
-            @plan.Inspection.O4's first slice. WriteAhead R5 kept with the runtime wrong (a restored head that turns
-            Held is never re-saved), routed to @task.V3.T20. Header, checkpoints and a Runtime-global sequence went to
-            @task.V3.T49. History in git at 3a84b878.
+            Delivered @plan.Inspection.O4's first slice. WriteAhead R5 kept as `it.fails` with the runtime wrong (a
+            restored head that turns Held is never re-saved), routed to @task.V3.T20 (done). Trace header, checkpoints
+            and a Runtime-global sequence went to @task.V3.T49.
     T66
         title       The bench times the long stories
         status      done
@@ -335,9 +324,7 @@ tasks
               from both runs.
             - Nothing gates on a timing.
         comment     2026-11-15T18:35:20Z
-            Done 2026-11-15: `bench/run.ts`; review PASS at 3e1fb97b. First numbers, transfers/long: per turn median
-            0.027 ms, p99 0.045 ms; nothing gates on a timing. Routed to @task.V3.T35: per-turn label includes inspector
-            and trace work. History in git at 3a84b878.
+            Routed to @task.V3.T35: the per-turn label includes inspector and trace work.
     T67
         title       The hand cases run as Story tests and the bridge is gone
         status      done
@@ -362,9 +349,8 @@ tasks
               skill:policy-verification gives them) is a comment on this phase, proposed to the user as a verification
               entry of @plan.Runtime. The audit it names runs at the phase's close, after @task.V3.T70.
         comment     2026-11-15T20:17:29Z
-            Done 2026-11-15: 81 bridge cases ported by Spec area, `tests/bridge/` deleted; review PASS at f1a9eb19 (all
-            216 old assertions compared; no value lost beyond the listed drops). Three rule bugs were kept as
-            `it.fails`. History in git at 3a84b878.
+            Review compared all 216 old assertions: no value lost beyond the listed drops (list in git at 3a84b878).
+            Three rule bugs were kept as `it.fails`.
     T68
         title       Compile-time tests for the type promises production keeps
         status      done
@@ -425,9 +411,9 @@ tasks
             should refuse a schedule `send` carrying another definition's event token, but it is accepted. It compiles
             because `ScheduleConfig.send` takes `EventToken | Ending`.
         comment     2026-11-15T20:44:35Z
-            Done 2026-11-15: compile-time tests for the type promises production keeps; PASS at 88980b0c. The unbuilt
-            @plan.Operations.V1 forms and the select and key routing are owned by @task.V3.T21; the foreign send token
-            (Compile T11) is an `it.fails`, later converted to a `*.test-d.ts`. History in git at 3a84b878.
+            The unbuilt @plan.Operations.V1 forms and the select and key routing are owned by @task.V3.T21; the foreign
+            send token (Compile T11) was an `it.fails`, since converted
+            to code:packages/flow-state-v3/tests/types/schedule-send.test-d.ts.
     T69
         title       flow story and flow trace
         status      done
@@ -456,20 +442,15 @@ tasks
               no `exports` or `bin`.
             - R6 (Task risk): tests may import `src/host/cli/main.ts` and no other `src/host/cli/` file, planted
               in `tools/flow-state-lint/imports.test.ts`.
-        comment     2026-11-15T21:32:50Z
-            Done 2026-11-15: `flow story list|run` and `flow trace`; independent review PASS at f20559bb. History in git
-            at 3a84b878.
         comment     2026-11-15T21:32:51Z
             [decided: agent builder 2026-11-15] The CLI uses `effect/cli` through `Command.runWith`; `main(argv)`
             returns its exit code as a value so the bin and tests share one path; Stories are found by a brand on
             `Story`; one output channel, Console. Why: prior art in Effect and the Plan's O6 ("branded Stories").
-            Reverse: a hand-written argv parser.
-        comment     2026-11-15T21:32:52Z
-            Traps: CLI tests stay green under the dead core (both sides run the same core), so `tools/faults/run.ts`
-            excuses `tests/cli/` and the CLI's own faults catch it; `effect/cli`, `Stdio` and `Path` are unstable in
-            effect 4.0.5, so the CLI files turn off `unstableApiUsage` with a reason. Routed (unverified at compaction):
-            usage help on stdout where @plan.CommandLine.O3 asks one document on stderr, and O6 config checks, to
-            @task.V3.T22 and @task.V3.T29.
+            Reverse: a hand-written argv parser. Traps: CLI tests stay green under the dead core (both sides run the
+            same core), so `tools/faults/run.ts` excuses `tests/cli/` (its `mayStayGreen`) and the CLI's own faults
+            catch it; `effect/cli`, `Stdio` and `Path` are unstable in effect 4.0.5, so the CLI files turn off
+            `unstableApiUsage` with a reason. Routed (unverified at compaction): usage help on stdout where
+            @plan.CommandLine.O3 asks one document on stderr, and O6 config checks, to @task.V3.T22 and @task.V3.T29.
     T70
         title       Generated Stories
         status      done
@@ -540,10 +521,6 @@ tasks
             - G6 (T67, T69): `nub run faults` counts over-1 MB output, a timeout or a missing summary as not caught, and
               plants into the whole package's tests, `src/` included.
         comment     2026-11-16T01:19:55Z
-            Done 2026-11-16: `propertyTest`, the pair sweep and generated Stories; PASS at 554531f2 (offline span 5 to
-            120 s virtual, bursts 50 to 2,000 sends, each mix within three standard errors of the generator's tally).
-            History in git at 3a84b878.
-        comment     2026-11-16T01:19:56Z
             [decided: agent builder 2026-11-15] The pair sweep drives with `DRIVE` (the usual profile plus lost answers
             and storage holds and refusals), generation and shrinking use Effect's `Arbitrary`, and generated runs keep
             the Story's own load order and session seeds. Why: Held, Recapturing and Withdrawing open only after a loss
@@ -598,17 +575,13 @@ tasks
             - R7 (constraint "test the spec"): expected values come from the upstream case or our Spec; where upstream
               or the proposal sketch looks wrong, the case and the pinned behaviour are logged here.
         comment     2026-11-15T22:11:23Z
-            Done 2026-11-15: command palette and number input fixtures with ui-sdk's behaviour scenarios ported (29 of
-            37 ports, 8 dropped with reasons); review PASS at 0b5c4b41. History in git at 3a84b878.
-        comment     2026-11-15T22:11:24Z
-            [decided: agent coordinator 2026-11-15] The palette persists and the number input does not. Why:
-            coordinator's ruling. Reverse: flip the setup's persistence. Also pinned against upstream: the palette keeps
-            one error per command; leaving the field clamps and snaps the typed text ("70" in 1..10 commits 10); commits
-            are `lastCommit { seq, value }`; a hold steps at 400 ms.
-        comment     2026-11-15T22:11:25Z
-            Routed to @task.V3.T70 (unverified at compaction): `shortcutsOf` lists disabled commands (upstream skips
-            them); one frame stack instead of parallel `pages` and `queries`; `lastCommit.seq` is a counter of the kind
-            a later `emit` replaces.
+            8 of the 37 upstream cases were dropped with reasons (mapping in git at 3a84b878). [decided: agent
+            coordinator 2026-11-15] The palette persists and the number input does not. Why: coordinator's ruling.
+            Reverse: flip the setup's persistence. Also pinned against upstream: the palette keeps one error per
+            command; leaving the field clamps and snaps the typed text ("70" in 1..10 commits 10); commits are
+            `lastCommit { seq, value }`; a hold steps at 400 ms. Routed to @task.V3.T70 and done there (R9):
+            `shortcutsOf` skips disabled commands, one frame stack. Still open: `lastCommit.seq` is a counter of the
+            kind a later `emit` replaces (unverified at compaction).
 
     T75
         title       Fast test commands: stress behind a flag, faults in parallel
@@ -629,6 +602,5 @@ tasks
               seconds, on this machine.
             - `nub run check` and `nub run lint:rules` pass.
         comment     2026-11-16T02:03:57Z
-            Done 2026-11-16: fast suite 18.5 s to 10.5 s, faults 206 s to 25 s (the same 52 of 52 caught); PASS at
-            96ef4847. Trap: a target load error is NOT JUDGED and falls back to the whole suite. History in git
-            at 3a84b878.
+            Timings (acceptance 1): fast suite 18.5 s to 10.5 s, faults 206 s to 25 s, same 52 of 52 caught. Trap: a
+            target load error is NOT JUDGED and falls back to the whole suite.

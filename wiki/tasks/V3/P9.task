@@ -132,8 +132,9 @@ tasks
             to @task.V3.T100.
 
             **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
-            (its review of 2026-11-18 and the decisions in its comments), @convention.boundaries; @spec.Operations (R10,
-            I19; code:wiki/specs/v3/Operations.md); @spec.Types (R13, I4; code:wiki/specs/v3/Types.md).
+            (its review of 2026-11-18 and the decisions in its comments), @convention.boundaries; @spec.Operations.R10,
+            @spec.Operations.I19 (code:wiki/specs/v3/Operations.md); @spec.Types.R13,
+            @spec.Types.I4 (code:wiki/specs/v3/Types.md).
 
             The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
@@ -148,7 +149,7 @@ tasks
             approaches as prior art only.
 
             Owes, from T81: definitions, machines and tokens recognised by the `Symbol.for("flow-state/Made")` mark on
-            one shared frozen prototype plus the owner compare (@spec.Operations R10), not by `~` marks; builders that
+            one shared frozen prototype plus the owner compare (@spec.Operations.R10), not by `~` marks; builders that
             capture their arguments unread; one complete Schema decode per entry through `walkerOf`; its planted faults
             `token-by-shape`, `builder-reads-early`, `decode-not-walker`. From T94's review: inert data that hands out
             callable functions (a bound contract's `textOfKey`, an operation's `make`) — taken off the public types or
@@ -162,7 +163,7 @@ tasks
             - The surface test walks the root and testing routes and enters inert data: no reachable function is
               unwrapped or unregistered.
             - No `~owner`, `~flow` or `HandleId` remains in `src/`; a Flow-made value is recognised only by its
-              `flow-state/Made` mark and the owner compare (@spec.Operations R10).
+              `flow-state/Made` mark and the owner compare (@spec.Operations.R10).
             - No builder reads its arguments: each called with an all-traps-throw Proxy returns a value.
             - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
             - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
@@ -170,9 +171,9 @@ tasks
               fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
               feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
               in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
-              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Operations
-              (R10, I19), @spec.Types (R13, I4); the Invariants its tests check after every step are @spec.Operations
-              (I19; tests T5, T6), @spec.Types (I4; tests T7, T9).
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations.R10, @spec.Operations.I19, @spec.Types.R13, @spec.Types.I4; the Invariants its tests
+              check after every step are @spec.Operations.I19 (tests T5, T6), @spec.Types.I4 (tests T7, T9).
         comment     2026-11-18T19:14:16Z
             Routed from P3's close-out, owed by the class but not named above: the ~token probes (machine.ts:121,
             events.ts:96, config.ts:93); E.X(undefined) and E.X(new Date()) (T81, 11:21Z); operation-checks.ts:72 reads
@@ -200,7 +201,7 @@ tasks
         comment     2026-11-21T19:07:50Z
             Spec check: Owes says Flow-made values are checked by `WeakSet` identity and no `~owner` remains; the user
             decided (2026-11-21) a `Symbol.for("flow-state/Made")` mark on one shared frozen prototype plus the owner
-            compare (@spec.Operations R10). Scope unchanged; reword when the Task closes.
+            compare (@spec.Operations.R10). Scope unchanged; reword when the Task closes.
         comment     2026-11-21T19:27:01Z
             Contradiction resolved: Owes and acceptance now use the user's Symbol.for("flow-state/Made") mark plus the
-            owner compare (@spec.Operations R10), not WeakSet; Diagnostics and Compile cites re-pointed.
+            owner compare (@spec.Operations.R10), not WeakSet; Diagnostics and Compile cites re-pointed.

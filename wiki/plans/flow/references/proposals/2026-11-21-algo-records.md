@@ -840,9 +840,10 @@ that, H6); **command-palette** (a 300,000-entry position: why the work side is a
 
 Each is a departure from a concept proposal or an open choice. Each recommends A.
 
-1. **The fault model** [open: 2026-11-21; recommend A]. A: section 4.1; "forged but valid" is out of scope and
+1. **The fault model** [accepted: user 2026-11-23]. A: section 4.1; "forged but valid" is out of scope and
    its `it.fails` tests are deleted (resolves Restore Q4). B: defend meaning against forgery, which needs signed
    records. Trace for B: a copied, valid record under its own key cannot be told from a real one.
+   Why: recorded in @spec.Records.Q6 and the Fault model (the user, 2026-11-22).
 2. **One `work` record per identity** [open: 2026-11-21; recommend A]. A: lanes and owed rows merge; no relation
    spans records; the cost is a whole-record rewrite per acknowledged send. B: keep per-lane records and add a
    boot-wide check. Trace for B: T92 close review 3, where a per-record decode passed a head beside its success.
@@ -854,23 +855,26 @@ Each is a departure from a concept proposal or an open choice. Each recommends A
 4. **No version tags in keys** [open: 2026-11-21; recommend A] (departs SR D1 as proposed). A: nothing is
    re-keyed; an old-version record is one whose name or key does not decode. B: SR's `@tag` keys. Trace for B:
    SR-4, no writer removes the old key; a tag is a second place identity can disagree.
-5. **An unreadable obligation is carried, not delivered** [open: 2026-11-21; recommend A] (departs SR 3.4's
+5. **An unreadable obligation is carried, not delivered** [open: 2026-11-23; recommend A] (departs SR 3.4's
    "Held, ends unknown `Restored`" and @review.spec-cohesion-r2 6b). A: Carried. B: deliver without input. Trace
    for B: the user's ending mappers take `(value, { input, key })`; with no input the mapper cannot be called.
-6. **An orphan is kept** [open: 2026-11-21; recommend A] (departs DL PD5's discard). A: `Kept(Orphan)`. B:
+6. **An orphan is kept** [accepted: user 2026-11-23] (departs DL PD5's discard). A: `Kept(Orphan)`. B:
    discard. Trace for B: a deploy that drops a machine by mistake destroys its users' data before the fix ships.
+   Why: recorded in @spec.Records.Q6 and Kept(Orphan) (the user, 2026-11-22).
 7. **Claims live in the lane head** [open: 2026-11-21; recommend A] (departs DL PD7). A: section 6.8. B: a claim
    row per Attempt in an entity-store record. Trace for B: a claim row whose head is gone leaves a field
    unconfirmed forever, the T20 class again.
 8. **`Compiled.saved`** [open: 2026-11-21; recommend A] (departs TM:285). Trace against: TM-2 trace A, a changed
    key Schema restores and routes to the wrong timer.
-9. **One step, 5 to 6, and it tells a format 5 hold once more** [open: 2026-11-21; recommend A]. A: section 6.2
+9. **One step, 5 to 6, and it tells a format 5 hold once more** [accepted: user 2026-11-23]. A: section 6.2
    lands as one format; a format 5 Held head with no row is told `Restored` once after the upgrade, and
    a format 5 owed row not tied to a head is carried, not delivered, because format 5 saved no input for the
    ending mapper. Format 5 was never released, so only fixtures hold such rows. B: 6 for T118 and 7 later; or
    treat such a head as told. Trace for B: X-1; and a hold never told is lost.
-10. **SR D2, D3, D4** [open: 2026-11-21; recommend A]: adopted as SR proposed them; D4 is the Carried rule; D3 is
+   Why: recorded in @spec.Records step 5 to 6 (P1 over P2) (the user, 2026-11-22).
+10. **SR D2, D3, D4** [accepted: user 2026-11-23]: adopted as SR proposed them; D4 is the Carried rule; D3 is
     `Kept(Newer)` for the whole identity.
+    Why: recorded in @spec.Records.Q6 (the earlier saved-record choices) (the user, 2026-11-22).
 11. **DL PD2 and PD6** [open: 2026-11-21; recommend A]: one `admit`; positions are not saved. PD3 and PD4 are
     not settled here (H4).
 12. **A reset actor is not woken by the boot** [open: 2026-11-21; recommend A]. A: what it is owed waits for the

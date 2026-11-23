@@ -185,8 +185,8 @@ note 2026-11-18T18:51:12Z
     audit as deferred by the user.
 
 note 2026-11-18T19:14:32Z
-    P3 closed with an audit PASS at d8a8343a; the coverage record is code:wiki/tasks/V3/P3-coverage.md and the owners
-    of what it left are code:wiki/tasks/V3/P3-routing.md. History in git at a9ed4037.
+    P3's coverage is code:wiki/tasks/V3/P3-coverage.md; the owners of what it left are
+    code:wiki/tasks/V3/P3-routing.md. History in git at a9ed4037.
 
 note 2026-11-19T00:38:20Z
     [decided: user 2026-11-19] T92 deferred; its work saved on branch t92-format-4 and flow-rewrite restored to
@@ -269,16 +269,6 @@ note 2026-11-20T08:54:21Z
     [decided: user 2026-11-20] T58's page read, StoreScope kept; Pending D40 accepted (merged at T57's close);
     T104 Q1 A final. Nothing waits on the user.
 
-note 2026-11-20T10:22:39Z
-    Advisor questions written for the user: @questions.advisor-questions (ten questions); 4 and 7 are the trust
-    consult's agenda.
-
-note 2026-11-20T10:29:01Z
-    T57: disarm wins over restartOn (Turn R14); the Turn I9 rule gap went to @task.V3.T112.
-
-note 2026-11-20T10:37:58Z
-    Merged invariant-proposal (bf2e200c): @plan.Rules from the accepted rules proposal; @task.V3.T106 rewritten on it.
-
 note 2026-11-20T11:40:19Z
     [decided: user 2026-11-20] Flow.keyed accepted; Machines O5 and its toaster example updated.
 
@@ -287,10 +277,6 @@ note 2026-11-20T12:37:44Z
     state inventory, transition tables where rules share state, one owner per state; reviews block item-by-item lists.
     Commit: 24e9f9c9.
 
-note 2026-11-20T12:50:34Z
-    Amendment (2026-11-20, the user): skill pin moved to workflow@67c7dd8 (whole Task, R47 Task cycle, R48 breakdown
-    review at each phase's start); the Epic adds the phase-start review and boundaries by state. Commit: bb32c950.
-
 note 2026-11-20T13:04:38Z
     Decisions (the user, 2026-11-20): Firefox is not a target (Package O4 and the P6, P8, P10 Tasks updated); the
     breakdown review's phase moves are approved (P5's Fake and Story words into P4, T98 first in P5).
@@ -298,10 +284,6 @@ note 2026-11-20T13:04:38Z
 note 2026-11-20T14:10:02Z
     [decided: user 2026-11-20] "when T57 is closed i want you to stop". Scope: the run stops once @task.V3.T57 is
     done; no further lead starts.
-
-note 2026-11-20T15:02:19Z
-    Amendment (2026-11-20, the user): pin to workflow@bb97c9d; convergence by structural cause (first finding when
-    structural), scoped by the freedom, other parts searched. Commit: 52e81aa7.
 
 note 2026-11-20T15:10:12Z
     [decided: user 2026-11-20] @task.V3.T113 widened to remove hand-written type guesses everywhere (about 100
@@ -331,11 +313,6 @@ note 2026-11-20T16:57:09Z
     [decided: user 2026-11-20] drop Flow.keyed; with schedules declared on the definition a keyed schedule is a
     plain object whose key type comes from the declaration; the Declared-schedules Task removes it.
 
-note 2026-11-20T17:49:33Z
-    The user's advisor-consult branch copied, not merged, to
-    wiki/plans/flow/references/proposals/advisor-consult-2026-11-20/ for consideration (five answers, holes pass, its
-    Plan and Task edits as a patch).
-
 note 2026-11-20T21:03:37Z
     [decided: user 2026-11-21] wk gets a superseded status for Plans, Tasks and Specs, and inline tags parsed in
     every .plan, .task and .spec prose field; added to the wk agent-UX build.
@@ -343,10 +320,6 @@ note 2026-11-20T21:03:37Z
 note 2026-11-20T21:44:57Z
     Replan proposal and its superseded boundaries and layers-checked deleted; full text: git show
     3a84b878:wiki/plans/flow/references/proposals/<2026-11-18-replan|2026-11-18-boundaries|2026-11-18-layers-checked>.md
-
-note 2026-11-20T21:48:38Z
-    Pending decisions D1 to D4, D9 and D35 to D39 merged into the Plans (1e4e3a3d, 7569d069, 039b583b) and left Pending;
-    D5, D6, D8, D10 to D12 and D34 stay while Specs and a proposal cite them.
 
 note 2026-11-20T22:01:09Z
     Decided (user, 2026-11-20): @proposal.spec-handover#no-flowkeyed, No `Flow.keyed`

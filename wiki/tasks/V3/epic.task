@@ -30,10 +30,10 @@ description
 
     | Stage | Phases | Stage exit |
     | --- | --- | --- |
-    | A Settled | P1 | Done: the design and the prototype agree, the Plans and core Specs are written, and the Pay path runs on production |
-    | B Test system | P2 | Flow's own tests run on its own test tooling; one test style is left; every named fault is caught |
-    | C Core | P3 | Every built Requirement of the core Specs holds on production, each shown by a check that fails on a planted fault |
-    | D Preview | P4 | The fixtures (including Pay and checkout) run in real Chrome and Safari; `flow check` works; `nub run verify` builds v3 |
+    | A Settled | P1 | Done: design and prototype agree; Plans and core Specs written; Pay path runs on production |
+    | B Test system | P2 | Flow's tests run on its own tooling; one test style is left; every named fault is caught |
+    | C Core | P3 | Every built core Requirement holds on production, each shown by a check failing on a planted fault |
+    | D Preview | P4 | Fixtures (Pay, checkout) run in Chrome, Safari; `flow check` works; `nub run verify` builds v3 |
     | E Features | P5 | Each feature's Spec is written, then holds on production |
     | F Examples and docs | P6, P7 | Example apps run in real Chrome and Safari; docs generated from source |
     | G Hardening and release | P8, P9, P10 | Budgets met, findings swept, released as far as the user asks |
