@@ -735,6 +735,9 @@ tasks
               `tests/cli/`; its rows for terminals, `RuleSubjectUnreachable`, `RulesBypassed` and an unknown rules key
               are built by @task.V3.T106 and owned here (@proposal.external-rules); `flow explain` lists a machine's
               rules and every value with no rules.
+            - `flow check` warns `SharedTransaction` when two machines commit the same transaction, since each actor's
+              lane is its own and `serialize` does not order them; the warning is silenced per transaction in
+              `flow.config.ts`, and a CLI test shows it fired, then silent once silenced.
             - Fixtures first (@convention.fixtures): step 10 of @convention.fixture-catalog: every fixture run with no
               new feature, as the step says; each scenario red before the build, and the step's cells marked used at
               the close.
@@ -782,6 +785,10 @@ tasks
         comment     2026-11-22T10:21:25Z
             Routed (orchestrator) from T113's requirements: construction returns a value instead of throwing (Types R11,
             I5, I7); no other Task owns it, and this Task already replaces refuse and construction.ts.
+        comment     2026-11-23T08:36:19Z
+            [decided: user 2026-11-23] "if we can silence the warning i will accept the addition": SharedTransaction
+            warning added to acceptance, silenced per transaction in flow.config.ts. The silencing option's exact name
+            is the builder's call.
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -2494,7 +2501,7 @@ tasks
             in `wiki/specs/specs.log`.
 
             **Supersedes:** code:packages/flow-state-v3/src/error.ts (the code catalog, `classify` and `code`);
-            code:packages/flow-state-v3/src/host/close.ts#cleanupFailed (lines 93-104; `unsettledOf` stays);
+            code:packages/flow-state-v3/src/host/close.ts#cleanupsFailed (and `releaseOverdue`; `unsettledOf` stays);
             code:packages/flow-state-v3/src/host/run-promise.ts#runFailed; the exit mapping and `Cause.pretty` in
             code:packages/flow-state-v3/src/host/cli/main.ts (lines 128-136);
             code:packages/flow-state-v3/src/host/print.ts#shown;
@@ -6465,6 +6472,14 @@ tasks
               coverage only, no assertion failed and no type error; stress: 1 failure, draft's saved stress Story, which
               predates (T121's comment; owner @task.V3.T124). LIMITS.durability and LIMITS.laneBound record alone and
               full-run times (`tests/limits.ts`).
+        comment     2026-11-23T08:34:48Z
+            [decided: user 2026-11-23] D41 fix round at 86455345 and fe-delete commit after it: resource.set/update
+            replace write, exact keys and returning read-only updates pinned as type errors, InvalidWrite renamed
+            InvalidUpdate, an empty list does nothing; setData cut (search saved and draft document moved to writes).
+            The finder rule ran at zero real hits and was deleted (types cover it). Refs @plan.Pending.D41.
+        comment     2026-11-23T08:44:43Z
+            D41 commits, corrected: 86455345 (set and update, exact keys, InvalidUpdate) and 726a2c7e (finder deleted at
+            zero hits); setData moved to writes in 7867b2a4.
     T123
         title       Placements and release
         status      in_progress
@@ -6566,6 +6581,31 @@ tasks
             build-time-choice case (leaving the thread while its read is behind with a trailing read queued); flip the
             shop reds for an optimistic value removed after a plain failure, with a fault that turns failure
             into unknown.
+        comment     2026-11-23T08:44:28Z
+            [decided: agent builder 2026-11-23] Build-time choice (placements, Q12): A. The placement table was built
+            new (Placed, Unkeyed, Left per life and operation, written only by entry-placements.ts; placements.ts
+            decides after each change that moves the state or committed view, before the turn's members).
+            home/disposed-mid-read shows a disposal during a placement's read releases it at once, within disposalBound.
+            Why: no placement code existed to keep (B had nothing to move). Reverse: none needed.
+        comment     2026-11-23T08:44:32Z
+            [decided: agent builder 2026-11-23] Changes Q9 keeps kind order A (Release before Schedule). Why:
+            home/release-meets-schedule and the chat and search ReleaseOverdue Stories pass with Release ordered after
+            Schedule too (checked by swapping KIND_ORDER), since Release writes no state. Reverse: order Release
+            after Schedule.
+        comment     2026-11-23T08:44:35Z
+            [decided: agent builder 2026-11-23] Spec deviations: overdue is derived from a releasing call whose Release
+            alarm was taken, not from now (issuesOf has no clock; the alarm is taken exactly at since+bound); a
+            placement's select that names no key is a Defect issue under IssueSource.Placement (the Spec's SelectedNoKey
+            is no IssueCode); a placement also hears each landed non-success ending; placements are keyed by life and
+            operation (one verb per operation), the deepest active state's placement winning; a set() lands as Written
+            on an entry with no data at all. Why: each is the reading that loses no ending with the code's existing
+            parts. Reverse: per item, thread now into issuesOf; add SelectedNoKey; owe placements data only; key by
+            state path; Invalidate always.
+        comment     2026-11-23T08:44:37Z
+            Question for the user (blocks 3 reds, not the build): Plan O2 says a placement's value never fires for
+            optimistic values, but Plan O5 says every reader sees optimistic updates; session/rename-shown-at-once and
+            shop add-shows/overlapping-adds read the optimistic line through value into memory, so they stay it.fails.
+            Fix either the Plan wording or those Stories (read the row's data instead).
     T124
         title       Persisted resources
         status      in_progress
@@ -6653,6 +6693,25 @@ tasks
         comment     2026-11-23T06:55:51Z
             Routed from slice T21's close review (orchestrator, 2026-11-23): draft's saved stress Story has failed since
             f8422ce8; owned here.
+        comment     2026-11-23T09:07:35Z
+            [decided: agent builder 2026-11-23] Build-time choice Q15: A, a read kept no time once unheld (gcTime 0) is
+            never saved (compiled-parts drops its saved codec). Why: draft/outline-kept-no-time shows its saved entry
+            would never install, so B writes what is never read (Records R8). No construction warning yet. Reverse: keep
+            saving and let install drop it.
+        comment     2026-11-23T09:07:38Z
+            [decided: agent builder 2026-11-23] The saved entry is a mark carrying its own record text (Mark.Entry),
+            written by entry-store.ts when an entry's data changes, deleted at Clear and collection, kept when the
+            Runtime ends; the boot installs entry/ keys apart from identities' records. The data decodes by the output's
+            JSON codec non-strictly, so a removed output field installs; the envelope (EntryRecord) decodes strictly and
+            is the run rule's writer-form oracle. Why: the Spec is silent on how a cache record reaches the batch; a
+            mark that holds the text survives the Runtime's end, which removes the entries. Reverse: derive the text
+            from world.entries at capture.
+        comment     2026-11-23T09:07:40Z
+            Left in T124: the one-field corruption and literal-swap test (tests/restore/corrupt.test.ts) does not mutate
+            entry/ records, since draft has no persisted pair; the writer-form run rule judges every entry record at
+            every cut, and recordLiterals now includes EntryRecord. Adoption's Install cell is T48's. The draft saved
+            stress Story was stale because the generator wrote lose() at request while the endpoint's lose() builds it
+            at response (generate.ts, fixed).
     T127
         title       Declared emits at the root
         status      draft

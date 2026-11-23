@@ -82,12 +82,12 @@ export const canonicalText = (root: Schema.Json) => {
 
 /**
  * Whether a stored record is in the form format 6's writer emits (Records R11, I2, Stage 1 rows 1
- * to 8): an actor or work key whose text is canonical JSON and decodes, strictly, by the one Shape
- * codec of its kind that the writer encodes with and the boot decodes with. The oracle is that
- * codec, so it cannot accept more than the writer can emit.
+ * to 8): an actor, work or saved entry key whose text is canonical JSON and decodes, strictly, by
+ * the one Shape codec of its kind that the writer encodes with and the boot decodes with. The
+ * oracle is that codec, so it cannot accept more than the writer can emit.
  */
 export const writtenForm = (key: string, text: string) => {
-  const kind = (["actor/", "work/"] as const).find((k) => key.startsWith(k));
+  const kind = (["actor/", "work/", "entry/"] as const).find((k) => key.startsWith(k));
   const json = Schema.decodeUnknownOption(JsonText)(text);
 
   if (kind === undefined || Option.isNone(json) || canonicalText(json.value) !== text) return false;

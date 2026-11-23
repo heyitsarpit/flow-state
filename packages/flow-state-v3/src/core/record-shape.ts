@@ -1,4 +1,6 @@
 import { Result, Schema } from "effect";
+import { decodeCanonical, encodeCanonical } from "./codec.ts";
+import type { SavedCodec } from "./compiled.ts";
 import { Decline, IssueCode } from "./vocabulary.ts";
 
 /**
@@ -323,6 +325,57 @@ export const PositionRecord = envelopeOf(Position);
  * A work record's envelope.
  */
 export const WorkRecord = envelopeOf(Work);
+
+/**
+ * A saved read entry's body: its data as its read's `output` encodes it, and when it landed.
+ */
+export const SavedEntry = Schema.Struct({ data: Schema.Json, at: Schema.Finite });
+
+/**
+ * A saved read entry's record: the one Shape its writer encodes, the boot decodes and a corrupt
+ * record is judged by.
+ */
+export const EntryRecord = envelopeOf(SavedEntry);
+
+/**
+ * The text a saved entry's record is written as, from its data encoded by its read's output
+ * codec: none when the data has no such form or no canonical text.
+ */
+export const entryText = (
+  output: SavedCodec,
+  // FLOW_STATE_ALLOW_UNKNOWN: a read's data is the lookup's own value.
+  data: unknown,
+  at: number,
+) =>
+  Result.getSuccess(
+    Result.flatMap(
+      Result.mapError(output.encode(data), () => "shape" as const),
+      (json) =>
+        Result.flatMap(encodedBy(EntryRecord)({ body: { data: json, at }, format: FORMAT }), (r) =>
+          Result.mapError(encodeCanonical(r), () => "shape" as const),
+        ),
+    ),
+  );
+
+/**
+ * A saved entry's record read back: its data decoded by its read's output codec, and when it
+ * landed; none when the text, the envelope or the data does not decode. The envelope is read
+ * strictly; the data as the output reads any server value, so a field the output no longer names
+ * is dropped, not refused.
+ */
+export const entryOfText = (output: SavedCodec, text: string) =>
+  Result.getSuccess(
+    Result.flatMap(
+      Result.mapError(decodeCanonical(text), () => "schema" as const),
+      (json) =>
+        Result.flatMap(strictly(EntryRecord)(json), (record) =>
+          Result.mapBoth(output.decode(record.body.data), {
+            onFailure: () => "schema" as const,
+            onSuccess: (data) => ({ data, at: record.body.at }),
+          }),
+        ),
+    ),
+  );
 
 /**
  * A record's format, read before its body: a format this build writes or steps from, or a newer

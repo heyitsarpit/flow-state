@@ -1,18 +1,28 @@
 import { Predicate, Result } from "effect";
-import { PositionRecord, strictly, WorkRecord } from "../../core/record-shape.ts";
+import { EntryRecord, PositionRecord, strictly, WorkRecord } from "../../core/record-shape.ts";
 import { entry } from "../../entry.ts";
+
+// The one codec of each record kind the writer emits.
+const CODEC_OF_KIND = {
+  "actor/": PositionRecord,
+  "work/": WorkRecord,
+  "entry/": EntryRecord,
+} as const;
 
 /**
  * Whether a saved record's JSON decodes, strictly, by the one Shape codec of its kind that the
- * writer encodes with and the boot decodes with: an actor key's position, a work key's work.
+ * writer encodes with and the boot decodes with: an actor key's position, a work key's work, an
+ * entry key's saved read entry.
  *
  * **When to use**
  *
  * As a test's oracle of what the writer can emit: it is the codec itself, so it cannot accept more.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a stored value parsed from its text, judged here by its kind's codec.
-export const writerDecodes = entry("writerDecodes", (kind: "actor/" | "work/", json: unknown) =>
-  Result.isSuccess(strictly(kind === "actor/" ? PositionRecord : WorkRecord)(json)),
+export const writerDecodes = entry(
+  "writerDecodes",
+  (kind: keyof typeof CODEC_OF_KIND, json: unknown) =>
+    Result.isSuccess(strictly(CODEC_OF_KIND[kind])(json)),
 );
 
 // A Schema AST node's string literal, if it is one.
@@ -63,4 +73,6 @@ const literalsIn = (root: ReadonlyArray<unknown>) => {
  * Every string literal the record codecs name (channels, holds, tags, statuses): the other valid
  * values a literal slot of a saved record may be swapped for.
  */
-export const recordLiterals: ReadonlySet<string> = literalsIn([PositionRecord.ast, WorkRecord.ast]);
+export const recordLiterals: ReadonlySet<string> = literalsIn(
+  Object.values(CODEC_OF_KIND).map((codec) => codec.ast),
+);

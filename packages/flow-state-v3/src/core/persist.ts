@@ -52,7 +52,23 @@ const sameGraph = (a: Wiring, b: Wiring) =>
   a.size === b.size && [...a].every(([key, bound]) => b.get(key) === bound);
 
 // An identity's records in the order a batch writes them: its position, then its work.
-const rank = Mark.$match({ Actor: () => 0, Work: () => 1 });
+const rank = Mark.$match({ Actor: () => 0, Work: () => 1, Entry: () => 2 });
+
+// The identity whose record a mark is, if it is one's.
+const actorOf = (m: Mark) =>
+  Mark.$match(m, {
+    Actor: ({ actor }) => Option.some(actor),
+    Work: ({ actor }) => Option.some(actor),
+    Entry: () => Option.none<ActorId>(),
+  });
+
+// What a mark's write is grouped by: its identity, or the saved entry's own key.
+const groupOf = (key: string, m: Mark) =>
+  Mark.$match(m, {
+    Actor: ({ actor }) => actorKey(actor),
+    Work: ({ actor }) => actorKey(actor),
+    Entry: () => key,
+  });
 
 /**
  * Persistence of a step: setters mark the record keys a step changes, and a capture encodes every
@@ -216,10 +232,11 @@ export const makePersistence = (tx: Tx) => {
     });
   };
 
-  const writeOf = (m: Mark) =>
+  const writeOf = (key: string, m: Mark) =>
     Mark.$match(m, {
       Actor: ({ actor }) => actorWrite(actor),
       Work: ({ actor }) => workWrite(actor),
+      Entry: ({ saved }) => Result.succeed<ReadonlyArray<Write>>([{ key, record: saved }]),
     });
 
   // An identity starts to wait: reported once, as it starts.
@@ -282,6 +299,17 @@ export const makePersistence = (tx: Tx) => {
     if (!persisted(actor)) return;
     now = true;
     mark(positionKey(actor), Mark.Actor({ actor }));
+  };
+
+  /**
+   * Marks a saved read entry as changed, with the text it is now written as, or none to delete
+   * it; a later change in the step replaces the earlier.
+   */
+  const saveEntry = (key: string, saved: Option.Option<string>) => {
+    if (!tx.world().persistence) return;
+
+    marked = true;
+    tx.put("marked", key, Mark.Entry({ saved }));
   };
 
   /**
@@ -378,7 +406,7 @@ export const makePersistence = (tx: Tx) => {
     const identities = new Map<string, Array<readonly [string, Mark]>>();
 
     for (const entry of new Map([...again, ...tx.world().marked])) {
-      const key = actorKey(entry[1].actor);
+      const key = groupOf(...entry);
       const keys = identities.get(key);
 
       if (keys === undefined) identities.set(key, [entry]);
@@ -400,11 +428,14 @@ export const makePersistence = (tx: Tx) => {
   ) => {
     const withheld = new Map(
       held.flatMap(({ keys, failure }) =>
-        keys.slice(0, 1).map(([, m]) => {
-          reportWithheld(m.actor, failure);
+        // Only an identity's records fail to encode; a saved entry always writes.
+        keys.slice(0, 1).flatMap(([, m]) =>
+          Option.toArray(actorOf(m)).map((actor) => {
+            reportWithheld(actor, failure);
 
-          return [actorKey(m.actor), m.actor] as const;
-        }),
+            return [actorKey(actor), actor] as const;
+          }),
+        ),
       ),
     );
 
@@ -429,7 +460,7 @@ export const makePersistence = (tx: Tx) => {
   const capture = (tickets: ReadonlyArray<Ticket>, again: Marks) => {
     const projected = byIdentity(again).map((keys) => ({
       keys,
-      written: Result.all(keys.map(([, m]) => writeOf(m))),
+      written: Result.all(keys.map(([key, m]) => writeOf(key, m))),
     }));
 
     const went = projected.flatMap(({ keys, written }) =>
@@ -465,6 +496,7 @@ export const makePersistence = (tx: Tx) => {
     saveActor,
     keepEnded,
     removeActor,
+    saveEntry,
     saveWork,
     saveAwaited,
     setLane,

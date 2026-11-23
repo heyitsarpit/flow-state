@@ -50,7 +50,7 @@ const entries = (cut: Cut, prefix: string) =>
 const first = { title: "Plan", body: "# Goals\nfirst draft\n# Risks", revision: 1 };
 
 describe("a persisted read's saved entry (Operations R12, I24; Records R18)", () => {
-  it.fails("Operations Entry store, R12, I24: the plan's read is saved when it lands, kept across a reload, and the first ask after it starts a request", async () => {
+  it("Operations Entry store, R12, I24: the plan's read is saved when it lands, kept across a reload, and the first ask after it starts a request", async () => {
     const run = await savedEntry.run();
 
     expect(entries(run.checkpoints.loaded, DOCUMENT)).toEqual([first]);
@@ -59,7 +59,7 @@ describe("a persisted read's saved entry (Operations R12, I24; Records R18)", ()
     expect(run.checkpoints.asked.read(library)?.memory.revision).toBe(1);
   });
 
-  it.fails("Operations Entry store (install, `now - at >= gcTime`): a saved copy older than a day is dropped at the boot", async () => {
+  it("Operations Entry store (install, `now - at >= gcTime`): a saved copy older than a day is dropped at the boot", async () => {
     const run = await savedEntryExpired.run();
 
     expect(entries(run.checkpoints.loaded, DOCUMENT)).toEqual([first]);
@@ -78,7 +78,7 @@ describe("a persisted read's saved entry (Operations R12, I24; Records R18)", ()
     expect(entries(run.checkpoints.loaded, OUTLINE)).toEqual([]);
   });
 
-  it.fails("Records R18, Operations Entry store (does not decode by `output`): a saved copy whose data fails `output` starts missing, with no issue, and its bytes go", async () => {
+  it("Records R18, Operations Entry store (does not decode by `output`): a saved copy whose data fails `output` starts missing, with no issue, and its bytes go", async () => {
     const written = await savedEntry.run();
 
     const [key, text] = Option.getOrThrow(
@@ -106,7 +106,7 @@ describe("a persisted read's saved entry (Operations R12, I24; Records R18)", ()
     expect(run.checkpoints.ensured.read(library)?.issues).toEqual([]);
   });
 
-  it.fails("Plan Operations O1 (persisted resources require output): `persist: true` without `output` is refused at construction", () => {
+  it("Plan Operations O1 (persisted resources require output): `persist: true` without `output` is refused at construction", () => {
     const declare: (config: unknown) => unknown = loose(resource);
 
     expect(() =>
@@ -131,7 +131,7 @@ describe("writes into a persisted read (Operations R4; Entry store)", () => {
     return stories;
   };
 
-  it.fails("Operations R4, entry table (Written): a saved edit written into the read is the saved copy across a reload", async () => {
+  it("Operations R4, entry table (Written): a saved edit written into the read is the saved copy across a reload", async () => {
     const { savedAfterWrite } = await load();
     const run = await savedAfterWrite.run();
     const second = { title: "Plan", body: "second draft", revision: 2 };
@@ -140,7 +140,7 @@ describe("writes into a persisted read (Operations R4; Entry store)", () => {
     expect(entries(run.checkpoints.reloaded, DOCUMENT)).toEqual([second]);
   });
 
-  it.fails("Operations Entry store, Clear (decided: the saved copy mirrors the entry's data): closing the plan clears its read, and its saved copy goes with it", async () => {
+  it("Operations Entry store, Clear (decided: the saved copy mirrors the entry's data): closing the plan clears its read, and its saved copy goes with it", async () => {
     const { closeClears } = await load();
     const run = await closeClears.run();
 

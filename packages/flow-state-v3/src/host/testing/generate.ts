@@ -448,6 +448,10 @@ const delayOf = (answer: Answer, at: number) => {
 // How a held answer ends when its delay passes: released, or lost on its way back.
 const endOf = (answer: Answer) => (answer === "heldThenLost" ? "lose" : "release");
 
+// Where each end word sits: as the endpoint's own `release()` and `lose()` build it, so the printed
+// Story is the generated one.
+const ENDED_AT = { release: "request", lose: "response" } as const;
+
 type Timer = {
   readonly due: number;
   readonly at: Option.Option<Endpoint>;
@@ -612,7 +616,7 @@ const sourceOf = (pools: Pools, drawing: Drawing, draws: ReadonlyArray<Draw>, se
       onNone: () => (view.heldWrites.length > 0 ? Option.some(storage("release")) : Option.none()),
       onSome: (at) =>
         view.held.some((h) => keyOf(h) === keyOf(at))
-          ? Option.some(wire(at, timer.word, "request"))
+          ? Option.some(wire(at, timer.word, ENDED_AT[timer.word]))
           : Option.none(),
     });
   };

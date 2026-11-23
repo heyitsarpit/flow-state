@@ -68,7 +68,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   }
 
   const ledger = makeLedger(tx, persistence);
-  const entries = makeEntries(tx, ledger);
+  const entries = makeEntries(tx, ledger, persistence);
   const lanes = makeLanes(tx, persistence, ledger, entries);
   const answers = makeAnswers(tx, lanes, entries);
   const incarnations = makeIncarnations(tx, persistence, ledger, lanes, entries);

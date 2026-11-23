@@ -11,6 +11,7 @@ import { makeScheduleRestore } from "./schedule-restore.ts";
 import { Act } from "./evidence-of.ts";
 import type { LaneSteps } from "./lanes.ts";
 import type { EntrySteps } from "./entries.ts";
+import { isEntryKey } from "./entry-store.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { admit } from "./admit.ts";
 import { positionKey, workKey } from "./persist.ts";
@@ -321,7 +322,10 @@ export const makeIncarnations = (
    * wakes delivers what it is owed.
    */
   const boot = (stored: ReadonlyMap<string, string>) => {
-    const admitted = admit(tx.machines, stored);
+    // Saved read entries are a cache, installed apart from the identities' records.
+    entries.install(stored);
+
+    const admitted = admit(tx.machines, new Map([...stored].filter(([key]) => !isEntryKey(key))));
 
     tx.replace("records", new Map(admitted.records.map((r) => [actorKey(r.actor), r])));
 

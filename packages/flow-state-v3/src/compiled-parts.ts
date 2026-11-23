@@ -9,6 +9,7 @@ import {
   type Mapping,
   Operation,
   type OperationWalk,
+  type SavedCodec,
   type ServiceKeys,
   Source,
   type Values,
@@ -99,6 +100,14 @@ export const operationOf = (name: string, bound: Bound) => {
       services,
       staleTime: internals.staleTime,
       gcTime: internals.gcTime,
+      // A read kept no time once unheld is never installed, so it is never saved.
+      saved: Option.map(
+        Option.filter(internals.saved, () => internals.gcTime > 0),
+        (codec) => ({
+          encode: slot<SavedCodec["encode"]>(`operations.${name}.output`, codec.encode),
+          decode: slot<SavedCodec["decode"]>(`operations.${name}.output`, codec.decode),
+        }),
+      ),
       call: slot<Lookup>(place, internals.call),
     });
 

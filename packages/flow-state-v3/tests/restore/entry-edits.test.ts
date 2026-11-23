@@ -1,4 +1,4 @@
-import { Layer, Option, Schema } from "effect";
+import { Effect, Layer, Option, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { DocsLive } from "../../fixtures/draft/adapters/docs.ts";
 import { DocsFake } from "../../fixtures/draft/server/layer.ts";
@@ -21,24 +21,27 @@ import {
 // cache record is Discard); a saved entry under a contract the build no longer declares is a cache
 // record nothing reads, so it is discarded too.
 
-const persisted = <F extends Schema.Struct.Fields>(id: string, output: Schema.Struct<F>) => {
-  const savedOnDevice = { persist: true, output } as const;
-
-  return resource({
+// The document read with an edited `output`: its lookup reads a document by that Schema, as an app
+// edits its server Schema and its output together.
+const persisted = <A>(id: string, output: Schema.Codec<A, unknown>) =>
+  resource({
     id,
     input: { id: Schema.String },
     key: ["id"],
     services: [DocsApi],
     staleTime: "1 minute",
     gcTime: "1 day",
-    ...savedOnDevice,
-    lookup: (input) => DocsApi.use((api) => api.document(input)),
+    persist: true,
+    output,
+    lookup: (input) =>
+      DocsApi.use((api) => api.document(input)).pipe(
+        Effect.flatMap((doc) => Effect.orDie(Schema.decodeUnknownEffect(output)(doc))),
+      ),
   });
-};
 
 // One build of the draft app whose document read is `read`: a document machine that reads it on
 // Open, persisted, over the documents fake.
-const build = (read: ReturnType<typeof persisted>) => {
+const build = <A>(read: ReturnType<typeof persisted<A>>) => {
   const Reader = definition({
     id: "Draft/Document",
     persist: true,
@@ -104,13 +107,13 @@ const keptBy = async (edited: ReturnType<typeof build>) => {
 const { title, body, revision } = Doc.fields;
 
 describe("a saved entry after the definition is edited (Records R18; Operations Entry store)", () => {
-  it.fails("reordered `output` fields: the saved entry installs", async () => {
+  it("reordered `output` fields: the saved entry installs", async () => {
     expect(
       await keptBy(build(persisted("Draft/document", Schema.Struct({ revision, body, title })))),
     ).toBe(true);
   });
 
-  it.fails("an optional `output` field added: the saved entry installs", async () => {
+  it("an optional `output` field added: the saved entry installs", async () => {
     const tags = Schema.optional(Schema.Array(Schema.String));
 
     expect(
@@ -120,7 +123,7 @@ describe("a saved entry after the definition is edited (Records R18; Operations 
     ).toBe(true);
   });
 
-  it.fails("a required `output` field added: the saved entry does not decode and its bytes go", async () => {
+  it("a required `output` field added: the saved entry does not decode and its bytes go", async () => {
     const tags = Schema.Array(Schema.String);
 
     expect(
@@ -130,13 +133,13 @@ describe("a saved entry after the definition is edited (Records R18; Operations 
     ).toBe(false);
   });
 
-  it.fails("an `output` field removed: the saved entry still decodes and installs", async () => {
+  it("an `output` field removed: the saved entry still decodes and installs", async () => {
     expect(
       await keptBy(build(persisted("Draft/document", Schema.Struct({ body, revision })))),
     ).toBe(true);
   });
 
-  it.fails("an `output` field renamed: the saved entry does not decode and its bytes go", async () => {
+  it("an `output` field renamed: the saved entry does not decode and its bytes go", async () => {
     expect(
       await keptBy(
         build(persisted("Draft/document", Schema.Struct({ title, text: body, revision }))),
@@ -144,7 +147,7 @@ describe("a saved entry after the definition is edited (Records R18; Operations 
     ).toBe(false);
   });
 
-  it.fails("the resource renamed: the old saved entry names a contract no build declares and its bytes go", async () => {
+  it("the resource renamed: the old saved entry names a contract no build declares and its bytes go", async () => {
     expect(await keptBy(build(persisted("Draft/doc", Doc)))).toBe(false);
   });
 });

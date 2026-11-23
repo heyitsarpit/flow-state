@@ -1,8 +1,10 @@
 import { Option, Result } from "effect";
 import { Alarm } from "./alarms.ts";
-import { Operation, type Values } from "./compiled.ts";
+import type { Operation, Values } from "./compiled.ts";
 import { makeEntryPlacements } from "./entry-placements.ts";
 import { makeEntryReleases } from "./entry-releases.ts";
+import { makeEntryStore } from "./entry-store.ts";
+import type { Persistence } from "./persist.ts";
 import {
   againOf,
   type Asker,
@@ -21,6 +23,8 @@ import {
   type ReadSlot,
   Request,
   type Row,
+  freshAt,
+  timesIn,
   viewOf,
   withAgain,
   withOne,
@@ -43,36 +47,25 @@ type Landed = Option.Option.Value<Entry["data"]>["value"];
  * holders and releasing calls, and of the Collect alarms. Each change of an entry is one cue of
  * the entry table, applied to the entry's phase.
  */
-export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
+export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistence) => {
+  const store = makeEntryStore(tx, persistence);
+
   // The entries a step took a hold from: judged at the step's end.
   const touched = new Set<EntryKey>();
 
   const now = () => tx.env.now;
 
-  const readOf = (machine: string, operation: string) =>
-    Option.filter(
-      Option.fromUndefinedOr(tx.machines.get(machine)?.operations.get(operation)),
-      Operation.$is("Read"),
-    );
+  const timesOf = (entry: Entry) => timesIn(tx.machines, entry);
 
-  const timesOf = (entry: Entry) =>
-    Option.match(readOf(entry.read.machine, entry.read.operation), {
-      onNone: () => ({ staleTime: 0, gcTime: 0 }),
-      onSome: (op) => ({ staleTime: op.staleTime, gcTime: op.gcTime }),
-    });
-
-  const fresh = (entry: Entry) =>
-    Option.exists(
-      entry.data,
-      (d) =>
-        Option.exists(d.asked, (asked) => asked >= entry.staleAt) &&
-        now() - d.at >= 0 &&
-        now() - d.at < timesOf(entry).staleTime,
-    );
+  const fresh = (entry: Entry) => freshAt(entry, timesOf(entry).staleTime, now());
 
   const holdersOf = (key: EntryKey) => tx.world().holders.get(key) ?? new Map<string, Holder>();
 
-  const put = (key: EntryKey, entry: Entry) => tx.put("entries", key, entry);
+  // An entry written; its saved entry follows its data.
+  const put = (key: EntryKey, entry: Entry) => {
+    store.changed(Option.fromUndefinedOr(tx.world().entries.get(key)), entry);
+    tx.put("entries", key, entry);
+  };
 
   const slotOf = (h: Holder) =>
     Option.fromUndefinedOr(tx.world().slots.get(h.life)?.get(h.operation));
@@ -187,6 +180,12 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     tx.clearAlarm(Alarm.Collect({ entry: key }));
   };
 
+  // A collection: the entry is removed, and its saved entry with it.
+  const collected = (key: EntryKey, entry: Entry) => {
+    store.removed(entry);
+    remove(key);
+  };
+
   // Data a landed success or a write confirms: updates whose commit succeeded before it go.
   // RETURN_TYPE: the entry's own type, so the cleared fields keep their Option types.
   const confirmed = (entry: Entry, value: Landed, asked: number): Entry => ({
@@ -296,7 +295,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
   const unheld = (key: EntryKey, entry: Entry) => {
     const { gcTime } = timesOf(entry);
 
-    if (gcTime <= 0) return remove(key);
+    if (gcTime <= 0) return collected(key, entry);
 
     put(key, { ...entry, unheldSince: Option.some(now()) });
     tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);
@@ -314,7 +313,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
         holdersOf(key).size === 0 &&
         Option.exists(entry.unheldSince, (since) => now() - since >= timesOf(entry).gcTime)
       )
-        remove(key);
+        collected(key, entry);
     },
     Current: () => undefined,
     Behind: () => undefined,
@@ -552,6 +551,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     settled: settledCall,
     collectDue: collect,
     releaseDue,
+    install: store.install,
     stepEnds,
     runtimeEnds: runtimeEnded,
     layer,

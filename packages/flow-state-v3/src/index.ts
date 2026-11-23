@@ -5,18 +5,22 @@ export { resource, transaction } from "./contract.ts";
 
 export type {
   Ending,
-  LookupEndings,
   MapperContext,
-  PlacedContext,
-  PlacedEndings,
-  ReadEndings,
-  ReadFailures,
   Resource,
   Transaction,
   UnknownEnding,
   WriteEndings,
   WriteOptions,
 } from "./contract.ts";
+
+export type {
+  LookupEndings,
+  PersistOptions,
+  PlacedContext,
+  PlacedEndings,
+  ReadEndings,
+  ReadFailures,
+} from "./contract-reads.ts";
 
 export type { Attempt, ReadWrite } from "./core/compiled.ts";
 

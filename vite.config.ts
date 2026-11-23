@@ -248,6 +248,7 @@ export default defineConfig({
         // every machine body assigns to. The suite's machines are app code over those bags.
         files: [
           `${productionSource}/contract.ts`,
+          `${productionSource}/contract-reads.ts`,
           `${productionSource}/definition.ts`,
           `${productionSource}/derive.ts`,
           `${productionSource}/event-tokens.ts`,

@@ -97,6 +97,31 @@ export const parseKey = (text: string) =>
 export const parseOwner = (text: string) =>
   Option.filter(ownerOf(text), (owner) => ownerText(owner) === text);
 
+const ENTRY = "entry/";
+
+/**
+ * The key a saved read entry is stored under: its contract, then its key's canonical text.
+ */
+export const entryRecordKey = (contract: string, text: string) => `${ENTRY}${contract}|${text}`;
+
+/**
+ * A stored key read as a saved entry's: its contract and its key text, when it is one; only a key
+ * that prints back to the same text.
+ */
+export const parseEntryKey = (stored: string) => {
+  if (!stored.startsWith(ENTRY)) return Option.none();
+
+  const rest = stored.slice(ENTRY.length);
+  const cut = rest.indexOf("|");
+
+  return Option.filter(
+    cut <= 0
+      ? Option.none()
+      : Option.some({ contract: rest.slice(0, cut), text: rest.slice(cut + 1) }),
+    (e) => entryRecordKey(e.contract, e.text) === stored,
+  );
+};
+
 /**
  * The text a lane is kept under in a Runtime: its identity's owner text, its operation and its key
  * text.

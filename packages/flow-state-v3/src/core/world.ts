@@ -401,11 +401,13 @@ export type ActorRecord = {
 };
 
 /**
- * A record key a step changed, with the identity whose record it is: its position or its work.
+ * A record key a step changed: an identity's position or work, with the identity whose record it
+ * is, or a saved read entry, with the text it is written as (none to delete it).
  */
 export type Mark = Data.TaggedEnum<{
   Actor: { actor: ActorId };
   Work: { actor: ActorId };
+  Entry: { saved: Option.Option<string> };
 }>;
 
 /**

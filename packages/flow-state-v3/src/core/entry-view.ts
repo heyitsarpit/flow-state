@@ -1,5 +1,5 @@
 import { Data, Option, Result } from "effect";
-import type { Previous, Values } from "./compiled.ts";
+import { Operation, type Previous, type Values } from "./compiled.ts";
 import { CallResult } from "./input.ts";
 import type { Channel } from "./vocabulary.ts";
 import type { AttemptId, CallId, IncarnationId, OwnedBy, ActorId } from "./world.ts";
@@ -214,6 +214,39 @@ export type Cell<T extends Cue["_tag"]> = (
  * A row of the entry table: one cell per phase.
  */
 export type Row<T extends Cue["_tag"]> = Record<Phase, Cell<T>>;
+
+/**
+ * An entry's stale and collect times, from the read whose call reads it; none counts as zero.
+ */
+export const timesIn = (
+  machines: ReadonlyMap<string, { readonly operations: ReadonlyMap<string, Operation> }>,
+  entry: Entry,
+) =>
+  Option.match(
+    Option.filter(
+      Option.fromUndefinedOr(
+        machines.get(entry.read.machine)?.operations.get(entry.read.operation),
+      ),
+      Operation.$is("Read"),
+    ),
+    {
+      onNone: () => ({ staleTime: 0, gcTime: 0 }),
+      onSome: (op) => ({ staleTime: op.staleTime, gcTime: op.gcTime }),
+    },
+  );
+
+/**
+ * Whether an entry is fresh at `now`: its data asked since its last invalidation, and younger
+ * than its stale time.
+ */
+export const freshAt = (entry: Entry, staleTime: number, now: number) =>
+  Option.exists(
+    entry.data,
+    (d) =>
+      Option.exists(d.asked, (asked) => asked >= entry.staleAt) &&
+      now - d.at >= 0 &&
+      now - d.at < staleTime,
+  );
 
 /**
  * Whether one trailing request is wanted: only while Running.

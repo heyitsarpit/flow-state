@@ -7,6 +7,72 @@ import type { Fault } from "./faults.ts";
  */
 export const readsFaults: ReadonlyArray<Fault> = [
   {
+    name: "saved-entry-fresh",
+    tests: ["tests/draft/saved-entries.test.ts"],
+    says: "a saved entry installs as asked, so the first ask after a reload serves it as fresh",
+    rule: "Operations R12, I24",
+    edits: [
+      {
+        file: "src/core/entry-store.ts",
+        find: "          data: Option.some({ value: data, at, asked: Option.none() }),",
+        replace: "          data: Option.some({ value: data, at, asked: Option.some(0) }),",
+      },
+    ],
+  },
+  {
+    name: "old-entry-installed",
+    tests: ["tests/draft/saved-entries.test.ts"],
+    says: "a saved entry at least gcTime old installs",
+    rule: "Operations R12, I24 (install)",
+    edits: [
+      {
+        file: "src/core/entry-store.ts",
+        find: "            Option.filter(entryOfText(codec, text), ({ at }) => tx.env.now - at < op.gcTime),",
+        replace: "            Option.filter(entryOfText(codec, text), ({ at }) => at === at),",
+      },
+    ],
+  },
+  {
+    name: "undecodable-entry-kept",
+    tests: ["tests/draft/saved-entries.test.ts"],
+    says: "a saved entry the boot cannot install keeps its bytes",
+    rule: "Records R18",
+    edits: [
+      {
+        file: "src/core/entry-store.ts",
+        find: "      onNone: () => persistence.saveEntry(stored, Option.none()),",
+        replace: "      onNone: () => undefined,",
+      },
+    ],
+  },
+  {
+    name: "persist-without-output-accepted",
+    tests: ["tests/draft/saved-entries.test.ts"],
+    says: "a persisted resource with no output constructs",
+    rule: "Plan Operations O1",
+    edits: [
+      {
+        file: "src/contract.ts",
+        find: "    if (config.persist === true && !Predicate.isNotUndefined(config.output))",
+        replace: '    if (config.persist === true && config.id === "")',
+      },
+    ],
+  },
+  {
+    name: "cleared-entry-saved",
+    tests: ["tests/draft/saved-entries.test.ts"],
+    says: "a cleared read keeps its saved copy, so a reload brings back data the app removed",
+    rule: "Operations Entry store (Clear)",
+    edits: [
+      {
+        file: "src/core/entry-store.ts",
+        find: "    if (Option.exists(before, (b) => b.data === after.data)) return;",
+        replace:
+          "    if (Option.exists(before, (b) => b.data === after.data) || Option.isNone(after.data)) return;",
+      },
+    ],
+  },
+  {
     name: "overdue-early",
     tests: ["tests/chat/reads.test.ts"],
     says: "a released call shows ReleaseOverdue from its release, before the disposal bound passes",
@@ -293,8 +359,8 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entries.ts",
-        find: "    if (gcTime <= 0) return remove(key);",
-        replace: "    if (gcTime < 0) return remove(key);",
+        find: "    if (gcTime <= 0) return collected(key, entry);",
+        replace: "    if (gcTime < 0) return collected(key, entry);",
       },
       {
         file: "src/core/entries.ts",

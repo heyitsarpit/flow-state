@@ -217,10 +217,12 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - **Mini cart (slice T21; written red, in `pending/` until placements, `invalidate` and `optimistic`
     exist):** `MiniCart`, R `cart` (the carts server gains a `cart` endpoint), T `quickAdd`; tests in
     `tests/shop/mini-cart.test.ts`.
-    - [ ] `shop/switch-carts` (the left switching-carts item below), `shop/add-shown-at-once` (the add-at-once
-      item), `shop/refused-add-removed`, `shop/failed-add-during-load` (the failed-change item),
-      `shop/stale-snapshot` (the stale-snapshot finding), `shop/stale-overlapping-adds` (stale overlapping add
-      answers; adapts [cart-transactions.test.ts:253][hy-tx] to two adds).
+    - [x] `shop/switch-carts` (the left switching-carts item below), `shop/refused-add-removed`,
+      `shop/failed-add-during-load` (the failed-change item), `shop/stale-snapshot` (the stale-snapshot finding).
+      built: @task.V3.T123.
+    - [ ] `shop/add-shown-at-once` (the add-at-once item), `shop/stale-overlapping-adds` (stale overlapping add
+      answers; adapts [cart-transactions.test.ts:253][hy-tx] to two adds): left, the user's call on whether a
+      placement's `value` shows optimistic data (Plan O2 against O5; T123's comment).
   - **Context forms** (@task.V3.T107; tests in `tests/shop/context.test.ts`):
     - [x] Usual: pass-through, derived, `when`, payload; an equal count silent, a declined change still the
       baseline. `shop/pulse-adds`. Copies [cart-tracker.test.ts:358][hy-track] "publishes product_added_to_cart
@@ -575,13 +577,13 @@ kamp.us for rows restored after a failure.
     T `cardPayment` declaring `idempotency` by payment id, in place of the old contract's edit) and
     `ChequeDeposit` (T `depositCheque`, `progress`, `idempotency` by deposit id); tests in
     `tests/transfers/reads.test.ts`.
-    - [ ] `transfers/read-after-write` (the read-after-write item), `transfers/switch-account` (placeholder):
-      left, @task.V3.T123, need placements (`subscribe`, `placeholder`). Bigint key "$1n": @task.V3.T122.
+    - [x] `transfers/read-after-write` (the read-after-write item; the card refreshes on a schedule, since time
+      passing starts no read), `transfers/switch-account` (placeholder), `transfers/no-account-yet` (a select that
+      names no key: R11). built: @task.V3.T123. Bigint key "$1n": @task.V3.T122.
     - [x] built (@task.V3.T121, `progress`, `idempotency`): `transfers/deposit-in-parts`,
       `transfers/deposit-closed-midway` (S6), `transfers/deposit-reloaded` (E8), `transfers/deposit-part-lost` (a
       failing part, test-parallel-uploads.js:41, :325), `transfers/deposit-abort-resume`
-      (test-parallel-uploads.js:448), in `pending/deposit-stories.ts`; the module stays in `pending/` until
-      `pending/balance.ts` loads (@task.V3.T123).
+      (test-parallel-uploads.js:448), in `stories/deposits.ts`, registered (@task.V3.T123).
   - **Customer's bill reminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
     `tests/transfers/reminders.test.ts`):
     - [x] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. built:
@@ -857,8 +859,10 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
 - **Scenarios:**
   - **Shell reads (slice T21; written red, in `pending/`):** `Workspace/Shell`, R `profile`, `teams`, T
     `renameTeam` (`optimistic`, `writes`); tests in `tests/session/shell-reads.test.ts`.
-    - [ ] `session/shell-reads` (refetch), `session/rename-shown-at-once`, `session/invalid-write`,
-      `session/sign-out-clears`.
+    - [x] `session/shell-reads` (refetch), `session/invalid-write`, `session/sign-out-clears`. built:
+      @task.V3.T123.
+    - [ ] `session/rename-shown-at-once`: left, the user's call on a placement's `value` and optimistic data
+      (Plan O2 against O5; T123's comment).
   - [x] **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
     settles. Copies [App.test.tsx:217][kp-app] "invariant 1: the shell chrome paints while the session is isPending —
     with NO FateClient mounted". built: `session/usual`, `session/shell-before-session`.
@@ -1149,10 +1153,10 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
     - [x] Box: `search/latest-wins` (guard), `search/repeat-query` (fresh, Collect), `search/two-boxes`,
       `search/blank-query`, `search/stress-typing-burst` (L5, 14), `search-box/stress-36`; S7 builder
       `missingSearch`. built: @task.V3.T122 (S7: @task.V3.T121).
-    - [ ] Results: left, @task.V3.T123 (placements, `refetch`, `invalidate`, `clear`, `setData`):
-      `search/results-usual`, `shared-results`, `refresh-joins`, `clear-results`,
-      `closed-mid-read`, `turned-mid-read`, `saved-write-wins`, `saved-unsure`; samples `search-results` and the
-      generated entry-table test.
+    - [x] Results (placements, `refetch`, `invalidate`, `clear`, a save's `writes`): `search/results-usual`,
+      `shared-results`, `refresh-joins`, `clear-results`, `closed-mid-read`, `turned-mid-read`, `saved-write-wins`,
+      `saved-unsure`. built: @task.V3.T123. Samples `search-results`: left, @task.V3.T123's review (the module is
+      still in `pending/`, unregistered).
   - [ ] **Usual:** type, results, a cached repeat, a refetch after the stale time. The field follows the URL's query
     with no stale second source. Copies [App.test.tsx:642][kp-app] "reads q live — a different query renders a different
     echoed value (no stale/double source)".
@@ -1220,8 +1224,9 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     `liveReadings`); `Feed.multiplex`, `DuplicateSession`, `UnplacedStream` (one connection for every room).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule events).
 - **Scenarios:**
-  - **Thermometer card (slice T21; written red, in `pending/` until placements exist):** `home/card-usual`
-    (a refetch run by a schedule, Operations Q2), `home/release-meets-schedule` (Changes Q9). R `readings`.
+  - [x] **Thermometer card (slice T21):** `home/card-usual` (a refetch run by a schedule, Operations Q2),
+    `home/release-meets-schedule` (Changes Q9), `home/disposed-mid-read` (the placements' build-time choice). R
+    `readings`. built: @task.V3.T123; the module stays in `pending/`, unregistered, left for T123's review.
   - [ ] **Usual:** set a target, readings on schedule, the heater cycles, a vacation pause and resume.
   - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, well past the old 1,024 mailbox (step 11);
     L4 mid-pause.
@@ -1270,8 +1275,8 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     - [ ] X3, an ended copy's schedule callbacks not run in the turn that ended it. left: `@task.V3.T109`, needs
       instances.
     - [ ] I9's life-held and subject-held halves, R15 and R17. left: `@task.V3.T109`, needs instances.
-    - [ ] `Collect` and `Release` alarms, set and taken. left: `@task.V3.T122` and `@task.V3.T123`, needs entries
-      and releasing calls.
+    - [x] `Collect` and `Release` alarms, set and taken: judged at every cut by the harness (a Release alarm
+      while held). built: `search/repeat-query` (@task.V3.T122), `home/release-meets-schedule` (@task.V3.T123).
     - [ ] I12's `Silent` row. left: `@task.V3.T112`, needs the store's unanswered batches kept in the World.
     - [x] Every two-step sequence of 17 atoms (sends, a refused vacation, sensors, a failed save, detach, ensure,
       time, dispose, reload, the Runtime's disposal), judged after every step for I5, I9, I12, I13 and I15 to I17.
@@ -1464,7 +1469,7 @@ checked here).
     - [x] built (@task.V3.T122 reads, @task.V3.T121 endings): `chat/usual`, `two-threads`, `one-reader-left`,
       `no-reader-left` (S6), `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`,
       `stress-send-burst` (L5, 100), `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`;
-      samples `chat`. `chat/release-overdue`: left, @task.V3.T123 (ReleaseOverdue).
+      samples `chat`. `chat/release-overdue`: built, @task.V3.T123 (ReleaseOverdue).
     - [x] Pair sweep: passes since the read members joined the samples; chat is in the manifest's `pairs`
       (@task.V3.T122).
     - [x] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar). built:
@@ -1598,8 +1603,11 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
   - **Slice T21 (written red at requirements, checked at the build's close):** `Library` (registered) and
     `Document` (in `pending/` until `setData`, `clear` and `refetch` exist); R `document` and `outline`
     (`persist: true` with `output`), T `save` (`latest`).
-    - [ ] `draft/saved-entry`, `saved-entry-expired`, `outline-kept-no-time` (Q15), `stress-36`; pending
-      `saved-after-write`, `close-clears`; restore after edits in `tests/restore/entry-edits.test.ts`.
+    - [x] `draft/saved-entry`, `saved-entry-expired`, `outline-kept-no-time` (Q15), `stress-36`; pending
+      `saved-after-write`, `close-clears`, `save-after-close`; restore after edits in
+      `tests/restore/entry-edits.test.ts`. built: @task.V3.T124 (a save's `writes` in place of `setData`, cut).
+    - [ ] Corrupted saved entries in `tests/restore/corrupt.test.ts`: left, @task.V3.T124's review (draft has no
+      persisted pair; the writer-form run rule judges entry records).
   - **Usual:**
     - [ ] Drafts are kept per document. Copies [draftStorage.unit.test.ts:40][kp-draft] "keys drafts by route so two
       surfaces never collide".

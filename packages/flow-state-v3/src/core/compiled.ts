@@ -517,6 +517,16 @@ export type OperationWalk = {
 };
 
 /**
+ * A persisted read's data as its `output` Schema writes it to JSON and reads it back.
+ */
+export type SavedCodec = {
+  // FLOW_STATE_ALLOW_UNKNOWN: a read's data is the lookup's own value; its failure is the Schema's.
+  readonly encode: (data: unknown) => Result.Result<Schema.Json, unknown>;
+  // FLOW_STATE_ALLOW_UNKNOWN: as above.
+  readonly decode: (json: Schema.Json) => Result.Result<unknown, unknown>;
+};
+
+/**
  * A write lane's concurrency policy.
  */
 export type Concurrency = "reject" | "latest" | "serialize" | "cancel";
@@ -558,6 +568,12 @@ export type Operation = Data.TaggedEnum<{
     // How long landed data serves an ask, and an unheld entry is kept, in milliseconds.
     staleTime: number;
     gcTime: number;
+    // How its saved entry's data is written and read back: none when the read is not saved on
+    // the device, or is kept no time once unheld.
+    saved: Option.Option<{
+      readonly encode: Slot<SavedCodec["encode"]>;
+      readonly decode: Slot<SavedCodec["decode"]>;
+    }>;
     call: Slot<Lookup>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
