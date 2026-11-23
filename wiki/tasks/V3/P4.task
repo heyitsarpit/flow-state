@@ -6482,7 +6482,7 @@ tasks
             zero hits); setData moved to writes in 7867b2a4.
     T123
         title       Placements and release
-        status      in_progress
+        status      review
         priority    medium
         parent      [@T21]
 
@@ -6606,9 +6606,13 @@ tasks
             optimistic values, but Plan O5 says every reader sees optimistic updates; session/rename-shown-at-once and
             shop add-shows/overlapping-adds read the optimistic line through value into memory, so they stay it.fails.
             Fix either the Plan wording or those Stories (read the row's data instead).
+        comment     2026-11-23T09:08:59Z
+            To review at 33efcd7a (build 7867b2a4, fe24f876): check 0/0, suite green, stress 113/113, 8 own faults
+            caught; left: 3 optimistic-on-placement reds (the user's Plan question) and the search and home modules
+            still in pending/.
     T124
         title       Persisted resources
-        status      in_progress
+        status      review
         priority    medium
         parent      [@T21]
 
@@ -6712,6 +6716,9 @@ tasks
             every cut, and recordLiterals now includes EntryRecord. Adoption's Install cell is T48's. The draft saved
             stress Story was stale because the generator wrote lose() at request while the endpoint's lose() builds it
             at response (generate.ts, fixed).
+        comment     2026-11-23T09:09:00Z
+            To review at 33efcd7a: check 0/0, suite green, stress 113/113 (draft's saved stress Story regenerated), 5
+            own faults caught; left: entry records in the corruption test.
     T127
         title       Declared emits at the root
         status      draft
