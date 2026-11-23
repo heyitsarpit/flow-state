@@ -896,3 +896,7 @@ note 2026-11-23T02:41:00Z
 note 2026-11-23T02:44:52Z
     [decided: user 2026-11-23] "why not just remove this section": loop finding 3 (re-review only what changed) dropped,
     not merged; it could narrow review and miss new bug classes.
+
+note 2026-11-23T02:46:59Z
+    Amendment (2026-11-23, the user): loop findings merged into the Epic's instructions and @convention.fixtures.
+    Commit: d8cc27a6.
