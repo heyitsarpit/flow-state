@@ -26,47 +26,19 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
 
 ## Proposed changes
 
-1. **Walks and enumerations in checks are derived from the Spec, not from the code's own traversal** [proposed]. Why:
-   the slice T89 blocker passed every test because the test walked a structure the same way the code did.
-2. **A migration or deletion of a public form gets two independent inventories plus one mechanical pass before its
-   requirements** [proposed]. Why: one inventory missed 28 of about 130 sites in slice T89.
-3. **Mid-slice design changes reconcile the reds and re-review only what changed** [proposed]. Why: three design
-   decisions landed during slice T89; reconciling then a scoped re-review kept the build honest without restarting.
-4. **A slice costs about 6% of the weekly limit** with two requirements reviews, one build, a close review and a fix
-   round [proposed, as a planning figure]. Why: measured on slice T89 (55% to 61%).
-5. **An acceptance item stated as an absence gets a grep in the builder's close gates** [proposed]. Why: slice T118's
-   builder reported "no `it.fails` left", one was, and a whole close review and fix round went on it; `rg` would have
-   caught it in a second.
-6. **The requirements brief names the fixtures-first variety rule and the extend-first rule up front** [proposed]. Why:
-   slice T118's requirements lead built one app, was sent back for two more, then all three were folded into existing
-   machines: about an hour of rework.
-7. **Fix rounds carry blockers and the user's decisions; other routed items go to their owners unless they change the
-   same state** [proposed]. Why: slice T118's first fix round grew to six items around a one-line blocker.
-8. **A slice can still run long when its catalog step is large** [proposed, as a planning figure]: slice T118 took
-   about 61% to 70% of the weekly limit (9%), with three review rounds after the build. Why: the requirements rework
-   and two post-PASS rulings each added a round.
-
-9. **A ruling that changes how fixtures or user code look comes with a before/after snippet** [proposed]. Why: in
-   slice T142 a one-line ruling ("share the plain config object") came back as a generic factory the user rejected.
-10. **A decision the user doubts gets a fresh spike before a ruling** [proposed]. Why: slice T142's re-spike of body
-   exactness found the capture costs about 14 to 27% check time, not the prohibitive cost Q19 assumed, and the user
-   reversed Q19.
-11. **The user's fixture taste goes into every build brief that touches fixtures** [proposed]. Why: three mid-build
-   corrections in slice T142 (variants, `payBody`, `byRepo`) came from diffs the user read while the build ran.
-
-12. **The requirements list maps every Requirement in the Task's Spec range, not only its Invariants** [proposed].
-   Why: slice T119's requirements review blocked on R22 (one input builder), which no Invariant carries, so the list
-   drawn from the Invariants missed it.
-14. **Whatever the harness judges about a fact, it also judges the host's view of it** [proposed]. Why: slice T119's
-   lost wake passed because I12 checked the alarm map but not whether the host held a wake; the same gap can recur for
-   any fact the host mirrors (leases, subscriptions).
-15. **A slice that replaces the turn's core costs about 8% of the weekly limit** [proposed, as a planning figure]:
-   slice T119 took 82% to 90% across requirements, two reviews, a build and one fix round.
-16. **A test oracle for a boundary is derived from the writer it judges, never hand-written beside it** [proposed].
-   Why: slice T92's close review blocked on a made-up ending that passed because the writer, the reader and the
-   corrupt-record oracle were three copies, the oracle the widest; deriving all three from one codec closed it.
+None open.
 
 ## Already merged
+
+- Merged into the Epic's instructions (the user, 2026-11-23): every Requirement in range, not only Invariants (was 12);
+  the variety and extend-first rules in the requirements brief (was 6); one agent inventory plus one mechanical pass
+  before a migration's requirements (was 2); checks walk by the rule, not the code (was 1); a boundary's oracle
+  derived from its writer (was 16); both sides of a mirrored fact checked (was 14); an `rg` gate for absence items
+  (was 5); a fix round carries blockers and decisions only (was 7); before/after code with a ruling, pointing to
+  AGENTS.md (was 9); a fresh spike for a doubted decision (was 10). Deleted as superseded by the 5 to 10% slice
+  cost: 4, 8, 15. Dropped: 3 (re-review only what changed), since it could narrow review and miss new bug classes.
+- The user's fixture taste is written in @convention.fixtures "How fixture code reads", which every fixture brief
+  already cites (was 11; the user, 2026-11-23).
 
 - Who runs each step: the requirements lead stops after its fix round, a fresh medium builder takes the build, and a
   fix round's review returns to the same reviewer (was item 13; Epic "Models and agents", the user, 2026-11-23).

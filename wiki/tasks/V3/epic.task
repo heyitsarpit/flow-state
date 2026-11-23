@@ -242,7 +242,10 @@ instructions
       check them, by @spec id. A new Task inherits this rule and states it in the same item.
     - Requirements first (the user, 2026-11-12), by skill:execute-task step 2. The requirements list is in the Task's
       comments, each rule with its source, mapped one to one to the Task's acceptance. The lead may gather it with
-      read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary).
+      read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary). The
+      list maps every Requirement in the Task's Spec range, not only its Invariants: a rule no Invariant carries is
+      otherwise missed (the user, 2026-11-23). The requirements brief names @convention.fixtures' variety rule and the
+      extend-first rule below up front (the user, 2026-11-23).
     - The whole Task at once (the user, 2026-11-20): skill:execute-task step 1, with Task boundaries by skill:to-task
       step 1 and R48's phase-start review. The state's one owner function ships with its guard and its planted faults in
       the same Task; an implicit state machine spread across separate checks is a blocking finding.
@@ -280,7 +283,9 @@ instructions
       `tools/flow-state-lint/rules/` with its own test of the patterns it must and must not flag, so the hits are
       trusted. It runs on demand, outside `nub run check`, as the mechanical pass beside any agent inventory. At zero
       hits it is deleted, or promoted into `nub run check` when the pattern must never return. A sidecar may draft one
-      in the scratchpad as a finder; a committed rule is written by the lead.
+      in the scratchpad as a finder; a committed rule is written by the lead. A migration or deletion of a public form
+      gets one agent inventory and one mechanical pass (`rg`, or a temporary lint rule), compared before its
+      requirements are written (the user, 2026-11-23).
     - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
       review routes to a later Task lands as an inverted test, or as a comment on its owner Task when no fixture can
       express it yet (the user, 2026-11-12).
@@ -324,6 +329,14 @@ instructions
       - a design question found mid-build is validated before the build builds on it (the user, 2026-11-22): two traces
         in a Task comment and one blind Haiku sidecar on that rule (skill:execute-task step 3), and the reds it touches
         are reconciled and re-run;
+      - checks walk a structure the way the cited rule defines it, never the way the code traverses it, so a test cannot
+        share the code's blind spot (the user, 2026-11-23);
+      - a test oracle for a boundary is derived from the writer it judges (one codec or Schema used by the writer, the
+        reader and the oracle), never hand-written beside it (the user, 2026-11-23);
+      - when the host mirrors a fact the core owns (a timer, a lease, a subscription), the harness checks both sides at
+        every cut, not only the core's (the user, 2026-11-23);
+      - an acceptance item stated as an absence ("no `it.fails` left", "no caller of X") gets an `rg` in the builder's
+        close gates (the user, 2026-11-23);
       - every requirements list names each real resource the Task touches (store, page, network, clock) and what its
         fake does not yet do (close, refuse after close, hold, hide); a gap is hardened in the fake or checked for real;
       - a Task touching a persisted shape shows restore after the definition is edited: a reorder, an add, a remove and
@@ -353,7 +366,9 @@ instructions
     - A close review (R17) runs skill:check-task and reviews the Task's diff in the same pass.
     - Stopping rule (the user, 2026-11-12): a finding blocks only when it is in the Task's range, has a check red on
       current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance item; others are
-      routed or noted. A fix round is checked by the next review, with no separate re-check.
+      routed or noted. A fix round is checked by the next review, with no separate re-check. A fix round carries the
+      blockers and the user's decisions; other routed items go to their owner Tasks, unless they change the same state
+      as a blocker (the user, 2026-11-23).
     - Every accepted finding names why the tests missed it, by R17; its class is covered per @convention.fixtures, and a
       class that recurs across Tasks becomes a run rule or a fixture every later Task inherits (the user, 2026-11-16).
     - Convergence follows skill:policy-convergence (the user, 2026-11-20, after T57; the threshold for a local cause is
@@ -366,7 +381,9 @@ instructions
     - Every requirements review and close review runs skill:check-task step 5 (cohesion) (the user, 2026-11-19), with
       this project's house patterns: tokens not strings, `$match` or tag tables, branded ids, `X.use`, Schema-derived
       types. One sidecar takes cohesion as its fixed angle.
-    - A ruling is asked as two traces of the same Story, not as prose.
+    - A ruling is asked as two traces of the same Story, not as prose. A ruling that changes how fixtures or user code
+      look comes with complete before/after code (AGENTS.md "Showing designs"). A decision the user doubts gets a fresh
+      spike, measured, before it is ruled on again (the user, 2026-11-23).
     - Loop findings (the user, 2026-11-22): at each slice's close the orchestrator also adds to @proposal.loop-findings
       what worked and what should change for future slices, only lessons that apply beyond that slice, each marked
       proposed; the user confirms them, confirmed items are merged into the Epic or a convention and removed from

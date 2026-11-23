@@ -38,6 +38,25 @@ the way they do in real apps:
 
 Each catalog row lists its app's machines and operations by name.
 
+## How fixture code reads
+
+Fixture code is written the way an app author writes it, and the user reads fixture diffs closely (the user,
+2026-11-22, slice T142):
+
+- **No factories.** Variants of one idea (three lane policies, two account kinds) are each written out as their own
+  definition and machine. A table that runs them all is a `satisfies Record<Key, Row>` whose rows each name their own
+  ref, so a cross-variant send stays a type error. A factory returns one type for all variants and lets one variant's
+  event type-check against another.
+- **Bodies are written inline.** `machine(Pay, ({ S, E, O }) => ({ … }))`, never a whole body shared between
+  machines or kept apart from its `machine` call. What two machines share is a small helper typed from the
+  definition (`typeof Room.Memory.Type`), not a body.
+- **Helpers are plain functions of plain values.** `known(memory, key)`, with each handler passing its own key
+  inline, not a helper generic over a handler's input only to share one handler body.
+- **One home per helper.** A helper used in several places (`byRepo`, `fromAccount`) is defined once, in the
+  fixture or in `fixtures/services/<service>/`, and imported.
+- **No hand-typed callback parameters.** A handler's input is inferred from its definition; a type written out
+  by hand is flagged by the `no-hand-typed-callback` lint rule.
+
 ## What a fixture holds
 
 ```text
