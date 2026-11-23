@@ -7,7 +7,11 @@ import {
   noReaderLeft,
   oneReaderLeft,
   releaseOverdue,
+  postedMidRead,
+  refreshAndLeave,
+  unsureThenPosted,
   twoThreads,
+  unsentEcho,
   usual,
 } from "../../fixtures/chat/stories/usual.ts";
 import { Chat } from "../../fixtures/chat/server/chat.ts";
@@ -108,6 +112,36 @@ describe("a released history read (Operations R8, I11)", () => {
   });
 });
 
+describe("invalidate, refetch and clear on the history (Operations entry table, T4.4)", () => {
+  it("Operations T4.4 (Invalidate, Running behind; Settled behind): the thread hears the trailing read's answer, not the one asked before the post", async () => {
+    const run = await postedMidRead.run();
+    const { posted, joined } = run.checkpoints;
+
+    expect(historyCalls(posted, "general")).toHaveLength(1);
+    expect(historyCalls(joined, "general")).toHaveLength(2);
+    expect(ids(joined)).toEqual(["m-1", "m-2", "m-3"]);
+  });
+
+  it("Plan Operations O5 (unknown asks again once); entry table (Invalidate with no waiter; Ask Lookup, Running behind): the sidebar hears a read asked after the post", async () => {
+    const run = await unsureThenPosted.run();
+    const { unsure, previewed } = run.checkpoints;
+
+    expect(historyCalls(unsure, "general")).toHaveLength(2);
+    expect(historyCalls(previewed, "general")).toHaveLength(3);
+    expect(previewed.read(hub)?.memory.preview).toBe("are you there");
+  });
+
+  it("Operations, entry table (Ask Refetch, Idle; Clear, Idle): a refresh reads fresh data again, and leaving forgets it so the sidebar reads again", async () => {
+    const run = await refreshAndLeave.run();
+    const { refreshed, reopened } = run.checkpoints;
+
+    expect(historyCalls(refreshed, "general")).toHaveLength(2);
+    expect(ids(refreshed)).toEqual(["m-1", "m-2", "m-3"]);
+    expect(historyCalls(reopened, "general")).toHaveLength(3);
+    expect(reopened.read(hub)?.memory.preview).toBe("lunch?");
+  });
+});
+
 describe("a send's echo on the history (Plan Operations O5)", () => {
   it("Plan Operations O5: a fresh history serves the sidebar with a held send's echo applied, with no request, and the message stays once sent", async () => {
     const run = await echoInPreview.run();
@@ -117,5 +151,13 @@ describe("a send's echo on the history (Plan Operations O5)", () => {
     expect(previewed.read(hub)?.memory.preview).toBe("hello");
     expect(sent.read(hub)?.memory.preview).toBe("hello");
     expect(ids(sent)).toEqual(["m-1", "m-2", "m-3"]);
+  });
+
+  it("Plan Operations O5: a send cancelled on the wire takes its echo off the history, so the sidebar previews the server's last message", async () => {
+    const run = await unsentEcho.run();
+    const { previewed } = run.checkpoints;
+
+    expect(previewed.read(hub)?.memory.preview).toBe("standup at ten");
+    expect(ids(previewed)).toEqual(["m-1", "m-2"]);
   });
 });

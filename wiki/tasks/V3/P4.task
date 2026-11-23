@@ -5240,7 +5240,7 @@ tasks
             `packages/flow-state-v3/src/core/world.ts#withIssue`, `packages/flow-state-v3/src/core/world.ts#withIssues`,
             `packages/flow-state-v3/src/core/world.ts#withoutIssue`;
             code:packages/flow-state-v3/src/host/driver.ts#perform,
-            code:packages/flow-state-v3/src/host/driver.ts#ownerOf;
+            `packages/flow-state-v3/src/host/driver.ts#ownerOf`;
             code:packages/flow-state-v3/src/host/owners/owners.ts#cancel; the mail functions in `src/core/tx.ts` (about
             lines 355-478) and the timers there (about 312-352), and the accepted branch of `serve.ts#turn`. Do not
             delete it before its replacement lands and the suite passes.
@@ -6396,6 +6396,12 @@ tasks
             optimistic type, and a displaced or cancelled commit removes its optimistic value (red first).
             entries.freeze stays with @task.V3.T109. Why: all three are in this Task's acceptance and the slice owners.
             Reverse: none for B1 without losing the second holder's ending.
+        comment     2026-11-23T07:03:19Z
+            [decided: agent builder 2026-11-23] B1 at 55c51bc4: a read request runs in the Runtime work (Command.Lookup
+            names machine and operation), and a released read failed cleanup is the Runtime Owner report through
+            dispose, never a ref quarantine; replaces the earlier deviation. Why: the asking life ending interrupted a
+            shared read, losing the other holder answer (chat/first-reader-left, red before); Actors R23 read case loses
+            to it. Reverse: none without that loss.
     T123
         title       Placements and release
         status      in_progress

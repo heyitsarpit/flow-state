@@ -179,7 +179,6 @@ export const MiniCartMachine = machine(MiniCart, ({ S, O }) => ({
             ),
           ],
         },
-        // @ts-expect-error Operations O5: `invalidate` takes a partial key
         Added: { actions: [O.cart.invalidate(({ memory }) => ({ cartId: memory.cartId }))] },
         AddFailed: { updateMemory: () => ({ notice: "sold out" }) },
         AddUnsure: { updateMemory: () => ({ notice: "checking your cart" }) },

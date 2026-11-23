@@ -165,6 +165,16 @@ export const writeHandle = (
   ),
 });
 
+// A member that names the entries of its read's contract by a partial key.
+const partialKeyed = (kind: "Invalidate" | "Clear", owner: symbol, operation: string) =>
+  builder(
+    `O.${operation}.${kind === "Invalidate" ? "invalidate" : "clear"}`,
+    (key: (input: SelectArg<Values>) => Values) =>
+      member(owner, operation, (at) =>
+        Action[kind]({ operation, key: slot<(input: SelectInput) => Values>(`${at}.key`, key) }),
+      ),
+  );
+
 export const readHandle = (operation: string, owner: symbol) => ({
   lookup: builder(`O.${operation}.lookup`, (select: (input: SelectArg<Values>) => Values) =>
     member(owner, operation, (at) =>
@@ -175,4 +185,7 @@ export const readHandle = (operation: string, owner: symbol) => ({
     ),
   ),
   cancel: keyed("Cancel", owner, operation)(Option.none()),
+  refetch: member(owner, operation, () => Action.Refetch({ operation })),
+  invalidate: partialKeyed("Invalidate", owner, operation),
+  clear: partialKeyed("Clear", owner, operation),
 });

@@ -59,9 +59,7 @@ export const SearchPageMachine = machine(SearchPage, ({ S, O }) => ({
         Page: { updateMemory: ({ event }) => ({ page: event.page }) },
         Shown: { updateMemory: ({ event }) => ({ rows: event.rows, total: event.total }) },
         Failed: { updateMemory: () => ({ notice: "results unavailable" }) },
-        // @ts-expect-error Operations O2: `refetch` reads the placed key again now
-        Refresh: { actions: [O.results.refetch()] },
-        // @ts-expect-error Operations O5: `clear` takes a partial key
+        Refresh: { actions: [O.results.refetch] },
         ClearResults: { actions: [O.results.clear(({ memory }) => ({ q: memory.q }))] },
         Close: { target: S.EMPTY, updateMemory: () => ({ rows: [], total: 0 }) },
       },

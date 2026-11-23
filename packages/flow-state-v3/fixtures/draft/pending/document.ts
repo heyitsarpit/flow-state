@@ -64,7 +64,6 @@ export const DocumentMachine = machine(Document, ({ S, O }) => ({
       }),
     },
     LoadFailed: { updateMemory: () => ({ notice: "offline" }) },
-    // @ts-expect-error Operations O5: `clear` takes a partial key
     Close: { target: S.LOADING, actions: [O.document.clear(({ memory }) => ({ id: memory.id }))] },
   },
   states: {
@@ -95,8 +94,7 @@ export const DocumentMachine = machine(Document, ({ S, O }) => ({
           updateMemory: ({ event }) => ({
             notice: `changed elsewhere at ${String(event.revision)}`,
           }),
-          // @ts-expect-error Operations O2: `refetch` reads the slot's key again now
-          actions: [O.document.refetch()],
+          actions: [O.document.refetch],
         },
         SaveUnsure: { updateMemory: () => ({ notice: "not sure it saved" }) },
         SaveNotSent: { updateMemory: ({ event }) => ({ notice: `not saved: ${event.why}` }) },

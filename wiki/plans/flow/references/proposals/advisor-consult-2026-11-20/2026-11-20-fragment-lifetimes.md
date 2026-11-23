@@ -73,7 +73,7 @@ holder ends.
   a write both ended replays in one order on every build.
 
 **Host.** The core returns lifetime events as data (`EndWork` already lists owners). The driver's per-actor Owner
-(code:packages/flow-state-v3/src/host/driver.ts#ownerOf) gains a child per fragment incarnation, created at its
+(`packages/flow-state-v3/src/host/driver.ts#ownerOf`) gains a child per fragment incarnation, created at its
 first fork (a copy with no work has none), named by instance and subject path. Lookups and sessions fork there;
 writes keep forking in the Runtime's `work` Owner, so no leave or freeze can interrupt a write: the split is
 structural. A shared read also forks in `work`, and each incarnation's Owner holds only its wait, so the request

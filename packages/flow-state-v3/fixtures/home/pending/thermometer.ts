@@ -51,8 +51,7 @@ export const ThermometerMachine = machine(Thermometer, ({ S, E, O }) => ({
       activities: [O.readings.subscribe(({ memory }) => ({ room: memory.room }))],
       on: {
         Away: S.AWAY,
-        // @ts-expect-error Operations O2: `refetch` reads the placed key again now
-        Refresh: { actions: [O.readings.refetch()] },
+        Refresh: { actions: [O.readings.refetch] },
       },
       schedules: { refresh: { schedule: "1 minute", send: E.Refresh, armOn: [Flow.entry] } },
     },

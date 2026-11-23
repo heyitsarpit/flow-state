@@ -1,5 +1,5 @@
 import { Option, Result } from "effect";
-import { Cue, LaneState } from "./cells.ts";
+import { Cue, LaneState, Move } from "./cells.ts";
 import { type Concurrency, Operation, type Values } from "./compiled.ts";
 import type { EntrySteps } from "./entries.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
@@ -50,11 +50,25 @@ export const makeLanes = (
 ) => {
   const { lanesOf } = tx;
 
-  const { operationOf, atOf, report, apply, applyDisplaced, endQueue } = makeMoves(
-    tx,
-    persistence,
-    ledger,
-  );
+  const moves = makeMoves(tx, persistence, ledger);
+  const { operationOf, atOf, report, applyDisplaced, endQueue } = moves;
+
+  // A cue on a lane. The head's Attempt moves its optimistic updates as it goes: by its answer's
+  // channel and reason, or removed when a cancel interrupts it, or it is displaced, replaced or
+  // ended unsent.
+  // RETURN_TYPE: the move the table chose, which an admitted ending reads.
+  const apply = (at: At, cue: Cue): Move => {
+    const before = tx.world().lanes.get(at.id)?.head.id;
+    const move = moves.apply(at, cue);
+
+    if (before === undefined) return move;
+
+    if (Move.$is("Answer")(move)) entries.attemptEnded(before, move.channel, move.reason);
+    else if (Move.$is("Interrupt")(move) || tx.world().lanes.get(at.id)?.head.id !== before)
+      entries.attemptEnded(before, "notSent", "Cancelled");
+
+    return move;
+  };
 
   // A head promoted outside a turn waits for no turn's end: it is acknowledged or sent at once.
   const sendPromoted = (id: LaneId) => {
@@ -338,7 +352,6 @@ export const makeLanes = (
     for (const [id, lane] of Option.toArray(tx.laneWaiting(call)))
       if (onWireAs(lane, call)) {
         apply(atOf(id, lane), Cue.Answered(settled));
-        entries.attemptEnded(lane.head.id, settled.channel);
         sendPromoted(id);
       }
   };
@@ -454,6 +467,21 @@ export const makeLanes = (
       Cancel: ({ key }) => [cancel(incarnation, operation, tx.env.admit(key), own)],
       Lookup: ({ input }) => {
         entries.lookup(incarnation, operation, input, owner);
+
+        return [];
+      },
+      Refetch: () => {
+        entries.refetch(incarnation, operation.name);
+
+        return [];
+      },
+      Invalidate: ({ key }) => {
+        entries.invalidate(operation, key);
+
+        return [];
+      },
+      Clear: ({ key }) => {
+        entries.clear(operation, key);
 
         return [];
       },

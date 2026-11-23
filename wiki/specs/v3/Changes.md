@@ -272,7 +272,7 @@ Tree, ledger, world, evidence, host:
 - `evidence.ts` and `evidence-of.ts`: change: the turn's record and `Published`; the public `Emit` and `listRepair`
   records are projections.
 - `identity.ts`, `slots.ts`: keep.
-- code:packages/flow-state-v3/src/host/driver.ts#perform, code:packages/flow-state-v3/src/host/driver.ts#ownerOf
+- code:packages/flow-state-v3/src/host/driver.ts#perform, `packages/flow-state-v3/src/host/driver.ts#ownerOf`
   change: `Wake`; an Owner per `(incarnation, scope)`; the emit consumer; the inspector sink guarded.
 - code:packages/flow-state-v3/src/host/owners/owners.ts#cancel
   change: a map from fork key to owner.

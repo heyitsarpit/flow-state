@@ -205,6 +205,57 @@ export const echoInPreview = joined("chat/echo-in-preview")
   .checkpoint("sent");
 
 /**
+ * A held send is taken back before the server answers, then the sidebar opens the thread: the
+ * message never happened, so the preview is the last message the server has.
+ */
+export const unsentEcho = joined("chat/unsent-echo")
+  .world(Chat.send.hold())
+  .send(general, Thread.E.Send({ clientId: "c-1", text: "hello" }))
+  .send(general, Thread.E.Unsend())
+  .advance("5 seconds")
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .checkpoint("previewed");
+
+/**
+ * Joining while the history is held; grace posts and the push says so before the answer comes:
+ * the thread must show grace's post from the trailing read, not the answer asked before it.
+ */
+export const postedMidRead = signedIn(chatStory("chat/posted-mid-read"))
+  .world(Chat.history.hold())
+  .send(general, Thread.E.Join())
+  .world(Chat.post({ thread: "general", author: "grace", text: "lunch?" }))
+  .send(general, Thread.E.Posted())
+  .checkpoint("posted")
+  .world(Chat.history.release())
+  .checkpoint("joined");
+
+/**
+ * A send's answer is lost, so the history is read again by itself; grace's post is heard while that
+ * read is out, then the sidebar opens the thread: it must hear a read asked after the post.
+ */
+export const unsureThenPosted = joined("chat/unsure-then-posted")
+  .world(Chat.history.hold())
+  .world(Chat.send.drop({ at: "response" }))
+  .send(general, Thread.E.Send({ clientId: "c-1", text: "are you there" }))
+  .checkpoint("unsure")
+  .send(general, Thread.E.Posted())
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .world(Chat.history.release())
+  .checkpoint("previewed");
+
+/**
+ * A joined thread refreshes within the history's stale time, then leaves and the sidebar opens it:
+ * a refresh reads again whatever its age, and leaving forgets the history, so the sidebar reads too.
+ */
+export const refreshAndLeave = joined("chat/refresh-and-leave")
+  .world(Chat.post({ thread: "general", author: "grace", text: "lunch?" }))
+  .send(general, Thread.E.Refresh())
+  .checkpoint("refreshed")
+  .send(general, Thread.E.Leave())
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .checkpoint("reopened");
+
+/**
  * The app booted without the history service its reads list, as a Layer whose type was widened
  * can: a type error where the type is kept, and refused at boot, by name, where it is not.
  */
@@ -233,4 +284,8 @@ export const stories = {
   askTwice,
   releaseOverdue,
   echoInPreview,
+  unsentEcho,
+  postedMidRead,
+  unsureThenPosted,
+  refreshAndLeave,
 };

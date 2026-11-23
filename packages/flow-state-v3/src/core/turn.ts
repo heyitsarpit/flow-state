@@ -40,6 +40,9 @@ export type Resolved = Data.TaggedEnum<{
   Retry: { operation: string; key: Option.Option<Values> };
   Cancel: { operation: string; key: Option.Option<Values> };
   Lookup: { operation: string; input: Values };
+  Refetch: { operation: string };
+  Invalidate: { operation: string; key: Values };
+  Clear: { operation: string; key: Values };
   Send: { actor: ActorId; tag: string; payload: Values };
 }>;
 
@@ -273,6 +276,19 @@ export const resolve = (
         recordFrom(select, read),
         // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
         (input) => Resolved.Lookup({ operation, input }),
+      ),
+    Refetch: ({ operation }) => Result.succeed(Resolved.Refetch({ operation })),
+    Invalidate: ({ operation, key }) =>
+      Result.map(
+        recordFrom(key, read),
+        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
+        (k) => Resolved.Invalidate({ operation, key: k }),
+      ),
+    Clear: ({ operation, key }) =>
+      Result.map(
+        recordFrom(key, read),
+        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
+        (k) => Resolved.Clear({ operation, key: k }),
       ),
     Retry: ({ operation, key }) =>
       Result.map(

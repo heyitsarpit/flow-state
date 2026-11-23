@@ -9,7 +9,7 @@ import type { Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
 import type { Alarmed } from "./alarms.ts";
 import type { Scheduled, TimerKey } from "./timers.ts";
-import type { Entry, EntryKey, Holder, ReadSlot } from "./entries.ts";
+import type { Entry, EntryKey, Holder, ReadSlot } from "./entry-view.ts";
 
 /**
  * An actor's identity: its machine and its name.

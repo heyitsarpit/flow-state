@@ -68,7 +68,6 @@ export const SavedMachine = machine(Saved, ({ S, O }) => ({
         },
         SaveUnsure: {
           updateMemory: () => ({ notice: "checking your saved searches" }),
-          // @ts-expect-error Operations O5: `invalidate` takes a partial key
           actions: [O.saved.invalidate(({ memory }) => ({ shopper: memory.shopper }))],
         },
         SaveRefused: { updateMemory: ({ event }) => ({ notice: `save ${event.why}` }) },

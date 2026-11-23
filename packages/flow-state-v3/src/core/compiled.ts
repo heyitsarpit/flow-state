@@ -99,6 +99,10 @@ export type Action = Data.TaggedEnum<{
     key: Option.Option<Slot<(input: SelectInput) => Values>>;
   };
   Lookup: { operation: string; select: Slot<(input: SelectInput) => Values> };
+  // A read's slot asked again, and the entries a partial key names made stale or emptied.
+  Refetch: { operation: string };
+  Invalidate: { operation: string; key: Slot<(input: SelectInput) => Values> };
+  Clear: { operation: string; key: Slot<(input: SelectInput) => Values> };
   // FLOW_STATE_ALLOW_UNKNOWN: a send's ref and event are the application's, checked when the turn resolves them.
   Send: { to: Slot<(input: SelectInput) => unknown>; event: Slot<(input: SelectInput) => unknown> };
 }>;

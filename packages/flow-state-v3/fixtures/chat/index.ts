@@ -18,7 +18,18 @@ export const chat = manifest({
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
-  pairs: [],
+  pairs: [
+    {
+      samples,
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: true,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
+    },
+  ],
   bench: {
     probe: (n) => threadOf(n),
     persist: Option.some(() => usual),

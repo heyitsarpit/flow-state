@@ -17,8 +17,12 @@ export const Thread = definition({
   states: ["JOINING", "READY"],
   events: {
     Join: {},
+    Refresh: {},
+    Posted: {},
+    Leave: {},
     Send: { clientId: Schema.String, text: Schema.String },
     Resend: {},
+    Unsend: {},
     Delete: { messageId: Schema.String },
     LetGo: { messageId: Schema.String },
     Ask: { question: Schema.String },
@@ -88,6 +92,9 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
   default: S.JOINING,
   on: {
     Join: { actions: [O.history.lookup(({ memory }) => ({ thread: memory.thread }))] },
+    // The server's push that someone posted: the history is stale, read again by whoever waits.
+    Posted: { actions: [O.history.invalidate(byThread)] },
+    Refresh: { actions: [O.history.refetch] },
     Joined: {
       target: S.READY,
       updateMemory: ({ memory, event }) => {
@@ -160,6 +167,15 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
           },
           { updateMemory: () => ({ notice: "gave up resending" }) },
         ],
+        // Leaving forgets the thread's history, so the next open reads it again.
+        Leave: { target: S.JOINING, actions: [O.history.clear(byThread)] },
+        Unsend: {
+          updateMemory: ({ memory }) => ({
+            messages: memory.messages.filter((m) => !memory.pending.includes(m.id)),
+            pending: [],
+          }),
+          actions: [O.send.cancel(byThread)],
+        },
         Delete: {
           actions: [
             O.deleteMessage.commit(({ memory, event }) => ({

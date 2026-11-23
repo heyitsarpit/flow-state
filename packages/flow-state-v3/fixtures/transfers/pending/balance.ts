@@ -169,7 +169,7 @@ export const BalanceCardMachine = machine(BalanceCard, ({ S, O }) => ({
           ],
         },
         Paid: {
-          // @ts-expect-error Operations O5: `invalidate` takes a partial key
+          // @ts-expect-error a member's select reads memory and the event, not context
           actions: [O.available.invalidate(({ context }) => ({ account: context.account ?? "" }))],
         },
         PayUnsure: { updateMemory: () => ({ notice: "checking the payment" }) },

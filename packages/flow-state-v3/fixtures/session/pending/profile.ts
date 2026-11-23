@@ -277,8 +277,7 @@ export const ShellMachine = machine(Shell, ({ S, O }) => ({
         Profiled: { updateMemory: ({ event }) => ({ name: event.name }) },
         Teamed: { updateMemory: ({ event }) => ({ teams: event.names }) },
         Unread: { updateMemory: () => ({ notice: "workspace unavailable" }) },
-        // @ts-expect-error Operations O2: `refetch` reads the placed key again now
-        Refresh: { actions: [O.profile.refetch()] },
+        Refresh: { actions: [O.profile.refetch] },
         Rename: {
           actions: [
             O.renameTeam.commit(
@@ -297,7 +296,6 @@ export const ShellMachine = machine(Shell, ({ S, O }) => ({
         SignOut: {
           target: S.SIGNED_OUT,
           updateMemory: () => ({ name: "", teams: {} }),
-          // @ts-expect-error Operations O5: `clear` takes a partial key
           actions: [O.profile.clear(({ memory }) => ({ user: memory.user }))],
         },
       },

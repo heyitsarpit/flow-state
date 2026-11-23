@@ -139,12 +139,18 @@ export type WriteHandle<
 };
 
 /**
- * A read operation's lookup and cancel.
+ * A read operation's members: `lookup` asks its slot's entry, `cancel` drops the slot, `refetch`
+ * asks the slot's entry again now, and `invalidate` and `clear` make every entry a partial key
+ * names stale or empty.
  */
 export type ReadHandle<M, I, Id extends string = string> = {
   readonly lookup: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P, Id>;
   // FLOW_STATE_ALLOW_UNKNOWN: a keyless member reads no event, so it fits a handler of any.
   readonly cancel: ActionToken<unknown, Id>;
+  // FLOW_STATE_ALLOW_UNKNOWN: as above.
+  readonly refetch: ActionToken<unknown, Id>;
+  readonly invalidate: <P>(key: (input: SelectArg<M, P>) => Partial<I>) => ActionToken<P, Id>;
+  readonly clear: <P>(key: (input: SelectArg<M, P>) => Partial<I>) => ActionToken<P, Id>;
 };
 
 export type Handles<O, M, Id extends string, L extends string> = {

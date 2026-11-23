@@ -134,8 +134,9 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entries.ts",
-        find: "      Current: () => waits(entry),",
-        replace: "      Current: () => waits(start(key, entry, h, slot.actor)),",
+        find: "    Current: (_key, _entry, { asker }) => wait(asker),",
+        replace:
+          "    Current: (key, entry, { asker }) => {\n      put(key, start(key, entry));\n      wait(asker);\n    },",
       },
     ],
   },
@@ -147,8 +148,9 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entries.ts",
-        find: "        if (!refetch && fresh(entry))",
-        replace: "        if (!refetch && fresh(entry) && Number.isNaN(0))",
+        find: "      if (!refetch && fresh(entry)) return serve(asker, entry);",
+        replace:
+          "      if (!refetch && fresh(entry) && Number.isNaN(0)) return serve(asker, entry);",
       },
     ],
   },
@@ -160,9 +162,8 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entries.ts",
-        find: "      const unheld = { ...release(key, entry), again: false, unheldSince: Option.some(now()) };",
-        replace:
-          "      const unheld = { ...entry, again: false, unheldSince: Option.some(now()) };",
+        find: "    Current: (key, entry) => unheld(key, release(key, entry)),\n    Behind: (key, entry) => unheld(key, release(key, entry)),",
+        replace: "    Current: unheld,\n    Behind: unheld,",
       },
     ],
   },
@@ -174,8 +175,8 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entries.ts",
-        find: "        tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);",
-        replace: "        tx.setAlarm(Alarm.Collect({ entry: key }), now());",
+        find: "    tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);",
+        replace: "    tx.setAlarm(Alarm.Collect({ entry: key }), now());",
       },
     ],
   },
@@ -187,13 +188,13 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entries.ts",
-        find: "      if (gcTime <= 0) remove(key);",
-        replace: "      if (gcTime < 0) remove(key);",
+        find: "    if (gcTime <= 0) return remove(key);",
+        replace: "    if (gcTime < 0) return remove(key);",
       },
       {
         file: "src/core/entries.ts",
-        find: "        tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);",
-        replace: "        tx.setAlarm(Alarm.Collect({ entry: key }), now() + Math.max(gcTime, 1));",
+        find: "    tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);",
+        replace: "    tx.setAlarm(Alarm.Collect({ entry: key }), now() + Math.max(gcTime, 1));",
       },
     ],
   },
@@ -218,9 +219,54 @@ export const readsFaults: ReadonlyArray<Fault> = [
     rule: "Plan Operations O5",
     edits: [
       {
+        file: "src/core/entry-view.ts",
+        find: "    Result.try(() => update(value)),",
+        replace: "    Result.try(() => (Number.isNaN(0) ? update(value) : value)),",
+      },
+    ],
+  },
+  {
+    name: "behind-result-lands",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "an answer asked before an invalidation lands and is owed as if it were current",
+    rule: "Operations R4, I7, entry table (Settled, Running behind)",
+    edits: [
+      {
         file: "src/core/entries.ts",
-        find: "        Result.try(() => l.update(value)),",
-        replace: "        Result.try(() => (Number.isNaN(0) ? l.update(value) : value)),",
+        find: "      Settled: (c) => settled[phase](key, entry, c),",
+        replace:
+          '      Settled: (c) => settled[phase === "Behind" ? "Current" : phase](key, entry, c),',
+      },
+    ],
+  },
+  {
+    name: "join-when-behind",
+    tests: ["tests/chat/reads.test.ts", "tests/generated/entries.test.ts"],
+    says: "an ask of a request gone behind waits on it with no trailing request, so it never hears",
+    rule: "Operations R5, I2, entry table (Ask, Running behind)",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "      put(key, withAgain(entry, true));\n      wait(asker);",
+        replace: "      wait(asker);",
+      },
+    ],
+  },
+  {
+    name: "cancelled-echo-kept",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a commit a cancel interrupted ends unknown, so its optimistic value is kept as if it may have happened",
+    rule: "Plan Operations O5",
+    edits: [
+      {
+        file: "src/core/entry-view.ts",
+        find: 'const GONE = new Set(["Cancelled", "Superseded", "Disposed"]);',
+        replace: 'const GONE = new Set(["Superseded", "Disposed"]);',
+      },
+      {
+        file: "src/core/lanes.ts",
+        find: '    else if (Move.$is("Interrupt")(move) || tx.world().lanes.get(at.id)?.head.id !== before)',
+        replace: "    else if (tx.world().lanes.get(at.id)?.head.id !== before)",
       },
     ],
   },

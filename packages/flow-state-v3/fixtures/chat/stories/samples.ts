@@ -13,8 +13,9 @@ export const longSend = Thread.E.Send({ clientId: "c-3", text: "x".repeat(10_000
 
 /**
  * What Ada, the sidebar and the chat server can do, for generated runs: sign in and out, open and
- * join threads, send (an empty and a 10,000-character message among them), resend, delete and let
- * go of a delete, and ask; the server garbles undo links, has its assistant busy, and others post.
+ * join threads, send (an empty and a 10,000-character message among them), resend, take a send
+ * back, refresh, hear a post, leave, delete and let go of a delete, and ask; the server garbles
+ * undo links, has its assistant busy, and others post.
  */
 export const samples = samplesOf({
   id: "chat",
@@ -41,6 +42,11 @@ export const samples = samplesOf({
       .send(general, Thread.E.Send({ clientId: "c-2", text: "" }))
       .send(general, longSend)
       .send(general, Thread.E.Resend())
+      .send(general, Thread.E.Unsend())
+      .send(general, Thread.E.Refresh())
+      .send(general, Thread.E.Posted())
+      .send(general, Thread.E.Leave())
+      .send(random, Thread.E.Posted())
       .send(general, Thread.E.Delete({ messageId: "m-1" }))
       .send(general, Thread.E.LetGo({ messageId: "m-1" }))
       .send(general, Thread.E.Ask({ question: "when is standup" })),
