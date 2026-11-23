@@ -1,0 +1,197 @@
+/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a commit option the Operations Spec adds and the package lacks, so its values type as any until it lands */
+// @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
+import { Context, Effect, Exit, Layer, Schema } from "effect";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import { layerIndexedDb } from "../../../src/host/persistence.ts";
+import { Fake } from "../../../src/host/testing/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  Outcome,
+  runtimeSetup,
+  transaction,
+} from "../../../src/index.ts";
+import { NoResponse } from "../services.ts";
+
+/**
+ * The deposits port: one part of a cheque's photo, sent with its idempotency key.
+ */
+export class DepositsApi extends Context.Service<
+  DepositsApi,
+  {
+    readonly part: (
+      input: { readonly depositId: string; readonly part: number; readonly of: number },
+      options: { readonly idempotencyKey: string },
+    ) => Effect.Effect<void, NoResponse>;
+  }
+>()("flow-state-v3/fixtures/transfers/DepositsApi") {}
+
+const DepositsTruth = Schema.Struct({
+  parts: Schema.Record(Schema.String, Schema.Array(Schema.Number)),
+});
+
+type Truth = typeof DepositsTruth.Type;
+
+/**
+ * The deposits server's truth: the parts each deposit has received.
+ */
+export const Deposits = Fake.server("Deposits", {
+  truth: DepositsTruth,
+  initial: { parts: {} },
+  endpoints: {
+    part: Fake.call({
+      request: {
+        depositId: Schema.String,
+        part: Schema.Number,
+        of: Schema.Number,
+        key: Schema.String,
+      },
+      success: Schema.Struct({}),
+      failure: Schema.Never,
+      handle: (truth: Truth, { depositId, part }) => ({
+        truth: {
+          parts: { ...truth.parts, [depositId]: [...(truth.parts[depositId] ?? []), part] },
+        },
+        exit: Exit.succeed({}),
+      }),
+    }),
+  },
+  controls: {},
+  lost: () => new NoResponse(),
+});
+
+/**
+ * The deposits port over its fake.
+ */
+export const DepositsFake = Layer.effect(
+  DepositsApi,
+  Effect.map(Deposits, (server) =>
+    DepositsApi.of({
+      part: (input, { idempotencyKey }) =>
+        server.part({ ...input, key: idempotencyKey }).pipe(Effect.asVoid),
+    }),
+  ),
+);
+
+/**
+ * The deposits port over HTTP: `PUT /deposits/:id/parts/:n`.
+ */
+export const DepositsHttp = (origin: string) =>
+  Layer.effect(
+    DepositsApi,
+    Effect.map(HttpClient.HttpClient, (http) => {
+      const client = HttpClient.mapRequest(http, HttpClientRequest.prependUrl(origin));
+      const lost = () => Effect.fail(new NoResponse());
+
+      return DepositsApi.of({
+        part: ({ depositId, part, of }, { idempotencyKey }) =>
+          HttpClientRequest.put(
+            `/deposits/${encodeURIComponent(depositId)}/parts/${String(part)}`,
+          ).pipe(
+            HttpClientRequest.setHeader("Idempotency-Key", idempotencyKey),
+            HttpClientRequest.setHeader("Upload-Length", String(of)),
+            client.execute,
+            Effect.asVoid,
+            Effect.catchTags({ HttpClientError: lost }),
+          ),
+      });
+    }),
+  );
+
+// The deposit reports how many parts it has sent, as a fraction (Plan Operations O1, O6).
+const withProgress = { progress: Schema.Number, idempotency: ["depositId"] } as const;
+
+/**
+ * A cheque deposit sent in parts, reporting its progress after each; keyed by the deposit's id.
+ */
+export const depositCheque = transaction({
+  id: "Bank/depositCheque",
+  input: { depositId: Schema.String, parts: Schema.Number },
+  key: ["depositId"],
+  concurrency: "reject",
+  services: [DepositsApi],
+  ...withProgress,
+  commit: (input, context) =>
+    Effect.forEach(
+      Array.from({ length: input.parts }, (_, n) => n),
+      (n) =>
+        DepositsApi.use((api) =>
+          api.part(
+            { depositId: input.depositId, part: n, of: input.parts },
+            { idempotencyKey: `${input.depositId}-${String(n)}` },
+          ),
+        ).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              // @ts-expect-error Operations O1, O6: a commit reports `progress(p)`
+              context.progress((n + 1) / input.parts);
+            }),
+          ),
+        ),
+      { concurrency: 1 },
+    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
+});
+
+/**
+ * One cheque deposit, named by its id.
+ */
+export const ChequeDeposit = definition({
+  id: "Bank/ChequeDeposit",
+  states: ["READY", "SENDING", "DONE"],
+  events: { Send: { parts: Schema.Number } },
+  internalEvents: { Deposited: {}, Unsure: Flow.uncertain({}) },
+  memory: { depositId: Flow.input(Schema.String), notice: Flow.initial(Schema.String, "") },
+  operations: ({ E }) => ({
+    depositCheque: depositCheque.outcomes({ success: E.Deposited, failure: {}, unknown: E.Unsure }),
+  }),
+});
+
+/**
+ * Sending deposits the cheque in parts; its row's `progress` shows how far it got.
+ */
+export const ChequeDepositMachine = machine(ChequeDeposit, ({ S, O }) => ({
+  default: S.READY,
+  states: {
+    READY: {
+      on: {
+        Send: {
+          target: S.SENDING,
+          actions: [
+            O.depositCheque.commit(({ memory, event }) => ({
+              depositId: memory.depositId,
+              parts: event.parts,
+            })),
+          ],
+        },
+      },
+    },
+    SENDING: {
+      on: {
+        Deposited: { target: S.DONE, updateMemory: () => ({ notice: "deposited" }) },
+        Unsure: { target: S.READY, updateMemory: () => ({ notice: "not sure it arrived" }) },
+      },
+    },
+    DONE: {},
+  },
+}));
+
+/**
+ * The rent cheque's deposit.
+ */
+export const rentCheque = actorRef(ChequeDepositMachine, { depositId: "dep-1" });
+
+/**
+ * The bank grown with cheque deposits.
+ */
+export const depositSetup = runtimeSetup({
+  app: app({ id: "bank", machines: { deposits: ChequeDepositMachine } }),
+  services: Layer.merge(
+    DepositsHttp("https://deposits.example").pipe(Layer.provide(FetchHttpClient.layer)),
+    layerIndexedDb(),
+  ),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});

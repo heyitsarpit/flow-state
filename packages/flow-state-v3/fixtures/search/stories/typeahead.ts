@@ -1,5 +1,6 @@
 import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { box, otherBox, searchSetup } from "../app.ts";
+import { ResultListMachine } from "../machines/result-list.ts";
 import { Typeahead } from "../machines/typeahead.ts";
 import { Catalog } from "../server/catalog.ts";
 import { SearchFake } from "../server/layer.ts";
@@ -77,6 +78,24 @@ export const typingBurst = Array.from("shoes, running")
   .checkpoint("typed")
   .world(Catalog.suggest.release())
   .checkpoint("settled");
+
+/**
+ * Result lists a view makes for itself, a first guess the bench re-measures.
+ */
+export const LISTS = 64;
+
+/**
+ * {@link LISTS} result lists, each made by a view for the same query while its first page is on
+ * the wire: one request serves them all (S2 under one read).
+ */
+export const manyLists = Array.from({ length: LISTS }, (_, n) => n)
+  .reduce(
+    (story, n) => story.create(ResultListMachine, { input: { list: `view-${String(n)}` } }),
+    searchStory("search/stress-many-lists").world(Catalog.results.hold()),
+  )
+  .checkpoint("made")
+  .world(Catalog.results.release())
+  .checkpoint("shown");
 
 /**
  * The app booted without the search service its reads list: refused at boot, by name.
@@ -217,6 +236,7 @@ export const typeaheadStories = {
   twoBoxes,
   blankQuery,
   typingBurst,
+  manyLists,
   seededStress,
 };
 

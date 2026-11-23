@@ -23,6 +23,19 @@ export const Accounts = Fake.server("Accounts", {
         exit: Exit.succeed({ cents: truth.balances[account] ?? 0 }),
       }),
     }),
+    debit: Fake.call({
+      request: { account: Schema.String, cents: Schema.Number, key: Schema.String },
+      success: Schema.Struct({ cents: Schema.Number }),
+      failure: Schema.Never,
+      handle: (truth: Truth, { account, cents }) => {
+        const left = (truth.balances[account] ?? 0) - cents;
+
+        return {
+          truth: { balances: { ...truth.balances, [account]: left } },
+          exit: Exit.succeed({ cents: left }),
+        };
+      },
+    }),
   },
   controls: {
     setBalance: Fake.control(

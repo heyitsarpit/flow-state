@@ -30,6 +30,18 @@ export const slotsUsual = slotsStory("wizard/slots-usual")
   .checkpoint("held");
 
 /**
+ * The customer retypes the postcode while a day's slots are on the wire: the slots answer late,
+ * after the day step was left, and the picker shows none of them.
+ */
+export const lateSlots = slotsStory("wizard/late-slots")
+  .send(picker, SlotPicker.E.Postcode({ text: "SW1A 1AA" }))
+  .world(Inspections.slots.hold())
+  .send(picker, SlotPicker.E.Day({ day: DAY }))
+  .send(picker, SlotPicker.E.Postcode({ text: "ZZ1 1ZZ" }))
+  .world(Inspections.slots.release())
+  .checkpoint("late");
+
+/**
  * One day's slots, then another's: the first day's read, kept no time, goes as soon as nobody
  * shows it.
  */
@@ -85,6 +97,7 @@ export const doublePick = slotsStory("wizard/double-pick")
  */
 export const slotStories = {
   slotsUsual,
+  lateSlots,
   dayChanged,
   slotTaken,
   blankPostcode,

@@ -5,6 +5,8 @@ import { box, otherBox } from "../../fixtures/search/app.ts";
 import {
   blankQuery,
   latestWins,
+  LISTS,
+  manyLists,
   missingSearch,
   repeatQuery,
   twoBoxes,
@@ -82,6 +84,13 @@ describe("the search box (Operations R3, R4, R5)", () => {
     const run = await played(typingBurst);
 
     expect(run.checkpoints.settled.read(box)?.memory.suggestions).toEqual(["shoes, running"]);
+  });
+
+  it.fails(`Operations R3 under S2: ${String(LISTS)} result lists a view makes for one query share one request`, async () => {
+    const run = await manyLists.run();
+
+    expect(run.checkpoints.made.read(Catalog.results)).toHaveLength(1);
+    expect(run.checkpoints.shown.read(Catalog.results).map((c) => c.status)).toEqual(["answered"]);
   });
 
   it.fails("Operations Rows, S7: a setup that lacks the search service is refused at boot, by name", async () => {

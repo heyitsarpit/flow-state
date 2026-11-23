@@ -508,6 +508,12 @@ tasks
               leaking a saved copy to the next account does not arise, since each account has its own Runtime scope and
               store; the green `CleanupOverdue` pin in `cleanups.test.ts` is the Spec's listed changed behaviour,
               deleted by the builder with `close.ts#CleanupOverdue`.
+        comment     2026-11-23T04:20:26Z
+            [decided: agent orchestrator 2026-11-23] Freeze items of T122 and T123 and fault guard-reads-other-subject
+            go to @task.V3.T109; T124's adoption item goes to @task.V3.T48. Why: no life freezes and no adoption happens
+            before instances exist. Reverse: move the items back once T109 lands. Open: owners for optimistic,
+            placeholder, progress, declared idempotency, subscribe.each and late/LateMayNotLeave are settled before this
+            slice closes.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -3150,6 +3156,10 @@ tasks
             (Operations Slot cells, FreezeAndCalls; T122 builds `entries.freeze`); placements unplaced at a freeze and
             placed at a thaw (T123); a guard in a fragment reads its own copy's lane, fault `guard-reads-other-subject`
             (Operations R15, I21; T121).
+        comment     2026-11-23T04:20:27Z
+            Routed from slice T21 (orchestrator, 2026-11-23): a freeze owes each waiting lookup one Interrupted row and
+            leaves the entry's request running (T122); placements unplaced at a freeze and placed at a thaw (T123);
+            plant guard-reads-other-subject (T121).
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -5915,8 +5925,9 @@ tasks
         acceptance
             - Ending mappers receive `(value, { input, key })`, inferred from the contract with no annotation in
               any fixture.
-            - `idle` and `retryable` read `laneView` at the part's subject; the faults `guard-reads-other-subject` and
-              `retryable-ignores-count` are caught.
+            - `idle` and `retryable` read `laneView` at the part's subject; the fault `retryable-ignores-count` is
+              caught. A guard in a fragment and the fault `guard-reads-other-subject` move to @task.V3.T109, which
+              brings instances (the orchestrator, 2026-11-23).
             - Live and reloaded runs agree on a final answer replacing its Attempt's Kept unknown (@spec.Records R16):
               the inverted test in `src/host/ledger.test.ts` passes (routed from @task.V3.T92).
             - The per-subject `Audience` and `locate` in `ledger.ts` are replaced or deleted with @task.V3.T109 (routed
@@ -5927,6 +5938,10 @@ tasks
               catches with its own target tests.
             - Boot refuses an operation whose service the Runtime Layer lacks, by name, read from the contract's
               `services` list (decisions §5 G1, G2); the reference contracts list their services.
+            - A transaction's `progress` (its Schema, `progress(p)` in the commit, the row's `progress`), a declared
+              `idempotency` (the input fields the server keys by, or `"attempt"`) and late endings with
+              `LateMayNotLeave` (@plan.Operations.O1, O6; @plan.Machines.O6) hold, each with a red check first (assigned
+              by the orchestrator, 2026-11-23).
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
               `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
               `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
@@ -6071,6 +6086,39 @@ tasks
             longer exist; T122's `incarnations.ts#retire` loop is now `apply.ts:250`; T123's `disposal.ts` line 85 is
             now `:99`; `CleanupOverdue` is in `close.ts` and `cleanups.test.ts` only; `ReadReplaced` in `evidence-of.ts`
             and `lanes.ts`.
+        comment     2026-11-23T04:21:25Z
+            [decided: agent orchestrator 2026-11-23] Owns three step-4 features no Task built: a transaction's progress
+            (its Schema, the mapper's progress), declared idempotency (@plan.Operations.O1), and late endings with
+            LateMayNotLeave (@plan.Machines.O6). Why: each is part of an operation's endings. Reverse: move to a new
+            Task in this slice.
+        comment     2026-11-23T04:33:20Z
+            Requirements added (requirements lead, 2026-11-23) for the acceptance line on progress, idempotency and late
+            endings: progress, Plan Operations O6 (`tests/transfers/reads.test.ts`, a cheque deposited in parts shows a
+            third done; red); declared idempotency, Plan Operations O1 (same file, `cardPayment` and `depositCheque`
+            carry their key fields; red); late endings, Plan Machines O6 (`tests/wizard/slots.test.ts`, slots answering
+            after the day was left change nothing; guard, already built for reads; LateMayNotLeave keeps its write-lane
+            coverage in `tests/write-lanes/payment-leave-and-reload.test.ts`). Faults listed:
+            `progress-dropped`, `idempotency-undeclared`.
+        comment     2026-11-23T04:33:33Z
+            Fixtures proof, update (requirements lead, 2026-11-23), adding the remaining step-4 rows; all red
+            unless marked:
+            - shop (pending MiniCart, R `cart`, T `quickAdd`): shop/switch-carts, shop/add-shown-at-once,
+              shop/refused-add-removed, shop/failed-add-during-load, shop/stale-snapshot; sources cart.test.ts:1949,
+              :4535, :4583, :5971, :1630 (hydrogen). Stale overlapping add answers (cart-transactions.test.ts:253) is
+              not yet written.
+            - transfers (pending BalanceCard, R `available`, T `cardPayment`; pending ChequeDeposit, T `depositCheque`
+              with `progress`): transfers/read-after-write, transfers/switch-account (placeholder),
+              transfers/deposit-in-parts (test-common.js:401), declared idempotency. Still unwritten: S6 and E8 during a
+              deposit, a part failing (test-parallel-uploads.js:41, :325), abort and resume (:448), bigint key "$1n"
+              (canonical keys, no owner here).
+            - session (pending Shell, R `profile`, `teams`, T `renameTeam`): session/shell-reads (refetch),
+              session/rename-shown-at-once (optimistic and writes), session/invalid-write, session/sign-out-clears.
+            - search: `ResultList` (registered, local actors made by `create`): search/stress-many-lists (S2 x 64 under
+              one read). Facets (`subscribe.each`) left: @task.V3.T25.
+            - wizard: wizard/late-slots (late endings; guard).
+            - kanban left: @task.V3.T109 and @task.V3.T110, needs `.each`. Chat's `progress` upload, its client-id
+              `idempotency` and `optimistic` echo, and draft's uploads are not yet written. The added pending modules
+              carry the same `@ts-expect-error` lines and file-level suppressions, which the build removes.
     T122
         title       Read entries and read slots
         status      in_progress
@@ -6116,10 +6164,16 @@ tasks
         acceptance
             - The entry table of @spec.Operations holds cell by cell, shown by a generated sequence test.
             - An entry with no hold is removed at `gcTime` by `Alarm.Collect`; `gcTime: 0` removes it in the same step.
-            - A freeze owes each waiting lookup one `Interrupted` row and leaves the entry's request running.
+            - A freeze owes each waiting lookup one `Interrupted` row and leaves the entry's request running: the cell
+              is built here as `entries.freeze`; its Story moves to @task.V3.T109, since no life freezes before
+              instances (the orchestrator, 2026-11-23).
             - A lookup's input is checked by its Schema at run time (routed from @task.V3.T104's close review).
             - `Alarm.Collect` gets its writer here: the union and `tick`'s match already hold it with none (from
               @task.V3.T119); the host's wake covers it, judged at every Story cut.
+            - A commit's `optimistic` values on a read (applied at start, removed on a failure or `NotSent` without a
+              refetch, kept and refetched once on unknown, confirmed after success) and `InvalidWrite` for a success
+              write with no valid target (@plan.Operations.O3, O5) hold, each with a red check first (assigned by the
+              orchestrator, 2026-11-23).
             - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
               catches with its own target tests.
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
@@ -6168,6 +6222,18 @@ tasks
               which no Task names). Build-time choice (`again`, Q9/Q19): the deciding test is
               `tests/generated/entries.test.ts` with a count of started-then-released calls added by the builder; none
               written beyond the two-requests oracle.
+        comment     2026-11-23T04:21:25Z
+            [decided: agent orchestrator 2026-11-23] Owns commit optimistic values and their layer on entries
+            (@plan.Operations.O5), beside InvalidWrite. Why: the optimistic layer holds an entry and readers see it
+            applied over confirmed data. Reverse: move to a new Task in this slice.
+        comment     2026-11-23T04:33:21Z
+            Requirements added (requirements lead, 2026-11-23) for the acceptance line on optimistic values and
+            InvalidWrite, Plan Operations O3, O5: `tests/shop/mini-cart.test.ts` (an add shows at once and stays; a
+            refused add's line goes with no refetch; a failed add during the first read leaves no phantom line),
+            `tests/session/shell-reads.test.ts` (a rename shows at once and its `writes` lands; a write with no key
+            reports InvalidWrite and the rename succeeds). All red. The shape of a `writes` target (`{ <operation>: {
+            key, data } }`) is my placeholder: the Plan gives no shape, so the builder decides it with the one red.
+            Faults listed: `optimistic-kept-after-failure`, `invalid-write-applied`.
     T123
         title       Placements and release
         status      in_progress
@@ -6204,10 +6270,14 @@ tasks
         acceptance
             - A placement released within the disposal bound shows no issue; past it, `ReleaseOverdue` shows for every
               incarnation that holds the call's key, with no host code.
-            - Placements are unplaced at a freeze and placed at a thaw.
+            - Placements are unplaced at a freeze and placed at a thaw: built here; the Story moves to @task.V3.T109,
+              since no life freezes before instances (the orchestrator, 2026-11-23).
             - `Alarm.Release` gets its writer here (in the union with none since @task.V3.T119); a Story where a
               `Release` and a `Schedule` alarm share an instant and the schedule reads that lane decides @spec.Changes
               Q9's first choice (routed from @task.V3.T119).
+            - A placement's `placeholder({ previous, input })` supplies Pending data, marked `placeholder: true`, while
+              a new key has none (@plan.Operations.O6), with a red check first (assigned by the
+              orchestrator, 2026-11-23).
             - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
               catches with its own target tests.
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
@@ -6247,6 +6317,16 @@ tasks
               generated oracle; I22 by `inspection.timers` and the harness. Supersedes inventory (rg): `disposal.ts:99`
               `tx.replace("reads", new Map())` (the Task text says line 85; it moved); `close.ts:182,197,254` and
               `cleanups.test.ts:313,317,333,368` for `CleanupOverdue`.
+        comment     2026-11-23T04:21:26Z
+            [decided: agent orchestrator 2026-11-23] Owns the placement's placeholder option (@plan.Operations.O6). Why:
+            it is a placement option. Reverse: move to T122.
+        comment     2026-11-23T04:33:22Z
+            Requirements added (requirements lead, 2026-11-23) for the acceptance line on `placeholder`, Plan Operations
+            O6: `tests/transfers/reads.test.ts` (an account switch shows the last account's balance, marked, until its
+            own lands; red). Also from the remaining step-4 rows: switching carts stops the old cart's refresh
+            (`tests/shop/mini-cart.test.ts`, red). Fault listed: `placeholder-unmarked`. `subscribe.each` rows are left
+            with @task.V3.T25 (the orchestrator, 2026-11-23); plain `O.x.subscribe` placements stay here, as this Task's
+            acceptance says.
     T124
         title       Persisted resources
         status      in_progress
@@ -6278,7 +6358,8 @@ tasks
             **Supersedes:** no current code of its own; the fit tables name none for this Task.
         acceptance
             - A saved entry installs with `asked: none`, so the first ask after a reload starts a request.
-            - An entry already in memory wins over a saved one at adoption.
+            - An entry already in memory wins over a saved one at adoption: the Install cell is built here; its Story
+              moves to @task.V3.T48, which brings adoption (the orchestrator, 2026-11-23).
             - `persist: true` without `output` is refused at construction.
             - The saved entry is a format 6 record kind with its one Shape codec, which the writer, the boot and the
               corrupt-record oracle share (@spec.Records R11, built by @task.V3.T92); the one-field corruption and

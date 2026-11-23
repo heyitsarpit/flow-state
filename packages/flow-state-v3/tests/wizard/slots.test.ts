@@ -4,6 +4,7 @@ import {
   blankPostcode,
   dayChanged,
   doublePick,
+  lateSlots,
   slotsUsual,
   slotTaken,
   uncoveredNotRetried,
@@ -46,6 +47,13 @@ describe("the slot picker (Operations R2, R4, R5)", () => {
     const run = await played(dayChanged);
 
     expect(run.checkpoints.moved.inspection.timers.filter((t) => t.kind === "Collect")).toEqual([]);
+  });
+
+  it("Machines O6 (late endings): slots answering after the day step was left are routed late and change nothing shown", async () => {
+    const run = await played(lateSlots);
+
+    expect(run.checkpoints.late.read(picker)?.memory.open).toEqual([]);
+    expect(run.checkpoints.late.read(picker)?.state).toBe("POSTCODE");
   });
 
   it("Operations R5, NoRetryLoop: an uncovered postcode is not asked again as time passes", async () => {

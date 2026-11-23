@@ -2,6 +2,7 @@ import { Layer } from "effect";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { SearchLive } from "./adapters/search.ts";
+import { ResultListMachine } from "./machines/result-list.ts";
 import { TypeaheadMachine } from "./machines/typeahead.ts";
 
 /**
@@ -22,7 +23,10 @@ export const boxOf = (n: number) => actorRef(TypeaheadMachine, `box-${String(n)}
 /**
  * The search app: the search box.
  */
-export const searchApp = app({ id: "search", machines: { box: TypeaheadMachine } });
+export const searchApp = app({
+  id: "search",
+  machines: { box: TypeaheadMachine, lists: ResultListMachine },
+});
 
 /**
  * The search app's real setup: the search service over HTTP, with a store; each capture written at

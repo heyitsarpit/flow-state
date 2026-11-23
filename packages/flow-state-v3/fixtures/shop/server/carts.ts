@@ -56,6 +56,15 @@ export const Carts = Fake.server("Carts", {
   truth: CartsTruth,
   initial: { carts: {}, soldOut: [], stock: {} },
   endpoints: {
+    cart: Fake.call({
+      request: { cartId: Schema.String },
+      success: Schema.Struct({ lines: Schema.Record(Schema.String, Stored) }),
+      failure: Schema.Never,
+      handle: (truth: Truth, { cartId }) => ({
+        truth,
+        exit: Exit.succeed({ lines: linesOf(truth, cartId) }),
+      }),
+    }),
     addLine: Fake.call({
       request: { cartId: Schema.String, lineId: Schema.String, variantId: Schema.String, ...key },
       success: Line,

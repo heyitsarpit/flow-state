@@ -214,6 +214,12 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
   - **step 18:** server rendering, hydration (`ProductPage`); `DehydrateCommitInFlight`, `DehydrateUnsettled`,
     `Hydration*` (a request rendered while `addLine` is in flight (`DehydrateCommitInFlight`)).
 - **Scenarios:**
+  - **Mini cart (slice T21; written red, in `pending/` until placements, `invalidate` and `optimistic`
+    exist):** `MiniCart`, R `cart` (the carts server gains a `cart` endpoint), T `quickAdd`; tests in
+    `tests/shop/mini-cart.test.ts`.
+    - [ ] `shop/switch-carts` (the left switching-carts item below), `shop/add-shown-at-once` (the add-at-once
+      item), `shop/refused-add-removed`, `shop/failed-add-during-load` (the failed-change item),
+      `shop/stale-snapshot` (the stale-snapshot finding). Stale overlapping add answers: not yet written.
   - **Context forms** (@task.V3.T107; tests in `tests/shop/context.test.ts`):
     - [x] Usual: pass-through, derived, `when`, payload; an equal count silent, a declined change still the
       baseline. `shop/pulse-adds`. Copies [cart-tracker.test.ts:358][hy-track] "publishes product_added_to_cart
@@ -564,6 +570,13 @@ kamp.us for rows restored after a failure.
   - **@task.V3.T81:** an event field whose Schema transforms (`StandingOrder`'s `DateFromString` dates); construction
     refusals (builders in `stories/structure.ts`).
 - **Scenarios:**
+  - **Balance card and cheque deposit (slice T21; written red, in `pending/`):** `BalanceCard` (R `available`,
+    T `cardPayment` declaring `idempotency` by payment id, in place of the old contract's edit) and
+    `ChequeDeposit` (T `depositCheque`, `progress`, `idempotency` by deposit id); tests in
+    `tests/transfers/reads.test.ts`.
+    - [ ] `transfers/read-after-write` (the read-after-write item), `transfers/switch-account` (placeholder),
+      `transfers/deposit-in-parts` (the deposit-in-chunks item). Deposit S6, E8, a failing part and abort and
+      resume: not yet written. Bigint key "$1n": no owner in this slice.
   - **Customer's bill reminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
     `tests/transfers/reminders.test.ts`):
     - [x] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. built:
@@ -837,6 +850,10 @@ A workspace shell. Today's four machines stay; billing and reads are added. Sour
   - **step 18:** server rendering, hydration (the shell); `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*`
     (a shell rendered for one user hydrated under another).
 - **Scenarios:**
+  - **Shell reads (slice T21; written red, in `pending/`):** `Workspace/Shell`, R `profile`, `teams`, T
+    `renameTeam` (`optimistic`, `writes`); tests in `tests/session/shell-reads.test.ts`.
+    - [ ] `session/shell-reads` (refetch), `session/rename-shown-at-once`, `session/invalid-write`,
+      `session/sign-out-clears`.
   - [x] **Usual:** two four-layer trees, a reload, a middle-layer rename (have). The shell paints before the session
     settles. Copies [App.test.tsx:217][kp-app] "invariant 1: the shell chrome paints while the session is isPending —
     with NO FateClient mounted". built: `session/usual`, `session/shell-before-session`.
@@ -1134,7 +1151,8 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
   - [ ] **Load:** L5: keystroke bursts; L3; L1: a thousand distinct keys collected by `gcTime`.
   - **Structure:**
     - [ ] S2: one read shared by 64 `ResultList`s under L5.
-    - [ ] S8: `subscribe.each` as facets change under L5.
+    - [ ] S8: `subscribe.each` as facets change under L5. left: @task.V3.T25, needs `subscribe.each`.
+    - [ ] S2 written red: `search/stress-many-lists` (64 `ResultList`s, local, under one read).
     - [ ] S3: two search pages sharing no entries.
     - [ ] S6 × {page first, list first} under live reads; late answers dropped. Copies
       [restore-late-items.test.ts:123][ui-late] "stops waiting for the items once destroyed".
@@ -1313,6 +1331,9 @@ kamp.us's optimistic lists, ui-sdk's menu, combobox and toast tests.
     (`DehydrateUnsettled`)).
 - **Scenarios:**
   - **Usual:**
+    - [ ] Step 4 rows (`cards`, `comments`, `addComment`, `deleteComment`): left: @task.V3.T109 and
+      @task.V3.T110, needs `.each` (kanban's `Board` holds its columns and cards by it); `subscribe.each` rows left:
+      @task.V3.T25.
     - [ ] A move confirmed. Copies [TLSyncClient.test.ts:1497][tl-client] "[CR3] a commit push_result confirms the
       pending push without changing the store".
     - [ ] A comment's temporary id becomes the server's. Copies
