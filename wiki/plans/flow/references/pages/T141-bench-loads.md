@@ -1,5 +1,6 @@
 ---
 page T141-bench-loads
+description `storeContract` takes your test runner instead of importing one, so loading Flow's test tools pulls in no runner.
 ---
 # Bench loads again: what an app author notices (slice T141; 2026-11-22)
 

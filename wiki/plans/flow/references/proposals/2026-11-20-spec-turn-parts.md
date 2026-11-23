@@ -2,6 +2,7 @@
 proposal spec-turn-parts
 status superseded 2026-11-23 [@proposal.algo-turn]
     proposed 2026-11-20
+description Superseded by @proposal.algo-turn; kept as prior art for the turn's parts walk and one `Turn` record.
 ---
 # The turn's parts walk and the turn record
 

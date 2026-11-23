@@ -1,6 +1,7 @@
 ---
 review plan-task-coverage
 status open 2026-11-11
+description Finds 123 of 265 planned public features have no Task naming them, and three whole areas with no Task.
 ---
 # Plan to Task coverage check (proposed, 2026-11-11)
 

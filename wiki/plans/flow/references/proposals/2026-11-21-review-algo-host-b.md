@@ -1,6 +1,7 @@
 ---
 review review-algo-host-b
 status open 2026-11-21
+description Review of the host design finds it sound in shape but not Spec-ready: three Spec blockers, eleven build blockers.
 ---
 # Review B: the host and test tooling design, cluster 5b, fit to code, seams and requirements (2026-11-21)
 

@@ -1,6 +1,7 @@
 ---
 review spec-cohesion-r2
 status open 2026-11-21
+description Finds four seams across the eleven concept designs to fix before Spec writing and one round of 15 questions.
 ---
 # Cohesion of the eleven concept designs and the advisor consult (2026-11-21)
 

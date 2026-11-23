@@ -1,5 +1,6 @@
 ---
 convention controlled-values
+description A parent-owned value is passed as a prop and changes are reported with an emit; the machine never stores it.
 ---
 # Controlled values
 

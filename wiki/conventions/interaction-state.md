@@ -1,5 +1,6 @@
 ---
 convention interaction-state
+description Frame-rate data stays in refs, gesture milestones go to a local actor, and the machine gets one change event.
 ---
 # Interaction state
 

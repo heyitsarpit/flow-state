@@ -1,5 +1,6 @@
 ---
 page T20-durability-restore
+description No app change; a reload restores every acknowledged write and owed ending, and an untrusted record is set aside.
 ---
 # Durability, restore: what an app author notices (T20, 2026-11-18)
 

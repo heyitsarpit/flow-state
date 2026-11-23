@@ -1,6 +1,7 @@
 ---
 review final-review
 status open 2026-11-21
+description Finds no algorithm design Spec-ready as written, though every blocker is local; the worst holes sit between designs.
 ---
 # Final review: holes across the six algorithm designs of the round (2026-11-21)
 

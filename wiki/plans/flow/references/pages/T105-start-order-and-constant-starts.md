@@ -1,5 +1,6 @@
 ---
 page T105-start-order-and-constant-starts
+description A memory field starts at a constant only, actor creation cannot fail, and handling order is stated.
 ---
 # Start order and constant starts: what an app author notices (T105, 2026-11-20)
 

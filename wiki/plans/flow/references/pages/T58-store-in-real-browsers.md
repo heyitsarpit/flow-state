@@ -1,5 +1,6 @@
 ---
 page T58-store-in-real-browsers
+description Storage is a `Store` service with one contract test that Flow's IndexedDB store passes in real Chrome and Safari.
 ---
 # Store in real browsers: what an app author notices (T58, 2026-11-20)
 

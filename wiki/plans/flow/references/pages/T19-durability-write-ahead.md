@@ -1,5 +1,6 @@
 ---
 page T19-durability-write-ahead
+description No app change; a reload never hears an ending twice or loses one, and a refused save is retried within 5 s.
 ---
 # Durability, write-ahead: what an app author notices (T19, 2026-11-16)
 

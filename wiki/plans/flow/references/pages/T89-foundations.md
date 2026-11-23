@@ -1,5 +1,6 @@
 ---
 page T89-foundations
+description Schedules are declared on the definition, `Flow.keyed` is gone, and every value Flow hands you is made through one door.
 ---
 # Foundations: what an app author notices (slice T89: T131, T120, T140; 2026-11-22)
 

@@ -1,6 +1,7 @@
 ---
 proposal algo-operations
 status proposed 2026-11-21
+description Proposes reads as three small states, issues as views over owner state, and one door for everything public.
 ---
 # Reads and operations, errors and construction trust: the core algorithm (2026-11-21)
 

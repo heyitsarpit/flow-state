@@ -1,5 +1,6 @@
 ---
 convention reusable-primitives
+description A library ships a primitive as a factory that takes the app's contract and returns a machine or trait.
 ---
 # Reusable primitives
 

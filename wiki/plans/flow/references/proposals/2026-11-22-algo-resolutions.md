@@ -1,6 +1,7 @@
 ---
 proposal algo-resolutions
 status proposed 2026-11-22
+description Proposes resolutions for the six algorithm designs' blockers, contradictions and open questions, with Tasks.
 ---
 # Resolutions for the six algorithm designs: blockers, contradictions, questions, Tasks (2026-11-22)
 

@@ -1,5 +1,6 @@
 ---
 page T92-records
+description A reload trusts nothing in storage Flow's writer would not have written; a bad record is reported by key and skipped.
 ---
 # Saved records decoded into meaning: what an app author notices (slice T92; 2026-11-23)
 

@@ -1,5 +1,6 @@
 ---
 page T9-actor-identity
+description A machine reads another actor's state as typed context and reacts when it changes; mutating memory fails the turn in dev.
 ---
 # Actor identity and context: what an app author notices (T9, 2026-11-17)
 

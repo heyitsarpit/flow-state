@@ -2,6 +2,7 @@
 proposal spec-boundary-channels
 status superseded 2026-11-23 [@proposal.algo-turn]
     proposed 2026-11-20
+description Superseded by @proposal.algo-turn; kept as prior art for emits out and props in as declared channels.
 ---
 # Actor boundary channels: emits out, props in
 

@@ -1,5 +1,6 @@
 ---
 revisit revisit
+description Deferred items with no home record, each with the reason it was deferred.
 ---
 # Revisit
 

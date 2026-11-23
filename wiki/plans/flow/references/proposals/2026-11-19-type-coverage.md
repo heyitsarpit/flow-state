@@ -2,6 +2,7 @@
 review type-coverage
 status resolved 2026-11-19 [@task.V3.T104]
     open 2026-11-19
+description Resolved, folded into T104: tool-driven pass finds Flow's type gaps are not `any` but narrowed carrier types.
 ---
 # Type coverage, tool-driven pass (proposed)
 

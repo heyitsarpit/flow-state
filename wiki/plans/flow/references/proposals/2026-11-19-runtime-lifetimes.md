@@ -3,6 +3,7 @@ proposal runtime-lifetimes
 status merged 2026-11-20 [@task.V3.T99, @plan.Pending.D34]
     accepted user 2026-11-19
     proposed 2026-11-19
+description Merged: every host fiber belongs to an Owner, one `judge` splits each Exit, and whoever closes the Owner hears failures.
 ---
 # Runtime lifetimes: owners, one judge, one close
 

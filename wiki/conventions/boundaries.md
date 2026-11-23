@@ -1,5 +1,6 @@
 ---
 convention boundaries
+description Untrusted input is trusted at one place per source by one Schema decode; internals never re-check it.
 ---
 # Boundaries
 

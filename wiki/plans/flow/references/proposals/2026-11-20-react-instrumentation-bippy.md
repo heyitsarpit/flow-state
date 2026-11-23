@@ -1,6 +1,7 @@
 ---
 proposal react-instrumentation-bippy
 status proposed 2026-11-20
+description Proposes building React instrumentation on bippy rather than react-scan; blocks T108 until accepted or rejected.
 ---
 # React instrumentation with bippy
 

@@ -2,6 +2,7 @@
 proposal alchemy-adoption
 status partial user 2026-11-19 [@task.V3.T106]
     proposed 2026-11-19
+description Proposes admitting rules on definitions, unseen-rule reporting and a bounded exhaustive generator; partly adopted.
 ---
 # Alchemy adoption
 

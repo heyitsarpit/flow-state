@@ -2,6 +2,7 @@
 proposal test-system
 status partial user 2026-11-15 [@proposal.test-tooling-reuse]
     proposed 2026-11-15
+description Partly accepted: drops the conformance suite and proposes one runtime and one way to run it for all tests.
 ---
 # One runtime, one way to run it: the test system after conformance (2026-11-15)
 

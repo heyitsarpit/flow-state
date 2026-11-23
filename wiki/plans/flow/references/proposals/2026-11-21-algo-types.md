@@ -1,6 +1,7 @@
 ---
 proposal algo-types
 status proposed 2026-11-21
+description Proposes every user-visible type as a row of one type-only `derive.ts`, and construction as Built, Refused or Blocked.
 ---
 # Types and compile: one derivation, three crossings, construction as a value (2026-11-21)
 

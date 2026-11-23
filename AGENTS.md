@@ -5,8 +5,9 @@
   (`machine-design.md`) was absorbed into them and deleted; history is at commit `20986677` (see
   `wiki/plans/flow/references/README.md`);
   proposals, reviews and question lists are Markdown records in `references/proposals/`, named
-  `YYYY-MM-DD-<slug>.md` and linked as `@proposal.<name>`; deferred items with no home record are in its
-  `revisit.md`. `wk list defer` and `wk list question --open` find every deferral and open question.
+  `YYYY-MM-DD-<slug>.md` and linked as `@proposal.<name>`, each with a one-line frontmatter `description` saying
+  what it decides or asks (`wk edit @proposal.<name> --set description=…`); deferred items with no home record
+  are in its `revisit.md`. `wk list defer` and `wk list question --open` find every deferral and open question.
 - `reference/` — historical. Read-only. Archived plans, tasks and Beads were deleted (commit `20986677` has them).
 - `packages/flow-state-v3/` — the current build; runtime first. Prototypes are in its `prototypes/` and never become production code.
   Inside it: `src/core/` (pure), `src/host/` (Effect; `src/host/testing/` is the test tooling), `fixtures/` (machines

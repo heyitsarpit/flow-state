@@ -1,6 +1,7 @@
 ---
 review review-external-rules-a
 status open 2026-11-22
+description Review finds chaining closes the registry design's holes, but "no rule set silently skipped" fails in three places.
 ---
 # Review A of @proposal.external-rules, the `.rules(build)` design: correctness and discovery (2026-11-22)
 

@@ -1,6 +1,7 @@
 ---
 review code-audit
 status open 2026-11-21
+description Audit finds the v3 code lean and recommends deleting about 161,000 lines of unreferenced prototypes now.
 ---
 # Audit of `packages/flow-state-v3/`: what to delete now, later, and what stays (2026-11-21)
 

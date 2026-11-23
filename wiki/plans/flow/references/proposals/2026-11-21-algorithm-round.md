@@ -2,6 +2,7 @@
 proposal algorithm-round
 status merged 2026-11-23 [@spec.Schedules, @spec.Changes, @spec.Records, @spec.Operations, @spec.Types, @spec.Host]
     proposed 2026-11-21
+description Merged: sets the principles, reading list and clusters for designing the core algorithms, one lead per cluster.
 ---
 # Algorithm design round: principles, reading list and clusters (2026-11-21)
 

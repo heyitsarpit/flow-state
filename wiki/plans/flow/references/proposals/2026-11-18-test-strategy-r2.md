@@ -1,6 +1,7 @@
 ---
 proposal test-strategy-r2
 status proposed 2026-11-18
+description Proposes one cheap exhaustive core plus generation aimed at where bugs come from, dropping same-path replays.
 ---
 # Test strategy, revision 2: most correctness per second
 

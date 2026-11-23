@@ -2,6 +2,7 @@
 review type-gaps-deep
 status resolved 2026-11-19 [@task.V3.T104]
     open 2026-11-19
+description Resolved, folded into T104: nine families of type gaps trace to four carrier types.
 ---
 # Type gaps, deep pass (proposed)
 

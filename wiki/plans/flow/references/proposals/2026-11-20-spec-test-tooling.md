@@ -1,6 +1,7 @@
 ---
 proposal spec-test-tooling
 status proposed 2026-11-20
+description Proposes giving every fake one explicit life, making the run verdict a pure function, and moving hostility to world words.
 ---
 # Test tooling and fakes: design and Spec
 

@@ -1,5 +1,6 @@
 ---
 page T119-turn-parts
+description Schedules fire exactly as their Effect `Schedule` says, and a turn that changes nothing costs about half as much.
 ---
 # Turn parts: what an app author notices (slice T119; 2026-11-23)
 

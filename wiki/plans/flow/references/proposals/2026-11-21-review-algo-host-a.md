@@ -1,6 +1,7 @@
 ---
 review review-algo-host-a
 status open 2026-11-21
+description Review of the host design finds it sound in its core but not Spec-ready: four Spec blockers, eight build blockers.
 ---
 # Review A: the UI host and test tooling algorithm design, cluster 5b (2026-11-21)
 

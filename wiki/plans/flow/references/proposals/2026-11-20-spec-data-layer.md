@@ -2,6 +2,7 @@
 proposal spec-data-layer
 status superseded 2026-11-23 [@proposal.algo-records]
     proposed 2026-11-20
+description Superseded by @proposal.algo-records; kept as prior art for the data layer's two doors and one judge.
 ---
 # The data layer: streams, the entity store, server data and lazy features
 

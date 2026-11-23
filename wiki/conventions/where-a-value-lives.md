@@ -1,5 +1,6 @@
 ---
 convention where-a-value-lives
+description Every value has one home by who changes it: input, props, memory, context, or derived and never stored.
 ---
 # Where a value lives
 

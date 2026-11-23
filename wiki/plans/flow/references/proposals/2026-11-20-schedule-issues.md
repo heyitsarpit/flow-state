@@ -3,6 +3,7 @@ proposal schedule-issues
 status merged 2026-11-23 [@task.V3.T118, @spec.Schedules]
     accepted user 2026-11-21
     proposed 2026-11-20
+description Merged: a schedule issue stops being stored; each timer keeps its checks' last outcomes and issues are read from them.
 ---
 # Schedule issues: stop storing them
 

@@ -1,6 +1,7 @@
 ---
 review review-external-rules
 status open 2026-11-22
+description Review of @proposal.external-rules finds the design sound but "no rule set silently skipped" and "nothing lost" fail.
 ---
 # Review of @proposal.external-rules (2026-11-22)
 

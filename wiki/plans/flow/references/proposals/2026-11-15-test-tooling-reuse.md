@@ -2,6 +2,7 @@
 proposal test-tooling-reuse
 status accepted user 2026-11-15
     proposed 2026-11-15
+description Accepted: Story, Fake, inspection and the CLI are one set of tools shared by Flow, apps and production.
 ---
 # One set of tools: Story, Fake, inspection and the CLI shared by Flow, apps and production (2026-11-15)
 

@@ -1,5 +1,6 @@
 ---
 convention view-commands
+description A one-time view action (focus, scroll, announce) is declared in `emits` and sent with an `emit` part, never stored.
 ---
 # View commands
 

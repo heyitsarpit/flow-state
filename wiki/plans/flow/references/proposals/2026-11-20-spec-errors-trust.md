@@ -2,6 +2,7 @@
 proposal spec-errors-trust
 status superseded 2026-11-23 [@proposal.algo-operations]
     proposed 2026-11-20
+description Superseded by @proposal.algo-operations; kept as prior art for two doors, a `made` seal and one error catalog.
 ---
 # Errors and construction trust: one door, one catalog
 

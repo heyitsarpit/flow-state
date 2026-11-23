@@ -593,3 +593,7 @@ note 2026-11-23T09:59:48Z
     Records cleanup (the user, 2026-11-23): deleted 6 absorbed files; last commits 3a84b878 (invariant-audit,
     fixture-catalog-check, rules-cohesion), c3fd18e6 (conventions), 9fda6b6d (review-specs), 37e70116 (review-tasks).
     Verdicts and the user's list: @review.records-cleanup.
+
+note 2026-11-23T10:09:40Z
+    [decided: user 2026-11-23] "proposal frontmatter should get a description field which the wk cli uses": records get
+    a one-line description in frontmatter; wk prints it; existing proposals are backfilled once wk supports it.

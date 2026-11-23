@@ -1,6 +1,7 @@
 ---
 review review-algo-schedules
 status open 2026-11-21
+description Review of the schedules algorithm finds it sound in shape but not Spec-ready: four Spec blockers, three build blockers.
 ---
 # Review: the schedules algorithm design, cluster 1 (2026-11-21)
 

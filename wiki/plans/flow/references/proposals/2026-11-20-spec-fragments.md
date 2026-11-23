@@ -2,6 +2,7 @@
 proposal spec-fragments
 status superseded 2026-11-23 [@proposal.algo-turn]
     proposed 2026-11-20
+description Superseded by @proposal.algo-turn; kept as prior art for one `settle` table deciding every fragment instance.
 ---
 # Fragments: one table decides every fragment instance
 

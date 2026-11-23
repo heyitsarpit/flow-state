@@ -1,5 +1,6 @@
 ---
 page T118-schedule-issues
+description A schedule's issue always matches its timer, a refused start stays visible and is retried after a reload.
 ---
 # Schedule issues: what an app author notices (slice T118; 2026-11-22)
 

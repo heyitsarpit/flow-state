@@ -1,6 +1,7 @@
 ---
 review advisor-holes
 status open 2026-11-20
+description Second adversarial pass over the five advisor answers, listing new holes by severity and each design's readiness.
 ---
 # Holes in the five advisor answers (proposed, 2026-11-20)
 

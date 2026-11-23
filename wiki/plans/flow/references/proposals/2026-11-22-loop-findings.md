@@ -1,6 +1,7 @@
 ---
 proposal loop-findings
 status proposed 2026-11-22
+description Collects proposed lessons and loop changes from each slice of the V3 Epic until the user confirms them.
 ---
 # Loop findings: what worked and what to change, gathered per slice
 

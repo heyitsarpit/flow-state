@@ -1,6 +1,7 @@
 ---
 review code-quality-review-2
 status open 2026-11-16
+description Confirms the first code-quality review and adds three root causes, with construction-side shape checks disagreeing.
 ---
 # Second code-quality review of flow-state-v3 (2026-11-16)
 

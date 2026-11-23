@@ -1,5 +1,6 @@
 ---
 convention what-an-ending-knows
+description A call's input carries what the server needs and what the ending must know at call start, never current config.
 ---
 # What an ending knows
 

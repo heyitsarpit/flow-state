@@ -1,5 +1,6 @@
 ---
 page T107-context-slots
+description Context is declared with `Flow.context`, read from one provider and reacted to with `C.slot.change`.
 ---
 # Context slots: what an app author notices (T107, 2026-11-20)
 

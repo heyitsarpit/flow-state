@@ -2,6 +2,7 @@
 review spec-cohesion
 status resolved 2026-11-23 [@review.spec-cohesion-r2]
     open 2026-11-20
+description Resolved by @review.spec-cohesion-r2; lists 17 mismatches among the five concept designs and a combined build order.
 ---
 # Cohesion of the five concept designs (2026-11-20)
 

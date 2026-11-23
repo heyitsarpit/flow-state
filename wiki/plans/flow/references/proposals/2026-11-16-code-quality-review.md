@@ -1,6 +1,7 @@
 ---
 review code-quality-review
 status open 2026-11-16
+description Finds the core pure and the debt structural: eight root causes, four carrying most weight; the convergence builder decides.
 ---
 # Code-quality review of flow-state-v3 (2026-11-16)
 

@@ -2,6 +2,7 @@
 proposal spec-saved-records
 status superseded 2026-11-23 [@proposal.algo-records]
     proposed 2026-11-20
+description Superseded by @proposal.algo-records; kept as prior art for one pure `Fate` judge per stored key.
 ---
 # Saved records and releases: one judge, one fate
 

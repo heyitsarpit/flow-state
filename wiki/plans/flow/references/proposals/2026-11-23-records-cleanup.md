@@ -1,6 +1,7 @@
 ---
 review records-cleanup
 status open 2026-11-23
+description Inventories which absorbed records to delete now (6) or update (15) and which wait on the user's yes.
 ---
 # Records cleanup: inventory and verdicts (2026-11-23)
 

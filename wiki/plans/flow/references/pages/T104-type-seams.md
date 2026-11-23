@@ -1,5 +1,6 @@
 ---
 page T104-type-seams
+description More mistakes fail to compile: a token, ending or state read carries its own definition.
 ---
 # Type seams: what an app author notices (T104, 2026-11-20)
 

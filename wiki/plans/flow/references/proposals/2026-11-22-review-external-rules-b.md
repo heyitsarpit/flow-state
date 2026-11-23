@@ -1,6 +1,7 @@
 ---
 review review-external-rules-b
 status open 2026-11-22
+description Review finds the chained `.rules(build)` typing sound, with four gaps to fix before T106 builds it.
 ---
 # Review of @proposal.external-rules, types and consistency (2026-11-22)
 

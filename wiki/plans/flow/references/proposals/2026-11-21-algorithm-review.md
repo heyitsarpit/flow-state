@@ -1,6 +1,7 @@
 ---
 review algorithm-review
 status open 2026-11-21
+description Finds none of the twelve concept designs Spec-ready as a core algorithm; schedules is closest, four holes remain.
 ---
 # The concept designs as core algorithms, against today's code (2026-11-21)
 

@@ -2,6 +2,7 @@
 proposal body-capture-settled
 status merged 2026-11-23 [@spec.Types, @task.V3.T144]
     proposed 2026-11-20
+description Merged: `machine()` can capture the body as a type parameter and still check it exactly, on the real package.
 ---
 # Body capture settled: `Exact` works on the real package
 

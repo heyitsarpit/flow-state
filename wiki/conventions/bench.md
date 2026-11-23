@@ -1,5 +1,6 @@
 ---
 convention bench
+description Never block on a bench: iterate with `--dev`, run longer tiers capped in the background.
 ---
 # Bench
 

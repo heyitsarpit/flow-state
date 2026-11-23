@@ -2,6 +2,7 @@
 proposal saved-records
 status accepted user 2026-11-20 [@review.advisor-holes]
     proposed 2026-11-20
+description Accepted: a saved record is a projection of the compiled release, with record Schemas built from Compiled.
 ---
 # Saved records as one design (2026-11-20; revised after review and hole-poking)
 

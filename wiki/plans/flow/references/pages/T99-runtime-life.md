@@ -1,5 +1,6 @@
 ---
 page T99-runtime-life
+description Disposing a Runtime or actor always reports cleanup failures and never hangs on uninterruptible work.
 ---
 # Runtime life: what an app author notices (T99, 2026-11-19)
 

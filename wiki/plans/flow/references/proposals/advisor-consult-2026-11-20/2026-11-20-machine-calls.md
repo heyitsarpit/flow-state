@@ -2,6 +2,7 @@
 proposal machine-calls
 status accepted user 2026-11-20 [@review.advisor-holes]
     proposed 2026-11-20
+description Accepted: no timing or retry option; in-send time lives in the contract's Effect, visible waits live in the machine.
 ---
 # Calls made from a machine: timing, waits, reloads and input (2026-11-20; revised after review)
 

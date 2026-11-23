@@ -2,6 +2,7 @@
 proposal spec-ui-host
 status superseded 2026-11-23 [@proposal.algo-host]
     proposed 2026-11-20
+description Superseded by @proposal.algo-host; kept as prior art for the host's one Publication per drained slice.
 ---
 # UI and host: design and Spec
 

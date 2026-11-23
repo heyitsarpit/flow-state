@@ -1,6 +1,7 @@
 ---
 review rules-exactness-inventory
 status open 2026-11-22
+description Inventory of what must change to move rules out of the body and add exactness: Plans, Specs, Tasks and code rows.
 ---
 # Rules out of the body and exactness at construction: what must change (2026-11-22)
 

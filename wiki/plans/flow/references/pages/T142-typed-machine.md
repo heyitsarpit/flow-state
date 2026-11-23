@@ -1,5 +1,6 @@
 ---
 page T142-typed-machine
+description A misspelled key in a machine body is a compile error, and every type outside the body derives from the definition.
 ---
 # The typed machine: what an app author notices (slice T142: T113, T143, T144; 2026-11-22)
 

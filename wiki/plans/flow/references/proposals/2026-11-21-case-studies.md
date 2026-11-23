@@ -1,6 +1,7 @@
 ---
 review case-studies
 status open 2026-11-21
+description Finds in three case studies that the algorithm was the root cause and the process failed as a gate.
 ---
 # Case studies: where schedules, record trust and type safety got stuck (2026-11-21)
 

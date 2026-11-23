@@ -1,6 +1,7 @@
 ---
 proposal algo-records
 status proposed 2026-11-21
+description Proposes the store as one value with one encoder and a two-stage judge, with identity only in the key.
 ---
 # Saved records, the data layer and the saved format: the core algorithm (2026-11-21)
 

@@ -1,5 +1,6 @@
 ---
 page T94-public-entry-points
+description Wrong calls into Flow now come back as a `FlowError`, and a throwing host hook stops the Runtime.
 ---
 # Public entry points: what an app author notices (T94, 2026-11-19)
 

@@ -1,5 +1,6 @@
 ---
 page T57-schedules
+description Schedules pause for named reasons, run one timer per key, follow an Effect Schedule and survive reloads.
 ---
 # Schedules: what an app author notices (T57, 2026-11-20)
 

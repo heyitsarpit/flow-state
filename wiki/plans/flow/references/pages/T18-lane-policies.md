@@ -1,5 +1,6 @@
 ---
 page T18-lane-policies
+description A write operation can set `latest`, `serialize` or `cancel` for a second commit, and a never-sent commit ends on `notSent`.
 ---
 # Lane policies: what an app author notices (T18, 2026-11-16)
 

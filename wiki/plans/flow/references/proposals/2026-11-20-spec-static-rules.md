@@ -2,6 +2,7 @@
 proposal spec-static-rules
 status superseded 2026-11-23 [@proposal.algo-types]
     proposed 2026-11-20
+description Superseded by @proposal.algo-types; kept as prior art for one edge model, one `Result` per command and one rule judge.
 ---
 # Static analysis, the CLI and rules on machines: design and Spec (2026-11-20)
 

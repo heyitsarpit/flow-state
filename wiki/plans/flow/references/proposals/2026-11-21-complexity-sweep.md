@@ -1,6 +1,7 @@
 ---
 review complexity-sweep
 status open 2026-11-21
+description Finds the world answers per-step questions by scanning, so an event costs O(actors); lists costly operations by family.
 ---
 # Costly operations over the graph (2026-11-21)
 

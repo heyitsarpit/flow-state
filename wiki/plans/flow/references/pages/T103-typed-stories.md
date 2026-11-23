@@ -1,5 +1,6 @@
 ---
 page T103-typed-stories
+description Story assertions are typed by your own definitions, so a misspelt field, state or event is a compile error.
 ---
 # Typed Story assertions: what an app author notices (T103, 2026-11-19)
 

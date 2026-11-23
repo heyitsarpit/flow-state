@@ -1,6 +1,7 @@
 ---
 review test-efficacy
 status open 2026-11-18
+description Audit finds the three costliest default sweeps made no unique catches and can be made cheaper without losing any.
 ---
 # Test efficacy audit (2026-11-18, proposed)
 

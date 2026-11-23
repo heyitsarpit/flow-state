@@ -2,6 +2,7 @@
 proposal spec-typed-machine
 status superseded 2026-11-23 [@proposal.algo-types]
     proposed 2026-11-20
+description Superseded by @proposal.algo-types; kept as prior art for deriving every type from the definition.
 ---
 # The typed machine: one source for every derived type
 

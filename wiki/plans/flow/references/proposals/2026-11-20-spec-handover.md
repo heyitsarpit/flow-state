@@ -1,6 +1,7 @@
 ---
 proposal spec-handover
 status proposed 2026-11-20
+description Proposes turning the concept designs into `.spec` files; the cohesion pass and user rounds are answered, consult gaps open.
 ---
 # Handover: turn today's concept designs into Specs (2026-11-20)
 

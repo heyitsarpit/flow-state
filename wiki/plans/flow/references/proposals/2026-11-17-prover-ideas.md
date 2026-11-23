@@ -2,6 +2,7 @@
 proposal prover-ideas
 status superseded 2026-11-19 [@proposal.alchemy-adoption, @task.V3.T106]
     proposed 2026-11-17
+description Superseded by @proposal.alchemy-adoption and T106; kept as prior art on a separate prover module.
 ---
 # Prover module: ideas (ideas only)
 

@@ -1,5 +1,6 @@
 ---
 page T54-core-consolidation
+description Almost no app change; saves leave as one batch per step and a boot-adopted lane treats later endings as current.
 ---
 # Core consolidation: what an app author notices (T54, 2026-11-16)
 

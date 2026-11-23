@@ -1,5 +1,6 @@
 ---
 page T102-core-shapes
+description Almost no app change; every closed set the runtime branches on is a declared type handled exhaustively.
 ---
 # Core shapes: what an app author notices (T102, 2026-11-19)
 

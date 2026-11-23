@@ -2,6 +2,7 @@
 proposal body-types
 status accepted user 2026-11-20 [@review.advisor-holes]
     proposed 2026-11-20
+description Accepted: `machine()` captures the body as one `const` type parameter and checks it with `Exact` at every depth.
 ---
 # Proposal: machine-body types that hold at any depth (2026-11-20; revised after review and hole-poking)
 

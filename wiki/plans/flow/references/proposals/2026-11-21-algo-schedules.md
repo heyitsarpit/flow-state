@@ -2,6 +2,7 @@
 proposal algo-schedules
 status merged 2026-11-23 [@spec.Schedules, @task.V3.T118]
     proposed 2026-11-21
+description Merged into @spec.Schedules: one `Scheduled` value per scope, built only by one pure `decide`.
 ---
 # Schedules and occasions: the core algorithm (2026-11-21)
 

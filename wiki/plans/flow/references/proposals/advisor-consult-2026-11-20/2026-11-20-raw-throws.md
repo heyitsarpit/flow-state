@@ -2,6 +2,7 @@
 proposal raw-throws
 status accepted user 2026-11-20 [@review.advisor-holes]
     proposed 2026-11-20
+description Accepted: every Flow-made function comes from one constructor that decodes its arguments once and wraps throws in FlowError.
 ---
 # One answer for raw throws (2026-11-20; revised after review and hole-poking)
 

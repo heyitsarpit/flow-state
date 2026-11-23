@@ -1,5 +1,6 @@
 ---
 convention app-actions
+description A contract calls app code through an Effect service listed in `services`, supplied once in the Runtime's Layer.
 ---
 # App actions
 

@@ -1,6 +1,7 @@
 ---
 proposal capability-gaps
 status proposed 2026-11-23
+description Researches what Flow v3 still cannot build (gesture-rate, DOM-owned, multi-writer, huge-data apps); nothing decided.
 ---
 # Capability gaps: what Flow State v3 still cannot build (proposed research)
 

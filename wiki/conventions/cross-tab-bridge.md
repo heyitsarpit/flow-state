@@ -1,5 +1,6 @@
 ---
 convention cross-tab-bridge
+description Flow does not sync tabs in v1; apps bridge in host code with an emit out, a typed send in, and user events only.
 ---
 # Cross-tab bridge
 

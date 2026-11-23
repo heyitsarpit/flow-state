@@ -1,6 +1,7 @@
 ---
 questions advisor-questions
 status open 2026-11-20
+description Ten design questions for an outside advisor; eight are answered, 8 (React and Next.js) and 10 (repeated wiring) stay open.
 ---
 # Questions for an advisor (2026-11-20)
 

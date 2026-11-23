@@ -1,5 +1,6 @@
 ---
 revisit open-items
+description Items from the v4 keyword walkthrough that need their own look; some are since resolved.
 ---
 # To revisit
 

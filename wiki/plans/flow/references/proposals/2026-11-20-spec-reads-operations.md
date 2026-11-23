@@ -2,6 +2,7 @@
 proposal spec-reads-operations
 status superseded 2026-11-23 [@proposal.algo-operations]
     proposed 2026-11-20
+description Superseded by @proposal.algo-operations; kept as prior art for reads as a second table beside the write lane.
 ---
 # Reads and operations: design and Spec
 

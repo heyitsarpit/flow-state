@@ -1,5 +1,6 @@
 ---
 convention fixture-catalog
+description Lists the fixture apps, their machines and journeys, the migration steps that add features, and scenarios.
 ---
 # Fixture catalog
 

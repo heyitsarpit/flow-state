@@ -1,5 +1,6 @@
 ---
 page T96-send
+description A machine can send another actor a command from inside a transition, as a rare escape hatch.
 ---
 # Actor-to-actor send: what an app author notices (T96, 2026-11-19)
 

@@ -2,6 +2,7 @@
 proposal context-slots
 status accepted user 2026-11-20
     proposed 2026-11-20
+description Accepted: a context slot is declared whole with `Flow.context`, has exactly one provider, and reacts via `C.slot.change`.
 ---
 # Context slots and reactions
 

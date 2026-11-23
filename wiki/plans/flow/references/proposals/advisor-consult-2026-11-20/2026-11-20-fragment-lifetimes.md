@@ -2,6 +2,7 @@
 proposal fragment-lifetimes
 status accepted user 2026-11-20 [@review.advisor-holes]
     proposed 2026-11-20
+description Accepted: each placement incarnation has one address, its subject path, and a change of address ends the incarnation.
 ---
 # Fragment lifetimes: one address, two holders (2026-11-20; revised after review and hole-poking)
 

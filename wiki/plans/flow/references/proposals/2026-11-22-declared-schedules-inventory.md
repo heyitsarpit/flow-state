@@ -1,6 +1,7 @@
 ---
 review declared-schedules-inventory
 status open 2026-11-22
+description Inventory of every place the old body-declared schedule style lives, to rewrite for definition-declared schedules.
 ---
 # Declared schedules: where the old body-declared style still lives (2026-11-22)
 

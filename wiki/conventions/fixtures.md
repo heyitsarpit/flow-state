@@ -1,5 +1,6 @@
 ---
 convention fixtures
+description Every public feature is proven by a small real fixture app before it is built; hand-written tests alone never prove one.
 ---
 # Fixtures
 
