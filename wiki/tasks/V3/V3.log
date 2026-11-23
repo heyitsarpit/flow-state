@@ -875,3 +875,7 @@ note 2026-11-23T02:27:50Z
 note 2026-11-23T02:28:35Z
     Slice T21's Tasks T121 to T124 written and opened; no lead started (under the 5% rule). Resume: start the T21
     requirements lead (high) over all four.
+
+note 2026-11-23T02:28:55Z
+    Amendment (2026-11-23, the user): who runs each slice step, Task done on PASS, slice cost 5 to 10%, no new slice
+    under 5% left, activity from transcript growth. Commit: 931f49b6.
