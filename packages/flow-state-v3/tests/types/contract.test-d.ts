@@ -7,6 +7,7 @@ import {
   Flow,
   type Machine,
   machine,
+  type ReadRow,
   resource,
   type Snapshot,
   transaction,
@@ -32,6 +33,9 @@ type Row = {
   // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the public row's `progress` is absent until a commit reports one
   readonly progress?: Progress;
 };
+
+// A snapshot's row: a write lane's, or a read's entry row.
+type AnyRow = Row | ReadRow;
 
 const pay = transaction({
   id: "types/pay",
@@ -228,12 +232,14 @@ describe("Reads R1, Compile R9: a key names required input fields, kept as a tup
 describe("Turn R23: a snapshot's operations are keyed by the definition's operation names", () => {
   it("a misspelt operation name", () => {
     expectTypeOf(snap.operations).toEqualTypeOf<
-      ReadonlyMap<"pay" | "find", ReadonlyMap<string, Row>>
+      ReadonlyMap<"pay" | "find", ReadonlyMap<string, AnyRow>>
     >();
 
     // @ts-expect-error Turn R23: typo is no operation of Cart
     snap.operations.get("typo");
-    expectTypeOf(snap.operations.get("pay")).toEqualTypeOf<ReadonlyMap<string, Row> | undefined>();
+    expectTypeOf(snap.operations.get("pay")).toEqualTypeOf<
+      ReadonlyMap<string, AnyRow> | undefined
+    >();
   });
 });
 

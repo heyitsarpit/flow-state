@@ -50,6 +50,8 @@ export { actorRef, app, runtimeSetup } from "./host/runtime.ts";
 
 export { RuntimeDefaults } from "./core/defaults.ts";
 
+export type { ReadRow } from "./core/rows.ts";
+
 export type {
   Actor,
   ActorRef,

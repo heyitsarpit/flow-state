@@ -8,7 +8,8 @@ import { inputOfName } from "../core/identity.ts";
 import { positionKey } from "../core/persist.ts";
 import { create } from "../core/tree.ts";
 import { actorLifecycleOf, type Lifecycle, restingLifecycleOf } from "../core/life.ts";
-import type { Row } from "../core/rows.ts";
+import type { AnyRow } from "../core/rows.ts";
+import { readRowsOf } from "../core/read-rows.ts";
 import type { Machines } from "../core/tx.ts";
 import type { IssueCode } from "../core/vocabulary.ts";
 import type { SavedSchedules, SavedTimer } from "../core/record-shape.ts";
@@ -60,7 +61,7 @@ export type Snapshot<
       : Parts<D>["Memory"];
   readonly operations: Erased<D> extends true
     ? Operations
-    : ReadonlyMap<keyof Parts<D>["Operations"] & string, ReadonlyMap<string, Row>>;
+    : ReadonlyMap<keyof Parts<D>["Operations"] & string, ReadonlyMap<string, AnyRow>>;
   readonly lifecycle: Lifecycle;
   readonly context: Erased<D> extends true ? Values : Parts<D>["Context"];
   readonly issues: ReadonlyArray<Diagnostic>;
@@ -267,14 +268,20 @@ export const snapshotIn = (
 
   if (live !== undefined)
     return Option.some(
-      shown({
-        state: live.state,
-        memory: live.memory,
-        lifecycle: actorLifecycleOf(world.life),
-        context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
-        issues: issuesOf(world, machines, live).map((issue) => issueOf(actor, issue)),
-        schedules: liveTimersOf(live),
-      }),
+      shownAs(
+        new Map<string, ReadonlyMap<string, AnyRow>>([
+          ...operationsOf(world, machines, actor),
+          ...readRowsOf(world, machines, live),
+        ]),
+        {
+          state: live.state,
+          memory: live.memory,
+          lifecycle: actorLifecycleOf(world.life),
+          context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
+          issues: issuesOf(world, machines, live).map((issue) => issueOf(actor, issue)),
+          schedules: liveTimersOf(live),
+        },
+      ),
     );
 
   if (record !== undefined)

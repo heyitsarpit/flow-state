@@ -3,6 +3,7 @@ import { Alarm, alarmKey } from "./alarms.ts";
 import { Placement, ReadEnding } from "./entry-view.ts";
 import type { Values } from "./compiled.ts";
 import { rowsOf } from "./ledger.ts";
+import { heldBy } from "./read-rows.ts";
 import { scheduleIssues } from "./schedule-issues.ts";
 import { pick, type Machines } from "./tx.ts";
 import { type Incarnation, type Issue, IssueSource, type World } from "./world.ts";
@@ -82,15 +83,6 @@ const placementIssues = (world: World, incarnation: Incarnation) =>
       ),
     ),
   );
-
-// The entries an incarnation holds, by its slots and placements, each with the operation that
-// holds it.
-const heldBy = (world: World, incarnation: Incarnation) => [
-  ...[...(world.slots.get(incarnation.id) ?? [])].map(([operation, s]) => [operation, s.entry]),
-  ...[...(world.placements.get(incarnation.id) ?? [])].flatMap(([operation, p]) =>
-    Placement.$is("Placed")(p) ? [[operation, p.entry] as const] : [],
-  ),
-];
 
 // A released call's issue: one per key the incarnation holds whose released call's alarm was
 // taken while the call runs on, past the disposal bound; gone when the last such call ends.

@@ -92,11 +92,14 @@ declare const request: Extract<TraceRecord, { readonly _tag: "Request" }>;
 declare const paySnapshot: Snapshot<typeof Pay>;
 declare const shipSnapshot: Snapshot<typeof Ship>;
 
-// A write lane's row, as a snapshot's operations hold it.
-type Row =
+// A row as a snapshot's operations hold it: a write lane's, or a read's, which is tagged.
+type AnyRow =
   Snapshot<typeof Pay>["operations"] extends ReadonlyMap<string, ReadonlyMap<string, infer R>>
     ? R
     : never;
+
+// A write lane's row.
+type Row = Exclude<AnyRow, { readonly _tag: string }>;
 
 describe("Stories R16: a selector's rows name the actor's machine and the turn's alternatives", () => {
   it("a turn's actor names its definition", () => {
@@ -303,7 +306,7 @@ describe("Turn R23: a write handle's row read takes its own definition's snapsho
     >();
     expectTypeOf(Pay.O.charge.get)
       .parameter(0)
-      .toEqualTypeOf<ReadonlyMap<"charge", ReadonlyMap<string, Row>>>();
+      .toEqualTypeOf<ReadonlyMap<"charge", ReadonlyMap<string, AnyRow>>>();
     // @ts-expect-error Turn R23: Ship's operations hold no charge rows
     void Pay.O.charge.get(shipSnapshot.operations, { orderId: "o1" });
   });

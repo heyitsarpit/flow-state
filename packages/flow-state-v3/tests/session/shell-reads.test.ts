@@ -24,14 +24,24 @@ describe("the shell's reads (Operations entry table; Plan Operations O3, O5)", (
     expect(run.checkpoints.refreshed.read(shell)?.memory.name).toBe("Ada L.");
   });
 
-  it.fails("Plan Operations O3, O5: a rename shows at once, and the server's answer is written into the teams read", async () => {
+  it("Plan Operations O2, O3, O5, O6: a rename shows at once on the teams row, predicted, while value fires only once the server's answer is written into the read", async () => {
     const { renameShownAtOnce, shell, Workspace } = await load();
     const run = await renameShownAtOnce.run();
-    const core = (cut: Cut) => cut.read(shell)?.memory.teams["core"];
 
-    expect([run.checkpoints.renaming, run.checkpoints.renamed].map(core)).toEqual([
-      "Platform",
-      "Platform",
+    const shown = (cut: Cut) => {
+      const [row] = cut.read(shell)?.operations.get("teams")?.values() ?? [];
+      const names = Predicate.hasProperty(row, "data") ? row.data : undefined;
+
+      return {
+        row: Predicate.hasProperty(names, "names") ? names.names : undefined,
+        predicted: Predicate.hasProperty(row, "predicted") ? row.predicted : undefined,
+        memory: cut.read(shell)?.memory.teams["core"],
+      };
+    };
+
+    expect([run.checkpoints.renaming, run.checkpoints.renamed].map(shown)).toEqual([
+      { row: { core: "Platform" }, predicted: true, memory: "Core" },
+      { row: { core: "Platform" }, predicted: false, memory: "Platform" },
     ]);
     expect(run.checkpoints.renamed.read(Workspace.teams)).toHaveLength(1);
   });

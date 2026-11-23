@@ -1,6 +1,6 @@
 import type { Duration, Option, Schedule, Schema } from "effect";
 import type { Denial, ReadWrite, Values } from "./core/compiled.ts";
-import type { Row } from "./core/rows.ts";
+import type { AnyRow, Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending, Fields } from "./contract.ts";
 import type { ChildrenOf, ContextOf, ContextSlot, NamesOf } from "./definition.ts";
 import type { PayloadOf } from "./derive.ts";
@@ -100,9 +100,10 @@ export type GuardToken<P = unknown, Id extends string = string> = Branded<"guard
 };
 
 /**
- * The write lanes a snapshot shows: each operation's rows, keyed by the key's canonical text.
+ * The rows a snapshot shows: each operation's write lanes or read entry, keyed by the key's
+ * canonical text.
  */
-export type Operations = ReadonlyMap<string, ReadonlyMap<string, Row>>;
+export type Operations = ReadonlyMap<string, ReadonlyMap<string, AnyRow>>;
 
 /**
  * A write operation's members, guards and row read (`O.x.get`); `get` reads a snapshot of its own
@@ -136,7 +137,7 @@ export type WriteHandle<
     ): GuardToken<P, Id>;
   };
   readonly get: (
-    operations: ReadonlyMap<N, ReadonlyMap<string, Row>>,
+    operations: ReadonlyMap<N, ReadonlyMap<string, AnyRow>>,
     key: K,
   ) => Option.Option<Row>;
 };

@@ -1,4 +1,4 @@
-import { Effect, Predicate, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import assert from "node:assert/strict";
 import { describe, expect, it } from "vite-plus/test";
 import { bankPlannedSetup, mainCustomer, orderOf, rent } from "../../fixtures/transfers/app.ts";
@@ -29,6 +29,21 @@ import {
 import { FlowError } from "../../src/index.ts";
 import { played } from "../rules/played.ts";
 import { loose } from "../../src/test/loose.ts";
+import type { Cut } from "../../src/host/testing/index.ts";
+import type { ActorRef } from "../../src/index.ts";
+import type { StandingOrder } from "../../fixtures/transfers/machines/standing-order.ts";
+
+// What a reload restores of a snapshot: all but its read rows, which no store keeps (a one-off
+// read's row is absent until its next lookup; Plan Operations O6).
+const restoredAt = (cut: Cut, ref: ActorRef<typeof StandingOrder>) =>
+  Option.map(Option.fromUndefinedOr(cut.read(ref)), (snapshot) => ({
+    ...snapshot,
+    operations: new Map(
+      [...snapshot.operations].filter(([, rows]) =>
+        [...rows.values()].every((row) => !Predicate.hasProperty(row, "_tag")),
+      ),
+    ),
+  }));
 
 const refusal = (construct: () => unknown) => {
   try {
@@ -78,7 +93,9 @@ describe("a standing order planned from a date (Compile R14, Actors R14)", () =>
   it("Codec I1, Restore R1: a paused order's dates read back equal after a reload, and it resumes", async () => {
     const run = await played(standingOrder);
 
-    expect(run.checkpoints.reloaded.read(rent)).toEqual(run.checkpoints.paused.read(rent));
+    expect(restoredAt(run.checkpoints.reloaded, rent)).toEqual(
+      restoredAt(run.checkpoints.paused, rent),
+    );
     expect(run.checkpoints.reloaded.read(rent)?.memory.pausedUntil).toEqual(RENT_PAUSED_UNTIL);
     expect(run.checkpoints.resumed.read(rent)).toEqual(
       expect.objectContaining({
@@ -131,8 +148,8 @@ describe("standing-order dates at their edges (fixtures.md E1, E2)", () => {
     const run = await played(orderDateEdges);
 
     for (const n of [0, 1, 2])
-      expect(run.checkpoints.reloaded.read(orderOf(n))).toEqual(
-        run.checkpoints.planned.read(orderOf(n)),
+      expect(restoredAt(run.checkpoints.reloaded, orderOf(n))).toEqual(
+        restoredAt(run.checkpoints.planned, orderOf(n)),
       );
   });
 });

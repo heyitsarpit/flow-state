@@ -173,6 +173,18 @@ describe("a read's Defect as an issue (Operations, Issue view: Entry)", () => {
     expect(read.read(general)?.issues).toEqual([]);
     expect(ids(read)).toEqual(["m-1", "m-2"]);
   });
+
+  it("Plan Operations O6 (resource tags): the thread's history row is Defect while its read has died, and Ready once a read lands", async () => {
+    const run = await historyDown.run();
+    const tag = (cut: Cut) => [...(cut.read(general)?.operations.get("history")?.values() ?? [])];
+
+    expect(
+      tag(run.checkpoints.died).map((row) => Predicate.hasProperty(row, "_tag") && row._tag),
+    ).toEqual(["Defect"]);
+    expect(
+      tag(run.checkpoints.read).map((row) => Predicate.hasProperty(row, "_tag") && row._tag),
+    ).toEqual(["Ready"]);
+  });
 });
 
 describe("a send's success write on the history (Plan Operations O3; entry table, Written)", () => {

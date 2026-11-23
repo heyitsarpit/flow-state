@@ -1,3 +1,4 @@
+import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Carts } from "../../fixtures/shop/server/carts.ts";
 import type { MiniCart } from "../../fixtures/shop/pending/mini-cart.ts";
@@ -22,6 +23,19 @@ const load = async () => {
 const lineIds = (cut: Cut, ref: ActorRef<typeof MiniCart>) =>
   Object.keys(cut.read(ref)?.memory.lines ?? {}).toSorted();
 
+// The cart row's line ids, live optimistic lines included, and whether any is applied (Plan
+// Operations O6): what a view of the cart shows, where `value` fires only on confirmed data.
+const rowOf = (cut: Cut, ref: ActorRef<typeof MiniCart>) => {
+  const [row] = cut.read(ref)?.operations.get("cart")?.values() ?? [];
+  const data = Predicate.hasProperty(row, "data") ? row.data : undefined;
+  const lines = Predicate.hasProperty(data, "lines") ? data.lines : undefined;
+
+  return {
+    lines: Predicate.isObject(lines) ? Object.keys(lines).toSorted() : [],
+    predicted: Predicate.hasProperty(row, "predicted") && row.predicted === true,
+  };
+};
+
 describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
   it("Operations, entry table (Last hold left, Running): switching carts stops the old cart's refresh", async () => {
     const { switchCarts } = await load();
@@ -36,12 +50,14 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(cart1(run.checkpoints.released)).toEqual(["handled"]);
   });
 
-  it.fails("Plan Operations O5: an add shows its line at once, and the line stays once the server confirms it", async () => {
+  it("Plan Operations O2, O5, O6: an add shows its line at once on the cart row, predicted, and the line stays once the server confirms it; value fires only then", async () => {
     const { addShownAtOnce, miniCart } = await load();
     const run = await addShownAtOnce.run();
     const { sending, added } = run.checkpoints;
 
-    expect(lineIds(sending, miniCart)).toEqual(["l1"]);
+    expect(rowOf(sending, miniCart)).toEqual({ lines: ["l1"], predicted: true });
+    expect(lineIds(sending, miniCart)).toEqual([]);
+    expect(rowOf(added, miniCart)).toEqual({ lines: ["l1"], predicted: false });
     expect(lineIds(added, miniCart)).toEqual(["l1"]);
   });
 
@@ -84,16 +100,17 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(collects(collected)).toEqual([]);
   });
 
-  it.fails("Operations R4, I7; Plan Operations O5: overlapping adds keep both lines shown, and the stale snapshot between them lands nothing", async () => {
+  it("Operations R4, I7; Plan Operations O5, O6: overlapping adds keep both lines shown on the cart row, and the stale snapshot between them lands nothing", async () => {
     const { staleOverlappingAdds, miniCart } = await load();
     const run = await staleOverlappingAdds.run();
     const shown = ["sending", "one answered", "settled"] as const;
 
-    expect(shown.map((name) => lineIds(run.checkpoints[name], miniCart))).toEqual([
+    expect(shown.map((name) => rowOf(run.checkpoints[name], miniCart).lines)).toEqual([
       ["l1", "l2"],
       ["l1", "l2"],
       ["l1", "l2"],
     ]);
+    expect(lineIds(run.checkpoints.settled, miniCart)).toEqual(["l1", "l2"]);
     expect(run.checkpoints.settled.read(Carts.cart)).toHaveLength(3);
   });
 });

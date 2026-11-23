@@ -12,6 +12,7 @@ import {
   type Values,
 } from "./core/compiled.ts";
 import type { ActionToken, GuardToken, Operations } from "./definition.ts";
+import { isWriteRow } from "./core/rows.ts";
 import { builder, entry } from "./entry.ts";
 import { made, madeCallable } from "./made.ts";
 
@@ -171,7 +172,9 @@ export const writeHandle = (
   ),
   get: entry(`O.${operation}.get`, (operations: Operations, value: Values) =>
     Option.flatMap(Option.fromUndefinedOr(operations.get(operation)), (rows) =>
-      Option.flatMap(keyText(value), (text) => Option.fromUndefinedOr(rows.get(text))),
+      Option.flatMap(keyText(value), (text) =>
+        Option.filter(Option.fromUndefinedOr(rows.get(text)), isWriteRow),
+      ),
     ),
   ),
 });

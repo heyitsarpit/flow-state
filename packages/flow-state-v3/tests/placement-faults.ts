@@ -138,6 +138,45 @@ export const placementFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "row-confirmed-only",
+    tests: ["tests/shop/mini-cart.test.ts", "tests/session/shell-reads.test.ts"],
+    says: "a read's row shows only confirmed data, never a live optimistic value",
+    rule: "Plan Operations O5, O6 (every reader sees optimistic updates)",
+    edits: [
+      {
+        file: "src/core/read-rows.ts",
+        find: "    data: Option.getOrUndefined(Option.map(entry.data, (d) => viewOf(entry, d.value))),",
+        replace: "    data: Option.getOrUndefined(Option.map(entry.data, (d) => d.value)),",
+      },
+    ],
+  },
+  {
+    name: "row-never-predicted",
+    tests: ["tests/shop/mini-cart.test.ts", "tests/session/shell-reads.test.ts"],
+    says: "a read's row never marks a live optimistic value as predicted",
+    rule: "Plan Operations O6 (predicted)",
+    edits: [
+      {
+        file: "src/core/read-rows.ts",
+        find: "    predicted: entry.layers.length > 0,",
+        replace: "    predicted: entry.layers.length < 0,",
+      },
+    ],
+  },
+  {
+    name: "row-defect-ready",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a read whose last landed ending is a Defect rows as Ready",
+    rule: "Plan Operations O6 (resource tags)",
+    edits: [
+      {
+        file: "src/core/read-rows.ts",
+        find: "          Defect: () => ReadRow.Defect(seen),",
+        replace: "          Defect: () => ReadRow.Ready(seen),",
+      },
+    ],
+  },
+  {
     name: "failure-kept-as-unknown",
     tests: ["tests/shop/mini-cart.test.ts"],
     says: "a commit's plain failure keeps its optimistic value and reads again, as an unknown does",
