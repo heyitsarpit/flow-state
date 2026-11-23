@@ -1,10 +1,20 @@
-import { type Context, Duration, type Effect, Option, Result, Schema, Struct } from "effect";
+import {
+  type Context,
+  Duration,
+  type Effect,
+  Option,
+  Predicate,
+  Result,
+  Schema,
+  Struct,
+} from "effect";
 import { type Walker, walkerOf } from "./core/boundary.ts";
 import { writeJson } from "./core/codec.ts";
 import type { NotSentWhy } from "./core/cells.ts";
-import type { Attempt, Commit, Concurrency, Lookup, Values } from "./core/compiled.ts";
+import type { Attempt, Commit, Concurrency, Lookup, ReadWrite, Values } from "./core/compiled.ts";
 import type { OutcomeFailure, OutcomeUnknown } from "./flow.ts";
 import { entry } from "./entry.ts";
+import { slot } from "./handles.ts";
 import { type Branded, made } from "./made.ts";
 import { jsonStructOf } from "./events.ts";
 
@@ -217,6 +227,7 @@ export type BoundInternals = (
       readonly kind: "write";
       readonly call: (...args: ReadonlyArray<never>) => ReturnType<Commit>;
       readonly idempotency: "attempt" | ReadonlyArray<string>;
+      readonly writes: Option.Option<(...args: ReadonlyArray<never>) => ReadonlyArray<ReadWrite>>;
     }
   | {
       readonly kind: "read";
@@ -252,6 +263,11 @@ const keyTextBy =
   // FLOW_STATE_ALLOW_UNKNOWN: a key's walker, typed by its key fields.
   (key: Walker<unknown, unknown>, fields: ReadonlyArray<string>) => (value: Values) =>
     Result.getSuccess(Result.flatMap(key.encode(Struct.pick(value, fields)), writeJson));
+
+// A write's data as the update of the read's current data: a function is one; a value replaces it.
+// RETURN_TYPE: every write's data becomes the core's one update shape, erased to the read's value.
+const updateOf = <A>(name: string, data: A | ((current: A) => A)): ReadWrite["update"] =>
+  Predicate.isFunction(data) ? slot<ReadWrite["update"]>(name, data).run : () => data;
 
 /**
  * The codecs a bound contract carries: its input, its input as JSON, and its key's text (its key
@@ -294,9 +310,24 @@ export type Transaction<
     input: StructType<F>,
     context: CommitContextOf<F, Key, P>,
   ) => Effect.Effect<A, E, R>;
-  readonly outcomes: <Id extends string = string>(
-    endings: WriteEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
-  ) => Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>;
+  readonly outcomes: {
+    <Id extends string = string>(
+      endings: WriteEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
+    ): Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>;
+    <Id extends string = string>(
+      endings: WriteEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
+      options: WriteOptions<A, StructType<F>>,
+    ): Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>;
+  };
+};
+
+/**
+ * A write operation's options: `writes`, the read changes its success makes, from its answer and
+ * input, each named by `resource.write(key, data)`.
+ */
+export type WriteOptions<A, I> = {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an operation without writes changes no read on success
+  readonly writes?: (success: { readonly value: A; readonly input: I }) => ReadonlyArray<ReadWrite>;
 };
 
 /**
@@ -340,6 +371,11 @@ export type Resource<
   readonly outcomes: <Id extends string = string>(
     endings: ReadEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
   ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>;
+  /**
+   * A change of this read's entry at a key, for a commit's `optimistic` or an operation's
+   * `writes`: the new data, or an update of the current data.
+   */
+  readonly write: (key: KeyRecord<F, Key>, data: A | ((current: A) => A)) => ReadWrite;
 };
 
 /**
@@ -401,6 +437,7 @@ export const transaction = entry(
           // RETURN_TYPE: the bound contract carries its declarer's phantom types.
           <Id extends string>(
             endings: WriteEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
+            options: WriteOptions<A, StructType<F>> = {},
           ): Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id> =>
             made(
               "bound",
@@ -421,6 +458,7 @@ export const transaction = entry(
                 kind: "write",
                 call: config.commit,
                 idempotency: config.idempotency ?? "attempt",
+                writes: Option.fromUndefinedOr(options.writes),
                 textOfKey: codecs.textOfKey,
                 services: config.services,
               } satisfies BoundInternals,
@@ -476,6 +514,14 @@ export const resource = entry(
         staleTime: config.staleTime,
         gcTime: config.gcTime,
         lookup: entry(`${config.id}.lookup`, config.lookup),
+        write: entry(
+          `${config.id}.write`,
+          (key: KeyRecord<F, Key>, data: A | ((current: A) => A)) => ({
+            contract: config.id,
+            keyText: codecs.textOfKey(key),
+            update: updateOf(`${config.id}.write`, data),
+          }),
+        ),
         outcomes: entry(
           `${config.id}.outcomes`,
           // RETURN_TYPE: the bound contract carries its declarer's phantom types.

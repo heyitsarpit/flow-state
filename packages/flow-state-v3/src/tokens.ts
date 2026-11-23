@@ -1,5 +1,5 @@
 import type { Duration, Option, Schedule, Schema } from "effect";
-import type { Denial, Values } from "./core/compiled.ts";
+import type { Denial, ReadWrite, Values } from "./core/compiled.ts";
 import type { Row } from "./core/rows.ts";
 import type { BoundInput, BoundKey, Ending, Fields } from "./contract.ts";
 import type { ChildrenOf, ContextOf, ContextSlot, NamesOf } from "./definition.ts";
@@ -116,7 +116,10 @@ export type WriteHandle<
   L extends string = string,
   N extends string = string,
 > = {
-  readonly commit: <P>(select: (input: SelectArg<M, P>) => I) => ActionToken<P, Id>;
+  readonly commit: {
+    <P>(select: (input: SelectArg<M, P>) => I): ActionToken<P, Id>;
+    <P>(select: (input: SelectArg<M, P>) => I, options: CommitOptions<M, P>): ActionToken<P, Id>;
+  };
   // FLOW_STATE_ALLOW_UNKNOWN: a keyless member reads no event, so it fits a handler of any.
   readonly retry: ActionToken<unknown, Id> &
     (<P>(key: (input: SelectArg<M, P>) => K) => ActionToken<P, Id>);
@@ -136,6 +139,15 @@ export type WriteHandle<
     operations: ReadonlyMap<N, ReadonlyMap<string, Row>>,
     key: K,
   ) => Option.Option<Row>;
+};
+
+/**
+ * A commit's one option: `optimistic`, the read changes readers see from its start, read from the
+ * starting turn's memory and event, each named by `resource.write(key, data)`.
+ */
+export type CommitOptions<M, P> = {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: a commit without optimistic changes no read at start
+  readonly optimistic?: (input: SelectArg<M, P>) => ReadonlyArray<ReadWrite>;
 };
 
 /**

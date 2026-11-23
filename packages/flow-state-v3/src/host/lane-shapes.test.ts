@@ -17,7 +17,10 @@ type CaseKeys<T extends { readonly _tag: string }, Tag extends T["_tag"]> = Excl
 // owed row with its Delivery a tag, and a lane's id and key are derived: exact key sets, so a
 // renamed or added flag fails (WriteLanes R6, R10, I36).
 const exactRecords = [
-  true satisfies Equal<keyof Head, "id" | "input" | "retryCount" | "owner" | "phase" | "progress">,
+  true satisfies Equal<
+    keyof Head,
+    "id" | "input" | "retryCount" | "owner" | "phase" | "progress" | "started"
+  >,
   true satisfies Equal<
     Phase["_tag"],
     | "Acknowledging"

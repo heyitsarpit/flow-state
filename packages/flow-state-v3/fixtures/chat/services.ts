@@ -50,7 +50,10 @@ export class MessagesApi extends Context.Service<
     readonly send: (
       input: { readonly thread: string; readonly clientId: string; readonly text: string },
       options: { readonly idempotencyKey: string },
-    ) => Effect.Effect<{ readonly id: string }, NoResponse>;
+    ) => Effect.Effect<
+      { readonly id: string; readonly thread: string; readonly author: string },
+      NoResponse
+    >;
     readonly remove: (
       input: { readonly thread: string; readonly messageId: string },
       options: { readonly idempotencyKey: string },

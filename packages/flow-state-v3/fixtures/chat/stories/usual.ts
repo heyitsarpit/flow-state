@@ -244,6 +244,41 @@ export const unsureThenPosted = joined("chat/unsure-then-posted")
   .checkpoint("previewed");
 
 /**
+ * The sidebar opens a thread whose history has gone stale and the read is held; a send is answered
+ * meanwhile: its success write answers the sidebar before the read does.
+ */
+export const sentWritesHistory = joined("chat/sent-writes-history")
+  .advance("31 seconds")
+  .world(Chat.history.hold())
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .send(general, Thread.E.Send({ clientId: "c-1", text: "hello" }))
+  .checkpoint("sent");
+
+/**
+ * The same with a broken deploy whose send answers name no thread: the write applies nothing and
+ * is reported, the send still succeeds, and the sidebar waits for its read.
+ */
+export const sentWriteInvalid = joined("chat/sent-write-invalid")
+  .advance("31 seconds")
+  .world(Chat.threadEcho({ working: false }))
+  .world(Chat.history.hold())
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .send(general, Thread.E.Send({ clientId: "c-1", text: "hello" }))
+  .checkpoint("sent");
+
+/**
+ * The history store is down when the thread joins, so its read dies: an issue on the thread's
+ * history until a refresh, once the store is back, reads it.
+ */
+export const historyDown = signedIn(chatStory("chat/history-down"))
+  .world(Chat.historyDown({ down: true }))
+  .send(general, Thread.E.Join())
+  .checkpoint("died")
+  .world(Chat.historyDown({ down: false }))
+  .send(general, Thread.E.Refresh())
+  .checkpoint("read");
+
+/**
  * A joined thread refreshes within the history's stale time, then leaves and the sidebar opens it:
  * a refresh reads again whatever its age, and leaving forgets the history, so the sidebar reads too.
  */
@@ -288,4 +323,7 @@ export const stories = {
   postedMidRead,
   unsureThenPosted,
   refreshAndLeave,
+  sentWritesHistory,
+  sentWriteInvalid,
+  historyDown,
 };

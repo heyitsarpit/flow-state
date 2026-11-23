@@ -169,12 +169,15 @@ export const MiniCartMachine = machine(MiniCart, ({ S, O }) => ({
                 lineId: event.lineId,
                 variantId: event.variantId,
               }),
-              // @ts-expect-error Operations O5: a commit's `optimistic` value on a read
               {
-                // @ts-expect-error Operations O5: `optimistic` reads the starting turn's event
-                optimistic: ({ event }) => ({
-                  cart: { [event.lineId]: { variantId: event.variantId, quantity: 1 } },
-                }),
+                optimistic: ({ memory, event }) => [
+                  cart.write({ cartId: memory.cartId }, (current) => ({
+                    lines: {
+                      ...current.lines,
+                      [event.lineId]: { variantId: event.variantId, quantity: 1 },
+                    },
+                  })),
+                ],
               },
             ),
           ],

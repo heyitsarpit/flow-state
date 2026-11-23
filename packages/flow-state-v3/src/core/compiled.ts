@@ -88,7 +88,7 @@ export type Action = Data.TaggedEnum<{
   Commit: {
     operation: string;
     select: Slot<(input: SelectInput) => Values>;
-    optimistic: Option.Option<Slot<(input: SelectInput) => Values>>;
+    optimistic: Option.Option<Slot<(input: SelectInput) => ReadonlyArray<ReadWrite>>>;
   };
   Retry: {
     operation: string;
@@ -426,6 +426,41 @@ export type Commit = (
 ) => Effect.Effect<unknown, unknown, unknown>;
 
 /**
+ * One change of a read's entry, as `resource.write(key, data)` names it: the read's contract, its
+ * key's canonical text (none when the key has no valid form) and the update of its current value.
+ */
+export type ReadWrite = {
+  readonly contract: string;
+  readonly keyText: Option.Option<string>;
+  // FLOW_STATE_ALLOW_UNKNOWN: an update takes and returns the read's own value, typed at `write`.
+  readonly update: (current: unknown) => unknown;
+};
+
+/**
+ * Whether a callback's value is a list of read changes; anything else is a defect of the callback.
+ */
+// RETURN_TYPE: a type guard states the type it narrows to.
+export const isReadWrites = (value: Values[string]): value is ReadonlyArray<ReadWrite> =>
+  Array.isArray(value) &&
+  value.every(
+    (w) =>
+      Predicate.hasProperty(w, "contract") &&
+      Predicate.hasProperty(w, "keyText") &&
+      Option.isOption(w.keyText) &&
+      Predicate.hasProperty(w, "update") &&
+      Predicate.isFunction(w.update),
+  );
+
+/**
+ * A write's success writes: the read changes its answer and input name, run once on success.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a contract's value is typed at the contract; the runtime only runs it.
+export type Writes = (success: {
+  readonly value: unknown;
+  readonly input: Values;
+}) => ReadonlyArray<ReadWrite>;
+
+/**
  * A lookup's function, run by the host with its input alone: a read has no Attempt.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a contract's value, error and services are typed at the contract; the runtime only runs it.
@@ -463,6 +498,7 @@ export type Operation = Data.TaggedEnum<{
     // What the server keys the write by: the Attempt's id, or these input fields.
     idempotency: "attempt" | ReadonlyArray<string>;
     call: Slot<Commit>;
+    writes: Option.Option<Slot<Writes>>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
     notSent: Option.Option<Mapping>;

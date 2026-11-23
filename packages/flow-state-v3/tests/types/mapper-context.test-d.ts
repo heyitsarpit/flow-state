@@ -30,7 +30,7 @@ describe("Operations R2: an ending mapper's context is inferred from its contrac
 
     expectTypeOf<Parameters<typeof send.outcomes>[0]["success"]>().toEqualTypeOf<
       Ending<
-        { readonly id: string },
+        { readonly id: string; readonly thread: string; readonly author: string },
         string,
         MapperContext<
           { readonly thread: string; readonly clientId: string; readonly text: string },

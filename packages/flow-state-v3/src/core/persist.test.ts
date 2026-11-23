@@ -357,6 +357,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
       owner: OwnedBy.Root(),
       phase: Phase.Held(),
       progress: Option.none(),
+      started: Option.none(),
     },
     queue: [],
   });
@@ -538,6 +539,7 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
       owner: OwnedBy.Root(),
       phase: Phase.Unsent(),
       progress: Option.none(),
+      started: Option.none(),
     },
     queue: [],
   };

@@ -1,50 +1,49 @@
-import { Option } from "effect";
-import { Operation, type Values } from "./compiled.ts";
+import { Option, Result } from "effect";
+import { isReadWrites, Operation, type ReadWrite } from "./compiled.ts";
 import {
+  applied,
   Cue,
   type Entry,
   type EntryKey,
   entryKeyOf,
   type Layer,
   movedBy,
-  targetOf,
 } from "./entry-view.ts";
-import { pick, type Tx } from "./tx.ts";
+import { Act } from "./evidence-of.ts";
+import type { Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
-import type { AttemptId, Incarnation } from "./world.ts";
+import type { ActorId, AttemptId, Head } from "./world.ts";
 
 /**
- * What commits do to read entries: a commit's optimistic updates, applied at its start and moved by
- * its Attempt's ending. Each change of an entry's data goes through the entry table's `apply`.
+ * What commits do to read entries: a commit's optimistic changes, applied at its start and moved by
+ * its Attempt's ending, and a write's success writes. Each change of an entry's data goes through
+ * the entry table's `apply`.
  */
 export const makeEntryWrites = (tx: Tx, apply: (key: EntryKey, cue: Cue) => void) => {
   const put = (key: EntryKey, entry: Entry) => tx.put("entries", key, entry);
 
-  const readOf = (machine: string, operation: string) =>
-    Option.filter(
-      Option.fromUndefinedOr(tx.machines.get(machine)?.operations.get(operation)),
-      Operation.$is("Read"),
-    );
+  // The entry a change names, when its key is valid and the entry exists.
+  const entryOf = (w: ReadWrite) =>
+    Option.flatMap(w.keyText, (text) => {
+      const key = entryKeyOf(w.contract, text);
+
+      return Option.map(Option.fromUndefinedOr(tx.world().entries.get(key)), (entry) => ({
+        key,
+        entry,
+      }));
+    });
 
   /**
-   * A commit that minted its Attempt applies its optimistic values: each names a read of the
-   * committing machine with `{ key, data }`, `data` an update of the current value or the value
-   * itself. An update of an entry that does not exist, or a value of another shape, applies nothing.
+   * A commit that minted its Attempt applies its optimistic changes, each on the entry its read's
+   * contract and key name. A change of an entry that does not exist applies nothing.
    */
-  const layer = (incarnation: Incarnation, attempt: AttemptId, values: Values) => {
-    for (const [name, value] of Object.entries(values))
-      for (const op of Option.toArray(readOf(incarnation.actor.machine, name)))
-        for (const { key, update } of Option.toArray(targetOf(value)))
-          for (const text of Option.toArray(op.walk.keyText(pick(key, op.keyFields)))) {
-            const at = entryKeyOf(op.contract, text);
-            const entry = tx.world().entries.get(at);
-
-            if (entry !== undefined)
-              put(at, {
-                ...entry,
-                layers: [...entry.layers, { attempt, update, settled: Option.none() }],
-              });
-          }
+  const layer = (attempt: AttemptId, writes: ReadonlyArray<ReadWrite>) => {
+    for (const w of writes)
+      for (const { key, entry } of Option.toArray(entryOf(w)))
+        put(key, {
+          ...entry,
+          layers: [...entry.layers, { attempt, update: w.update, settled: Option.none() }],
+        });
   };
 
   // How each Attempt ending moves the entry's updates of that Attempt.
@@ -74,5 +73,48 @@ export const makeEntryWrites = (tx: Tx, apply: (key: EntryKey, cue: Cue) => void
       if (entry.layers.some(mine)) move(key, entry, mine);
   };
 
-  return { layer, attemptEnded };
+  // One success write on its entry: Written with the update applied to the confirmed data, or
+  // Invalidate when data landed after the commit started or there is none to update.
+  const written = (w: ReadWrite, started: Option.Option<number>) => {
+    for (const { key, entry } of Option.toArray(entryOf(w))) {
+      const confirmed = Option.filter(entry.data, (d) =>
+        Option.exists(d.asked, (asked) => Option.exists(started, (s) => asked <= s)),
+      );
+
+      apply(
+        key,
+        Option.match(confirmed, {
+          onNone: () => Cue.Invalidate(),
+          onSome: (d) => Cue.Written({ value: applied(w.update, d.value) }),
+        }),
+      );
+    }
+  };
+
+  /**
+   * A write's Attempt succeeded: its operation's success writes, from the answer and the input, are
+   * applied before its ending is heard. A write whose key has no valid form, or a `writes` that
+   * throws or returns something else, applies nothing and is reported; the commit still succeeds.
+   */
+  // FLOW_STATE_ALLOW_UNKNOWN: a success's value is the contract's own, typed at `writes`.
+  const succeeded = (actor: ActorId, operation: Operation, head: Head, value: unknown) => {
+    if (!Operation.$is("Write")(operation)) return;
+
+    for (const slot of Option.toArray(operation.writes)) {
+      const writes = Result.getOrElse(
+        Result.try(() => slot.run({ value, input: head.input })),
+        () => undefined,
+      );
+
+      const invalid = () => tx.act(Act.InvalidWrite({ actor, operation: operation.name }));
+
+      if (!isReadWrites(writes)) invalid();
+      else
+        for (const w of writes)
+          if (Option.isNone(w.keyText)) invalid();
+          else written(w, head.started);
+    }
+  };
+
+  return { layer, attemptEnded, succeeded };
 };

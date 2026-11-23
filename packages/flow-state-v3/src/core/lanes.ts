@@ -1,6 +1,6 @@
 import { Option, Result } from "effect";
 import { Cue, LaneState, Move } from "./cells.ts";
-import { type Concurrency, Operation, type Values } from "./compiled.ts";
+import { type Concurrency, Operation, type ReadWrite, type Values } from "./compiled.ts";
 import type { EntrySteps } from "./entries.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
@@ -58,13 +58,19 @@ export const makeLanes = (
   // ended unsent.
   // RETURN_TYPE: the move the table chose, which an admitted ending reads.
   const apply = (at: At, cue: Cue): Move => {
-    const before = tx.world().lanes.get(at.id)?.head.id;
+    const head = tx.world().lanes.get(at.id)?.head;
     const move = moves.apply(at, cue);
 
-    if (before === undefined) return move;
+    if (head === undefined) return move;
+    const before = head.id;
 
-    if (Move.$is("Answer")(move)) entries.attemptEnded(before, move.channel, move.reason);
-    else if (Move.$is("Interrupt")(move) || tx.world().lanes.get(at.id)?.head.id !== before)
+    if (Move.$is("Answer")(move)) {
+      entries.attemptEnded(before, move.channel, move.reason);
+
+      if (move.channel === "success")
+        for (const op of Option.toArray(operationOf(at.actor, at.operation)))
+          entries.succeeded(at.actor, op, head, move.value);
+    } else if (Move.$is("Interrupt")(move) || tx.world().lanes.get(at.id)?.head.id !== before)
       entries.attemptEnded(before, "notSent", "Cancelled");
 
     return move;
@@ -173,7 +179,7 @@ export const makeLanes = (
     operation: Operation,
     given: Values,
     owner: OwnedBy,
-    optimistic: Option.Option<Values> = Option.none(),
+    optimistic: ReadonlyArray<ReadWrite> = [],
   ) => {
     const input = tx.env.admit(given);
     const key = pick(input, operation.keyFields);
@@ -249,25 +255,23 @@ export const makeLanes = (
       { id, actor: incarnation.actor, operation: operation.name, key },
       commitCue[policyOf(operation)]({ input, owner }),
     );
-    layered(incarnation, id, Option.fromUndefinedOr(before), optimistic);
+    layered(id, Option.fromUndefinedOr(before), optimistic);
 
     return member;
   };
 
-  // A commit that minted its Attempt applies its optimistic values on the reads they name.
+  // A commit that minted its Attempt applies its optimistic changes on the reads they name.
   const layered = (
-    incarnation: Incarnation,
     id: LaneId,
     before: Option.Option<AttemptId>,
-    optimistic: Option.Option<Values>,
+    optimistic: ReadonlyArray<ReadWrite>,
   ) => {
     const minted = Option.filter(
       Option.fromUndefinedOr(tx.world().lanes.get(id)?.head.id),
       (attempt) => !Option.contains(before, attempt),
     );
 
-    for (const attempt of Option.toArray(minted))
-      for (const values of Option.toArray(optimistic)) entries.layer(incarnation, attempt, values);
+    for (const attempt of Option.toArray(minted)) entries.layer(attempt, optimistic);
   };
 
   const retry = (

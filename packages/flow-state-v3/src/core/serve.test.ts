@@ -30,6 +30,7 @@ const lane = (phase: Phase, owner: number, queued: ReadonlyArray<number>): Lane 
     owner: ownedBy(owner),
     phase,
     progress: Option.none(),
+    started: Option.none(),
   },
   queue: queued.map((q) => ({ input: {}, owner: ownedBy(q) })),
 });

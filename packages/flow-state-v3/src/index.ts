@@ -11,9 +11,12 @@ export type {
   Transaction,
   UnknownEnding,
   WriteEndings,
+  WriteOptions,
 } from "./contract.ts";
 
-export type { Attempt } from "./core/compiled.ts";
+export type { Attempt, ReadWrite } from "./core/compiled.ts";
+
+export type { CommitOptions } from "./tokens.ts";
 
 export { definition } from "./definition.ts";
 

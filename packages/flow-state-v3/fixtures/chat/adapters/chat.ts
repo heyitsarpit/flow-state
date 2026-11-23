@@ -65,7 +65,13 @@ export const ChatHttp = (origin: string) =>
               Effect.flatMap(
                 HttpClientResponse.matchStatus({
                   "2xx": (r) =>
-                    HttpIncomingMessage.schemaBodyJson(Schema.Struct({ id: Schema.String }))(r),
+                    HttpIncomingMessage.schemaBodyJson(
+                      Schema.Struct({
+                        id: Schema.String,
+                        thread: Schema.String,
+                        author: Schema.String,
+                      }),
+                    )(r),
                   orElse: noResponse,
                 }),
               ),

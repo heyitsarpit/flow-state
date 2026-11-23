@@ -8,6 +8,8 @@ import {
   type Alternative,
   type Compiled,
   Guard,
+  isReadWrites,
+  type ReadWrite,
   type Values,
 } from "./compiled.ts";
 import type { Step } from "./schedule-plan.ts";
@@ -36,7 +38,7 @@ export const LaneView = Data.taggedEnum<LaneView>();
  * or a send with its target named and its event checked by the target's Schemas.
  */
 export type Resolved = Data.TaggedEnum<{
-  Commit: { operation: string; input: Values; optimistic: Option.Option<Values> };
+  Commit: { operation: string; input: Values; optimistic: ReadonlyArray<ReadWrite> };
   Retry: { operation: string; key: Option.Option<Values> };
   Cancel: { operation: string; key: Option.Option<Values> };
   Lookup: { operation: string; input: Values };
@@ -98,10 +100,24 @@ const NO_KEY = Result.succeed(Option.none<Values>());
 const call = <A>(slot: string, run: () => A): Result.Result<A, Failed> =>
   Result.try({ try: run, catch: () => ({ slot }) });
 
-// A commit with no optimistic option resolves none.
-const NO_OPTIMISTIC = Result.succeed(Option.none<Values>());
+// A commit with no optimistic option changes no read.
+const NO_OPTIMISTIC = Result.succeed<ReadonlyArray<ReadWrite>>([]);
 
 const noOptimistic = () => NO_OPTIMISTIC;
+
+// A commit's optimistic changes; any other value is a defect of its callback.
+const writesFrom = <I>(
+  slot: { readonly slot: string; readonly run: (input: I) => ReadonlyArray<ReadWrite> },
+  read: I,
+) =>
+  Result.flatMap(
+    call(slot.slot, () => slot.run(read)),
+    (value) =>
+      isReadWrites(value)
+        ? Result.succeed(value)
+        : // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- a defective callback refuses the turn; the loop ends here
+          Result.fail({ slot: slot.slot }),
+  );
 
 /**
  * A select or key callback's record; anything else is a defect of that callback (the types forbid
@@ -265,7 +281,7 @@ export const resolve = (
           Option.match(optimistic, {
             onNone: noOptimistic,
             // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
-            onSome: (slot) => Result.map(recordFrom(slot, read), Option.some),
+            onSome: (slot) => writesFrom(slot, read),
           }),
           // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
           (values) => Resolved.Commit({ operation, input, optimistic: values }),

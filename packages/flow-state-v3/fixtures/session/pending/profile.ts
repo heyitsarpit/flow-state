@@ -240,19 +240,14 @@ export const Shell = definition({
     }),
     renameTeam: renameTeam.outcomes(
       { success: E.Renamed, failure: {}, unknown: E.RenameUnsure },
-      // @ts-expect-error Plan Operations O3: an operation's `writes`, applied on success
       {
-        // @ts-expect-error Plan Operations O3: `writes` receives the answer and the input
-        writes: ({ value }) => ({
-          teams: {
-            key: { org: value.org },
-            // @ts-expect-error Plan Operations O3, O5: a write's data may update the current value
-            data: (current) => ({
-              ...current,
-              names: { ...current.names, [value.team]: value.name },
-            }),
-          },
-        }),
+        writes: ({ value }) => [
+          // @ts-expect-error a legacy answer may leave out its org, which the write's key needs: InvalidWrite at run time
+          teams.write({ org: value.org }, (current) => ({
+            ...current,
+            names: { ...current.names, [value.team]: value.name },
+          })),
+        ],
       },
     ),
   }),
@@ -282,12 +277,13 @@ export const ShellMachine = machine(Shell, ({ S, O }) => ({
           actions: [
             O.renameTeam.commit(
               ({ memory, event }) => ({ org: memory.org, team: event.team, name: event.name }),
-              // @ts-expect-error Operations O5: a commit's `optimistic` value on a read
               {
-                // @ts-expect-error Operations O5: `optimistic` reads the starting turn's memory and event
-                optimistic: ({ memory, event }) => ({
-                  teams: { org: memory.org, names: { [event.team]: event.name } },
-                }),
+                optimistic: ({ memory, event }) => [
+                  teams.write({ org: memory.org }, (current) => ({
+                    ...current,
+                    names: { ...current.names, [event.team]: event.name },
+                  })),
+                ],
               },
             ),
           ],

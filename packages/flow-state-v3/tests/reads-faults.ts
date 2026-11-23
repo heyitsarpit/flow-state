@@ -253,6 +253,46 @@ export const readsFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "read-defect-hidden",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a read whose last ending is a Defect raises no issue for its readers",
+    rule: "Operations, Issue view (Entry)",
+    edits: [
+      {
+        file: "src/core/issues-of.ts",
+        find: '          Option.filter(entry.last, (last) => last.reason === "Defect"),',
+        replace:
+          '          Option.filter(entry.last, (last) => last.reason === "Defect" && Number.isNaN(0)),',
+      },
+    ],
+  },
+  {
+    name: "written-not-applied",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a success write only marks its entry stale, so a reader waiting on a held read hears nothing",
+    rule: "Plan Operations O3; Operations R4, I9 (Written)",
+    edits: [
+      {
+        file: "src/core/entry-writes.ts",
+        find: "          onSome: (d) => Cue.Written({ value: applied(w.update, d.value) }),",
+        replace: "          onSome: () => Cue.Invalidate(),",
+      },
+    ],
+  },
+  {
+    name: "invalid-write-applied",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a success write with no valid key goes unreported",
+    rule: "Plan Operations O3 (InvalidWrite)",
+    edits: [
+      {
+        file: "src/core/entry-writes.ts",
+        find: "          if (Option.isNone(w.keyText)) invalid();\n          else written(w, head.started);",
+        replace: "          written(w, head.started);",
+      },
+    ],
+  },
+  {
     name: "cancelled-echo-kept",
     tests: ["tests/chat/reads.test.ts"],
     says: "a commit a cancel interrupted ends unknown, so its optimistic value is kept as if it may have happened",
@@ -265,8 +305,8 @@ export const readsFaults: ReadonlyArray<Fault> = [
       },
       {
         file: "src/core/lanes.ts",
-        find: '    else if (Move.$is("Interrupt")(move) || tx.world().lanes.get(at.id)?.head.id !== before)',
-        replace: "    else if (tx.world().lanes.get(at.id)?.head.id !== before)",
+        find: '    } else if (Move.$is("Interrupt")(move) || tx.world().lanes.get(at.id)?.head.id !== before)',
+        replace: "    } else if (tx.world().lanes.get(at.id)?.head.id !== before)",
       },
     ],
   },

@@ -12,6 +12,7 @@ import {
   type ServiceKeys,
   Source,
   type Values,
+  type Writes,
 } from "./core/compiled.ts";
 import type { Bound, BoundInternals } from "./contract.ts";
 import { internalsOf } from "./made.ts";
@@ -106,6 +107,9 @@ export const operationOf = (name: string, bound: Bound) => {
         ...shared,
         services,
         call: slot<Commit>(place, internals.call),
+        writes: Option.map(internals.writes, (writes) =>
+          slot<Writes>(`operations.${name}.writes`, writes),
+        ),
         idempotency: internals.idempotency,
         concurrency: bound.concurrency,
         notSent: Option.map(bound.notSent, (ending) =>

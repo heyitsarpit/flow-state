@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or mapper context the Operations Spec adds and the package lacks, so its values type as any until it lands */
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../../src/index.ts";
 import { history } from "../operations/reads.ts";
@@ -55,11 +54,24 @@ export const Thread = definition({
       success: E.Joined.from((v) => ({ messages: v.messages })),
       failure: { NoResponse: E.JoinFailed, Defect: E.JoinFailed, Interrupted: E.JoinFailed },
     }),
-    send: send.outcomes({
-      success: E.Sent.from((v, { input }) => ({ clientId: input.clientId, id: v.id })),
-      failure: {},
-      unknown: E.SendUnsure,
-    }),
+    send: send.outcomes(
+      {
+        success: E.Sent.from((v, { input }) => ({ clientId: input.clientId, id: v.id })),
+        failure: {},
+        unknown: E.SendUnsure,
+      },
+      {
+        // The sent message joins the history of the thread the server names.
+        writes: ({ value, input }) => [
+          history.write({ thread: value.thread }, (current) => ({
+            messages: [
+              ...current.messages.filter((m) => m.id !== value.id),
+              { id: value.id, author: value.author, text: input.text },
+            ],
+          })),
+        ],
+      },
+    ),
     deleteMessage: deleteMessage.outcomes({
       // The undo link is kept as its path; a link the server garbled throws, as `URL` does.
       success: E.Deleted.from((v) => ({
@@ -127,24 +139,17 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
                 clientId: event.clientId,
                 text: event.text,
               }),
-              // @ts-expect-error Plan Operations O5: a commit's `optimistic` value on a read
               {
                 // The echo: the thread's history shows the message this turn added under its client
                 // id at once.
-                // @ts-expect-error Plan Operations O5: `optimistic` reads the starting turn's memory and event
-                optimistic: ({ memory, event }) => ({
-                  history: {
-                    key: { thread: memory.thread },
-                    // @ts-expect-error Plan Operations O5: an optimistic value updates the read's current data
-                    data: (current) => ({
-                      messages: [
-                        ...current.messages,
-                        // @ts-expect-error Plan Operations O5: the starting turn's memory is typed once `optimistic` is
-                        ...memory.messages.filter((m) => m.id === event.clientId),
-                      ],
-                    }),
-                  },
-                }),
+                optimistic: ({ memory, event }) => [
+                  history.write({ thread: memory.thread }, (current) => ({
+                    messages: [
+                      ...current.messages,
+                      ...memory.messages.filter((m) => m.id === event.clientId),
+                    ],
+                  })),
+                ],
               },
             ),
           ],

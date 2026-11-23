@@ -330,6 +330,7 @@ const follow = (ledger: Ledger, e: Evidence, at: number) =>
     Turn: nothing,
     Unhandled: nothing,
     InvalidInput: nothing,
+    InvalidWrite: nothing,
     SendTargetAbsent: nothing,
     HoldForgotten: nothing,
     SlowWork: nothing,

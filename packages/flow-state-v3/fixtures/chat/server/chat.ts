@@ -7,6 +7,8 @@ const ChatTruth = Schema.Struct({
   sent: Schema.Record(Schema.String, Schema.String),
   nextId: Schema.Number,
   undoLinks: Schema.Boolean,
+  threadEcho: Schema.Boolean,
+  historyDown: Schema.Boolean,
   thinking: Schema.Array(Schema.String),
 });
 
@@ -16,8 +18,9 @@ const messagesOf = (truth: Truth, thread: string) => truth.threads[thread] ?? []
 
 /**
  * The chat server's truth: each thread's messages, oldest first; one message per idempotency key,
- * replayed for a key it has seen; whether delete answers carry a working undo link; the threads
- * whose assistant is answering. `general` starts with two messages from `grace`.
+ * replayed for a key it has seen; whether delete answers carry a working undo link; whether send
+ * answers name their thread (a broken deploy names none); whether the history store is down, so a
+ * history read dies; the threads whose assistant is answering. `general` starts with two messages from `grace`.
  */
 export const Chat = Fake.server("Chat", {
   truth: ChatTruth,
@@ -31,6 +34,8 @@ export const Chat = Fake.server("Chat", {
     sent: {},
     nextId: 3,
     undoLinks: true,
+    threadEcho: true,
+    historyDown: false,
     thinking: [],
   },
   endpoints: {
@@ -40,7 +45,9 @@ export const Chat = Fake.server("Chat", {
       failure: Schema.Never,
       handle: (truth: Truth, { thread }) => ({
         truth,
-        exit: Exit.succeed({ messages: messagesOf(truth, thread) }),
+        exit: truth.historyDown
+          ? Exit.die(new Error("the history store crashed"))
+          : Exit.succeed({ messages: messagesOf(truth, thread) }),
       }),
     }),
     send: Fake.call({
@@ -50,12 +57,14 @@ export const Chat = Fake.server("Chat", {
         text: Schema.String,
         key: Schema.String,
       },
-      success: Schema.Struct({ id: Schema.String }),
+      success: Schema.Struct({ id: Schema.String, thread: Schema.String, author: Schema.String }),
       failure: Schema.Never,
       handle: (truth: Truth, { thread, text, key }) => {
         const known = truth.sent[key];
+        const echoed = truth.threadEcho ? thread : "";
 
-        if (known !== undefined) return { truth, exit: Exit.succeed({ id: known }) };
+        if (known !== undefined)
+          return { truth, exit: Exit.succeed({ id: known, thread: echoed, author: "ada" }) };
 
         const id = `m-${String(truth.nextId)}`;
 
@@ -69,7 +78,7 @@ export const Chat = Fake.server("Chat", {
             sent: { ...truth.sent, [key]: id },
             nextId: truth.nextId + 1,
           },
-          exit: Exit.succeed({ id }),
+          exit: Exit.succeed({ id, thread: echoed, author: "ada" }),
         };
       },
     }),
@@ -124,6 +133,14 @@ export const Chat = Fake.server("Chat", {
     undoLinks: Fake.control({ working: Schema.Boolean }, (truth: Truth, { working }) => ({
       ...truth,
       undoLinks: working,
+    })),
+    historyDown: Fake.control({ down: Schema.Boolean }, (truth: Truth, { down }) => ({
+      ...truth,
+      historyDown: down,
+    })),
+    threadEcho: Fake.control({ working: Schema.Boolean }, (truth: Truth, { working }) => ({
+      ...truth,
+      threadEcho: working,
     })),
     thinking: Fake.control({ thread: Schema.String }, (truth: Truth, { thread }) => ({
       ...truth,

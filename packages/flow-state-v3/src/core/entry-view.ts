@@ -1,4 +1,4 @@
-import { Data, Option, Predicate, Result } from "effect";
+import { Data, Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { CallResult } from "./input.ts";
 import type { Channel } from "./vocabulary.ts";
@@ -10,10 +10,14 @@ import type { AttemptId, CallId, IncarnationId, OwnedBy, ActorId } from "./world
  */
 export type EntryKey = string;
 
+// Between an entry name's contract and its key text: a character neither contains.
+const SEPARATOR = "\u0000";
+
 /**
  * An entry's name from its contract and its key's canonical text.
  */
-export const entryKeyOf = (contract: string, keyText: string) => `${contract}\u0000${keyText}`;
+export const entryKeyOf = (contract: string, keyText: string) =>
+  `${contract}${SEPARATOR}${keyText}`;
 
 /**
  * Where an entry's one request stands: none, or one call asked at a position, with whether one
@@ -204,25 +208,6 @@ const BY_CHANNEL = {
   failure: "removed",
   notSent: "removed",
 } as const satisfies Record<Channel, "success" | "unknown" | "removed">;
-
-/**
- * A target as a commit or a write names it, `{ key, data }`, its data an update of the current
- * value or the value itself; none for any other shape.
- */
-// FLOW_STATE_ALLOW_UNKNOWN: a target is the callback's own value, read here once.
-export const targetOf = (value: unknown) =>
-  Predicate.hasProperty(value, "key") &&
-  Predicate.isReadonlyObject(value.key) &&
-  Predicate.hasProperty(value, "data")
-    ? Option.some({ key: value.key, update: updateOf(value.data) })
-    : Option.none();
-
-// A target's data as an update: a function is one, a value replaces the current one.
-// RETURN_TYPE: every target's data becomes the one Update shape.
-const updateOf = (data: Values[string]): Update => (isUpdate(data) ? data : () => data);
-
-// RETURN_TYPE: a type guard states the type it narrows to.
-const isUpdate = (u: Values[string]): u is Update => Predicate.isFunction(u);
 
 /**
  * An update applied to a value: its result, or the value itself when it throws or returns nothing.

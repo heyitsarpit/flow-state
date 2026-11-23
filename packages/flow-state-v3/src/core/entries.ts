@@ -444,16 +444,6 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
   };
 
   /**
-   * A success write's value on the entry its read's key names, which it answers; an entry that
-   * does not exist is not made.
-   */
-  // FLOW_STATE_ALLOW_UNKNOWN: written data is the read's own value.
-  const write = (operation: Operation, key: Values, value: unknown) => {
-    for (const text of Option.toArray(operation.walk.keyText(pick(key, operation.keyFields))))
-      apply(entryKeyOf(operation.contract, text), Cue.Written({ value }));
-  };
-
-  /**
    * A read's cancel: its slot is dropped with no row.
    */
   const cancel = (incarnation: Incarnation, operation: string) => {
@@ -473,7 +463,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       cancel(incarnation, operation);
   };
 
-  const { layer, attemptEnded } = makeEntryWrites(tx, apply);
+  const { layer, attemptEnded, succeeded } = makeEntryWrites(tx, apply);
 
   // ── the dispatch and the step's edges.
 
@@ -536,7 +526,6 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     refetch,
     invalidate: invalidate_,
     clear: clear_,
-    write,
     cancel,
     end,
     settled: settledCall,
@@ -545,6 +534,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     runtimeEnds: runtimeEnded,
     layer,
     attemptEnded,
+    succeeded,
   };
 };
 

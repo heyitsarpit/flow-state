@@ -246,6 +246,7 @@ const restored = (
                 owner: OwnedBy.Root(),
                 phase: Phase.Held(),
                 progress: Option.none(),
+                started: Option.none(),
               },
               queue: [],
             },

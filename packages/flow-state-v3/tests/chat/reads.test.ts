@@ -1,14 +1,18 @@
+import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { general, hub, random, threadOf } from "../../fixtures/chat/app.ts";
 import { manyThreads, THREADS } from "../../fixtures/chat/stories/load.ts";
 import {
   echoInPreview,
   firstReaderLeft,
+  historyDown,
   noReaderLeft,
   oneReaderLeft,
   releaseOverdue,
   postedMidRead,
   refreshAndLeave,
+  sentWriteInvalid,
+  sentWritesHistory,
   unsureThenPosted,
   twoThreads,
   unsentEcho,
@@ -139,6 +143,40 @@ describe("invalidate, refetch and clear on the history (Operations entry table, 
     expect(ids(refreshed)).toEqual(["m-1", "m-2", "m-3"]);
     expect(historyCalls(reopened, "general")).toHaveLength(3);
     expect(reopened.read(hub)?.memory.preview).toBe("lunch?");
+  });
+});
+
+describe("a read's Defect as an issue (Operations, Issue view: Entry)", () => {
+  it("Operations, Issue view (Entry): a history read that dies is an issue on the thread's read, gone once a read lands", async () => {
+    const run = await historyDown.run();
+    const { died, read } = run.checkpoints;
+
+    expect((died.read(general)?.issues ?? []).map((i) => i.summary)).toEqual([
+      'read history {"thread":"general"} raised Defect',
+    ]);
+    expect(read.read(general)?.issues).toEqual([]);
+    expect(ids(read)).toEqual(["m-1", "m-2"]);
+  });
+});
+
+describe("a send's success write on the history (Plan Operations O3; entry table, Written)", () => {
+  it("Plan Operations O3; Operations R4, I9 (Written, Running): the send's write answers the sidebar waiting on a held read", async () => {
+    const run = await sentWritesHistory.run();
+    const { sent } = run.checkpoints;
+
+    expect(historyCalls(sent, "general")).toHaveLength(2);
+    expect(sent.read(hub)?.memory.preview).toBe("hello");
+    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidWrite"))).toEqual([]);
+  });
+
+  it("Plan Operations O3 (InvalidWrite): a write whose thread the answer leaves empty applies nothing, is reported once, and the send succeeds", async () => {
+    const run = await sentWriteInvalid.run();
+    const { sent } = run.checkpoints;
+
+    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidWrite"))).toHaveLength(1);
+    expect(sent.read(hub)?.memory.preview).toBe("");
+    expect(sent.read(general)?.memory.pending).toEqual([]);
+    expect(sent.read(general)?.memory.sent).toEqual({ "c-1": "m-3" });
   });
 });
 

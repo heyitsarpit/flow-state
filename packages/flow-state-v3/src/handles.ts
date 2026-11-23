@@ -3,6 +3,7 @@ import {
   Action,
   Guard,
   type GuardInput,
+  type ReadWrite,
   type SelectInput,
   type Slot,
   type Values,
@@ -115,15 +116,17 @@ export const writeHandle = (
     `O.${operation}.commit`,
     (
       select: (input: SelectArg<Values>) => Values,
-      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: `optimistic` is the commit's one option, and an omitted one applies nothing
-      options: { readonly optimistic?: (input: SelectArg<Values>) => Values } = {},
+      options: {
+        // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: `optimistic` is the commit's one option, and an omitted one applies nothing
+        readonly optimistic?: (input: SelectArg<Values>) => ReadonlyArray<ReadWrite>;
+      } = {},
     ) =>
       member(owner, operation, (at) =>
         Action.Commit({
           operation,
           select: slot<(input: SelectInput) => Values>(`${at}.select`, select),
           optimistic: Option.map(Option.fromUndefinedOr(options.optimistic), (optimistic) =>
-            slot<(input: SelectInput) => Values>(`${at}.optimistic`, optimistic),
+            slot<(input: SelectInput) => ReadonlyArray<ReadWrite>>(`${at}.optimistic`, optimistic),
           ),
         }),
       ),

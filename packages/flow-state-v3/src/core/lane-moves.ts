@@ -187,6 +187,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     owner,
     phase: Phase.Unsent(),
     progress: Option.none(),
+    started: Option.some(tx.mintPosition()),
   });
 
   // The head is gone: the oldest queued commit is promoted to a new head, or the lane drops.

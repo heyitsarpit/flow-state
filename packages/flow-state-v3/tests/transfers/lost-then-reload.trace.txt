@@ -21,7 +21,7 @@ story transfers/lost-then-reload
   20 main:1 write acknowledge [actor/Bank/Transfers/acct-1, work/Bank/Transfers/acct-1] acknowledges [att-000000000000000000006d61696e3a31-1] landed
   21 main:1 task work#5 store Done
   22 main:1 sent transfer att-000000000000000000006d61696e3a31-1
-  23 main:1 task work#6 call/call-000000000000000000006d61696e3a31-5 started
+  23 main:1 task work#6 call/call-000000000000000000006d61696e3a31-6 started
   24 main:1 request Bank.transfer {"transferId":"t1","cents":500,"key":"att-000000000000000000006d61696e3a31-1"} held at response
   25 main:1 task work#7 alarm started
   26 main:1 task work#4 alarm Interrupted

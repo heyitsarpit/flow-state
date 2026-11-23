@@ -16,6 +16,7 @@ const head = (phase: Phase, sent = false) => ({
   owner: OwnedBy.Root(),
   phase,
   progress: Option.none(),
+  started: Option.none(),
 });
 
 const phases = {

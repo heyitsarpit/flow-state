@@ -59,6 +59,7 @@ const restoredFrom = (
       owner: OwnedBy.Root(),
       phase: Phase.OnWire({ call: Brand.nominal<CallId>()("call-1") }),
       progress: Option.none(),
+      started: Option.none(),
     },
     queue: Array.from({ length: queued }, () => ({ input, owner: OwnedBy.Root() })),
   };
@@ -120,6 +121,7 @@ it("a Held head whose unknown is still owed saves it in its slot, and a boot owe
     owner: OwnedBy.Root(),
     phase: Phase.Held(),
     progress: Option.none(),
+    started: Option.none(),
   };
 
   const unknown: Owed = {
