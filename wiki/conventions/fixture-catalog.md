@@ -17,7 +17,8 @@ in today's fixtures, the migration plan in Task order, and the Task text that mu
 - The toaster, menu and combobox live in `kanban`, the tree in `draft`, and the token input in `chat`.
 - `subroutine` and `whenAbandoned` are built by @task.V3.T57.
 - Source review: `fixture-catalog-review`, and the `fixture-catalogue` it replaced (both deleted; full text:
-  `git show 3a84b878:wiki/plans/flow/references/proposals/<file>`); check: @review.fixture-catalog-check.
+  `git show 3a84b878:wiki/plans/flow/references/proposals/<file>`); check: the fixture catalog check (deleted, its
+  findings applied here; `git show 3a84b878:wiki/plans/flow/references/proposals/2026-11-17-fixture-catalog-check.md`).
 
 **This page is a task list.** Each scenario is a checklist item. At its close, the lead of each Task marks every
 item in the fixtures its step names, so the next agent starts from what is left:
@@ -1272,12 +1273,12 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
       `home/chime-local`.
     - [x] R10's bench cases: a mailbox of 1,000 (`session/newsletter-run`, one turn's thousand sends) and a wave to
       100 (`session/wall-100`), each a `bench` entry measured with `--dev`.
-    - [ ] X3, an ended copy's schedule callbacks not run in the turn that ended it. left: `@task.V3.T109`, needs
+    - [ ] X3, an ended copy's schedule callbacks not run in the turn that ended it. left: @task.V3.T109, needs
       instances.
-    - [ ] I9's life-held and subject-held halves, R15 and R17. left: `@task.V3.T109`, needs instances.
+    - [ ] I9's life-held and subject-held halves, R15 and R17. left: @task.V3.T109, needs instances.
     - [x] `Collect` and `Release` alarms, set and taken: judged at every cut by the harness (a Release alarm
       while held). built: `search/repeat-query` (@task.V3.T122), `home/release-meets-schedule` (@task.V3.T123).
-    - [ ] I12's `Silent` row. left: `@task.V3.T112`, needs the store's unanswered batches kept in the World.
+    - [ ] I12's `Silent` row. left: @task.V3.T112, needs the store's unanswered batches kept in the World.
     - [x] Every two-step sequence of 17 atoms (sends, a refused vacation, sensors, a failed save, detach, ensure,
       time, dispose, reload, the Runtime's disposal), judged after every step for I5, I9, I12, I13 and I15 to I17.
       built: `tests/turn/sequence.test.ts` (three-step under the stress flag).

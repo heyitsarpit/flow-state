@@ -1,6 +1,7 @@
 ---
 proposal spec-boundary-channels
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-turn]
+    proposed 2026-11-20
 ---
 # Actor boundary channels: emits out, props in
 
@@ -428,7 +429,7 @@ step; a Story with emits and no such step fails coverage.
 Trace 1: Escape then OutsideClick; `emits([Focus({ target: "trigger" })])` after both passes; a build that also
 emits on OutsideClick fails. Trace 2: with a "contains" assertion the same wrong build passes.
 
-**PD4. A props turn and its reaction events publish separately, and the host notifies once per driver step.** [open: 2026-11-21; recommend as proposed]
+**PD4. A props turn and its reaction events publish separately, and the host notifies once per driver step.** [dropped: agent cleanup 2026-11-23]
 Trace 1 (carousel shrink): the props turn publishes `{ count: 3, index: 5 }`, the front-queued `Shrunk` turn
 publishes `{ count: 3, index: 2 }`; both are in one step, so a store subscriber sees only the second. Trace 2: the
 step's 100-item yield (`defaults.ts:39`) falls between them; a subscriber sees `index: 5` once. If that must never
@@ -439,7 +440,7 @@ which the driver already guarantees before choosing.
 Trace 1 (split): T77a, T76, T78 and the toaster start after `derive.ts`. Trace 2 (no split): all five Tasks wait
 for the turn-parts Task and T109, though none of the number input's or toaster's rules reads an `Address`.
 
-**PD6. A handler that throws is reported and stays** [open: 2026-11-21; recommend as proposed] (table 3.3), unlike an inspector sink.
+**PD6. A handler that throws is reported and stays** [dropped: agent cleanup 2026-11-23] (table 3.3), unlike an inspector sink.
 Trace 1: a focus handler throws once on a missing element; it is reported, and the next Escape focuses. Trace 2
 (detach, today's sink rule): the first throw removes it and every later Escape does nothing, with no report.
 

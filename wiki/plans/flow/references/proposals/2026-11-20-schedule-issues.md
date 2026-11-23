@@ -1,6 +1,7 @@
 ---
 proposal schedule-issues
-status accepted user 2026-11-21
+status merged 2026-11-23 [@task.V3.T118, @spec.Schedules]
+    accepted user 2026-11-21
     proposed 2026-11-20
 ---
 # Schedule issues: stop storing them

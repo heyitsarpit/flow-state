@@ -55,20 +55,6 @@ note 2026-11-16T01:26:36Z
     stress case should be a flag that runs rarely"; then "remove that mid run requirement, full suite is probably fine
     if it's fast. stress runs once at the end of a task and faults also runs at the end of a task". Scope: whole run.
 
-note 2026-11-16T02:04:13Z
-    P1 and P2 summary (2026-11-15 to 2026-11-16): the Epic was rewritten and approved, T62 done at 5e95c840, the run
-    started at 69fbdc14 after two aborted starts (usage limits) and a pause or two for the user's corrections of the T63
-    first build (reshaped from de417f07).
-
-note 2026-11-16T02:04:13Z
-    Old comments were removed from the Tasks, the log moved to V3.log and spec-log.md deleted, 19 absorbed proposals
-    deleted at the user's word. P2 closed with a completion audit PASS at eff65a6b; the fast suite, stress and faults
-    commands were split and parallelised (T75).
-
-note 2026-11-16T02:04:13Z
-    Small tooling API calls the user delegated (reload heldWrites land, lose(), Fake.network.offline(), run seed,
-    samples values) are in Pending and the P2 phase comments. History in git at a9ed4037.
-
 note 2026-11-16T02:05:00Z
     [decided: user 2026-11-16] "start T54 anyways ... i have another account where i will resume this epic": T54 starts
     before P2's completion audit lands (overrides P3's start condition for T54 only).
@@ -199,13 +185,8 @@ note 2026-11-18T18:51:12Z
     audit as deferred by the user.
 
 note 2026-11-18T19:14:32Z
-    P3 summary (2026-11-16 to 2026-11-18): T54, T18, T55, T19, T20, T17, T9, T74, T79, T82 to T88, T90, T91, T93, T94
-    and T101 done; T80 and T81 tombstoned; the closing audit PASS at d8a8343a (rules by catching fault in
-    code:wiki/tasks/V3/P3-coverage.md, owners in code:wiki/tasks/V3/P3-routing.md).
-
-note 2026-11-18T19:14:32Z
-    User's pages for T9, T17, T18, T19, T20, T54 and T94 were read. Two failure-limit stops (T18, T20) led to structural
-    fixes. History in git at a9ed4037.
+    P3 closed with an audit PASS at d8a8343a; the coverage record is code:wiki/tasks/V3/P3-coverage.md and the owners
+    of what it left are code:wiki/tasks/V3/P3-routing.md. History in git at a9ed4037.
 
 note 2026-11-19T00:38:20Z
     [decided: user 2026-11-19] T92 deferred; its work saved on branch t92-format-4 and flow-rewrite restored to
@@ -252,31 +233,9 @@ note 2026-11-19T18:53:00Z
     provider per slot; built by @task.V3.T107 after @task.V3.T104. T104 page Q1 A for now (removed Step constructors
     stay removed; final A on 2026-11-20).
 
-note 2026-11-19T22:30:00Z
-    P4 start summary (2026-11-18 to 2026-11-19): T96, T99, T102, T103, T104 done and T105, T107 in review by 2026-11-20;
-    user's pages for T96 and T99 read. T99 ran as a worktree rebuild; the hourly wake cron was cancelled. History in git
-    at a9ed4037.
-
-note 2026-11-20T00:10:54Z
-    T107 in review (e99a94ee): context slots built, state-scoped onContext rejected on its Stories, format 4 per slot,
-    Turn R22 rule added; close review started.
-
-note 2026-11-20T00:25:27Z
-    T107 close review: ISSUES, three blocking; A3 and format-4 fixes started; Turn R22's made-up ending waits on the
-    user's choice (recommended: when asked with no previous value).
-
 note 2026-11-20T00:37:54Z
-    T107 fix round in (99025ff4): findings 2 and 3 fixed red first; a second reaction on one slot with the same event is
-    now refused (Compile R19, orchestrator's small call, for the user's read). Only Turn R22's choice remains, the
-    user's.
-
-note 2026-11-20T01:12:21Z
-    T105 requirements in (eee505dd): 20 requirements, 11 red; five small calls ruled by the orchestrator. Requirements
-    review started.
-
-note 2026-11-20T01:29:14Z
-    T105 requirements review: ISSUES, four blocking (one of four start orderings pinned, D2 lane row unchecked, no route
-    for a refused fresh start, scope alone unchecked); ruled and acceptance amended; build lead started.
+    T107: a second reaction on one slot with the same event is refused (Compile R19, orchestrator's small call, for the
+    user's read).
 
 note 2026-11-20T01:36:08Z
     [decided: user 2026-11-20] T107 Turn R22 Q1 A (when asked with no previous value); built after T105 reaches
@@ -286,51 +245,12 @@ note 2026-11-20T01:54:30Z
     [decided: user 2026-11-20; Q2 A] T57 split into schedules (@task.V3.T57), fragments (@task.V3.T109) and
     subroutines with whenAbandoned (@task.V3.T110); T77 and T48 now wait on T109; Order updated.
 
-note 2026-11-20T02:30:14Z
-    T105 in review (3947bdc9): disposal takes the oldest ready identity (R28 reworded), refused fresh start retired by
-    structure; close review started. For the user: merging Pending D2 to D4 into the Plans.
-
-note 2026-11-20T02:42:57Z
-    T105 close review: ISSUES, one blocking (a paired-refusals hole left quiet); fix round with Spec wording, then
-    T107's Turn R22 fix, in one build slot.
-
-note 2026-11-20T03:21:48Z
-    T105 (84e31e6f) and T107 (a6055013) fix rounds in review; one review lead checks both. For the user: Machines.plan's
-    when example (683-705) no longer compiles, a Plan edit.
-
-note 2026-11-20T03:32:01Z
-    T107 done (a6055013); T105 PASS at 84e31e6f, closing after the user reads T107's page; new-slot reload firing routed
-    to @task.V3.T56.
-
-note 2026-11-20T03:32:24Z
-    User's page written, unread: @page.T107-context-slots (a Plan example fix for
-    your yes). T105 closes once it is read; T58 is next.
-
 note 2026-11-20T03:35:38Z
     [decided: user 2026-11-20; Q3 A] T58 split into the store in real browsers (@task.V3.T58) and the fixtures in
     real browsers (@task.V3.T111); Order updated. The user asked the run not to stop while asleep.
 
-note 2026-11-20T04:04:22Z
-    T58 requirements in (01a0a28a): 19 requirements, 10 red, a hidden-page retry loop confirmed; Safari D4 moved to
-    @task.V3.T27; runner accepted (no download). Requirements review started.
-
 note 2026-11-20T04:14:53Z
-    T58 requirements review PASS; six items folded in; the public Store takes no Flow wiring (orchestrator, for the
-    user's read). Build lead started.
-
-note 2026-11-20T05:38:12Z
-    T58 in review (c8d91c24): Chrome 15/15, Safari 13/15; Safari's two hide cases need the display awake (re-run at
-    11:07 still hidden), owed to the user's next session at the machine. Close review started.
-
-note 2026-11-20T06:21:42Z
-    T58 close review cut off by a network error (no comment written); resumed by message with its context.
-
-note 2026-11-20T06:22:56Z
-    T58 close review: ISSUES, one blocking (forget runs after the Store's connection closes, so it deletes nothing on
-    IndexedDB); fix round started.
-
-note 2026-11-20T06:26:33Z
-    T58's Safari hide cases pass with the display awake (15 of 15, exit 0); only the forget-order fix round remains.
+    T58: the public Store takes no Flow wiring (orchestrator, for the user's read). Safari D4 moved to @task.V3.T27.
 
 note 2026-11-20T06:30:36Z
     [decided: user 2026-11-20; Q4 A] headless Chrome always; real Safari unattended for store tests, hide cases
@@ -341,67 +261,26 @@ note 2026-11-20T06:52:17Z
     cohesion); close reviews run coverage with one sidecar; four earlier-surfacing build rules; @task.V3.T112 hardens
     fakes before T111. Commit: aaad16b0.
 
-note 2026-11-20T07:17:02Z
-    T58 PASS at 2f2e34de, held with T105 for T107's unread page; follow-ups to @task.V3.T112, which waits on T58, so
-    @task.V3.T57 starts.
-
-note 2026-11-20T07:27:50Z
-    T107's page read by the user; @task.V3.T105 done (84e31e6f). T58 closes once T105's page is read.
-
-note 2026-11-20T07:28:25Z
-    User's page written, unread: @page.T105-start-order-and-constant-starts (D2 to D4
-    merge for the user's yes). T58 closes once it is read.
-
 note 2026-11-20T07:34:28Z
     [decided: user 2026-11-20] Plan edits accepted; Pending D2, D3, D4, D9 merged, Runtime O2 and Q1 updated to
     the whole-Layer boot, Machines' when example fixed (7569d069). @task.V3.T58 done.
-
-note 2026-11-20T07:34:49Z
-    User's page written, unread: @page.T58-store-in-real-browsers (StoreScope name
-    for the user). T57 finishes before T112, which T58 unblocked.
-
-note 2026-11-20T08:11:40Z
-    T57 requirements in (2a68ac9b, bf7174a2): 30 requirements, 43 red; overdue keys fire in declaration order (Turn R17)
-    found. Calls ruled; requirements review started with the five-sidecar shape.
-
-note 2026-11-20T08:33:32Z
-    T57 requirements review: ISSUES, seven blocking (five found by flip B or blind B); B1 built provisionally as
-    @plan.Pending.D40, for the user. Build lead started.
 
 note 2026-11-20T08:54:21Z
     [decided: user 2026-11-20] T58's page read, StoreScope kept; Pending D40 accepted (merged at T57's close);
     T104 Q1 A final. Nothing waits on the user.
 
-note 2026-11-20T10:02:28Z
-    T57 in review (0595ecc6): schedules built, 18 plants caught; type-level schedule typing and depth-2 widening still
-    open; D40 merged.
-
-note 2026-11-20T10:03:07Z
-    T57 in review (04095847): schedules built, format 5; open items (types, depth-2 widening, listRepair, seed 5) go to
-    the close review.
-
 note 2026-11-20T10:22:39Z
-    Advisor questions written for the user: @questions.advisor-questions
-    (ten questions, T99 as the convergence case study); 4 and 7 are the trust consult's agenda.
+    Advisor questions written for the user: @questions.advisor-questions (ten questions); 4 and 7 are the trust
+    consult's agenda.
 
 note 2026-11-20T10:29:01Z
-    T57 close review: ISSUES (four type items); disarm wins over restartOn (Turn R14); fix round with a 45-minute type
-    spike; Turn I9 rule gap to @task.V3.T112.
+    T57: disarm wins over restartOn (Turn R14); the Turn I9 rule gap went to @task.V3.T112.
 
 note 2026-11-20T10:37:58Z
-    Merged invariant-proposal (bf2e200c): @plan.Rules from the accepted rules proposal, @task.V3.T106 rewritten on it
-    (after T109, T110). Epic lists the Plan; advisor question 6 settled.
-
-note 2026-11-20T11:27:09Z
-    T57 fix round in (266c9f6b): depth-2 types, typed context, disarm wins; two type pins to @task.V3.T109; Flow.keyed
-    waits on the user. Second close review started.
+    Merged invariant-proposal (bf2e200c): @plan.Rules from the accepted rules proposal; @task.V3.T106 rewritten on it.
 
 note 2026-11-20T11:40:19Z
     [decided: user 2026-11-20] Flow.keyed accepted; Machines O5 and its toaster example updated.
-
-note 2026-11-20T11:47:55Z
-    T57 second close review: ISSUES, three blocking; same-turn schedule combinations recur, so convergence by structure:
-    exhaustive combination table first, one decision function per schedule per turn.
 
 note 2026-11-20T12:37:44Z
     Amendment (2026-11-20, the user): a Task is solved as one cohesive set, never item by item; requirements open with a
@@ -412,35 +291,13 @@ note 2026-11-20T12:50:34Z
     Amendment (2026-11-20, the user): skill pin moved to workflow@67c7dd8 (whole Task, R47 Task cycle, R48 breakdown
     review at each phase's start); the Epic adds the phase-start review and boundaries by state. Commit: bb32c950.
 
-note 2026-11-20T12:50:43Z
-    Queued (the user, 2026-11-20): a breakdown review of every open and draft Task of P4 and later against skill:to-task
-    step 1, by R48; it runs after T57's close review, before the next Task, and its re-splits are applied before that
-    Task starts.
-
-note 2026-11-20T13:02:55Z
-    Breakdown review applied by R48 (orchestrator): T109 owns fragment lifecycle (T110 now the .each fan-out); new T113
-    typed machine, T114 run verdict, T115 server data, T116 Next.js host; T97 takes test tooling, T112 every Fake;
-    decoding to T92; T98 first in P5; streams before entities.
-
 note 2026-11-20T13:04:38Z
     Decisions (the user, 2026-11-20): Firefox is not a target (Package O4 and the P6, P8, P10 Tasks updated); the
     breakdown review's phase moves are approved (P5's Fake and Story words into P4, T98 first in P5).
 
-note 2026-11-20T13:12:28Z
-    Breakdown fixes from the independent review applied: T48 before T115, named seams on T24 and T48, T113 owns the
-    carried type, blockers for T22, T98, T106, T115, boot queue back in T28, stale text fixed.
-
-note 2026-11-20T13:23:18Z
-    T57 third close review: ISSUES, two blocking (idle timers forget reasons; issues have four writers and no key).
-    First failure after convergence; the fix makes decide the owner of issues too and grows the table.
-
 note 2026-11-20T14:10:02Z
     [decided: user 2026-11-20] "when T57 is closed i want you to stop". Scope: the run stops once @task.V3.T57 is
     done; no further lead starts.
-
-note 2026-11-20T14:55:11Z
-    T57 back in review (53a6ce47): issues owned by decide, idle reasons kept. Close review started. @task.V3.T117 added:
-    the home-rooms stress sweep is over its bound (193 s of 164 s).
 
 note 2026-11-20T15:02:19Z
     Amendment (2026-11-20, the user): pin to workflow@bb97c9d; convergence by structural cause (first finding when
@@ -453,33 +310,13 @@ note 2026-11-20T15:10:12Z
 
 note 2026-11-20T15:15:15Z
     Run stopped (2026-11-20): T57's fourth close review found two lost firings (B1 restored hold with no reasons; B2 an
-    arming issue replaced across occasions), the second failure after convergence; failure limit reached. Wake cron
-    cancelled. Waits on the user: Turn R25 and T57's next step.
-
-note 2026-11-20T15:18:42Z
-    Fable consult started (the user, 2026-11-20): 30 minutes, up to 10 Haiku sidecars, on schedule issues across time
-    (T57's B1, B2); proposal only, to @proposal.schedule-issues.
+    arming issue replaced across occasions), the second failure after convergence; failure limit reached. The schedule
+    issues were redesigned (@proposal.schedule-issues) and built by @task.V3.T118.
 
 note 2026-11-20T15:33:07Z
     Decisions (the user, 2026-11-20): Fable's schedule-issue redesign adopted with its R25 text, P1 and P2; new
     @task.V3.T118 builds it first; T57 closes once T118 lands B1 and B2 as inverted tests; siblings routed to T21 and
     T100.
-
-note 2026-11-20T15:33:17Z
-    Run resumed (the user, 2026-11-20) at workflow@bb97c9d: current Task @task.V3.T118, no live agents; wake cron
-    recreated. First action: T118's requirements lead (sequence test red first, B1 and B2 inverted).
-
-note 2026-11-20T16:02:34Z
-    T57 done (T118's c7635b2a lands B1 and B2 inverted). T118 requirements in: 8000 sequences, 365 red today, blind
-    agreement with no contradiction; requirements review started.
-
-note 2026-11-20T16:03:01Z
-    User's page written, unread: @page.T57-schedules. T118 cannot close until it is
-    read.
-
-note 2026-11-20T16:21:40Z
-    T118 requirements review: ISSUES, two blocking (a reload loses a firing without a saved restartOn baseline; no
-    acceptance makes the rows go green); ruled. Its fix round waits behind the user's design research.
 
 note 2026-11-20T16:30:02Z
     [decided: user 2026-11-20] Fable (high, Haiku sidecars) designs five concepts from the current code, old Specs
@@ -494,29 +331,10 @@ note 2026-11-20T16:57:09Z
     [decided: user 2026-11-20] drop Flow.keyed; with schedules declared on the definition a keyed schedule is a
     plain object whose key type comes from the declaration; the Declared-schedules Task removes it.
 
-note 2026-11-20T17:16:18Z
-    Second Fable wave done: boundary channels, test tooling, errors and trust, static analysis and rules, UI and host
-    (proposals). Usage 97% weekly, 88% 5-hour: the ten-design cohesion check waits for the reset.
-
-note 2026-11-20T17:41:10Z
-    Fable (medium) turn-parts design in: runTurn returns one Turn value, serve applies it and writes one Turned record;
-    occasion order fixed; a Turn parts Task ahead of T109 (proposal).
-
-note 2026-11-20T17:48:23Z
-    Paused for the 5-hour window (93%; weekly 98%): no agents run until the reset (~20:50 UTC weekly, 19:50 UTC 5-hour);
-    next: merge advisor-consult on the user's word, then the eleven-design cohesion check.
-
-note 2026-11-20T17:48:29Z
-    Correction to the pause note: the weekly window resets at 19:00 UTC and the 5-hour window at 19:50 UTC.
-
 note 2026-11-20T17:49:33Z
     The user's advisor-consult branch copied, not merged, to
     wiki/plans/flow/references/proposals/advisor-consult-2026-11-20/ for consideration (five answers, holes pass, its
     Plan and Task edits as a patch).
-
-note 2026-11-20T17:59:31Z
-    Body capture settled (Fable): the advisor's const B with Exact works on the real package with two fixes (C6): every
-    refusal kept, gaurd, pausd, returned-key and depth-3 typos refused; check 0.92 s to 1.18 s. Proposal.
 
 note 2026-11-20T21:03:37Z
     [decided: user 2026-11-21] wk gets a superseded status for Plans, Tasks and Specs, and inline tags parsed in
@@ -555,11 +373,6 @@ note 2026-11-21T09:17:39Z
     All nine questions in @proposal.algo-schedules section 15 answered as recommended by the user; Q8 changes
     @proposal.schedule-issues P2 (refused starts retried on every occasion).
 
-note 2026-11-21T18:48:58Z
-    Proposed: @proposal.algo-resolutions resolves the final review's blockers, contradictions and questions across the
-    six algorithm designs and maps every design piece to a Task. Fourteen Tasks are new (T119 to T132); T21, T24, T77,
-    T72 and T98 stay as close-outs. Nothing in it is decided; 32 questions wait for the user in its section 3.3.
-
 note 2026-11-21T19:08:00Z
     [proposed] Tasks link the v3 Specs they build (@spec.Schedules and its five siblings): follow them as best-guess
     guidance and fix them, logging in code:wiki/specs/specs.log, when building shows them wrong. "Supersedes" lines name
@@ -578,38 +391,14 @@ note 2026-11-21T21:15:28Z
     deletes and simplifies what the declaration makes redundant and edits the Specs to match (T120's comment holds the
     decision).
 
-note 2026-11-22T03:41:27Z
-    Run resumed at workflow@4f316bf; no live agents, tree clean. Current: T118 (own slice), next in P4's Order. First
-    action: R48 breakdown review of P4's open and draft Tasks (skipped only for slice T89), then T118's slice. Daily
-    faults started. Risk: the Order is the user's; any reorder or regroup it proposes goes to the user as questions.
-
 note 2026-11-22T03:47:10Z
     [decided: user 2026-11-22] "you are allowed to make task changes to move things around or split things up within a
     slice, or add more context of comment but try to avoid creating new slices." Scope: the whole run. Applies to the
     R48 review's findings: within-slice moves, splits and context comments are the orchestrator's; new slices avoided.
 
-note 2026-11-22T03:51:10Z
-    Open for the user: R48 fix 13 (P4 comment 2026-11-22T03:50Z), T92's 2026-11-19 deferral vs the 2026-11-22 Order that
-    puts it sixth. Recommended: the Order supersedes the deferral. Holds only T92's slice; T118 and T113 go on.
-
-note 2026-11-22T03:55:08Z
-    Slice T118 (own slice) started: requirements lead (Opus, high) refreshes the requirements on post-T120 code and
-    applies the 2026-11-20 review's rulings; then the requirements review.
-
 note 2026-11-22T04:00:19Z
     [decided: user 2026-11-22] "new order": the 2026-11-22 Order supersedes T92's 2026-11-19 deferral; T92 runs sixth.
     Scope: P4 (T92, T56, the T21 slice). Answers R48 fix 13.
-
-note 2026-11-22T04:40:57Z
-    Daily faults (background, 2026-11-22): 463 of 463 caught, 8 only by the whole suite; none missed. Its unchanged run
-    failed 14 browser-store tests (no browser in the scratch copy) and 3 stress sweeps (home-rooms generated, abort and
-    land shard 0): routed to T118's close stress run to replay and name the wrong side.
-
-note 2026-11-22T04:55:14Z
-    T118 requirements review started (Opus lead, medium, five fixed Haiku sidecars incl. two blind) on bad06723.
-
-note 2026-11-22T05:13:54Z
-    T118 requirements review: PASS (bb7e9bc5). Acceptance 1 amended per the 2026-11-20 ruling; build lead starts.
 
 note 2026-11-22T05:52:00Z
     [decided: user 2026-11-22] "yes extend and upgrade existing machines": a feature's fixtures extend an existing
@@ -624,26 +413,15 @@ note 2026-11-22T06:20:01Z
     [decided: user 2026-11-22] Each slice's close includes hunk diff commands: the whole slice, broken down by
     requirements, build and fix rounds, and by Task. Scope: the whole run.
 
-note 2026-11-22T06:38:57Z
-    Tooling bench fails at load since T58 (testing entry imports vite-plus/test via storeContract); no bench row since
-    2026-11-19. Inserted @task.V3.T141, taken after T118 and before T113.
-
 note 2026-11-22T06:45:15Z
     [decided: user 2026-11-22] "benches take 3 hours to run, i can't allow full runs, only narrow cases where needed":
     no full or tier-wide bench, tooling included; only narrow --only cases. Scope: the whole run. Wake no longer
     benches.
 
-note 2026-11-22T07:11:34Z
-    T118 built and in review (a9791f65); close review started. Routed: Turn I9 home-rooms breach to T97, stress shard
-    timeouts to T141; the sign-in LOADING case and the sweep slowdown go to the review.
-
 note 2026-11-22T07:40:28Z
     [decided: user 2026-11-22] "will take your recommendations, use the rubric of correctness, consistency from a user
     using the library": T118 Q1 B (a refused operation-outcome turn commits, the timer Refused with its issue). Rulings
     are judged by correctness, then consistency as a library user sees it. Scope: the whole run.
-
-note 2026-11-22T07:59:47Z
-    T118 fix round in review (2532e3e9); follow-up close review started. NaN guards accepted (Effect normalises NaN).
 
 note 2026-11-22T08:00:31Z
     [decided: user 2026-11-22] "let's go with the effect behaviour and remove our mitigations": Flow adds no NaN guard
@@ -654,47 +432,17 @@ note 2026-11-22T08:08:50Z
     originates (Flow, fixture, tooling, or a dependency like Effect) before proposing a fix or ruling. Scope: the whole
     run.
 
-note 2026-11-22T08:18:53Z
-    T118 follow-up close review: PASS (d33d24aa). One last round before close: the user's NaN removal, rulings R3 to R5
-    (T118 comments); a narrow review of that diff follows, then the slice closes.
-
-note 2026-11-22T08:35:52Z
-    T118 done (last-round review PASS, 26853ee4). Page @page.T118-schedule-issues written, unread; loop findings
-    added. Slice close held: @page.T57-schedules and @page.T89-foundations are not marked read. Next: T141.
-
-note 2026-11-22T08:36:02Z
-    Slice T141 (own slice, bench loads again) started: requirements lead (Opus, high).
-
 note 2026-11-22T08:43:11Z
     [decided: user 2026-11-22] "this task probably is simple enough that a separate builder is not needed, the
     requirements guy should be able to fix it": T141's requirements lead also builds it; its close review also checks
     the requirements mapping, in place of a separate requirements review. Scope: T141.
 
-note 2026-11-22T09:14:00Z
-    T141 built and in review (138c80e4); close review started (it also checks the requirements). The Safari half of
-    test:browser waits for the user's Safari to close; the orchestrator re-runs it alone.
-
-note 2026-11-22T09:26:28Z
-    T141 close review: ISSUES, one blocker (storeContract's line-separator text became a space; e9b8b36e). Fix round to
-    the lead; Package.plan's old storeContract call waits for the user's yes.
-
 note 2026-11-22T09:35:56Z
     [decided: user 2026-11-22] Q1 A: Package.plan shows storeContract(name, layer, { describe, it }) (T141's choice A).
-
-note 2026-11-22T09:50:35Z
-    Slice T113 (own slice, the typed machine) started: requirements lead (Opus, high). T141 waits only on the Safari
-    half of test:browser (the user quits Safari); its reviews passed.
-
-note 2026-11-22T10:06:50Z
-    T141 done (test:browser passes in Chrome and Safari). Page @page.T141-bench-loads written, unread. Unread pages:
-    T57, T89, T118, T141; slice closes held until read.
 
 note 2026-11-22T10:17:40Z
     [decided: user 2026-11-22] Pages read: @page.T57-schedules, @page.T89-foundations, @page.T118-schedule-issues,
     @page.T141-bench-loads. Slices T118 and T141 closed.
-
-note 2026-11-22T10:23:26Z
-    T113 requirements in (4e4401b2, adccdb43); requirements review started (five fixed sidecars).
 
 note 2026-11-22T10:33:30Z
     [decided: user 2026-11-22] "yes we need to fold this in": Q1 A joins T113: the config echo leaves the definition's
@@ -709,151 +457,26 @@ note 2026-11-22T10:43:34Z
     [decided: user 2026-11-22] Q4 A: Reads stays deferred to when the Changes Tasks settle View (the UI slice, T72);
     T113 builds the per-part types it will be composed from. Scope: T113, T72.
 
-note 2026-11-22T10:56:53Z
-    Slice T142 re-review: ISSUES, two blockers ruled (a111641f). Build starts with T113 (the face); the lead first folds
-    the rulings into T143, T144 and T111.
-
 note 2026-11-22T11:00:21Z
     [decided: user 2026-11-22] Q5 A: machine captures the body's type (B & Exact<B, MachineBody<D>>) so misspelled body
     keys show in the editor; reverses Types Q19 option C (`@proposal.body-key-typos`, +14% check time). Scope: T144.
-
-note 2026-11-22T11:30:32Z
-    T113 built and in review (8a50ec08); close review started.
-
-note 2026-11-22T11:43:46Z
-    T113 done (close review PASS, 3b164cf6). Slice T142 continues: T143 build starts.
-
-note 2026-11-22T12:22:16Z
-    T143 built and in review (c5c3fe23); close review started.
-
-note 2026-11-22T12:44:06Z
-    T143 done (close review PASS, 192e55c1). Slice T142 continues: T144 (sweep, lint rule, body capture) build starts.
-
-note 2026-11-22T13:56:21Z
-    T144 built and in review (ab64ce88): sweep, lint rule, body capture (+27% check time). Close review, also slice
-    T142's seam review, started; planted-fault items wait on the user's Q7.
 
 note 2026-11-22T13:59:12Z
     [decided: user 2026-11-22] Q7 B: planted faults only for runtime rules, judged by their own target tests (no
     whole-suite fallback; a miss is re-aimed); type and lint rules get none. Scope: the whole run. Tooling and existing
     faults: T145.
 
-note 2026-11-22T14:07:39Z
-    T144 done (close and seam review PASS, 03e59af3). A Sonnet cleanup (clients.ts factory-free, typo tests, Spec
-    records, proposal deleted) runs before slice T142 closes.
-
 note 2026-11-22T14:10:55Z
     Merged `@proposal.body-key-typos` deleted; last commit holding it: git show
     77bd2f79:wiki/plans/flow/references/proposals/2026-11-22-body-key-typos.md
-
-note 2026-11-22T14:13:57Z
-    Slice T142 (the typed machine) closed. Page @page.T142-typed-machine written, unread; loop findings added. Next:
-    T145.
-
-note 2026-11-22T14:14:07Z
-    Slice T145 (own slice, planted faults for runtime rules only) started: one lead writes the reds and builds, one
-    close review checks both, as the user allowed for T141's simple Task.
-
-note 2026-11-22T14:47:37Z
-    T145 built and in review (32e94fb0): 486 runtime faults, all caught by their targets; close review started.
-
-note 2026-11-22T15:04:18Z
-    T145 close review: ISSUES (0e85abec), two wrong fault calls; fix round to the lead.
-
-note 2026-11-22T15:15:32Z
-    T145 fix-round review: ISSUES (f835843c). Faults in uncompiled copies were caught by crashes; copies type-check
-    again (orchestrator's own mistake reversed); Actors R21 gets its first public test.
-
-note 2026-11-22T15:53:44Z
-    T145 second fix-round review: ISSUES (73fb1dc2), third mis-caught fault, threshold reached: a catch now counts only
-    when the failing test cites the fault's rule (structural guard). Third fix round to the lead.
 
 note 2026-11-22T15:57:00Z
     [decided: user 2026-11-22] "just disable the fault tests we don't want": T145's third round stopped; faults not
     cleanly caught are disabled, not fixed; no rule-cited guard. T145 closes on that. Scope: T145.
 
-note 2026-11-22T16:02:43Z
-    T145 done (5878de1c): two faults disabled, not fixed, by the user's order.
-
-note 2026-11-22T16:09:27Z
-    Run paused for handoff to a new orchestrator: tree clean, no live agents, cron removed. Next: T119 (draft,
-    unblocked), write its full text with skill:to-task, then its requirements lead. Unread page:
-    @page.T142-typed-machine. Open: loop findings 1-11 (proposed). Weekly usage ~81%.
-
-note 2026-11-22T16:13:34Z
-    Run resumed at 0ee8d57a, workflow@4f316bf. T119 opened (own slice; fault wording updated, T118's routed Story and a
-    False pass line added) and in progress; its requirements lead starts now. No live agents; cron 7 * * * * re-created.
-    Weekly 82%, 5-hour 19%. Unread: @page.T142-typed-machine (holds T119's close).
-
-note 2026-11-22T16:55:18Z
-    T119 requirements in (c900c9d2). X3 moved to @task.V3.T109 (orchestrator ruling, T119 comment). Requirements review
-    starts.
-
-note 2026-11-22T17:11:16Z
-    T119 requirements review: ISSUES (cc8e7d71), one blocker: @spec.Changes R22 (one readsOf builds every callback
-    input) has no check. Fix round and build go to the lead; T109 and T123 routings recorded; T119 text fixed.
-
-note 2026-11-22T17:15:15Z
-    T119 R22 check in (c578b229); fresh building lead (Opus, medium) started on the build.
-
-note 2026-11-22T19:15:16Z
-    T119 built, in review (011a5c41, 3e6734e9). Standing Supersedes routed to T109, T121, T76, T112. Close review
-    starts.
-
-note 2026-11-22T19:42:45Z
-    T119 close review: ISSUES (5e7b27c4), two blockers: the one wake loses a same-instant re-arm; createActor locals get
-    no Schedule alarm. Fix round to the builder.
-
 note 2026-11-22T20:04:33Z
     [decided: agent orchestrator 2026-11-23] Story step create(machine, { input }) accepted as a small public API
     addition (Epic Authority). Why: Stories must start local actors. Reverse: start them through a fixture event.
-
-note 2026-11-22T20:04:33Z
-    T119 fix round in review (6aab9c8b, 9d09f531); second close review starts.
-
-note 2026-11-22T20:19:33Z
-    T119 close review 2: PASS (ff07be51). Page @page.T119-turn-parts written; loop findings 12-15 added. The create-step
-    type pin and Story tooling items routed to T97.
-
-note 2026-11-22T20:19:34Z
-    T119's slice close held (Epic stops): @page.T142-typed-machine is unread. T119 stays in review with its PASS until
-    the user reads it; then done.
-
-note 2026-11-22T20:20:20Z
-    Slice T92 (own slice) started: opened with acceptance re-pointed to @spec.Records and a restore-after-edit item;
-    requirements lead (high) starts. Weekly 90%.
-
-note 2026-11-22T21:12:30Z
-    T92 requirements in (fc10aecb); orchestrator rulings on Q4, the Spec model and T28 in a T92 comment. Requirements
-    review starts.
-
-note 2026-11-22T21:24:40Z
-    T92 requirements review: ISSUES (0248790a), three test blockers: corrupt judge passes out-of-form values silently;
-    no check for R17/I14/I17; bindings test not red for its reason. Fix round to the requirements lead.
-
-note 2026-11-22T21:36:29Z
-    T92 requirements fix round in (c74cdad2); per-key record report accepted (orchestrator, T92 comment). Fresh builder
-    (medium) starts; weekly ~93%.
-
-note 2026-11-22T23:10:31Z
-    T92 built, in review (bf482f05..b301d7d6); close review starts at weekly 96%.
-
-note 2026-11-22T23:44:30Z
-    T92 close review: ISSUES (b9d08ebc), one blocker: a Held head's unknown slot accepts a success (R11's shared codec
-    unbuilt). Fix round by structure to the builder; rulings in a T92 comment.
-
-note 2026-11-23T00:09:33Z
-    T92 fix round in review (01c59bf6, ecf7851c): one Shape codec per record kind; second close review by the same
-    reviewer. Weekly 97%.
-
-note 2026-11-23T00:16:40Z
-    T92 close review 2: PASS (90d5fd75). Page @page.T92-records written; T56 routings recorded. T92's close is held with
-    T119's: @page.T142-typed-machine unread.
-
-note 2026-11-23T00:17:13Z
-    Run holding at weekly 98% (orchestrator call): no new slice started, since slice T21's four Tasks need full texts
-    and a requirements step that 2% can't finish. No live agents; cron stays. Resume: write T121-T124 with
-    skill:to-task, then the T21 requirements lead.
 
 note 2026-11-23T02:15:13Z
     [decided: user 2026-11-23] "make the edit": Q1 to Q4 A (a wake reviews only a Task with no verdict; Task done on
@@ -868,21 +491,9 @@ note 2026-11-23T02:27:48Z
     [decided: user 2026-11-23] Pages read: @page.T142-typed-machine, @page.T119-turn-parts, @page.T92-records. Slices
     T142's close stands; T119 and T92 close.
 
-note 2026-11-23T02:27:50Z
-    T119 done (close review 2 PASS, ff07be51) and T92 done (close review 2 PASS, 90d5fd75); both slices closed. Next:
-    slice T21 (T121 to T124).
-
-note 2026-11-23T02:28:35Z
-    Slice T21's Tasks T121 to T124 written and opened; no lead started (under the 5% rule). Resume: start the T21
-    requirements lead (high) over all four.
-
 note 2026-11-23T02:28:55Z
     Amendment (2026-11-23, the user): who runs each slice step, Task done on PASS, slice cost 5 to 10%, no new slice
     under 5% left, activity from transcript growth. Commit: 931f49b6.
-
-note 2026-11-23T02:31:31Z
-    Run paused for handoff to another account: tree clean, no live agents, cron removed. Next: slice T21 (T121 to T124
-    open), one requirements lead at high effort.
 
 note 2026-11-23T02:38:12Z
     [decided: user 2026-11-23] "make the edits": loop findings 1-3, 5-7, 9, 10, 12, 14, 16 merged into the Epic's
@@ -941,3 +552,44 @@ note 2026-11-23T07:49:52Z
 note 2026-11-23T07:58:57Z
     T122 done (close review 2 PASS at 456e1264). resource.write(key, data) goes to the user as a Plan O3/O5 change; T123
     and T124 build next with a fresh lead.
+
+note 2026-11-23T07:59:32Z
+    Build lead started on T123 and T124 (Opus, medium).
+
+note 2026-11-23T08:11:45Z
+    [decided: user 2026-11-23] "accepting": a read change is read.write(key, data) in a list, no undefined to decline,
+    empty list does nothing, one shape for writes, optimistic and the action (@plan.Pending D41). The action's name is
+    still open. Fix round goes to the T123/T124 builder.
+
+note 2026-11-23T08:16:53Z
+    [decided: user 2026-11-23] "i will take your recommendation": O.x.setData is cut with no replacement action;
+    fixtures write through writes (@plan.Pending D41, deferral with Reopen if).
+
+note 2026-11-23T08:19:32Z
+    [decided: user 2026-11-23] "yes looks good": read changes are read.set(key, value) and read.update(key, f),
+    replacing read.write; InvalidWrite becomes InvalidUpdate; the writes option keeps its name (@plan.Pending D41).
+
+note 2026-11-23T09:09:32Z
+    T123 and T124 in review (1c4bf6b5); close review returns to the slice's reviewer. Ruled: the three reds reading
+    optimistic values through value are test-side wrong (T123 comment).
+
+note 2026-11-23T09:28:50Z
+    [decided: user 2026-11-23] "we do need to delete things and run compaction … all those outdated files should be
+    updated or deleted. use sonnets for execution and reviews": records cleanup and wk output filters run as two Sonnet
+    leads beside the V3 run.
+
+note 2026-11-23T09:35:32Z
+    T123 and T124 close review 1: ISSUES (1c4bf6b5). Fix round to their builder with the seam bug (optimistic holds its
+    entry) and the O6 entry row; a bad writes target rejects the batch per Plan O5. Freeze placement to T109.
+
+note 2026-11-23T09:37:26Z
+    T123/T124 builder rotated out near its context limit (resume note 89679d5a); a fresh build lead took the fix round.
+
+note 2026-11-23T09:52:34Z
+    AGENTS.md points agents at the narrowed wk read commands (wk agenda @id, --open, --limit); --full and --all only
+    when every row is needed.
+
+note 2026-11-23T09:59:48Z
+    Records cleanup (the user, 2026-11-23): deleted 6 absorbed files; last commits 3a84b878 (invariant-audit,
+    fixture-catalog-check, rules-cohesion), c3fd18e6 (conventions), 9fda6b6d (review-specs), 37e70116 (review-tasks).
+    Verdicts and the user's list: @review.records-cleanup.

@@ -227,7 +227,7 @@ decode row (`Types.spec:396-397`), I13's twin rule (it moves from `machine()` to
 
 `Host.spec` (11):
 
-- `:17` derives_from `@plan.Rules.O4` | stays; add O6 for the setup switch
+- `:17` derives_from @plan.Rules.O4 | stays; add O6 for the setup switch
 - `:70-74` R8 `[H3]` | "A test that breaks a rule fails, whoever wrote it and however it was run" | the plain Runtime
   test
   case (proposal section 4.5) is not covered by a Story; amend with the user's yes, or keep and add the `afterEach`
@@ -420,7 +420,7 @@ without the user, and name the commit that holds the old text.
 20. `P5.task:617-728` T106 and `P4.task:2588-2608` T113 | body-capture wording (T113's comment of 2026-11-21 21:23
     already
     supersedes "typed by the body" for schedules; add the rule half)
-21. `@proposal.rules` (2026-11-20), `@proposal.body-capture-settled`, `@questions.advisor-questions` question 1 | merged
+21. @proposal.rules (2026-11-20), @proposal.body-capture-settled, @questions.advisor-questions question 1 | merged
     or
     superseded; delete each after its absorbing record names the commit (AGENTS), not summarise
 

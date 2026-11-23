@@ -1,6 +1,7 @@
 ---
 proposal spec-static-rules
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-types]
+    proposed 2026-11-20
 ---
 # Static analysis, the CLI and rules on machines: design and Spec (2026-11-20)
 
@@ -550,7 +551,7 @@ Expected results come from the tables above and the cited Plan lines, written by
 
 ## 8. Proposed decisions and sidecar log
 
-**Ask 1. A left terminal is reported as `TerminalLeft`.** [open: 2026-11-21; recommend TerminalLeft] The Plan says `TerminalLeft` (@plan.Rules.O2); the
+**Ask 1. A left terminal is reported as `TerminalLeft`.** [dropped: agent cleanup 2026-11-23] The Plan says `TerminalLeft` (@plan.Rules.O2); the
 proposal text says `RuleBroken` (@proposal.rules line 90). Recommended: `TerminalLeft`.
 - Trace A (`TerminalLeft`): `flow check` prints `error TerminalLeft Shop/Order on.Refund[0] can leave REFUNDED`;
   a log search for `RuleBroken` finds only runs.
@@ -577,7 +578,7 @@ The Plan says a graph that fails to load is an invocation failure; the Spec draf
   exit 1; a syntax error in the file gives `flow: could not load pay.machine.ts`, exit 2.
 - Trace B (all exit 2): the duplicate name prints one stderr line and hides every other machine's findings.
 
-**Ask 5. Source locations come from the CLI's source adapter, not from `Compiled`.** [open: 2026-11-21; recommend A, the CLI's source adapter]
+**Ask 5. Source locations come from the CLI's source adapter, not from `Compiled`.** [dropped: agent cleanup 2026-11-23]
 - Trace A (recommended): `Compiled` stays position-free and deterministic; `flow check` prints
   `pay.machine.ts:42` when the adapter resolves the path and the definition path alone when it cannot.
 - Trace B (captured at `machine()`): positions come from a stack at construction; two compiles of one source differ

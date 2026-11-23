@@ -1,6 +1,7 @@
 ---
 proposal spec-turn-parts
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-turn]
+    proposed 2026-11-20
 ---
 # The turn's parts walk and the turn record
 
@@ -360,24 +361,24 @@ leaves the other two red until the walk lands.
 
 ## 8. Proposed decisions, traces, open questions, sidecar log
 
-**PD1. One `Turn` value is the turn's only record; `Act.Emitted` is not added and `Published` gains only `why`.** [open: 2026-11-21; recommend as proposed]
+**PD1. One `Turn` value is the turn's only record; `Act.Emitted` is not added and `Published` gains only `why`.** [dropped: agent cleanup 2026-11-23]
 Trace A: a number input's `Commit` turn emits `change`: `parts[0].emits` holds it, `Turned` carries it, the host's
 emit consumer reads it from `turnsOf` after the world is set; the trace prints an `emit` line derived from the same
 record. Trace B: a refused turn: `runTurn` returns `Refused`, no `Turned` is written, no listener runs, the judge
 sees one `Published` with `why: "Other"` carrying the issue. Reverse by adding `Act.Emitted` and a payload field on
 `Published`; two more writers.
 
-**PD2. Within a part the order is emits, raises, notifies, exit; parts are recorded in pre-order.** [open: 2026-11-21; recommend as proposed]
+**PD2. Within a part the order is emits, raises, notifies, exit; parts are recorded in pre-order.** [dropped: agent cleanup 2026-11-23]
 Trace A: `CancelAll` emits `cancelling` and raises `Cancel` into two copies that each emit `cancelled`: listeners
 hear `cancelling`, `cancelled(r2)`, `cancelled(r1)`. Trace B: a child's exit fills a host handler that emits
 `closed`: it is heard after the child's own emits. Reverse by interleaving emits with raises in written order; only
 row 4 changes. The prototype fixed raises, notifies, exit; where emits sit among them is this design's call.
 
-**PD3. A walk that would visit the same `(address, alternative, from)` twice refuses the turn.** [open: 2026-11-21; recommend as proposed]
+**PD3. A walk that would visit the same `(address, alternative, from)` twice refuses the turn.** [dropped: agent cleanup 2026-11-23]
 Trace A: a host filling raises back into the copy that exited: refused as `InvalidTurn` naming the raise's slot.
 Trace B: a fan-out into fifty copies: fifty addresses, accepted. Reverse by a numeric depth bound.
 
-**PD4. `armOn` and `disarmOn` match each part's own event in that part's scope.** [open: 2026-11-21; recommend as proposed]
+**PD4. `armOn` and `disarmOn` match each part's own event in that part's scope.** [dropped: agent cleanup 2026-11-23]
 Trace A: a raised `Cancel` in a copy whose schedule lists it in `disarmOn` disarms that copy's schedule only.
 Trace B: the source event `CancelAll` arms nothing in the copies. Reverse by matching only the source's event.
 

@@ -290,3 +290,20 @@ decisions
         delay from that step (a paused one first finishes its `left`); a finished series stays finished. **Why:** the
         reading that neither loses nor makes up a firing (T57's requirements review, B1). **Proven by:** a checkpoint
         after the series ends in `home/reloaded-paused`. Owner: @task.V3.T57.
+    D41  @plan.Operations.O3, @plan.Operations.O5: a read change is `read.set(key, value)` or `read.update(key, f)`,
+         in a list (accepted by the user 2026-11-23, not merged)
+        **Before:** `writes` and `optimistic` return a record keyed by the read's name, `{ history: { key, data } }`; an
+        updater returning `undefined` declines; `O.x.setData(select)` returns `{ key, data }`. **After:** each returns a
+        list of changes named by the read itself, following Effect's `Ref`: `history.set(key, value)` replaces the data,
+        `history.update(key, (current) => next)` derives it, with `current` readonly and no `undefined` to decline
+        (leave the change out of the list instead); the key needs exactly the read's key fields; an empty list does
+        nothing; one shape for `writes` and `optimistic`; `InvalidWrite` is renamed `InvalidUpdate`. `O.x.setData` is
+        cut, with no machine action in its place (the user, 2026-11-23): drop it from @plan.Operations.O5 and the two
+        mentions in @plan.EntityDomains, and the fixtures that used it write through their transaction's `writes`.
+        **Why:** the name could not be typed where `writes` is declared, hid that entries are shared Runtime-wide, and
+        allowed one change per read; a forgotten `return` silently skipped a write. Every `setData` use was a commit's
+        answer copied into a read, which `writes` does even after the issuing state exits and without overwriting data
+        that landed after the commit started. **Proven by:** the chat fixture's `writes` and `optimistic` Stories, type
+        pins for a wrong key, a wrong data shape and a mutating updater, and the draft and search fixtures on `writes`.
+        Owner: @task.V3.T122. [deferred: user 2026-11-23] A machine action that writes read data. Reopen if: a push that
+        carries the new data comes from a source that is not a stream, and an `invalidate` refetch is too costly.

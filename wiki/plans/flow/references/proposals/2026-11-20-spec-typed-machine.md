@@ -1,6 +1,7 @@
 ---
 proposal spec-typed-machine
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-types]
+    proposed 2026-11-20
 ---
 # The typed machine: one source for every derived type
 

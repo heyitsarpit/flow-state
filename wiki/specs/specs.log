@@ -71,15 +71,6 @@ note 2026-11-16T04:10:00Z
     Restored at the boot. Why: @plan.Operations.O3 and @plan.Persistence.O4 promise NotSent Restored per queued commit
     (T18 review B1, the coordinator's ruling). Reverse: none; the Plans decide.
 
-note 2026-11-16T06:20:41Z
-    Reworded old conformance-suite lines (case ids, prototype lies, wrong runtimes) in some Spec tests as planted
-    faults. Other such lines remain across core Specs.
-
-note 2026-11-16T06:24:34Z
-    Spec tests reworded from the deleted conformance suite to Story tests and planted faults (`nub run faults`); case
-    ids dropped; Compile's design note cites production files. Round-14 design notes kept. Stories and spec-split lint
-    fixed.
-
 note 2026-11-16T08:18:20Z
     Actors R23, I36, I43, I44: the disposal writes every change within its bound, not one batch at its start; ends made
     at the bound stay unwritten (reload hears unknown Restored). Why: one try lost a call's own ending settled within
@@ -260,16 +251,6 @@ note 2026-11-17T05:22:42Z
     @spec.Codec R4, @spec.WriteAhead R9: a record fails only on a malformation in its actor's own state, its identity
     then withheld whole; records carry the current format. Why: T9 review wording. Reverse: d2ab6f9b.
 
-note 2026-11-17T06:58:32Z
-    @spec.Codec R1, R4, T1 (@plan.Pending.D26): depth has one platform limit, Flow.maxDepth = 256 nested containers;
-    measured: Node 24 Map nest under Schema.suspend decodes 686 levels, trees 1,171, Equal 1,195; Chromium 781; Bun
-    1,393. Past it, memory, a selection or a commit input is reported UnencodableValue. Reverse: 2bb48ce9.
-
-note 2026-11-17T13:55:00Z
-    @spec.Codec R6, I8, T7 (proposed, @plan.Pending.D27): one value boundary; walkers compiled per Schema run Effect's
-    parser a level at a time, each Schema.suspend a hole read from a table, on an explicit stack. Why: three reviews
-    found unguarded recursive calls. Reverse: drop R6 and keep D26's limit (5cb2824c).
-
 note 2026-11-17T16:30:00Z
     @spec.Codec R1, R4, T1 (@plan.Pending.D27): no depth bound; Flow.maxDepth is gone and D26's limit lifted. Why:
     every value path holds at 100,000 deep (tests/session/deep.test.ts, tests/restore/deep-inputs.test.ts). Reverse:
@@ -300,14 +281,10 @@ note 2026-11-17T20:40:00Z
     in memory is still guarded. Why: the user's Q20 B (a frozen object takes no new methods; Immer freezes them this
     way in dev). Reverse: refuse an app-frozen Map, Set or Date at admission as the turn's Defect (Q20 A).
 
-note 2026-11-17T21:30:00Z
-    @spec.Actors R25 (proposed, awaiting the user): a step's defect ends the life Stopped, a final row in admit's
-    table; calls refuse RuntimeDisposed, ready and dispose fail with the defect. Why: a host flag beside Life broke
-    I42 and the defect escaped uncaught (T79 review). Reverse: drop the row, rethrow the defect (7b104f91).
-
 note 2026-11-17T22:00:00Z
-    @spec.Actors R25 accepted (the user, Q21 A): Stopped is a final Life row; snapshots read stopped, dispose fails
-    with the defect, nothing more is written. Reverse: drop the row and rethrow the defect (7b104f91).
+    @spec.Actors R25 accepted (the user, Q21 A): a step's defect ends the life Stopped, a final row; snapshots read
+    stopped, calls refuse RuntimeDisposed, ready and dispose fail with the defect, nothing more is written. Why: a
+    host flag beside Life broke I42 (T79 review). Reverse: drop the row and rethrow the defect (7b104f91).
 
 note 2026-11-17T22:30:00Z
     @spec.WriteAhead R10, R12, R13, I20, I21, I23, Records, realization (@plan.Pending.D30): steps mark keys, one
@@ -353,16 +330,6 @@ note 2026-11-18T05:07:17Z
     one batch is out at a time, so the pair sweep could not refuse the write an Acknowledging head waits on
     (@task.V3.T20). Reverse: drop the word; the sweep's Acknowledging × storage refusal cell then cannot fire.
 
-note 2026-11-18T05:07:23Z
-    @spec.Restore R5: a record whose name its machine's identity does not decode, or whose input names another actor,
-    is quarantined; the boot no longer starts it with {} input (@task.V3.T20, routed from T9). Reverse: drop the clause
-    and decodeName's three record checks.
-
-note 2026-11-18T05:40:50Z
-    @spec.Restore R5 (T20 fix round): the name clause covers lane and owed records under a local (~) name too, read by
-    the record's identity version, so @spec.Restore.R6's versions do not contradict it; actor records are not checked,
-    since nothing can start them. Reverse: restore the clause from 6331a3b4.
-
 note 2026-11-18T06:13:25Z
     @spec.Restore R5: one check at the decode boundary: a record is read only when the identity its content names is
     one a ref could give and its key is that identity's key for its kind; it replaces the per-kind name checks (T20
@@ -377,10 +344,6 @@ note 2026-11-18T08:06:19Z
     @spec.Stories R18, I23, T16 added: a reload forks from a saved world (forkReloads) and gives the run a replay gives,
     so the reload sweep no longer replays each position's prefix (T90). Reverse: drop R18 and turn FLOW_REPLAY_SWEEP's
     replay form back on as the sweep.
-
-note 2026-11-18T10:10:04Z
-    @spec.Actors R14: a send admits its payload's type-side decode, undeclared keys dropped (T81, the orchestrator's
-    ruling: decode once and trust the result). Reverse: hand handlers the payload as sent, checked only.
 
 note 2026-11-18T10:19:52Z
     @spec.Actors R14 reworded: the payload is narrowed to its declared fields after the type-side check, not decoded
@@ -659,11 +622,6 @@ note 2026-11-21T19:47:45Z
     Q14 (CleanupFailed not an issue) decided by agent; Host Q12 and Records Q6 split agent-decided internal rules from
     the user's calls. Others point at a Spec item or a Task's build-time choice.
 
-note 2026-11-21T19:47:45Z
-    Build-time choices written into Task descriptions: T118 (input gate), T119 (Changes Q9's three orders), T113
-    (findings and tokens), T131 (door table), T122 (entries), T123 (placements), T124 (gcTime 0), T92 (graph,
-    Flow.input), T56 (codecSig), T48 (lazy adoption). Each gives both answers and the test that picks one.
-
 note 2026-11-21T19:48:35Z
     Review minors: M3 (ScheduleIssueSource), M4 (issue source is { name, key, at }), M6, M8, M9 (only catalog issue:true
     reports are issues), M10 (judge is Host's), M12, M13 (walk row W0), M14 (model counts marked history) fixed.
@@ -704,13 +662,6 @@ note 2026-11-21T21:26:21Z
 
 note 2026-11-21T21:26:22Z
     Schedules: ScheduleReads is not generic (the core is erased; the typed face is the declaration's lookup).
-
-note 2026-11-21T21:38:35Z
-    Types Q19: exactness is option C for now (runtime decode and flow check), the user's call (2026-11-22), pending a
-    harder capture-free type spike.
-
-note 2026-11-21T21:50:11Z
-    Types Q19: exactness is option C, final (the user, 2026-11-22), after the capture-free type spike.
 
 note 2026-11-21T22:41:22Z
     Types: rules attach by chained .rules(build) (R9, RuleTyping); Q2, Q17, I12, I13 edited; Q3, Q5, Q6, Q19 text, R2,
@@ -757,10 +708,6 @@ note 2026-11-22T01:16:32Z
 note 2026-11-22T01:16:33Z
     Types, placement: one schedule placed in a state and in a state below it is refused DuplicateName, as the runtime
     keeps one timer per name. Found by slice T89's build.
-
-note 2026-11-22T01:16:33Z
-    A note of T89's requirements reconcile was hand-stamped 2026-11-22T23:30Z; it now carries its commit time
-    (7069d46d). Logs are stamped only with wk log add.
 
 note 2026-11-22T01:49:33Z
     Operations: a made function takes a second branded prototype that is a function; deep freezing reaches what a face's
@@ -834,3 +781,7 @@ note 2026-11-23T07:41:58Z
     Operations deviations from T122's fix round: read changes are `resource.write(key, data)`; Written applies an update
     to data asked before the commit started, else Invalidate; a throwing `writes` is InvalidWrite. Recorded on
     @task.V3.T122; Spec text unchanged.
+
+note 2026-11-23T10:03:12Z
+    Superseded (2026-11-23): the read change named resource.write in the T121 and T122 notes is now read.set(key, value)
+    and read.update(key, f), with InvalidUpdate (@plan.Pending D41).

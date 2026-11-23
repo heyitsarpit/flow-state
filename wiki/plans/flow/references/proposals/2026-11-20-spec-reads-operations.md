@@ -1,6 +1,7 @@
 ---
 proposal spec-reads-operations
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-operations]
+    proposed 2026-11-20
 ---
 # Reads and operations: design and Spec
 
@@ -497,16 +498,16 @@ Every Task: fixtures first. T21's fixture list stays whole, divided by which Tas
 
 Each has two traces: the sequence under the alternative, then under the proposal.
 
-1. **Operation issues are views of rows, entries, placements and releasing calls.** [open: 2026-11-21; recommend as proposed]
+1. **Operation issues are views of rows, entries, placements and releasing calls.** [dropped: agent cleanup 2026-11-23]
    Stored: A's `pay` ending is refused twice (Kept, A blocked); B's `pay` success is accepted; the snapshot
    shows no issue while A is blocked. Derived: the issue is A's row's refusal, shown until A's row closes.
 2. **Split T21 into four Tasks by owner** [answered: user 2026-11-21; yes: @proposal.spec-handover#task-changes] (reverses the 2026-11-20 breakdown note "not split").
    One Task: four tables under one review, and the issue fix waits on entries. Four: the row's shape lands
    first and each table has its own review. The note's reason, shared lane state, does not hold (section 2).
-3. **An invalid lookup input ends the read as `Defect`; it does not refuse the turn.** [open: 2026-11-21; recommend as proposed]
+3. **An invalid lookup input ends the read as `Defect`; it does not refuse the turn.** [dropped: agent cleanup 2026-11-23]
    Refuse: the handler's memory update is lost with the turn, unlike a commit's `Unencodable` decline. End:
    the turn commits, the machine hears its `Defect` mapping and leaves its loading state.
-4. **A `Cause.TimeoutError` from a write is unknown, and a type error in its `E`.** [open: 2026-11-21; recommend as proposed]
+4. **A `Cause.TimeoutError` from a write is unknown, and a type error in its `E`.** [dropped: agent cleanup 2026-11-23]
    Without: `Effect.timeout` types as the tag `TimeoutError`, the author maps it under `failure`, the user
    retries and pays twice. With: the type error points at `Outcome.unknown`; a stray one holds the lane.
 5. **Mappers take one record `{ value, input, key, attempt }`** [answered: user 2026-11-21; no: ending mappers take (value, { input, key }), @proposal.spec-handover#mapper-shape] (T21's acceptance), not

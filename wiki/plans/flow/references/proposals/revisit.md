@@ -114,7 +114,7 @@ Deferred items.
   preferences, sign-out, a cart badge, unread counts, feature flags. Interim convention: host code sends user changes
   out with `emit` and `actor.onEmit`, takes another tab's in with `send` of a Schema-decoded event, and only user
   events emit, so nothing echoes. Prior art: TanStack Query's `broadcastQueryClient`.
-- **Rebuild the docs' guides from `wiki/conventions/`** [deferred: user 2026-11-16] (2026-11-16, the user; @proposal.conventions decision 4).
+- **Rebuild the docs' guides from `wiki/conventions/`** [deferred: user 2026-11-16] (2026-11-16, the user; the conventions proposal's decision 4, last at `c3fd18e6`).
   `apps/docs/src/pages/guide/patterns.md` and `recipes.md` teach the old API (`flow.after`, `submit`, `useResource`);
   leave them until the API the conventions use is built, then rebuild each guide from its page. Reopen if: the API the conventions use is built.
 - **`Git/sync` 4xx case and sign-in's mix seat** [deferred: agent 2026-11-17] (2026-11-17, @plan.Pending.D21). A 4xx that is not a rate limit ends
@@ -194,3 +194,21 @@ Deferred items.
   included, state guards narrowing); on the shop's Pay it would flag the root `PayRequested` committing in any state.
   Earlier drafts (`never`, `outside`, `does`, `effects`) read as double negatives. And `reachable`, which the
   built-in unreachable-state warning and rule coverage already cover. Reopen if: several real machines are in hand.
+- **Record sweep after P4** [deferred: agent cleanup 2026-11-23] (2026-11-23, @review.records-cleanup; the deleted
+  review-tasks, last at `37e70116`). Unlink blockers on done Tasks (T57, T58, T17, T20, T9, T69, T70); re-point
+  `@proposal.*` citations in Task descriptions to Spec sections; drop the old slice labels from the titles of T21, T110
+  and T57; move T98 out of P9 (it blocks P5 Tasks); give Host R15 (memo key set) to T30. Then delete the proposals the
+  citations pinned: the algo-* designs, the nine `spec-*` ones, spec-cohesion-r2, spec-handover, schedule-issues,
+  algorithm-round, algo-schedules, rules, context-slots, runtime-lifetimes and the reviews they link.
+  Reopen if: the V3 run reaches P4's close-out, or `P4.task` is no longer being written.
+- **Spec wording minors M7 and M11** [deferred: agent cleanup 2026-11-23] (2026-11-23, the deleted review-specs, last at
+  `9fda6b6d`). M7: number Schedules' thirteen decode rows D1 to D13 (`Schedules.spec:515-535`) because Records cites them
+  by number. M11: delete the clauses that need the old proposal or companion beside them (`Host.spec:122,146,155-159`,
+  `Records.spec:104,147,159,733,796`, `Types.spec:720,804,814`, `Schedules.spec:18,37,60,130,535`, `Changes.spec:74-117`).
+  Also stale: `Types.spec:919` says the body capture "is not built", but @task.V3.T144 built it (Q19, `Types.spec:32`).
+  Reopen if: a Spec above is next edited.
+- **Test strategy r2, the unbuilt half** [deferred: agent cleanup 2026-11-23] (2026-11-18, the kept
+  `2026-11-18-test-strategy-r2` proposal). Built: the pair sweep that stops at reachable phases (T83) and the reload
+  pass forked from a cut (T90). Owed: the stress reload sweep and a dispose mode for the reload pass, the double reload
+  as one run rule, the deep files moved to stress, a measured stress kill matrix, context-order equivalence.
+  Reopen if: the suite's wall time grows past T83's baseline again.

@@ -1,6 +1,7 @@
 ---
 proposal algorithm-round
-status proposed 2026-11-21
+status merged 2026-11-23 [@spec.Schedules, @spec.Changes, @spec.Records, @spec.Operations, @spec.Types, @spec.Host]
+    proposed 2026-11-21
 ---
 # Algorithm design round: principles, reading list and clusters (2026-11-21)
 

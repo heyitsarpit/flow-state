@@ -1,6 +1,7 @@
 ---
 proposal algo-schedules
-status proposed 2026-11-21
+status merged 2026-11-23 [@spec.Schedules, @task.V3.T118]
+    proposed 2026-11-21
 ---
 # Schedules and occasions: the core algorithm (2026-11-21)
 

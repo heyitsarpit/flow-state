@@ -5,7 +5,7 @@ revisit open-items
 
 Items the user flagged during the v4 keyword walkthrough. Not decided; each needs its own look.
 
-## 1. A handler that exists only so a schedule can arm [open: 2026-10-29]
+## 1. A handler that exists only so a schedule can arm [answered: agent cleanup 2026-11-23; Resolved 2026-10-29 in the text below: a schedule trigger is a handler]
 
 From v4's `Countdown` (section 3.1):
 
@@ -111,7 +111,9 @@ in flight across the interruption use the documented recipe: handle the late end
 Interrupts and a computed `default` were considered and not taken; deep history stays deferred. The rename to
 `lastChild` (one token for the target and the read) was suggested and not taken.
 
-## 4. Server calls, the in-machine half [open: 2026-10-29]
+## 4. Server calls, the in-machine half [open]
+
+Still open (second reader, 2026-11-23): renaming the outcome `unknown` to `uncertain`, and `abandoned` running twice.
 
 **Merged into [machine-design.md](../explorations/machine-fragments/machine-design.md) on 2026-10-30** (section 2.7), from
 [merged/server-calls/proposal.md](../explorations/machine-fragments/merged/server-calls/proposal.md), which superseded `in-machine-calls-proposal.md`
@@ -179,7 +181,7 @@ An opt-in `resource.fromRpc` / `transaction.fromRpc` taking an existing `Rpc` fo
 
 If listing Flow's unknown reasons in every per-tag record proves too verbose, a catch-all entry would be public API (operations merge X22). Reopen if: listing Flow's unknown reasons in every per-tag record proves too verbose.
 
-## 15. Wiring the author writes that the system should handle [open: 2026-10-30] (flagged by the owner)
+## 15. Wiring the author writes that the system should handle [answered: agent cleanup 2026-11-23; Absorbed by the streams merge S15, as the text below says] (flagged by the owner)
 
 Flow controls the whole stack (contracts, operations, machine, store, persistence, Stories), so integration work an
 author repeats in every app should be in the "it just works" category instead of user code. Audit every feature for

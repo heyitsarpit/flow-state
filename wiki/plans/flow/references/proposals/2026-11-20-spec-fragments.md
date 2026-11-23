@@ -1,6 +1,7 @@
 ---
 proposal spec-fragments
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-turn]
+    proposed 2026-11-20
 ---
 # Fragments: one table decides every fragment instance
 
@@ -384,22 +385,22 @@ for a copy's key. **T76.** Takes nothing but "every scope reads the root's props
 
 ## 8. Proposed decisions
 
-**PD1. Subroutine states compile into the host's tree; a subroutine keeps no lifecycle state.** [open: 2026-11-21; recommend as proposed]
+**PD1. Subroutine states compile into the host's tree; a subroutine keeps no lifecycle state.** [dropped: agent cleanup 2026-11-23]
 Trace A: `WIZARD.PROFILE`, `Cancel` targets `WIZARD.CANCELLING`; the leaf is `WIZARD.CANCELLING.ASKING` with a new
 activation and a `Start` for its slice; `No` takes exit `declined` to `WIZARD.history`: `End(Exit)`, no
 `whenAbandoned`. Trace B: in `ASKING`, WIZARD's own `Refresh: "self"` runs; `moveOf` exits nothing, the activation
 is unchanged, the row is `Keep`. Reverse by giving each instance its own leaf, as the prototype did.
 
-**PD2. Key order is the host list's order, not sorted keys.** [open: 2026-11-21; recommend as proposed]
+**PD2. Key order is the host list's order, not sorted keys.** [dropped: agent cleanup 2026-11-23]
 Trace A: list `[r2, r1]`; `CancelAll` reaches r2 then r1; the snapshot's `uploads` is r2, r1. Trace B: the user
 reorders to `[r1, r2]` in one turn: both rows are `Keep`, no id changes, the next fan-out runs r1 first.
 
-**PD3. At an actor's end no `whenAbandoned` callback runs; the releases it lists are applied.** [open: 2026-11-21; recommend as proposed]
+**PD3. At an actor's end no `whenAbandoned` callback runs; the releases it lists are applied.** [dropped: agent cleanup 2026-11-23]
 Trace A: `disposeActor` with copy r1 holding a lane: `End(ActorEnded)`, `Ended { releases }` goes to the lanes owner,
 no host turn runs. Trace B: the same actor returns: r1 is a `Start` with a new id; nothing of the old one arrives
 (I4). Reverse by running a last turn for the callbacks before the end.
 
-**PD4. A membership fact changed by `whenAbandoned` or `resetOn` settles in a follow-up turn, never in a loop.** [open: 2026-11-21; recommend as proposed]
+**PD4. A membership fact changed by `whenAbandoned` or `resetOn` settles in a follow-up turn, never in a loop.** [dropped: agent cleanup 2026-11-23]
 Trace A: `onGone` for r1 removes r2 from the list: commit sets `unsettled`; before the next event the `Reset`
 occasion ends r2 and runs its `onGone`. Trace B: `onGone` writes only `gone`: facts match, no follow-up. This widens
 the Plan's "pending reset" to lists.

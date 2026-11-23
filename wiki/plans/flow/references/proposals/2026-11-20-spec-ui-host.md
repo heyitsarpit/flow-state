@@ -1,6 +1,7 @@
 ---
 proposal spec-ui-host
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-host]
+    proposed 2026-11-20
 ---
 # UI and host: design and Spec
 
@@ -420,12 +421,12 @@ Trace A: tab 1 closes; tab 2 keeps running, saves nothing; its reload boots as `
 Trace B (promotion): tab 2 takes the lock with a live world that never saw tab 1's records and must merge both.
 Recommendation: A, which Persistence O7 already implies.
 
-**PD4. Before attach, props are part of creation; after, they are mailbox inputs.** [open: 2026-11-21; recommend A] Trace A: first render with
+**PD4. Before attach, props are part of creation; after, they are mailbox inputs.** [dropped: agent cleanup 2026-11-23] Trace A: first render with
 `{ value: 2 }`, then `{ value: 3 }` before the effect: the actor is created with 3, one creation, no props turn.
 Trace B (always FIFO): creation with defaults, then a props turn: the first frame and the first turn disagree.
 Recommendation: A; it reconciles React.plan:60 and :62.
 
-**PD5. T111's hidden-tab resume is shown in Chrome unattended and in Safari when a display is present.** [open: 2026-11-21; recommend A]
+**PD5. T111's hidden-tab resume is shown in Chrome unattended and in Safari when a display is present.** [dropped: agent cleanup 2026-11-23]
 Trace A: the unattended run counts Safari's display-bound cases as skipped by name. Trace B: the Task cannot close
 without a person at the machine. Recommendation: A, following the user's Q4 A.
 

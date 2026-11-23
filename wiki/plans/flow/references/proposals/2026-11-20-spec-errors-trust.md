@@ -1,6 +1,7 @@
 ---
 proposal spec-errors-trust
-status proposed 2026-11-20
+status superseded 2026-11-23 [@proposal.algo-operations]
+    proposed 2026-11-20
 ---
 # Errors and construction trust: one door, one catalog
 
@@ -307,7 +308,7 @@ the five `authoring-gaps.test.ts` inversions removed, all red.
 
 ## 8. Proposed decisions, and the sidecar log
 
-**PD1. A store refusal is `StorageFailure` at every layer, the ending's `why` included.** [open: 2026-11-21; recommend as proposed] Trace A: a write is
+**PD1. A store refusal is `StorageFailure` at every layer, the ending's `why` included.** [dropped: agent cleanup 2026-11-23] Trace A: a write is
 refused for quota; the machine maps `NotSent { why: "StorageFailure" }`, the snapshot's issue and the trace say
 `StorageFailure [quota]`. Trace B (today): the same event is `StorageRefused` to the machine, `StorageFailure`
 in the snapshot and `StoreRefused` to the adapter author. Reverse: keep `why` as is and rename only the rest.
@@ -320,7 +321,7 @@ with `null` throws a raw `TypeError`. Reverse: keep them public and wrap each as
 `renderAll(error)` and a machine named with an ANSI escape prints as `\u{1b}`. Trace B: the app prints
 `error.message`, which carries the raw name. Reverse: keep them internal to the CLI.
 
-**PD4. The CLI prints one `Defect` diagnostic, and no cause text, for a failure Flow did not make.** [open: 2026-11-21; recommend as proposed] Trace A: a
+**PD4. The CLI prints one `Defect` diagnostic, and no cause text, for a failure Flow did not make.** [dropped: agent cleanup 2026-11-23] Trace A: a
 config that dies prints `Defect at story` and exits 2. Trace B (today): it prints `Cause.pretty` with a stack.
 Reverse: none inside @plan.Diagnostics.O3; a debug flag would need the Plan changed.
 

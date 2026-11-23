@@ -33,6 +33,8 @@ or change code, and keep it current as you work.
 How to use it:
 - Start with `wk status`, `wk agenda` and `wk next`. `wk show @id` reads any record. Before a decision
   round run `wk agenda` and `wk list question --open`: the answer or a recommendation may already exist.
+  Read commands print one line per record with a footer for what they leave out: narrow with `wk agenda @id`,
+  `--open`, `--proposed`, `--decisions` or `--limit N`, and use `--full` or `--all` only when you need every row.
 - Plans, Specs and Task descriptions are best-guess guidance on what to build, not contracts to fulfil, Specs
   least of all. What is true and correct is found by building: when the work shows a rule is wrong, unclear or
   missing, fix the record (decide, delete the losing text, log why) instead of bending the code to fit it.

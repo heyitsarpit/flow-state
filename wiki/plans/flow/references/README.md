@@ -1,8 +1,9 @@
 # References for the Flow State plans
 
 [FlowState.plan](../FlowState.plan) is the entry plan; the capability plans beside it own the
-contracts, and the Specs in [/wiki/specs/core](../../../specs/core/) record the guarantees the core builds
-against. Where a document here and a plan differ, the plan wins.
+contracts, and the Specs in [/wiki/specs/v3](../../../specs/v3/) record the guarantees the core builds
+against. The ten Specs in [/wiki/specs/core](../../../specs/core/) are superseded; Plans still cite them.
+Where a document here and a plan differ, the plan wins.
 
 | Reference                                          | What it is                                                     |
 | -------------------------------------------------- | -------------------------------------------------------------- |
@@ -25,5 +26,9 @@ commit that has it all is `20986677`; read any of it with `git show 20986677:<pa
 - `references/proposals/` other than the two files above (absorb-wiring, actor-identity, actor-lifetime,
   design-catch-up, the plan-merge log and audits);
 - `wiki/plans/archive/`, `wiki/tasks/archive/`, the old `specs/runtime/Runtime.spec`, and Beads (`.beads/`).
+
+Records deleted on 2026-11-23 (invariant-audit, conventions, fixture-catalog-check, rules-cohesion, review-specs,
+review-tasks): the last commit holding each is in `V3.log` and @review.records-cleanup. What still waits, and why, is
+listed there under "For the user".
 
 The prototypes in `packages/flow-state-v3/prototypes/` are the reference implementation and stay.

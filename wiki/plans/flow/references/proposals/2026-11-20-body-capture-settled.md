@@ -1,6 +1,7 @@
 ---
 proposal body-capture-settled
-status proposed 2026-11-20
+status merged 2026-11-23 [@spec.Types, @task.V3.T144]
+    proposed 2026-11-20
 ---
 # Body capture settled: `Exact` works on the real package
 

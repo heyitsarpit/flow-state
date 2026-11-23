@@ -1,6 +1,7 @@
 ---
 review spec-cohesion
-status open 2026-11-20
+status resolved 2026-11-23 [@review.spec-cohesion-r2]
+    open 2026-11-20
 ---
 # Cohesion of the five concept designs (2026-11-20)
 
