@@ -5210,8 +5210,7 @@ tasks
             code:packages/flow-state-v3/src/core/disposal.ts#started,
             code:packages/flow-state-v3/src/core/disposal.ts#end,
             `packages/flow-state-v3/src/core/disposal.ts#consumersFirst`;
-            `packages/flow-state-v3/src/core/ledger.ts#Audience`,
-            code:packages/flow-state-v3/src/core/ledger.ts#live,
+            `packages/flow-state-v3/src/core/ledger.ts#Audience`, code:packages/flow-state-v3/src/core/ledger.ts#live,
             code:packages/flow-state-v3/src/core/ledger.ts#onRecord,
             code:packages/flow-state-v3/src/core/ledger.ts#suspend;
             code:packages/flow-state-v3/src/core/following.ts#following;
@@ -5890,7 +5889,7 @@ tasks
             (tests/turn/nested-placement.test.ts: the inner placement's timer is lost today, inner 0 for 1).
     T121
         title       Operation endings and the retry guards
-        status      in_progress
+        status      review
         priority    high
         parent      [@T21]
 
@@ -5913,8 +5912,7 @@ tasks
             in `wiki/specs/specs.log`.
 
             **Supersedes:** code:packages/flow-state-v3/src/core/ledger.ts#owe,
-            `packages/flow-state-v3/src/core/ledger.ts#tryOne`,
-            code:packages/flow-state-v3/src/core/ledger.ts#afterTry,
+            `packages/flow-state-v3/src/core/ledger.ts#tryOne`, code:packages/flow-state-v3/src/core/ledger.ts#afterTry,
             code:packages/flow-state-v3/src/core/ledger.ts#refused,
             code:packages/flow-state-v3/src/core/ledger.ts#start,
             code:packages/flow-state-v3/src/core/ledger.ts#restore;
@@ -6126,6 +6124,34 @@ tasks
             - kanban left: @task.V3.T109 and @task.V3.T110, needs `.each`. Chat's `progress` upload, its client-id
               `idempotency` and `optimistic` echo, and draft's uploads are not yet written. The added pending modules
               carry the same `@ts-expect-error` lines and file-level suppressions, which the build removes.
+        comment     2026-11-23T05:34:06Z
+            [decided: agent builder 2026-11-23] An ending turn that is denied or unhandled (`Unturned`) closes its row
+            heard, as before, not Unmapped as the Spec Rows table says. Why: the machine heard the event; recording it
+            as unmapped evidence changes what every fixture reads. Reverse: `Heard.Unmapped()` for `Unturned` in
+            apply.ts holders.
+        comment     2026-11-23T05:34:09Z
+            [decided: agent builder 2026-11-23] A declared `idempotency` (default "attempt") sits on the contract and in
+            Compiled; inspection lanes carry `keyedBy`, so the pair sweep finds a held call keyed by declared fields.
+            The boot refusal is a new catalog code `MissingService`, its details naming contract and service key. Why:
+            chat send keys by client id; the surface walk reads the keys from the refusal. Reverse: drop the code, key
+            by Attempt.
+        comment     2026-11-23T05:34:11Z
+            [decided: agent builder 2026-11-23] The pair sweep Reach gains `storesBeside` (wizard slots: the booking
+            saves while a local hold is out), so a storage-refusal cell there may fire or not by seed. Why: with mappers
+            fixed the cell is reached and keeps every rule. Reverse: drop the field and `seedDecides`
+            in tests/generated/pairs.ts.
+        comment     2026-11-23T05:34:19Z
+            Left (evidence, 2026-11-23): `tests/cells/structure.test.ts` inverts at :25 and :37 stay red: the parked
+            Disposed/NotSent row is not in the store after the disposal, so the boot still derives a Restored unknown
+            (admit now derives none for an Attempt with a saved row); a WriteAhead R14 save gap, owner to route. Fault
+            `publish-before-row-move` not planted: snapshots are read after the step, and no rule reads in-step evidence
+            order. `guard-reads-other-subject` stays with T109. Chat pairs stays inverted on sweep reach (OnWire x lost
+            answer never fires); no rule breaks.
+        comment     2026-11-23T05:39:20Z
+            Build closed at fe4a387b: check 0/0, suite green (25317 pass, 71 inverted), 10 own faults caught by `faults
+            --only`; stress has 3 failures that fail the same at ce69f1ba (durability and lane-bound timeouts, draft
+            saved stress Story), not this build. Left: the items in the previous comment, and moving
+            `chat/pending/attachment.ts` and `transfers/pending/deposit*.ts` out of pending with registration.
     T122
         title       Read entries and read slots
         status      in_progress

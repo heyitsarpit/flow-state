@@ -575,11 +575,13 @@ kamp.us for rows restored after a failure.
     T `cardPayment` declaring `idempotency` by payment id, in place of the old contract's edit) and
     `ChequeDeposit` (T `depositCheque`, `progress`, `idempotency` by deposit id); tests in
     `tests/transfers/reads.test.ts`.
-    - [ ] `transfers/read-after-write` (the read-after-write item), `transfers/switch-account` (placeholder),
-      `transfers/deposit-in-parts` (the deposit-in-chunks item); `transfers/deposit-closed-midway` (S6),
-      `transfers/deposit-reloaded` (E8), `transfers/deposit-part-lost` (a failing part, test-parallel-uploads.js:41,
-      :325), `transfers/deposit-abort-resume` (test-parallel-uploads.js:448), in `pending/deposit-stories.ts`.
-      Bigint key "$1n": @task.V3.T122.
+    - [ ] `transfers/read-after-write` (the read-after-write item), `transfers/switch-account` (placeholder):
+      left, @task.V3.T123, need placements (`subscribe`, `placeholder`). Bigint key "$1n": @task.V3.T122.
+    - [x] built (@task.V3.T121, `progress`, `idempotency`): `transfers/deposit-in-parts`,
+      `transfers/deposit-closed-midway` (S6), `transfers/deposit-reloaded` (E8), `transfers/deposit-part-lost` (a
+      failing part, test-parallel-uploads.js:41, :325), `transfers/deposit-abort-resume`
+      (test-parallel-uploads.js:448), in `pending/deposit-stories.ts`; the module stays in `pending/` until
+      `pending/balance.ts` loads (@task.V3.T123).
   - **Customer's bill reminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
     `tests/transfers/reminders.test.ts`):
     - [x] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. built:
@@ -597,8 +599,8 @@ kamp.us for rows restored after a failure.
   - [x] **Usual:** send, decline, lose the answer, resend once, abandon (have); the form reads its customer's account
     and checks the balance before a send. built: `transfers/usual`, `transfers/declined`,
     `transfers/lost-then-reload`, `transfers/long`, `transfers/check-and-send`.
-  - [ ] **Usual:** a deposit sent in chunks, each reported. Copies [test-common.js:401][tus-common] "should upload a
-    file in chunks". left: @task.V3.T21, needs `progress` (T `depositCheque`).
+  - [x] **Usual:** a deposit sent in chunks, each reported. Copies [test-common.js:401][tus-common] "should upload a
+    file in chunks". built: `transfers/deposit-in-parts`.
   - [x] **Load:** L1 × 64 accounts with owed endings at boot under L4. built: `transfers/stress-owed-at-boot`.
     Inverted (WriteLanes R10, WriteAhead R14): the second reload delivers each Held head's unknown Restored again,
     owner @task.V3.T56 (Restore R3's re-heard head). `largeReceipts` (have); `stressManyReceipts` (have), run by
@@ -1460,9 +1462,13 @@ checked here).
       `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`, `stress-send-burst` (L5, 100),
       `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`; samples `chat`.
     - [ ] Pair sweep: red (`tests/chat/pairs.test.ts`), rejoins the manifest when it passes.
-    - [ ] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar); T `send`
-      declares `idempotency` by client id (`tests/chat/endings.test.ts`); `Attachment` (pending), T `upload` with
-      `progress`: `chat/upload-progress`, `chat/upload-stopped` (`tests/chat/attachments.test.ts`).
+    - [ ] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar): left,
+      @task.V3.T122.
+    - [x] built (@task.V3.T121): T `send` declares `idempotency` by client id (`tests/chat/endings.test.ts`);
+      `Attachment`, T `upload` with `progress`: `chat/upload-progress`, `chat/upload-stopped`
+      (`tests/chat/attachments.test.ts`); mapper context `chat/usual`, `stress-send-burst`, `delete-gone`;
+      kept row and issue `delete-bad-undo`; `resend-limit`, `new-delete-after-reload`, `ask-twice`; S7
+      `missingHistory`.
   - **Usual:**
     - [ ] Send with an instant echo. Copies [use-chat.ui.test.tsx:628][ai-react] "should show user message immediately".
     - [ ] One id serves sending and resuming. Copies [chat.test.ts:140][ai-chat] "uses the same lazily generated id for
