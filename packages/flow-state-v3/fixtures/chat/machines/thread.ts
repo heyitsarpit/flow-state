@@ -39,6 +39,8 @@ export const Thread = definition({
     thread: Flow.input(Schema.String),
     messages: Flow.initial(Schema.Array(Message), []),
     pending: Flow.initial(Schema.Array(Schema.String), []),
+    // Each sent message's client id and the server's id for it, so an echo read back is dropped.
+    sent: Flow.initial(Schema.Record(Schema.String, Schema.String), {}),
     undo: Flow.initial(Schema.Record(Schema.String, Schema.String), {}),
     answer: Flow.initial(Schema.String, ""),
     notice: Flow.initial(Schema.String, ""),
@@ -88,12 +90,13 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
     Join: { actions: [O.history.lookup(({ memory }) => ({ thread: memory.thread }))] },
     Joined: {
       target: S.READY,
-      updateMemory: ({ memory, event }) => ({
-        messages: [
-          ...event.messages,
-          ...memory.messages.filter((m) => !event.messages.some((s) => s.id === m.id)),
-        ],
-      }),
+      updateMemory: ({ memory, event }) => {
+        const read = event.messages.filter((m) => memory.sent[m.id] === undefined);
+
+        return {
+          messages: [...read, ...memory.messages.filter((m) => !read.some((s) => s.id === m.id))],
+        };
+      },
     },
     JoinFailed: { updateMemory: () => ({ notice: "offline" }) },
   },
@@ -119,16 +122,18 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
               }),
               // @ts-expect-error Plan Operations O5: a commit's `optimistic` value on a read
               {
-                // The echo: the thread's history shows the message under its client id at once.
+                // The echo: the thread's history shows the message this turn added under its client
+                // id at once.
                 // @ts-expect-error Plan Operations O5: `optimistic` reads the starting turn's memory and event
-                optimistic: ({ memory, event, context }) => ({
+                optimistic: ({ memory, event }) => ({
                   history: {
                     key: { thread: memory.thread },
                     // @ts-expect-error Plan Operations O5: an optimistic value updates the read's current data
                     data: (current) => ({
                       messages: [
                         ...current.messages,
-                        { id: event.clientId, author: context.author ?? "", text: event.text },
+                        // @ts-expect-error Plan Operations O5: the starting turn's memory is typed once `optimistic` is
+                        ...memory.messages.filter((m) => m.id === event.clientId),
                       ],
                     }),
                   },
@@ -143,6 +148,7 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
               m.id === event.clientId ? { ...m, id: event.id } : m,
             ),
             pending: memory.pending.filter((c) => c !== event.clientId),
+            sent: { ...memory.sent, [event.clientId]: event.id },
           }),
         },
         SendUnsure: { updateMemory: () => ({ notice: "not sure it sent" }) },

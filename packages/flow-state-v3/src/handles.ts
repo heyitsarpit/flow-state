@@ -111,13 +111,22 @@ export const writeHandle = (
   keyText: (value: Values) => Option.Option<string>,
   owner: symbol,
 ) => ({
-  commit: builder(`O.${operation}.commit`, (select: (input: SelectArg<Values>) => Values) =>
-    member(owner, operation, (at) =>
-      Action.Commit({
-        operation,
-        select: slot<(input: SelectInput) => Values>(`${at}.select`, select),
-      }),
-    ),
+  commit: builder(
+    `O.${operation}.commit`,
+    (
+      select: (input: SelectArg<Values>) => Values,
+      // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: `optimistic` is the commit's one option, and an omitted one applies nothing
+      options: { readonly optimistic?: (input: SelectArg<Values>) => Values } = {},
+    ) =>
+      member(owner, operation, (at) =>
+        Action.Commit({
+          operation,
+          select: slot<(input: SelectInput) => Values>(`${at}.select`, select),
+          optimistic: Option.map(Option.fromUndefinedOr(options.optimistic), (optimistic) =>
+            slot<(input: SelectInput) => Values>(`${at}.optimistic`, optimistic),
+          ),
+        }),
+      ),
   ),
   retry: keylessOrKeyed("Retry", owner, operation),
   cancel: keylessOrKeyed("Cancel", owner, operation),

@@ -212,6 +212,19 @@ export const readsFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "optimistic-not-applied",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a reader sees confirmed data alone, with no live optimistic update applied",
+    rule: "Plan Operations O5",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "        Result.try(() => l.update(value)),",
+        replace: "        Result.try(() => (Number.isNaN(0) ? l.update(value) : value)),",
+      },
+    ],
+  },
+  {
     name: "attempt-id-without-seed",
     tests: ["tests/chat/keys.test.ts"],
     says: "an Attempt id is minted from the count alone, so a boot mints ids an earlier boot used",

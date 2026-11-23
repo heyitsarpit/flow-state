@@ -1,12 +1,14 @@
-import { Data, Option, Result } from "effect";
+import { Data, Option, Predicate, Result } from "effect";
 import { Alarm } from "./alarms.ts";
 import { Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
 import { type LedgerSteps, Route } from "./ledger.ts";
 import { pick, type Tx } from "./tx.ts";
+import type { Channel } from "./vocabulary.ts";
 import {
   type ActorId,
+  type AttemptId,
   type CallId,
   Command,
   type Incarnation,
@@ -64,6 +66,19 @@ export type Entry = {
   readonly again: boolean;
   readonly last: Option.Option<ReadEnding>;
   readonly unheldSince: Option.Option<number>;
+  // Each live commit's optimistic update, in start order; never saved.
+  readonly layers: ReadonlyArray<Layer>;
+};
+
+/**
+ * One commit's optimistic update of an entry: its Attempt, the update readers see applied over
+ * confirmed data, and the position its success settled at, after which a landed read confirms it.
+ */
+export type Layer = {
+  readonly attempt: AttemptId;
+  // FLOW_STATE_ALLOW_UNKNOWN: an update takes and returns the read's own value, typed at the commit.
+  readonly update: (current: unknown) => unknown;
+  readonly settled: Option.Option<number>;
 };
 
 /**
@@ -240,7 +255,11 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       Idle: () => {
         if (!refetch && fresh(entry))
           for (const data of Option.toArray(entry.data))
-            owe(h, slot, entry, { channel: "success", reason: "success", value: data.value });
+            owe(h, slot, entry, {
+              channel: "success",
+              reason: "success",
+              value: viewOf(entry, data.value),
+            });
         else waits(start(key, entry, h, slot.actor));
       },
       Current: () => waits(entry),
@@ -305,6 +324,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       again: false,
       last: Option.none(),
       unheldSince: Option.none(),
+      layers: [],
     };
 
     // First hold arrives: an unheld entry is held again, and its Collect is cleared.
@@ -377,6 +397,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
 
     const ending = endingOf(result);
 
+    // A success asked after a commit's success confirms that commit's update, which goes.
     const next: Entry =
       ending.channel === "success"
         ? {
@@ -384,11 +405,71 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
             request: Request.Idle(),
             data: Option.some({ value: ending.value, at: now(), asked: Option.some(asked) }),
             last: Option.none(),
+            layers: entry.layers.filter((l) => !Option.exists(l.settled, (at) => asked > at)),
           }
         : { ...entry, request: Request.Idle(), last: Option.some(ending) };
 
     put(key, next);
-    oweWaiters(key, next, ending);
+    oweWaiters(
+      key,
+      next,
+      ending.channel === "success" ? { ...ending, value: viewOf(next, ending.value) } : ending,
+    );
+  };
+
+  /**
+   * A commit that minted its Attempt applies its optimistic values: each names a read of the
+   * committing machine with `{ key, data }`, `data` an update of the current value. An update of an
+   * entry that does not exist, or a value of another shape, applies nothing.
+   */
+  const layer = (incarnation: Incarnation, attempt: AttemptId, values: Values) => {
+    for (const [name, value] of Object.entries(values))
+      for (const op of Option.toArray(readOf(incarnation.actor.machine, name)))
+        for (const { key, update } of Option.toArray(targetOf(value))) {
+          const text = op.walk.keyText(pick(key, op.keyFields));
+          const at = Option.map(text, (t) => entryKeyOf(op.contract, t));
+
+          for (const entryKey of Option.toArray(at))
+            for (const entry of Option.toArray(
+              Option.fromUndefinedOr(tx.world().entries.get(entryKey)),
+            ))
+              put(entryKey, {
+                ...entry,
+                layers: [...entry.layers, { attempt, update, settled: Option.none() }],
+              });
+        }
+  };
+
+  // How each Attempt ending moves the entry's updates of that Attempt.
+  const ENDED = {
+    success: (key: EntryKey, entry: Entry, mine: (l: Layer) => boolean) => {
+      const at = tx.mintPosition();
+      put(key, {
+        ...entry,
+        layers: entry.layers.map((l) => (mine(l) ? { ...l, settled: Option.some(at) } : l)),
+      });
+    },
+    unknown: (key: EntryKey, entry: Entry) => {
+      for (const { h, slot } of Option.toArray(
+        Option.filter(firstHolder(key), () => phaseOf(entry) === PHASE.idle),
+      ))
+        put(key, start(key, entry, h, slot.actor));
+    },
+    removed: (key: EntryKey, entry: Entry, mine: (l: Layer) => boolean) =>
+      put(key, { ...entry, layers: entry.layers.filter((l) => !mine(l)) }),
+  } as const;
+
+  /**
+   * A commit's Attempt ended: a success marks its updates settled, kept until a read asked after it
+   * lands; a failure or a NotSent removes them with no refetch; an unknown keeps them and asks each
+   * Idle entry again once.
+   */
+  const attemptEnded = (attempt: AttemptId, channel: Channel) => {
+    const mine = (l: Layer) => l.attempt === attempt;
+    const move = ENDED[BY_CHANNEL[channel]];
+
+    for (const [key, entry] of tx.world().entries)
+      if (entry.layers.some(mine)) move(key, entry, mine);
   };
 
   /**
@@ -465,8 +546,54 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     tx.replace("holders", new Map());
   };
 
-  return { lookup, refetch, cancel, end, settled, collectDue, stepEnds, runtimeEnds };
+  return {
+    lookup,
+    refetch,
+    cancel,
+    end,
+    settled,
+    collectDue,
+    stepEnds,
+    runtimeEnds,
+    layer,
+    attemptEnded,
+  };
 };
+
+// How each ending channel of an Attempt moves its updates: a failure and a NotSent remove them.
+const BY_CHANNEL = {
+  success: "success",
+  unknown: "unknown",
+  failure: "removed",
+  notSent: "removed",
+} as const satisfies Record<Channel, "success" | "unknown" | "removed">;
+
+// An optimistic or written target as a commit wrote it, `{ key, data }`, `data` an update of the
+// current value; none for any other shape.
+// FLOW_STATE_ALLOW_UNKNOWN: a target is the commit callback's own value, read here once.
+const targetOf = (value: unknown) =>
+  Predicate.hasProperty(value, "key") &&
+  Predicate.isReadonlyObject(value.key) &&
+  Predicate.hasProperty(value, "data") &&
+  isUpdate(value.data)
+    ? Option.some({ key: value.key, update: value.data })
+    : Option.none();
+
+// RETURN_TYPE: a type guard states the type it narrows to.
+const isUpdate = (u: Values[string]): u is Layer["update"] => Predicate.isFunction(u);
+
+// What readers see of an entry: its confirmed value with each live update applied in start order;
+// an update that throws or returns nothing leaves the value as it was.
+// FLOW_STATE_ALLOW_UNKNOWN: a read's value is the lookup's own.
+const viewOf = (entry: Entry, confirmed: unknown) =>
+  entry.layers.reduce(
+    (value, l) =>
+      Result.getOrElse(
+        Result.try(() => l.update(value)),
+        () => value,
+      ) ?? value,
+    confirmed,
+  );
 
 // A settled read's ending as its row carries it.
 const endingOf = (result: CallResult) =>

@@ -6182,11 +6182,11 @@ tasks
             contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
             in `wiki/specs/specs.log`.
 
-            **Supersedes:** code:packages/flow-state-v3/src/core/lanes.ts#lookup,
-            code:packages/flow-state-v3/src/core/lanes.ts#interruptReads;
-            code:packages/flow-state-v3/src/core/answers.ts#settledRead; the Read arm of cancel in `src/core/lanes.ts`
+            **Supersedes:** `packages/flow-state-v3/src/core/lanes.ts#lookup`,
+            `packages/flow-state-v3/src/core/lanes.ts#interruptReads`;
+            `packages/flow-state-v3/src/core/answers.ts#settledRead`; the Read arm of cancel in `src/core/lanes.ts`
             and the loop in `src/core/incarnations.ts#retire` (lines 301-302);
-            code:packages/flow-state-v3/src/core/world.ts#Read, code:packages/flow-state-v3/src/core/world.ts#reads;
+            `packages/flow-state-v3/src/core/world.ts#Read`, `packages/flow-state-v3/src/core/world.ts#reads`;
             code:packages/flow-state-v3/src/handles.ts#readHandle; code:packages/flow-state-v3/src/host/driver.ts#call,
             code:packages/flow-state-v3/src/host/driver.ts#resultOf,
             code:packages/flow-state-v3/src/host/driver.ts#Lookup. Do not delete it before its replacement lands and the

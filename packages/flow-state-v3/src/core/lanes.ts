@@ -12,6 +12,7 @@ import type { Channel, Decline } from "./vocabulary.ts";
 import {
   type ActorId,
   actorKey,
+  type AttemptId,
   type CallId,
   type CarriedPart,
   type Incarnation,
@@ -158,6 +159,7 @@ export const makeLanes = (
     operation: Operation,
     given: Values,
     owner: OwnedBy,
+    optimistic: Option.Option<Values> = Option.none(),
   ) => {
     const input = tx.env.admit(given);
     const key = pick(input, operation.keyFields);
@@ -227,12 +229,31 @@ export const makeLanes = (
       ledger.letGoKept(incarnation.actor, id);
     }
 
+    const before = tx.world().lanes.get(id)?.head.id;
+
     apply(
       { id, actor: incarnation.actor, operation: operation.name, key },
       commitCue[policyOf(operation)]({ input, owner }),
     );
+    layered(incarnation, id, Option.fromUndefinedOr(before), optimistic);
 
     return member;
+  };
+
+  // A commit that minted its Attempt applies its optimistic values on the reads they name.
+  const layered = (
+    incarnation: Incarnation,
+    id: LaneId,
+    before: Option.Option<AttemptId>,
+    optimistic: Option.Option<Values>,
+  ) => {
+    const minted = Option.filter(
+      Option.fromUndefinedOr(tx.world().lanes.get(id)?.head.id),
+      (attempt) => !Option.contains(before, attempt),
+    );
+
+    for (const attempt of Option.toArray(minted))
+      for (const values of Option.toArray(optimistic)) entries.layer(incarnation, attempt, values);
   };
 
   const retry = (
@@ -317,6 +338,7 @@ export const makeLanes = (
     for (const [id, lane] of Option.toArray(tx.laneWaiting(call)))
       if (onWireAs(lane, call)) {
         apply(atOf(id, lane), Cue.Answered(settled));
+        entries.attemptEnded(lane.head.id, settled.channel);
         sendPromoted(id);
       }
   };
@@ -427,7 +449,7 @@ export const makeLanes = (
     owner: OwnedBy,
   ) =>
     Resolved.$match(action, {
-      Commit: ({ input }) => [commit(incarnation, operation, input, owner)],
+      Commit: ({ input, optimistic }) => [commit(incarnation, operation, input, owner, optimistic)],
       Retry: ({ key }) => [retry(incarnation, operation, tx.env.admit(key), own, owner)],
       Cancel: ({ key }) => [cancel(incarnation, operation, tx.env.admit(key), own)],
       Lookup: ({ input }) => {

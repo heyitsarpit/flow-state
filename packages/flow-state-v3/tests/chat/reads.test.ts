@@ -99,7 +99,7 @@ describe("a released history read (Operations R8, I11)", () => {
 });
 
 describe("a send's echo on the history (Plan Operations O5)", () => {
-  it.fails("Plan Operations O5: a fresh history serves the sidebar with a held send's echo applied, with no request, and the message stays once sent", async () => {
+  it("Plan Operations O5: a fresh history serves the sidebar with a held send's echo applied, with no request, and the message stays once sent", async () => {
     const run = await echoInPreview.run();
     const { previewed, sent } = run.checkpoints;
 

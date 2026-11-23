@@ -36,7 +36,7 @@ export const LaneView = Data.taggedEnum<LaneView>();
  * or a send with its target named and its event checked by the target's Schemas.
  */
 export type Resolved = Data.TaggedEnum<{
-  Commit: { operation: string; input: Values };
+  Commit: { operation: string; input: Values; optimistic: Option.Option<Values> };
   Retry: { operation: string; key: Option.Option<Values> };
   Cancel: { operation: string; key: Option.Option<Values> };
   Lookup: { operation: string; input: Values };
@@ -94,6 +94,11 @@ const NO_KEY = Result.succeed(Option.none<Values>());
 // RETURN_TYPE: a callback's value, or the slot whose callback failed.
 const call = <A>(slot: string, run: () => A): Result.Result<A, Failed> =>
   Result.try({ try: run, catch: () => ({ slot }) });
+
+// A commit with no optimistic option resolves none.
+const NO_OPTIMISTIC = Result.succeed(Option.none<Values>());
+
+const noOptimistic = () => NO_OPTIMISTIC;
 
 /**
  * A select or key callback's record; anything else is a defect of that callback (the types forbid
@@ -250,11 +255,18 @@ export const resolve = (
             (envelope) => sendOf(ref, envelope, { to: to.slot, event: event.slot }),
           ),
       ),
-    Commit: ({ operation, select }) =>
-      Result.map(
-        recordFrom(select, read),
-        // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
-        (input) => Resolved.Commit({ operation, input }),
+    Commit: ({ operation, select, optimistic }) =>
+      Result.flatMap(recordFrom(select, read), (input) =>
+        Result.map(
+          // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
+          Option.match(optimistic, {
+            onNone: noOptimistic,
+            // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
+            onSome: (slot) => Result.map(recordFrom(slot, read), Option.some),
+          }),
+          // oxlint-disable-next-line lint-bomb/no-allocation-in-loop -- one resolved member per action: the turn's result
+          (values) => Resolved.Commit({ operation, input, optimistic: values }),
+        ),
       ),
     Lookup: ({ operation, select }) =>
       Result.map(

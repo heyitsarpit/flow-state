@@ -84,7 +84,12 @@ export type SelectInput = { readonly memory: Values; readonly event: Values };
  * event to another actor, whose ref and event are computed when the turn runs.
  */
 export type Action = Data.TaggedEnum<{
-  Commit: { operation: string; select: Slot<(input: SelectInput) => Values> };
+  // `optimistic`: the commit's values on reads, from the starting turn's after memory and event.
+  Commit: {
+    operation: string;
+    select: Slot<(input: SelectInput) => Values>;
+    optimistic: Option.Option<Slot<(input: SelectInput) => Values>>;
+  };
   Retry: {
     operation: string;
     key: Option.Option<Slot<(input: SelectInput) => Values>>;
