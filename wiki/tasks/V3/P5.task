@@ -283,6 +283,10 @@ tasks
         comment     2026-11-23T04:20:28Z
             Routed from @task.V3.T124 (orchestrator, 2026-11-23): an entry already in memory wins over a saved one
             at adoption.
+        comment     2026-11-23T10:48:12Z
+            Correction (orchestrator, 2026-11-23): installing a saved entry over one already in memory is this Task's
+            adoption cell; T124 ruled it adoption, since install runs only at boot before any actor can hold an entry.
+            T124 does not build it.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft

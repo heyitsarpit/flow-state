@@ -606,3 +606,16 @@ note 2026-11-23T10:29:41Z
 note 2026-11-23T10:37:09Z
     [decided: user 2026-11-23] "we need to mention a line in AGENTS.md to make sure this doesn't happen again": a
     proposal's status changes in the commit that accepts, merges or rejects it (AGENTS.md, Workflow).
+
+note 2026-11-23T10:37:35Z
+    T123 and T124 back in review at 7ce526a3 after their fix round; close review 2 returns to the slice's reviewer. nub
+    run check's check:plans fails on a wk bug (wk list rejects frontmatter description); fix under way in spec-lang.
+
+note 2026-11-23T10:44:07Z
+    [decided: user 2026-11-23] "do not commit the skills, i need to read the diff": skill edits are applied uncommitted
+    for the user's read; the Epic's skill pin stays at 4f316bf until the user commits.
+
+note 2026-11-23T10:48:45Z
+    T123 and T124 done (close review 2 PASS at 7ce526a3, seams across T121 to T124 hold). Page
+    @page.T21-reads-and-operations written; slice T21 waits on the user's read before its close. Loop findings 1-5
+    proposed.

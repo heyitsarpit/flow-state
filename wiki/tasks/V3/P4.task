@@ -583,6 +583,21 @@ tasks
             entry-writes.ts owns layers and success writes, through entries' put and apply; entry-store.ts owns saved
             entries and install (in-memory install is T48's); read-rows.ts derives the snapshot's read rows;
             issues-of.ts derives the issues. Lane heads' other writers remain T121's open item.
+        comment     2026-11-23T10:47:41Z
+            Slice seam check, second pass (independent reviewer, 2026-11-24) at 7ce526a3: the seams hold, and every
+            child is accepted (T121, T122 earlier; T123, T124 now).
+            - The seam bug is fixed: live optimistic layers hold their entry, so an unknown's refetch no longer strands
+              an unheld entry or its saved copy (`shop/closed-add-unsure`, faults layer-holds-nothing
+              and unknown-look-kept).
+            - One owner per state: entries change only through the cells of `entries.ts#apply`, and `entry-writes.ts`,
+              `entry-store.ts` and `entry-releases.ts` are helpers those cells call; install is boot-only, and its
+              in-memory cell is T48's. The inventory table still names `entries.ts#release`; update it at the
+              slice close.
+            - Lane heads are still also written by `ledger.ts`, `lanes.ts` (progress) and the boot's `putLane`. That
+              predates this slice; route it to the slice close's loop findings.
+            - D41: `set`, `update` and an all-or-nothing `writes` match Pending D41 and Plan O5.
+            - Left for others: T48's record of the Install cell; the Q15 warning with @task.V3.T22; one constructor for
+              an ended wire word with @task.V3.T97.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -6548,7 +6563,7 @@ tasks
             zero hits); setData moved to writes in 7867b2a4.
     T123
         title       Placements and release
-        status      review
+        status      done
         priority    medium
         parent      [@T21]
 
@@ -6755,9 +6770,33 @@ tasks
         comment     2026-11-23T10:36:55Z
             To review at 7ce526a3 (fix round 5ad6dc52, 443ef841, 7ce526a3): check's code parts 0/0, suite 25428 passed,
             stress 129/129, 25 own faults caught by --only, rg absences clean, catalog marked.
+        comment     2026-11-23T10:47:39Z
+            Close review, second pass (independent reviewer, 2026-11-24) at 7ce526a3: PASS.
+            - B1 fixed: no `pending/` module is left. Each placement (shop mini-cart, home thermometer, search page and
+              saved, transfers balance card, session shell) is a registered machine with samples and a pair sweep, so
+              the run rules, reload sweeps and pair sweeps judge them.
+            - B2: freeze and thaw placements stay with @task.V3.T109, by the orchestrator's move in writing.
+            - Carried items done: evidence Released and ReleaseOverdue (faults released-unrecorded, overdue-unrecorded);
+              the select that throws keeps its last key (kept-key-quiet); placeholder-unmarked now plants an unmarked
+              placeholder; ReadEnding is tagged, so no reason string is compared.
+            - Seam fixed: a live optimistic layer holds its entry. `shop/closed-add-unsure` covers it, red before the
+              fix; layer-holds-nothing and unknown-look-kept are caught. Ending an unknown's layer when its refetch
+              lands fits Plan O5: the refetch is the read that decides, and if it fails the look stays. The row has no
+              separate "uncertain" mark beside `predicted` (noted).
+            - Read rows (Plan O6): `ReadRow` with data through live layers, `predicted` and key; the three optimistic
+              reds now read the row and are green (row-confirmed-only, row-never-predicted, row-defect-ready caught).
+            - All-or-nothing writes: one invalid target applies nothing and records one InvalidUpdate
+              (batch-partly-applied caught), as Plan O5 says.
+            - Standing-order reload checks now drop read rows before comparing. That fits: no store keeps a read row,
+              and a one-off read's row is absent until its next lookup (Plan O6). It filters on `_tag`, which only read
+              rows carry today (noted). Runs: faults --only 10 of 10 caught, each by its own named test; check's code
+              parts 0 (format, lint, types, effect, references); coverage run exit 1 on 9 timeouts under coverage only,
+              no assertion failed, no type error; stress 129 of 129. No `it.fails` is left in the slice's test folders.
+              Routed: the paired-refusals lint recursion (builder's comment) goes to the lint tooling's next Task, as
+              the builder routed it.
     T124
         title       Persisted resources
-        status      review
+        status      done
         priority    medium
         parent      [@T21]
 
@@ -6908,6 +6947,18 @@ tasks
         comment     2026-11-23T10:36:49Z
             To review at 7ce526a3: draft's Document registered with a persisted pair, corruption tests reach entry/
             records; the in-memory Install cell is T48's by evidence (decision above); gates as T123's.
+        comment     2026-11-23T10:47:40Z
+            Close review, second pass (independent reviewer, 2026-11-24) at 7ce526a3: PASS.
+            - B1 fixed: draft's Document is registered with a persisted pair. A probe in a copy of 7ce526a3 shows the
+              corruption test mutating `entry/Draft/document|{"id":"doc-1"}` 51 ways. Each is met as Records R18 says: a
+              cache record carries no obligation, so an unreadable one is deleted with no report.
+            - Draft's `Retry` of an unsure save is a natural author action (`O.save.retry`) and reaches Recapturing; it
+              is not shaped for the sweep.
+            - B2 ruled as adoption, and the evidence holds: install's one caller is `incarnations.ts#boot` while
+              Booting, and the life table admits no Ensure, Create or Send then, so no hold or entry exists at install.
+              The cell moves to @task.V3.T48 by the orchestrator's reverse. T48's own comment of 2026-11-23T04:02:14Z
+              still says "T124 builds the cell": the orchestrator corrects it there. Runs: as T123's comment (faults,
+              check's code parts, coverage, stress 129 of 129).
     T127
         title       Declared emits at the root
         status      draft

@@ -27,7 +27,21 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
 
 ## Proposed changes
 
-None open.
+Proposed by the orchestrator at slice T21's close (2026-11-23); none is decided.
+
+1. **A slice too big for one window runs as builders in turn.** T21's four Tasks needed two building leads (T121
+   and T122, then T123 and T124) and a third after one ran out of context mid fix round. Proposed: size a slice by
+   its Task count before the requirements round, and say in the Epic that a slice may run as builders in turn with
+   one build review.
+2. **Tests written after their code keep recurring** (T122's B3, T123's R11 select, dispose Story and reach count).
+   The flip sidecar caught each, so nothing slipped, but the cost is a re-plant per test. Proposed: the builder's
+   close gate lists each new test with the commit that made it red first.
+3. **The shared index is a trap.** A plain `git commit` took another agent's staged paths twice (5ad6dc52,
+   3317e15a). Proposed: every agent commits with `git commit -- <paths>` when anyone else works in the checkout.
+4. **Lane heads have several writers** (`ledger.ts`, `lanes.ts`, the boot), found by T21's slice review; it
+   predates the slice. Proposed: one owner for the lane head, owned by the next Task that touches lanes.
+5. **The review lead that stays across a slice works well.** One reviewer took all four close reviews and both fix
+   rounds by message, re-running its own probes; it caught the shared-read and optimistic-hold seams. Keep.
 
 ## Already merged
 
