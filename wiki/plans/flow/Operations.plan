@@ -87,10 +87,9 @@ outcomes
         One-off read lanes are not persisted, except the Interrupted ending a freeze parks for each read it stops. **A
         life's end owes waiters nothing.** [decided: user 2026-11-22] A life's end or a disposal parks no row: each
         waiter's row would close at once as evidence, since its life is gone. Why: nothing is owed to a gone life.
-        Reverse: park an `Interrupted` row per waiting lookup at an end. See @spec.Operations (Q3). O.x.refetch(k?)
-        starts a request when none is running. While one runs, refetch joins it if it started after the entry last
-        became stale (invalidate, write or clear); otherwise one trailing request starts when it settles and the caller
-        joins that.
+        Reverse: park an `Interrupted` row per waiting lookup at an end. See @spec.Operations.Q3. O.x.refetch(k?) starts
+        a request when none is running. While one runs, refetch joins it if it started after the entry last became stale
+        (invalidate, write or clear); otherwise one trailing request starts when it settles and the caller joins that.
 
         An entry never has more than one running and one trailing request, so a poll faster than its server still lands
         data. O.x.subscribe(select, { when? }) places the operation and starts a request only when missing or stale with
@@ -103,7 +102,7 @@ outcomes
         **No `Trigger` cue.** [decided: user 2026-11-22] A request starts by itself only at a placement, an invalidate
         and a clear. A refetch on focus regained, on a restored connection or on an interval is a schedule that runs
         `O.x.refetch()` (@plan.Machines.O5); no host occasion is a new input. Why: a schedule already does it, with no
-        new input or row. Reverse: a host occasion (focus, online) as a new input. See @spec.Operations (Q2). Offline
+        new input or row. Reverse: a host occasion (focus, online) as a new input. See @spec.Operations.Q2. Offline
         status blocks and cancels nothing. Invalidation and clear follow @O5; domain repair follows
         @plan.EntityDomains.O1. Flow never automatically retries a failed lookup.
 

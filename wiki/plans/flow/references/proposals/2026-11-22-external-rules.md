@@ -1,6 +1,7 @@
 ---
 proposal external-rules
-status proposed 2026-11-22
+status accepted user 2026-11-23 [@plan.Rules, @task.V3.T106]
+    proposed 2026-11-22
 description Proposes attaching rules with a chained `.rules(build)` that only Stories judge, with three points decided by the user.
 ---
 # Rules attached with `.rules(build)`, judged only by Stories

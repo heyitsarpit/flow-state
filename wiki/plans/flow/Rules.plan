@@ -7,7 +7,7 @@ goal
     which rules no run exercised, so an unexercised rule is never mistaken for a passed one. A rule that is about the
     graph, a terminal state, is proved by `flow check` and when a Story starts. Rules are claims, never guards: the core
     never calls one. They are optional, attached with a chained `.rules(build)`, and judged only by Story tooling; a
-    Runtime never reads them. [decided: user 2026-11-22] Why: most values have no rules, and the Runtime judge, its
+    Runtime **never reads them.** [decided: user 2026-11-22] Why: most values have no rules, and the Runtime judge, its
     switch and `RuleBroken` cost more than they protect. Reverse: the Runtime setup's `rules: "judge" | "off"` of the
     earlier text (@proposal.external-rules supersedes it).
 
@@ -26,9 +26,9 @@ outcomes
     O1  Rule kinds and what they read
         A machine declares rules with a chained `.rules(build)` on the value `machine()` returns; the builder receives
         the definition's `S` and `E` tokens and `turn`, so no rule names a state, event or operation by string. Rules
-        are optional: a value with no `.rules(...)` has none, and there is no `none`. [decided: user 2026-11-22] Why:
-        most values have no rules and a mandatory empty form edits every one. Reverse: require `.rules(...)` on every
-        value a Story runs. This supersedes the earlier text, where rules were a `rules` block in the `machine()`
+        are optional: a value with no `.rules(...)` has none, and **there is no `none`.** [decided: user 2026-11-22]
+        Why: most values have no rules and a mandatory empty form edits every one. Reverse: require `.rules(...)` on
+        every value a Story runs. This supersedes the earlier text, where rules were a `rules` block in the `machine()`
         callback, superseded by the user's 2026-11-22 decision (@proposal.external-rules). Two kinds are judged by runs:
 
         - `invariants`: true at every publication.
@@ -50,8 +50,8 @@ outcomes
         on correct code during that lag; a rule over context agrees only with guards that read context directly. A turns
         rule written `turn({ on: E.X, check })` also gets `event`, typed as X's payload; the bare function has no
         `event`. `turn` comes from the rules builder, not the machine body (supersedes Types Q3, "`turn` a body token").
-        [decided: user 2026-11-22] Why: a token's memory type comes from the definition, which `.rules` has, and the
-        body no longer holds rules. Reverse: `turn` back as a body token.
+        **`turn` from the builder** [decided: user 2026-11-22] Why: a token's memory type comes from the definition,
+        which `.rules` has, and the body no longer holds rules. Reverse: `turn` back as a body token.
 
         Only accepted turns are judged by turns rules and counted for them. A denied or unhandled turn runs no handler,
         but it may still publish a lane change (@spec.Turn.R19): invariants judge that publication, turns rules skip it.
@@ -107,10 +107,10 @@ outcomes
         state-token guard (`guard: [S.IDLE]`) narrows where its branch fires, and the error names the handler so the
         author can restructure it. Being about the graph, terminals are proved by `flow check` and again when a Story
         starts (memoised per value; a `TerminalLeft` fails the Story's verdict, in `storyCompiled`); runs never judge
-        them, so they have no token and the switch (@O4, `off: "all"` included) does not apply to them. [decided: user
-        2026-11-22] Why: a graph proof covers every run, so a run-time judge could only repeat it, and a value only a
-        test runs is otherwise never proved. Reverse: `flow check` only, as the earlier text of this paragraph had it
-        (superseded by the user's 2026-11-22 decision, @proposal.external-rules). See @spec.Types (Q6).
+        them, so they have no token and the switch (@O4, `off: "all"` included) **does not apply to them.** [decided:
+        user 2026-11-22] Why: a graph proof covers every run, so a run-time judge could only repeat it, and a value only
+        a test runs is otherwise never proved. Reverse: `flow check` only, as the earlier text of this paragraph had it
+        (superseded by the user's 2026-11-22 decision, @proposal.external-rules). See @spec.Types.Q6.
 
         Superseded (the earlier O2 text, by the decision above): "terminals are proved by `flow check` only, never
         judged by runs; they have no token, `RuleBroken` never names one, and neither the switch (@O4, `off: "all"`
@@ -137,7 +137,7 @@ outcomes
         `Machine<D, N>` assigns to `Machine<D>`, and a `Machine<D>` annotation loses the tokens, so such code still
         compiles and reaches a rule by name only where the type is kept. A shared build is typed by `rules(Definition,
         build)`, which returns the build itself. An unknown key (`chek`, `terminalz`) is refused at construction and by
-        `flow check`, never by types (@spec.Types Q19). This replaces the earlier text, where `machine()` took the
+        `flow check`, never by types (@spec.Types.Q19). This replaces the earlier text, where `machine()` took the
         body's type as a second parameter, superseded by the user's 2026-11-22 decision (@proposal.external-rules). The
         build repeats the type spike in `tests/types/` against the real `machine()`, `trait()` and `subroutine()`.
     O4  Judging in tests
@@ -204,23 +204,23 @@ outcomes
         Only Story tooling judges rules: Stories and everything built from them (generated runs, sweeps,
         `propertyTest`). A Runtime and `app()` never read rules, so there is no Runtime switch, no `rules` setup option,
         no `enabled` flag, no live judge and no `RuleBroken` evidence kind; rules ship in the bundle and never run
-        outside a Story. [decided: user 2026-11-22] Why: most values have no rules and the Runtime judge costs a switch,
-        a `last` map and a redaction for a claim a test already makes. Reverse: the Runtime setup's `rules: "judge" |
-        "off"` with `RuleBroken` evidence. This supersedes the earlier O6 text (rules inline in `machine()`, the
-        Runtime's `rules: "judge" | "off"`, `RuleBroken` redaction and a build-time constant), superseded by the user's
-        2026-11-22 decision (@proposal.external-rules); the 2026-11-22 `rules` setup option ruling (@spec.Types Q5) is
-        superseded with it, and its `enabled` overturn stands. The run rules are one list in one module that the config
-        and `Story.app` both import (@spec.Host).
+        **outside a Story.** [decided: user 2026-11-22] Why: most values have no rules and the Runtime judge costs a
+        switch, a `last` map and a redaction for a claim a test already makes. Reverse: the Runtime setup's `rules:
+        "judge" | "off"` with `RuleBroken` evidence. This supersedes the earlier O6 text (rules inline in `machine()`,
+        the Runtime's `rules: "judge" | "off"`, `RuleBroken` redaction and a build-time constant), superseded by the
+        user's 2026-11-22 decision (@proposal.external-rules); the 2026-11-22 `rules` setup option ruling
+        (@spec.Types.Q5) is superseded with it, and its `enabled` overturn stands. The run rules are one list in one
+        module that the config and `Story.app` both import (@spec.Host).
 
         Superseded (the earlier O6, by the decision above, @proposal.external-rules): "Rules stay inline in `machine()`
         ... The Runtime setup chooses `rules: "judge" | "off"`, read once at the host edge from the app's own
-        environment; Stories and the CLI always judge." [decided: user 2026-11-22, now superseded] Why it stood: a flag
-        read in a rule's body is evaluated at import, where the plain CLI has no `import.meta.env`. With `judge`, the
-        host judged after each publication or accepted turn, kept the previous snapshot as `before`, and recorded a
+        environment; **Stories and the CLI always judge.**" [decided: user 2026-11-22, now superseded] Why it stood: a
+        flag read in a rule's body is evaluated at import, where the plain CLI has no `import.meta.env`. With `judge`,
+        the host judged after each publication or accepted turn, kept the previous snapshot as `before`, and recorded a
         broken rule as `RuleBroken` evidence with `Flow.private` memory redacted; the core never called a rule. Reverse
         of the supersession: restore that Runtime option.
 
-        The case that remains is rules written while the bare value is the one that runs. [decided: agent specs lead
+        **The case that remains is rules written while the bare value is the one that runs.** [decided: agent specs lead
         2026-11-22] It is closed without making rules mandatory: a run holding two values of one id with different rules
         is refused (`RulesDiffer`); a lint rule stops a module that calls `X.rules(...)` from exporting `X`
         (`no-bare-export`), and another accepts only an arrow or an identifier as the argument (`rules-argument`); rule

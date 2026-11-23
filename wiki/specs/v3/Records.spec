@@ -48,7 +48,8 @@ requirements
         source  @plan.Persistence.O4, @plan.Persistence.O5.
         must    A definition edit has one stated effect per kind of name (state, field, slot, schedule, operation),
                 the same at every scope, and the app is told what was dropped. The effects are the reference table
-                (`algorithm`, Reference table). [decided: user 2026-11-22] A memory field that does not read resets its
+                (`algorithm`, Reference table). **Unread memory field** [decided: user 2026-11-22] A memory field that 
+                does not read resets its
                 position, so the actor restarts from the definition's initial state and memory. Why: a position with
                 one field put back to its initial is a state the machine never reached (R2: nothing invented).
                 Reverse: reset only that field. A `slots`, `baselines` or `graph` leaf that does not read is dropped
@@ -57,7 +58,8 @@ requirements
     R8  Nothing is saved that the definition does not save
         source  @plan.Persistence.O2.
         must    No key is read or written for a `persist: false` machine; a key an earlier build left is kept and
-                reported. [decided: user 2026-11-22] Why: removing at boot loses what the record owed, such as an unsent
+                reported. **Keys kept, not removed** [decided: user 2026-11-22] Why: removing at boot loses what the 
+                record owed, such as an unsent
                 write, while keeping costs one report. Reverse: remove at boot. No key exists for a local actor; no
                 prediction is saved, so nothing unconfirmed reads as confirmed after a reload.
 
@@ -127,7 +129,7 @@ requirements
     R20  The fault model
         source  @plan.Persistence.O5.
         must    Who can have written a stored text, and what the boot may trust, is the table in `model`, Fault
-                model. Forged-but-valid records are out of scope. [decided: user 2026-11-22] Why: defending meaning
+                model. **Forged-but-valid records are out of scope.** [decided: user 2026-11-22] Why: defending meaning
                 needs signed records. Reverse: B, defend against forgery. The `it.fails` tests of forgery are deleted
                 in a later Task.
 
@@ -160,12 +162,14 @@ open
         outcome  The type proof (the types Spec owns the derivation).
 
     Q6  The calls on this design are listed in the companion (its section 7) with their traces.
-        outcome  [decided: agent orchestrator 2026-11-22] internal rules, as this Spec states them: one `work`
+        outcome  **Internal rules** [decided: agent orchestrator 2026-11-22] internal rules, as this Spec states them: 
+                 one `work`
                  record, a head's one unknown, no version tags in keys, a carried obligation, claims in the head,
                  `Compiled.saved`, one `admit`, a reset actor not woken. Why: each B fails its trace in the companion
                  (a head decoded beside its success; an unknown heard once per reload; a mapper called with no
                  input). Reverse: the companion's B for that item.
-                 [decided: user 2026-11-22] the user's calls, all as recommended (A), with reasoning in the
+                 **User's calls** [decided: user 2026-11-22] the user's calls, all as recommended (A), with reasoning 
+                 in the
                  companion: the fault model, a kept orphan (`Kept(Orphan)`), one step 5 to 6, the earlier
                  saved-record choices, a memory field that does not read, `persist` turned off. Why: the trace
                  beside each in the companion. Reverse: the companion's B for that item.
@@ -173,7 +177,7 @@ open
 model
     Boot = one `ready()` of a persistent Runtime: read, step formats, structure, admission, install.
 
-    FaultModel = who can have written a stored text, and what the boot may trust. [decided: user 2026-11-22]
+    FaultModel = who can have written a stored text, and **what the boot may trust.** [decided: user 2026-11-22]
         - This build's encoder: reads it, `Live`.
         - An older format's encoder, before any newer one wrote: steps it, then judges it as its own.
         - The same format under another definition (earlier or later release): stage 2, the reference table.
@@ -571,11 +575,11 @@ algorithm
             an owed unknown row whose Attempt is a head: that head's `unknown`, with the row's `kept`; a second such row
                 fails the step.
             a Held head with no such row: `unknown: { ending: Restored, kept: false }`. Format 5 cannot say "told", so
-                it is told once more (a hold never told is lost, so P1 over P2) [decided: user 2026-11-22].
+                it is told once more (a hold never told is lost, so **P1 over P2**) [decided: user 2026-11-22].
             an owed row whose Attempt is a head and whose channel is not unknown: the step fails.
             owed `reason` text: renamed by `Operations`' table, given as data.
             other owed rows: `rows`, in order, with `subject: ""`; `keyText` from the row's lane id; no `rest`: format 5
-                saved no input with a row, so stage 2 carries it [decided: user 2026-11-22].
+                saved no input with a row, so **stage 2 carries it** [decided: user 2026-11-22].
             an owed row with no lane: a row with `keyText` and `rest` absent; stage 2 carries it.
             a displaced Attempt id: `{ attempt }` with no `rest` (format 5 saved none).
             (nothing): `instances: {}`, `claims: []`.
@@ -609,7 +613,8 @@ algorithm
             Bytes: kept; nothing is read or written. Capture: cannot happen. Ensure, send, wake: the actor starts
             fresh in memory; reported `RecordNotPersisted` once per machine with a count (one more `CATALOG` row,
             class Failure, issue false, report true). Leaves by: forget of the identity or scope; a build that
-            persists the machine again. [decided: user 2026-11-22] Why: removing loses what the record owed. Reverse:
+            persists the machine again. **Keep, not remove** [decided: user 2026-11-22] Why: removing loses what the 
+                record owed. Reverse:
             remove at boot.
         Dormant  When: the machine is declared lazy and not adopted. Bytes: kept, byte for byte. Capture: cannot
             happen. Ensure, send, wake: send dropped `NotAdopted`. Leaves by: adoption, judged then by this table.
@@ -688,8 +693,10 @@ algorithm
         - A lane's input is read in one way: the key text's fields merged into `rest`, then decoded by the input
             codec. A `rest` that itself holds a key field does not read.
         - There is no version tag in a key and nothing is re-keyed
-            [decided: agent orchestrator 2026-11-22]. A build that changes a name or key Schema finds the old text
+            **no re-keying** [decided: agent orchestrator 2026-11-22]. A build that changes a name or key Schema finds 
+                the old text
             either readable (the same identity, by design) or not (`Kept(Name)`, or a Carried lane).
+            Why: each B fails its trace in the companion (Q6). Reverse: the companion's B for that item.
 
     Lanes and rows across a reload. The boot's admission derives; it writes nothing.
         A saved part to what `admit` gives (heard at `Start`; then saved as):
@@ -716,7 +723,8 @@ algorithm
         `Held`, no `unknown`: impossible / impossible / `Out` / impossible / head removed.
         - An unknown says "this may have applied". A final answer for the same Attempt says whether it did, so it
             replaces an unknown not yet heard or kept. A second unknown for a head that still owes one adds nothing:
-            the slot holds one [decided: agent orchestrator 2026-11-22].
+            **the slot holds one** [decided: agent orchestrator 2026-11-22].
+            Why: each B fails its trace in the companion (Q6). Reverse: the companion's B for that item.
         - A `Held` head with nothing owed leaves by the lane's own exits: a re-send, a cancel or a release.
         - Life-held rows are never saved. Only subject-held rows of persisted identities reach the encoder.
 
@@ -752,8 +760,10 @@ algorithm
             (the mint restarts). No claim value and no prediction is saved.
         - Claims are in the head that made them (`ClaimShape`): entity, key text, field names and `basedOn`. `sent`
             is the head's `hold`. They are readable in stage 1 without the machine, so `World.dormant` shows a dormant
-            identity's claims to the entity store [decided: agent orchestrator 2026-11-22]. The order of Attempts on one
+            **identity's claims to the entity store** [decided: agent orchestrator 2026-11-22]. The order of Attempts 
+                on one
             entity record across identities is not saved (companion, open holes).
+            Why: each B fails its trace in the companion (Q6). Reverse: the companion's B for that item.
         - Bookmarks are a reserved map of the position. Streams have no design.
         - A cache record carries no obligation: every failure is `Discard`.
 
@@ -777,7 +787,7 @@ algorithm
     The throw family. A user read that throws changes only its own check; for this Spec the read is a Schema decode
         per leaf. Detection is per leaf (`decodeBy`): a `slots`, `baselines` or `graph` leaf that does not read is
         dropped alone; a `memory` field that does not read resets its position
-        [decided: user 2026-11-22]. The work side is untouched (I11).
+        **Throw family reset** [decided: user 2026-11-22]. The work side is untouched (I11).
 
 composition
     flow
@@ -793,7 +803,8 @@ composition
         Needs
             `Compiled.saved` from the types Spec: `{ name, states, memory, slots, schedules, fragments, operations }`,
             each leaf a codec. A schedule's key and selection Schemas are in it, so a changed key Schema cannot restore
-            and route to the wrong timer. [decided: user 2026-11-22; one answer for the records and types designs: A]
+            and **route to the wrong timer.** [decided: user 2026-11-22; one answer for the records and types designs: 
+                A]
 
         Schedules (taken). `TimerShape` is `Schedules`' saved timer; its decode rows 1 to 7 are reference rows,
             rows 8 to 10 are structure, row 13 is step 5, rows 11 and 12 stay `wake`'s. No table of `Schedules`

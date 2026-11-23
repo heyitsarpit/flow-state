@@ -175,7 +175,8 @@ open
         outcome  The first failing checks of @task.V3.T119, as a package sequence test (`tests`, T1), not a model.
 
     Q3  A reset value's Schema: the slot's declaration names `resetOn`'s Schema, as a schedule's declaration names 
-        `restartOn`'s. [decided: user 2026-11-22] Why: one rule with `restartOn`, and a `Date` or record value
+        `restartOn`'s. **Reset value Schema** [decided: user 2026-11-22] Why: one rule with `restartOn`, and a `Date` 
+        or record value
         works. Reverse: a reset value is any value by `Equal.equals`.
         outcome  A reset value is encoded by the declared Schema and made canonical text; the type refuses a
                  `Date` without it.
@@ -183,7 +184,7 @@ open
             record value works. Against: one more declared field in user code. Test: a `Date` reset value
             compared across a reload is equal under the declared Schema and refused without it.
 
-    Q4  Whether a hidden page is a core input. [decided: user 2026-11-22] It is not, in v1; timers keep their 
+    Q4  **Whether a hidden page is a core input.** [decided: user 2026-11-22] It is not, in v1; timers keep their 
         deadlines. Why: an autosave keeps saving and no occasion is added. Reverse: a hidden input and a row in
         every scope's table. Also closes `Schedules` Q2.
         outcome  The host's edge reads `hidden()` for its capture only (`Host`).
@@ -193,7 +194,8 @@ open
 
     Q5  Whether `Published` carries the incarnation and `why` has three values (`Begin`, `Turn`, `Other`; an end is 
         `Finished`). The public type that shows it is the host's.
-        [decided: user 2026-11-22] Why: one record a rule reads holds state, memory, instances, props and issues.
+        **One `Published` record** [decided: user 2026-11-22] Why: one record a rule reads holds state, memory, 
+            instances, props and issues.
         Reverse: a fourth `why` value `End`.
         outcome  Written in `algorithm` (applier): `Published` carries the incarnation.
         reasoning  For: one record a rule reads holds state, memory, instances, props and issues; an end already has

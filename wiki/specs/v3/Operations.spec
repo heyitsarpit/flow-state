@@ -22,7 +22,8 @@ requirements
                 followed by the real answer, never the reverse, and an unknown not yet heard is dropped when the real
                 answer arrives first. An ending mapper takes `(value, { input, key })`: the row's value, the row's
                 input and its key.
-                [decided: user 2026-11-20] answered that ending mappers take `(value, { input, key })`.
+                **Ending mapper arguments** [decided: user 2026-11-20] answered that ending mappers take `(value, { 
+                input, key })`.
                 A persisted write declares its `output` and error Schemas, so an ending saved with a value comes back
                 as itself and not as unknown `Restored` (open Q7).
 
@@ -67,9 +68,11 @@ requirements
         must    No public call throws anything but a `FlowError`, and a copy of a value is never taken for one Flow
                 made. Every outside value is read once into a copy and decoded; a body that gets a value gets the taken
                 copy or one with no readable member.
-                [decided: user 2026-11-21] answered "B" to how a Flow-made value is recognised: `Symbol.for(
+                **Flow-made recognition** [decided: user 2026-11-21] answered "B" to how a Flow-made value is 
+                recognised: `Symbol.for(
                 "flow-state/Made")` on one shared frozen prototype, plus the owner compare. Reverse: a `WeakMap`.
-                [decided: user 2026-11-19] a core invariant failure raises `InvariantViolation`.
+                **Core invariant failure** [decided: user 2026-11-19] a core invariant failure raises 
+                `InvariantViolation`.
 
     R11  A throw changes only its own check
         source  @plan.Machines.O5; @plan.Operations.O2.
@@ -104,26 +107,26 @@ open
     Q1  A read's key is its whole input. For a `resource`, `key` orders the input's fields for partial-key matching and 
         names every field. Trace of the alternative (a partial key with the input stored on the entry): two
         lookups with `{ account, currency }` and key `["account"]` share one entry and the second gets the first
-        currency's answer as a success. [decided: user 2026-11-22] Why: equal keys with different inputs would race.
+        currency's answer as a **success.** [decided: user 2026-11-22] Why: equal keys with different inputs would race.
         Reverse: B, a partial key with the input stored on the entry.
         outcome  A: a read's key is its whole input.
 
     Q2  No `Trigger` cue: a request starts by itself only at a placement, an invalidate and a clear. A refetch on focus 
         or on an interval is a schedule that runs `O.x.refetch()`. This departs from @plan.Operations.O2 ("focus
         regained and connection restored refetch"). The alternative is a host occasion (focus, online) as a new input
-        and a new row. [decided: user 2026-11-22] Why: a refetch on focus or interval needs no new input, only a
+        **and a new row.** [decided: user 2026-11-22] Why: a refetch on focus or interval needs no new input, only a
         schedule. Reverse: B, a host occasion as a new input.
         outcome  A: no `Trigger`; @plan.Operations.O2 is edited to match (2026-11-22).
 
     Q3  A life's end and a disposal owe waiters nothing: each waiter's row would close at once as evidence, since its 
         life is gone; a freeze still parks one `Interrupted` row per waiting lookup. This departs from the Plan's
-        "the Interrupted ending a freeze or an actor's end parks". [decided: user 2026-11-22] Why: a gone life's
+        **"the Interrupted ending a freeze or an actor's end parks".** [decided: user 2026-11-22] Why: a gone life's
         rows would close at once as evidence. Reverse: B, a row per waiter at an end.
         outcome  A: a freeze parks `Interrupted`; the Plan sentence is edited to match (2026-11-22).
 
     Q4  `failureOf` gives one `FlowError` per crossing and one diagnostic per cleanup. Today a defect plus a cleanup 
         failure is a `Die` holding the error (`close.ts:282-296`); the defect is in `cause` here and its diagnostic is
-        classed Defect. [decided: user 2026-11-22] Why: one error per crossing keeps the defect in `cause`. Reverse:
+        **classed Defect.** [decided: user 2026-11-22] Why: one error per crossing keeps the defect in `cause`. Reverse:
         B keeps the `Die`.
         outcome  A: one `FlowError` per crossing, one diagnostic per cleanup.
 
@@ -131,7 +134,7 @@ open
         api.pay(i).pipe(Effect.timeout(...))` stops compiling; the form the fixtures write (`Effect.timeoutOrElse` with 
         `Outcome.unknown`) stays. No fixture
         writes the first. For a read, `TimeoutError` stays in the contract's `E` and the `failure` mapping names the
-        tag by the ordinary exhaustive check. [decided: user 2026-11-22] Why: an unknown must not look like a typed
+        **tag by the ordinary exhaustive check.** [decided: user 2026-11-22] Why: an unknown must not look like a typed
         error; no fixture writes the first form. Reverse: allow `Effect.timeout` on a write.
         outcome  A: confirmed.
 
@@ -142,13 +145,14 @@ open
 
     Q7  A persisted write declares its `output` and error Schemas, required when the app persists. Today an ending that 
         cannot be saved becomes unknown `Restored`, so a success turns into "unsure" on reload. The alternative keeps
-        the fallback. [decided: user 2026-11-22] Why: a success must not turn into "unsure" on reload. Reverse: B
+        **the fallback.** [decided: user 2026-11-22] Why: a success must not turn into "unsure" on reload. Reverse: B
         keeps the fallback.
         outcome  A: a persisted write declares `output` and error Schemas.
 
     Q8  The rename of saved text for a store refusal (`StorageRefused` to `StorageFailure`, in `reason` and `why`) is 
         one step of `Records`' format plan, and the rename of the codes' constructors is accepted.
-        [decided: user 2026-11-22] Why: one format step in `Records`. Reverse: keep `StorageRefused`.
+        **Constructor rename accepted** [decided: user 2026-11-22] Why: one format step in `Records`. Reverse: keep 
+            `StorageRefused`.
         outcome  A: confirmed.
 
     Q9  Models are narrower than the text: `besideOf` (an interrupt beside two other reasons) was fixed after the last 
@@ -163,7 +167,7 @@ open
 
     Q11  Not every source was read in full: callers of `life.ts`, `frozen.ts`, `same.ts` and `operation-checks.ts` were
         not swept. Plan sentences found uncovered and not designed: `value` firing by `Equal.equals`, `InvalidWrite`
-        (@plan.Operations.O2, O3), a placement "released within the disposal bound".
+        (@plan.Operations.O2, @plan.Operations.O3), a placement "released within the disposal bound".
         outcome  Sweep before the entries Task; design each sentence or edit the Plan.
 
     Q12  Placements are unchanged and unattacked; streams and sessions have no design (`releasing` is shaped to take
@@ -175,8 +179,9 @@ open
 
     Q14  `CleanupFailed` as a lasting issue is minor: a quarantined ref (`driver.ts:81`) is host state; whether the
         snapshot shows it through `issuesOf` or beside it was not traced.
-        outcome  [decided: agent orchestrator 2026-11-22] not an issue: the catalog row is `issue: false, report:
-                 true`, and an issue needs a standing cause in core state (R6), while a quarantined ref is host
+        outcome  **Not an issue** [decided: agent orchestrator 2026-11-22] not an issue. Why: the catalog row is
+                 `issue: false, report: true`, and an issue needs a standing cause in core state (R6), while a 
+                 quarantined ref is host
                  state shown by inspection. Reverse: make the row `issue: true` and give the ref a core fact.
 
     Q15  `persist: true` with `gcTime: 0` saves an entry that never installs. Minor: a construction finding, or another
@@ -219,7 +224,8 @@ model
 
     FaultModel = mistakes, not attacks. A wrong value, a copy, another definition's token, a throwing getter and a
         second loaded copy of Flow are handled; a value built by hand on Flow's prototype is unsupported, as in Effect.
-        [decided: user 2026-11-21] answered "B" to how a Flow-made value is recognised (see R10).
+        **Hand-built values unsupported** [decided: user 2026-11-21] answered "B" to how a Flow-made value is 
+            recognised (see R10).
 
     StateInventory = every state of this module, its only writer, its readers and what survives a reload. Positions
         and call ids are never saved. The clock is `tx.env.now`, the one clock of a step; every `at` and `since` is
@@ -773,7 +779,8 @@ algorithm
         Maps and Sets hold: each Map, Set or Date takes a frozen prototype of its kind whose writing methods throw,
         so it holds no function of its own. A machine's face is its definition; its Compiled, which holds every
         callback its body wrote, sits under the machine's internals key, read past the door by `compiledOf`.
-        [decided: agent builder 2026-11-22] Why: a prototype that is not a function strips an event token of its
+        **Event token prototype** [decided: agent builder 2026-11-22] Why: a prototype that is not a function strips an 
+            event token of its
         methods, a Map's replaced writers would be functions on the face, and a Compiled on the face handed out
         the body's raw callbacks. Reverse: one prototype for every made value, and Compiled on the face as a data
         view. `madeOf(kind, owner)(value)`, called on a lifted value, by whether `MadeTypeId in 
@@ -928,7 +935,8 @@ rules
     RetryInsideCommit  Inside `commit`, `Effect.retry` is immediate only (`times`, `while`): one Attempt and one call.
                        A retry after a delay is a machine schedule that runs `O.x.retry`. No type can check what a
                        commit's Effect does, so this is guidance, not a rule of the core.
-                       [decided: user 2026-11-21] answered "A": immediate re-sends only; every delay goes to the
+                       **Immediate re-sends only** [decided: user 2026-11-21] answered "A": immediate re-sends only; 
+                       every delay goes to the
                        machine.
     ThrowingRead       The family rule for a user read that throws changes only its own check. (1) Its field is
                        `Failed(f)`, and an issue names its slot. (2) Every decision that needed the value is made as if

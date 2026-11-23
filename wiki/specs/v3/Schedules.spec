@@ -14,7 +14,8 @@ requirements
                 its key leaving, or its saved timer dropped by a definition edit (`algorithm`, decode table). A
                 refused start is tried again on every occasion its scope hears, so a bad delay that becomes valid
                 arms the timer at the next occasion and a reload changes nothing.
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of when a refused start is
+                **Refused start retried** [decided: user 2026-11-21] answered "A, as recommended" to the question of 
+                when a refused start is
                 tried again: on every occasion. This changes the derived-issues design's accepted rule that a
                 refused start is retried only at a wake or a later start cause.
 
@@ -24,7 +25,8 @@ requirements
                 is a baseline, never a change, whenever it comes (a new timer, a re-entry, the first clean read
                 after a throw that left no baseline); after a baseline, a clean read compares with the last clean
                 value (ThrowingRead (3)).
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of a new timer whose first
+                **First read throws** [decided: user 2026-11-21] answered "A, as recommended" to the question of a new 
+                timer whose first
                 `restartOn` read throws: its first clean read is the baseline, silently.
 
     R3  A reload is invisible
@@ -34,7 +36,8 @@ requirements
                 refused start and its firing failure included. A wake does not re-read `restartOn` for a timer that
                 has a baseline; the owner raises `Context` after a wake when context or props differ from what the
                 scope last heard, and that occasion compares.
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of what a wake does to a saved
+                **Wake keeps the baseline** [decided: user 2026-11-21] answered "A, as recommended" to the question of 
+                what a wake does to a saved
                 baseline: nothing; `Context` after the wake compares. Reverse: the wake re-reads `restartOn` and takes
                 a clean value silently (the Plan's older sentence).
 
@@ -61,7 +64,8 @@ requirements
                 a closed page keep `Due(dueAt)` and their time counts. A new run under a holding reason keeps its full
                 delay. A firing happens at its start plus its delay plus the time its run was held, never earlier;
                 later only while its scope was asleep.
-                [decided: user 2026-11-21] answered "as designed here" to the question of departures from the
+                **Frozen scope's clock runs** [decided: user 2026-11-21] answered "as designed here" to the question of 
+                departures from the
                 concept designs: a frozen scope's clock runs.
 
     R7  Every change is compared once
@@ -106,17 +110,21 @@ requirements
                 `Refused` with its issue, tried again on every occasion; every later
                 start (a new key, a restart, creation, an instance's start, a wake) is `Refused` with an issue
                 and refuses no turn.
-                [decided: user 2026-11-22] answered "B" to the question of a refused own arm on an operation's
+                **Refused own arm on an outcome** [decided: user 2026-11-22] answered "B" to the question of a refused 
+                own arm on an operation's
                 outcome: the outcome has happened, so refusing its turn would lose the ending (a sign-in left
                 loading for good).
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of a start whose first step
+                **First step fails** [decided: user 2026-11-21] answered "A, as recommended" to the question of a start 
+                whose first step
                 fails: keep both rules.
                 A computed delay is read once per start; no later change is tracked.
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of a computed Effect Schedule
+                **Computed Effect Schedule after reload** [decided: user 2026-11-21] answered "A, as recommended" to 
+                the question of a computed Effect Schedule
                 after a reload: a stated limit; the series is planned again from the memory at wake and replayed to its
                 saved attempt, and later delays differ when that memory differs from the arming turn's.
                 A re-entered state's new timer inherits nothing.
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of what a re-entered state's
+                **Re-entered state inherits nothing** [decided: user 2026-11-21] answered "A, as recommended" to the 
+                question of what a re-entered state's
                 new timer inherits: nothing; its reasons start at `[]`.
 
     R12  Firings
@@ -142,7 +150,8 @@ requirements
                 idle ones included. `wake` decodes saved state against the current definition by one table and invents
                 nothing. A reload without `pausedBy`, with a reason renamed or with a key unreadable decodes to a valid
                 state with a stated outcome.
-                [decided: user 2026-11-21] answered "as designed here" to the question of departures from the concept
+                **Undeclared saved reason** [decided: user 2026-11-21] answered "as designed here" to the question of 
+                departures from the concept
                 designs: an undeclared saved reason drops that name and keeps the timer; a definition edit that makes
                 a saved key unreadable, or changes keying, starts its keys again from step one, a disarmed key
                 included.
@@ -161,8 +170,10 @@ requirements
                 one derived type in every callback and is `undefined` in an unkeyed one; the snapshot's schedules
                 carry the declared names, keys and reasons; one typed point of erasure builds the compiled schedule;
                 every type test is two-sided (`realization`).
-                [decided: user 2026-11-20] `key` and `pausedBy` are in the declaration.
-                [decided: user 2026-11-21] answered "A, as recommended" to the question of where the `restartOn`
+                **Declaration holds `key` and `pausedBy`** [decided: user 2026-11-20] `key` and `pausedBy` are in the 
+                declaration.
+                **Codec for `restartOn`** [decided: user 2026-11-21] answered "A, as recommended" to the question of 
+                where the `restartOn`
                 selection gets its codec: the declaration names its Schema beside `key` and `pausedBy`; the body's
                 `restartOn` returns that type and the baseline is saved as its canonical text.
                 The user's 2026-11-22 decision makes the body `Flow.keyed` form and body-declared names void.
@@ -179,17 +190,18 @@ open
         timer of the schedule is `Refused`. It is a cache and lands only when the bench shows the reads matter. This is
         the gate's one home: `Changes` passes every scope that hears an occasion and builds no gate.
         outcome  Left out: the hub's turns all write memory, so a gate on input identity skips none (bench rows
-                 `turn.home.hub-usual` and `turn.home.hub-many-devices`). [decided: agent builder 2026-11-22] Why:
+                 `turn.home.hub-usual` and `turn.home.hub-many-devices`). **Input-identity gate left out** [decided: 
+                 agent builder 2026-11-22] Why:
                  a cache that saves nothing adds a writer. Reverse: land it with its Level 0 check when a
                  fixture's turns leave a scope's inputs unchanged.
 
     Q2  A hidden page is no use change in v1: no schedule row mentions it, timers keep their deadlines, and a throttled 
-        wake fires each overdue timer once. [decided: user 2026-11-22] Why: an autosave keeps saving and no
+        wake **fires each overdue timer once.** [decided: user 2026-11-22] Why: an autosave keeps saving and no
         occasion is added. Reverse: a use change that clears alarms while hidden.
         outcome  Closed by `Changes` Q4: a hidden page is not a core input in v1.
 
     Q3  @plan.Machines.O5 still describes `name: Flow.keyed({ keys, ... })` and body-declared `restartOn`, `paused` and 
-        `key`. The declared form replaces it, so the Plan needs an edit. [decided: user 2026-11-22] Why: the
+        `key`. The declared form replaces it, **so the Plan needs an edit.** [decided: user 2026-11-22] Why: the
         declared form is this Spec's. Reverse: keep `Flow.keyed` and the body-declared fields.
         outcome  @plan.Machines.O5 is edited to the declared form (2026-11-22).
 
@@ -315,7 +327,8 @@ model
         Every timer of the scope is saved, idle ones included: an idle timer with a baseline is the debounce a reload
         must not forget, so `savedTimersOf`'s filter and its `armsOnEntry` scan go. Activation ids are not saved: the
         record holds each scope's schedules by its state path, and `wake` files them under the new activation.
-        `Refused`, `firing` and a failed selection save their failure. [decided: agent orchestrator 2026-11-22] Why: R5 
+        `Refused`, `firing` and a failed selection **save their failure.** [decided: agent orchestrator 2026-11-22] 
+            Why: R5
             shows an issue
         while its check's last outcome failed; unsaved, a reload would clear an issue whose cause stands (R3).
         Reverse: save the arming only and re-read every check at wake. The JSON spelling, the format number
@@ -690,7 +703,8 @@ composition
             that
             records broken ids for inverted rows.
 
-        Build order. [decided: user 2026-11-21] answered "the third row, as recommended" to the question of the build
+        **Build order.** [decided: user 2026-11-21] answered "the third row, as recommended" to the question of the 
+            build
         order: the declaration's runtime half first (the declaration object, its construction checks and the codecs in
         `Compiled`, about 70 lines plus the one typed erasure), then this module's build with one format step, then the
         public types, which change no runtime. @task.V3.T120 is the runtime half and @task.V3.T118 this module's build.

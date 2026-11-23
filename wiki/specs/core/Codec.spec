@@ -58,7 +58,7 @@ requirements
                 reported UnencodableValue, and a Flow-made row with no value saves `null`. So a record
                 fails to encode only on a malformation in its actor's own state: its memory, or its
                 name, which its lane and owed records carry too; then the identity is withheld whole
-                (@spec.WriteAhead.R4, I21).
+                (@spec.WriteAhead.R4, @spec.WriteAhead.I21).
 
                 Elsewhere:
                 CodecMalformed is raised only where a codec failure is a

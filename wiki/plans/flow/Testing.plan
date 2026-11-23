@@ -19,7 +19,7 @@ outcomes
         constructor is a type error. `runRules` is Flow's run-rules list (@plan.Rules.O4), required on all three
         constructors and passed once in a Story helper; it was `rules`, renamed so a machine's `.rules(...)` keeps its
         own word. Rules attached to the subject and its placed fragments ride the value and are judged by Story tooling
-        only (@plan.Rules.O6, the user's 2026-11-22 Story-only judging). [decided: agent specs lead 2026-11-22] The
+        only (@plan.Rules.O6, the user's 2026-11-22 **Story-only judging**). [decided: agent specs lead 2026-11-22] The
         `runRules` name. Why: one word per meaning. Reverse: the earlier option name `rules`.
 
         Every subject's Effect requirements (a fragment's included) must be met by fixtures, so a missing fake is a type

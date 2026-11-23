@@ -131,7 +131,8 @@ outcomes
               cancelled: Flow.initial(Schema.Boolean, false),
             },
           },
-          () => ({ on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } } }), // no guard: see below
+          // no guard: see below
+          () => ({ on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } } }),
         )
 
         const Editor = definition({
@@ -192,7 +193,7 @@ outcomes
         Definition literals, payloads, context, operation names and state paths infer without assertions, explicit
         generics or wrappers; a misspelt name (a state, event, field, operation, schedule, reason or rule) is a type
         error, while an unknown structural key (`gaurd`) is refused at construction and by `flow check`, never by types
-        (@spec.Types Q19). Definitions expose Event, State, Input, Memory and Snapshot Schemas.
+        (@spec.Types.Q19). Definitions expose Event, State, Input, Memory and Snapshot Schemas.
 
         Event decodes only public _tag envelopes; State accepts complete leaf paths. E.X(payload) validates on every
         call and throws InvalidEvent on mismatch; payload-free constructors take no argument. Persisted-value
@@ -505,7 +506,7 @@ outcomes
         follows `code:wiki/conventions/interaction-state.md`.
 
         `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }` has one callback per reason the
-        definition declares in `pausedBy` [decided: user 2026-11-22] (see @task.V3.T120); any true pauses the timer;
+        definition declares in **`pausedBy`** [decided: user 2026-11-22] (see @task.V3.T120); any true pauses the timer;
         `paused` is always a record, never a bare function. The snapshot shows `pausedBy`, the active reason names in
         declaration order, beside `left`; reason names are a literal union, so `pausedBy` is typed. A turn runs keys,
         then `restartOn`, then `paused`, after each committed turn. Every lane change, including a denied or unhandled
@@ -516,11 +517,11 @@ outcomes
         inside its current delay, and its `attempt` does not advance. `disarmOn`, exit or a key leaving removes a paused
         timer; nothing fires later.
 
-        A schedule whose definition declares a `key` is keyed [decided: user 2026-11-22] (see @task.V3.T120): its `keys`
-        return key records from the after memory and after lanes (inside a fragment its own rows; under .each that
-        copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves, firing once with key; a
-        repeated key keeps its first position with `listRepair` evidence; `restartOn` is evaluated per key, ({ key,
-        memory, props, context }) => value; `armOn` on a keyed schedule is a construction error.
+        A schedule whose definition declares a `key` is **keyed** [decided: user 2026-11-22] (see @task.V3.T120): its
+        `keys` return key records from the after memory and after lanes (inside a fragment its own rows; under .each
+        that copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves, firing once with
+        key; a repeated key keeps its first position with `listRepair` evidence; `restartOn` is evaluated per key, ({
+        key, memory, props, context }) => value; `armOn` on a keyed schedule is a construction error.
 
         Per-key timers persist by key with `dueAt` or `left`, and on restore the restored memory's keys win.
 
@@ -588,7 +589,8 @@ outcomes
                 expire: {
                   keys: ({ memory }) => memory.toasts.map((t) => ({ id: t.id })), // one timer per toast
                   schedule: ({ key, memory }) => lengths[memory.toasts.find((t) => t.id === key.id)?.kind ?? "info"],
-                  restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title ?? null, // an Update
+                  // an Update
+                  restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title ?? null,
                   paused: {
                     Hovered: ({ memory }) => memory.hovered,
                     Hidden: ({ key, memory, context }) =>
@@ -723,7 +725,12 @@ outcomes
           }),
           session: Flow.context(AuthSession.S.SIGNED_IN), // boolean; Flow.context(Pay.state) is the state's name
         }
-        onContext: [C.count.change({ when: (current, previous) => previous === undefined || current > previous, event: E.Bumped })]
+        onContext: [
+          C.count.change({
+            when: (current, previous) => previous === undefined || current > previous,
+            event: E.Bumped,
+          }),
+        ]
         ```
 
         An actor returning after an end within a Runtime gets one wave if a provider's selection differs from the one it

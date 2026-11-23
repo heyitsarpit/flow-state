@@ -131,7 +131,7 @@ outcomes
         once with recording proxies. It reports invalid declarations, wiring, ownership and recorded domain rules as
         errors, including violations that untyped input would otherwise bypass: an unknown key in a body or a rules
         object is one. It also proves terminals and warns `RulesBypassed` when an app or Story runs a bare value whose
-        ruled form it also loads (@plan.Rules.O2, O8).
+        ruled form it also loads (@plan.Rules.O2, @plan.Rules.O8).
 
         Domain validity follows @plan.EntityDomains.O1. A Story hydrate naming a label its source never dehydrates is an
         error. Deny codes come from declared types; missing complete type facts fails instead of claiming a complete
