@@ -849,3 +849,8 @@ note 2026-11-23T00:09:33Z
 note 2026-11-23T00:16:40Z
     T92 close review 2: PASS (90d5fd75). Page @page.T92-records written; T56 routings recorded. T92's close is held with
     T119's: @page.T142-typed-machine unread.
+
+note 2026-11-23T00:17:13Z
+    Run holding at weekly 98% (orchestrator call): no new slice started, since slice T21's four Tasks need full texts
+    and a requirements step that 2% can't finish. No live agents; cron stays. Resume: write T121-T124 with
+    skill:to-task, then the T21 requirements lead.
