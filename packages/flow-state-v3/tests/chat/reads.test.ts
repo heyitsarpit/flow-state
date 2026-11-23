@@ -57,7 +57,7 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.read.read(random)?.state).toBe("READY");
   });
 
-  it.fails("Operations T4.3, StepBoundary: one reader closed, the request runs on for the other, which hears it", async () => {
+  it.fails("Operations R3, T4.3, StepBoundary: two readers share one request; one closed, it runs on for the other, which hears it", async () => {
     const run = await oneReaderLeft.run();
 
     expect(historyCalls(run.checkpoints["one left"], "general")).toHaveLength(1);
@@ -67,7 +67,7 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.answered.read(hub)?.memory.preview).toBe("standup at ten");
   });
 
-  it.fails("Operations T4.3, entry table (Last hold left, Running): the last reader gone, the request is stopped", async () => {
+  it.fails("Operations R3, T4.3, entry table (Last hold left, Running): two readers share one request; the last gone, it is stopped", async () => {
     const run = await noReaderLeft.run();
 
     expect(historyCalls(run.checkpoints.released, "general").map((c) => c.status)).toEqual([

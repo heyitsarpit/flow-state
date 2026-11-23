@@ -1,3 +1,4 @@
+import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import type { Cut } from "../../src/host/testing/index.ts";
 import { box, otherBox } from "../../fixtures/search/app.ts";
@@ -15,7 +16,7 @@ import { played } from "../rules/played.ts";
 // The search box's suggestion read. Expected results: a slot moved to another key ends its old
 // wait (Superseded, no row), and the old key's request, holding nothing, is released (Slot cells,
 // entry table: Last hold left, Running); equal contract and key share one request across actors
-// (R3); data younger than `staleTime` (five minutes) serves an ask (R4); a lookup's input fails its
+// (R3); data younger than `staleTime` (ten minutes) serves an ask (R4); a lookup's input fails its
 // Schema at run time with nothing asked (Slot cells); the boot refuses a missing service.
 
 const suggestions = ["shoe rack", "shoes, running", "shoes, trail"];
@@ -74,6 +75,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.refused.read(Catalog.suggest)).toEqual([]);
     expect(run.checkpoints.refused.read(box)?.memory.suggestions).toEqual([]);
     expect(run.checkpoints.refused.read(box)?.state).toBe("IDLE");
+    expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidInput"))).toHaveLength(1);
   });
 
   it("Operations OneWait under L5: fourteen keystrokes leave the last query's suggestions", async () => {

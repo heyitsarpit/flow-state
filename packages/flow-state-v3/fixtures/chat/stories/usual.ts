@@ -1,4 +1,6 @@
+import { Duration } from "effect";
 import { Story } from "../../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
 import { chatSetup, general, hub, me, random } from "../app.ts";
 import { Account } from "../machines/account.ts";
 import { Hub } from "../machines/hub.ts";
@@ -26,16 +28,17 @@ const joined = (id: string) =>
   signedIn(chatStory(id)).send(general, Thread.E.Join()).checkpoint("joined");
 
 /**
- * The sidebar and the thread open `general` while its history is on the wire, so both wait on one
- * read; a message Ada sends shows at once and takes the server's id when it answers; joining again
- * ten seconds later shows what was read, and joining once the history is 40 seconds old reads it
- * again.
+ * The sidebar and the thread open `general` while its history is on the wire for 20 seconds, so
+ * both wait on one read; a message Ada sends shows at once and takes the server's id when it
+ * answers; joining again ten seconds after the history landed (30 after it was asked) shows what
+ * was read, and joining once it is 40 seconds old reads it again.
  */
 export const usual = signedIn(chatStory("chat/usual"))
   .world(Chat.history.hold())
   .send(hub, Hub.E.Open({ thread: "general" }))
   .send(general, Thread.E.Join())
   .checkpoint("joining")
+  .advance("20 seconds")
   .world(Chat.history.release())
   .checkpoint("joined")
   .send(general, Thread.E.Send({ clientId: "c-1", text: "hello" }))
@@ -103,6 +106,14 @@ export const deleteBadUndo = joined("chat/delete-bad-undo")
   .checkpoint("let go");
 
 /**
+ * Deleting a message the server no longer has fails Gone, naming the message from the delete's own
+ * key.
+ */
+export const deleteGone = joined("chat/delete-gone")
+  .send(general, Thread.E.Delete({ messageId: "m-9" }))
+  .checkpoint("gone");
+
+/**
  * A message whose answer is lost is unsure; Ada resends it twice, the page reloading between the
  * two, and each answer is lost again; a third resend is declined, since it was tried twice.
  */
@@ -159,9 +170,9 @@ export const releaseOverdue = signedIn(
   .send(hub, Hub.E.Open({ thread: "random" }))
   .send(hub, Hub.E.Open({ thread: "general" }))
   .checkpoint("released")
-  .advance("4 seconds")
+  .advance(Duration.subtract(RuntimeDefaults.disposalBound, Duration.millis(1)))
   .checkpoint("before bound")
-  .advance("1 second")
+  .advance("1 milli")
   .checkpoint("past bound")
   .world(Chat.history.release())
   .checkpoint("ended");
@@ -188,6 +199,7 @@ export const stories = {
   oneReaderLeft,
   noReaderLeft,
   deleteBadUndo,
+  deleteGone,
   resendLimit,
   newDeleteAfterReload,
   askTwice,

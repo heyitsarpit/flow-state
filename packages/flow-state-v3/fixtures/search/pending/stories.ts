@@ -1,4 +1,5 @@
 import { samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
 import { SearchPage } from "../pending/search-page.ts";
 import { Saved } from "../pending/saved.ts";
 import { adaSaved, otherPage, page, searchResultsSetup } from "../results-app.ts";
@@ -88,7 +89,7 @@ export const turnedMidRead = Story.app(searchResultsSetup, {
   .send(page, SearchPage.E.Page({ page: 2 }))
   .send(page, SearchPage.E.Page({ page: 1 }))
   .checkpoint("turned")
-  .advance("5 seconds")
+  .advance(RuntimeDefaults.disposalBound)
   .checkpoint("past bound")
   .world(Catalog.results.release())
   .checkpoint("ended");

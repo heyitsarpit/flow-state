@@ -1,4 +1,5 @@
 import { Story } from "../../../src/host/testing/index.ts";
+import { Docs } from "../server/docs.ts";
 import { DocsFake } from "../server/layer.ts";
 import { Document, documentSetup, plan } from "./document.ts";
 
@@ -29,6 +30,18 @@ export const closeClears = documentStory("draft/close-clears")
   .checkpoint("closed");
 
 /**
+ * An edit's save is on the wire when the plan is closed; the save's answer then lands. Closing
+ * cleared the read, so the late save's write does not bring the saved copy back.
+ */
+export const saveAfterClose = documentStory("draft/save-after-close")
+  .send(plan, Document.E.Open())
+  .world(Docs.save.hold())
+  .send(plan, Document.E.Edit({ body: "second draft" }))
+  .send(plan, Document.E.Close())
+  .world(Docs.save.release())
+  .checkpoint("answered");
+
+/**
  * Every document Story, by name.
  */
-export const documentStories = { savedAfterWrite, closeClears };
+export const documentStories = { savedAfterWrite, closeClears, saveAfterClose };

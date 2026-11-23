@@ -148,4 +148,12 @@ describe("writes into a persisted read (Operations R4; Entry store)", () => {
     expect(entries(run.checkpoints.loaded, DOCUMENT)).toEqual([first]);
     expect(entries(run.checkpoints.closed, DOCUMENT)).toEqual([]);
   });
+
+  it.fails("Plan Operations O5 (clear blocks old results), Entry store: a save answered after the plan was closed does not bring its saved copy back", async () => {
+    const { saveAfterClose } = await load();
+    const run = await saveAfterClose.run();
+
+    expect(run.checkpoints.answered.read(Docs.save)).toHaveLength(1);
+    expect(entries(run.checkpoints.answered, DOCUMENT)).toEqual([]);
+  });
 });

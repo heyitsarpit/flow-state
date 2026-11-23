@@ -1,4 +1,5 @@
 import { Story } from "../../../src/host/testing/index.ts";
+import { RuntimeDefaults } from "../../../src/index.ts";
 import { homeReadingsSetup, loungeCard, Thermometer } from "../pending/thermometer.ts";
 import { SensorsFake, SensorsFakeSteadfast } from "../server/layer.ts";
 import { Sensors } from "../server/sensors.ts";
@@ -19,7 +20,7 @@ export const cardUsual = Story.app(homeReadingsSetup, {
 
 /**
  * Over a hub that never stops a reading, the card goes away while its reading is asked, so that
- * reading is told to stop and runs on; the card comes back on its own five seconds later, the
+ * reading is told to stop and runs on; the card comes back on its own one disposal bound later, the
  * instant the stopped reading passes the disposal bound. The card shows one issue then, and none
  * once the reading ends.
  */
@@ -31,7 +32,7 @@ export const releaseMeetsSchedule = Story.app(homeReadingsSetup, {
   .ensure(loungeCard)
   .send(loungeCard, Thermometer.E.Away())
   .checkpoint("away")
-  .advance("5 seconds")
+  .advance(RuntimeDefaults.disposalBound)
   .checkpoint("met")
   .world(Sensors.reading.release())
   .checkpoint("ended");

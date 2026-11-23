@@ -3,7 +3,15 @@
 import { Layer, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { layerIndexedDb } from "../../../src/host/persistence.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../../src/index.ts";
+import {
+  actorRef,
+  app,
+  definition,
+  Flow,
+  machine,
+  RuntimeDefaults,
+  runtimeSetup,
+} from "../../../src/index.ts";
 import { SensorsHttp } from "../adapters/sensors.ts";
 import { readings } from "../operations/reads.ts";
 
@@ -32,7 +40,7 @@ export const Thermometer = definition({
 
 /**
  * Shown, the card places its room's reading and refreshes it every minute; away, it holds nothing
- * and comes back on its own after five seconds.
+ * and comes back on its own after the Runtime's disposal bound.
  */
 export const ThermometerMachine = machine(Thermometer, ({ S, E, O }) => ({
   default: S.SHOWN,
@@ -50,7 +58,9 @@ export const ThermometerMachine = machine(Thermometer, ({ S, E, O }) => ({
     },
     AWAY: {
       on: { Back: S.SHOWN, Returned: S.SHOWN },
-      schedules: { back: { schedule: "5 seconds", send: E.Returned, armOn: [Flow.entry] } },
+      schedules: {
+        back: { schedule: RuntimeDefaults.disposalBound, send: E.Returned, armOn: [Flow.entry] },
+      },
     },
   },
 }));

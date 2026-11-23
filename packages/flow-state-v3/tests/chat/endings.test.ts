@@ -4,6 +4,7 @@ import { BURST, sendBurst } from "../../fixtures/chat/stories/load.ts";
 import {
   askTwice,
   deleteBadUndo,
+  deleteGone,
   missingHistory,
   resendLimit,
   usual,
@@ -53,6 +54,14 @@ describe("a mapper's context (Operations R2)", () => {
   });
 });
 
+describe("a delete's key (Operations R2)", () => {
+  it.fails("Operations R2: a delete of a message the server no longer has names it from the delete's key", async () => {
+    const run = await deleteGone.run();
+
+    expect(run.checkpoints.gone.read(general)?.memory.notice).toBe("m-9 was gone");
+  });
+});
+
 describe("a refused ending's row and its issue (Operations R6, R11, I13)", () => {
   it("Operations R11, Rows: a delete whose mapper throws is kept with one issue naming its operation", async () => {
     const run = await deleteBadUndo.run();
@@ -64,7 +73,9 @@ describe("a refused ending's row and its issue (Operations R6, R11, I13)", () =>
   it.fails("Operations R6, I13, T4.1: another key's delete heard cleanly leaves the kept delete's issue standing", async () => {
     const run = await deleteBadUndo.run();
 
-    expect(deleteIssues(run.checkpoints["other deleted"])).toHaveLength(1);
+    expect(
+      deleteIssues(run.checkpoints["other deleted"]).map((i) => i.path.join(" ").includes("m-1")),
+    ).toEqual([true]);
     expect(ids(run.checkpoints["other deleted"])).toEqual(["m-1"]);
   });
 

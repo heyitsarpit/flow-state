@@ -481,6 +481,33 @@ tasks
 
             Freeze and thaw: no life freezes in production before instances (T109), so the freeze cells of slots (T122)
             and placements (T123) are built as functions here and their Stories wait on T109.
+        comment     2026-11-23T04:19:07Z
+            Requirements review (five sidecars: blind A, blind B, flip A, flip B, cohesion; lead-verified): ISSUES,
+            folded into one fix round; no blocker left open in range.
+            - Accepted and fixed: freshness stamped at landing, not at the ask (chat/usual now waits 20 s before the
+              history lands); the kept issue must name its own key (`m-1`); a delete's key mapper had no Story
+              (chat/delete-gone); the blank query must leave one `InvalidInput` evidence; the timeout is checked at 4999
+              ms too; the slot picker's freshness assertion now comes before the mapper-dependent one; two chat titles
+              now cite R3, which is what fails first; bound waits read `RuntimeDefaults.disposalBound`, not a copied
+              literal (the Q9 Story's schedule is the bound itself); a save answered after Close must not bring the
+              saved copy back (draft/save-after-close, Plan Operations O5).
+            - Noted for the build (not reds now): the generated oracle sees only same-step duplicates, since the fake
+              logs a call's start and not its settle; a Collect or ReleaseOverdue read from a stored flag passes these
+              Stories (a direct `issuesOf(now)` check at the bound belongs with the code); restore-after-edit checks
+              bytes, not the installed view (rows are T122's view); `idle` has existing coverage only (`rg "\.idle\("`
+              in fixtures); R11's placement-select and synchronous lookup/commit throws need reds with their code
+              (T123, T121).
+            - Cohesion family for the build: the mapper signature lives in three places that change together
+              (`contract.ts` `Ending["~maps"]`, `event-tokens.ts` `EventToken.from` and `MappedEvent["~maps"]`);
+              `ReadHandle.cancel` is keyless only beside the keyed `WriteHandle.cancel`; `Heard` is a string union
+              beside tagged siblings (the Spec makes it a tagged union with the refusal); lane heads are also written by
+              `ledger.ts#start` (owner) and the boot's `putLane`, which T121 moves behind the lane table; `takeDue`
+              clears due alarms before `tick` runs their owners, so Collect and Release handlers must be reached by
+              `tick`'s match.
+            - Rejected, with reason: pending imports as the red cause is the recorded fixtures decision; a sign-out
+              leaking a saved copy to the next account does not arise, since each account has its own Runtime scope and
+              store; the green `CleanupOverdue` pin in `cleanups.test.ts` is the Spec's listed changed behaviour,
+              deleted by the builder with `close.ts#CleanupOverdue`.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft

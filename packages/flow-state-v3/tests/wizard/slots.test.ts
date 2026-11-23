@@ -22,8 +22,8 @@ describe("the slot picker (Operations R2, R4, R5)", () => {
     const run = await slotsUsual.run();
 
     expect(run.checkpoints.located.read(picker)?.memory.area).toBe("london");
-    expect(run.checkpoints.held.read(booking)?.state).toBe("HELD");
     expect(run.checkpoints["located again"].read(Inspections.area)).toHaveLength(1);
+    expect(run.checkpoints.held.read(booking)?.state).toBe("HELD");
   });
 
   it.fails("Operations R2: a hold whose slot was taken names the slot from its own input, and the day is listed again", async () => {

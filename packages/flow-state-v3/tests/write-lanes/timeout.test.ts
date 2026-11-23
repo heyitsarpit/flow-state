@@ -92,10 +92,13 @@ describe("a write's timeout (Operations R2, TimeoutIsUnknown)", () => {
       .world(Chat.send.hold())
       // oxlint-disable-next-line flow-state/no-raw-event -- the poster is built as plain JavaScript builds it, so no typed token exists to build its event
       .send(poster, { _tag: "Post" })
-      .advance("5 seconds")
+      .advance("4999 millis")
+      .checkpoint("waiting")
+      .advance("1 milli")
       .checkpoint("timed out")
       .run();
 
+    expect(run.checkpoints.waiting.read(poster)?.memory).toEqual({ heard: "" });
     expect(run.checkpoints["timed out"].read(poster)?.memory).toEqual({ heard: "unsure" });
   });
 });
