@@ -140,8 +140,9 @@ export const depositCheque = transaction({
  */
 export const ChequeDeposit = definition({
   id: "Bank/ChequeDeposit",
+  persist: true,
   states: ["READY", "SENDING", "DONE"],
-  events: { Send: { parts: Schema.Number } },
+  events: { Send: { parts: Schema.Number }, Abort: {}, Resume: {} },
   internalEvents: { Deposited: {}, Unsure: Flow.uncertain({}) },
   memory: { depositId: Flow.input(Schema.String), notice: Flow.initial(Schema.String, "") },
   operations: ({ E }) => ({
@@ -149,14 +150,25 @@ export const ChequeDeposit = definition({
   }),
 });
 
+const byDeposit = ({ memory }: { readonly memory: typeof ChequeDeposit.Memory.Type }) => ({
+  depositId: memory.depositId,
+});
+
 /**
- * Sending deposits the cheque in parts; its row's `progress` shows how far it got.
+ * Sending deposits the cheque in parts; its row's `progress` shows how far it got. Aborting stops
+ * the parts on the wire, and resuming sends the same deposit again, at most twice.
  */
 export const ChequeDepositMachine = machine(ChequeDeposit, ({ S, O }) => ({
   default: S.READY,
   states: {
     READY: {
       on: {
+        Resume: {
+          target: S.SENDING,
+          guard: [O.depositCheque.retryable(byDeposit, { times: 2 })],
+          updateMemory: () => ({ notice: "" }),
+          actions: [O.depositCheque.retry(byDeposit)],
+        },
         Send: {
           target: S.SENDING,
           actions: [
@@ -170,6 +182,7 @@ export const ChequeDepositMachine = machine(ChequeDeposit, ({ S, O }) => ({
     },
     SENDING: {
       on: {
+        Abort: { actions: [O.depositCheque.cancel(byDeposit)] },
         Deposited: { target: S.DONE, updateMemory: () => ({ notice: "deposited" }) },
         Unsure: { target: S.READY, updateMemory: () => ({ notice: "not sure it arrived" }) },
       },

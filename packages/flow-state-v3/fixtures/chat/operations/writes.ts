@@ -3,16 +3,19 @@ import { Outcome, transaction } from "../../../src/index.ts";
 import { AssistantApi, MessagesApi } from "../services.ts";
 
 /**
- * Posts one message; a thread's sends go one at a time, in order. A lost answer is unknown.
+ * Posts one message; a thread's sends go one at a time, in order. The server keys a message by its
+ * client id, so a send tried again is the same message. A lost answer is unknown.
  */
 export const send = transaction({
   id: "Chat/send",
   input: { thread: Schema.String, clientId: Schema.String, text: Schema.String },
   key: ["thread"],
   concurrency: "serialize",
+  // @ts-expect-error Plan Operations O1: a write declares the input fields the server keys it by
+  idempotency: ["clientId"],
   services: [MessagesApi],
-  commit: (input, { attempt }) =>
-    MessagesApi.use((api) => api.send(input, { idempotencyKey: attempt.id })).pipe(
+  commit: (input) =>
+    MessagesApi.use((api) => api.send(input, { idempotencyKey: input.clientId })).pipe(
       Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
     ),
 });

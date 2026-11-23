@@ -1,7 +1,9 @@
 import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Accounts } from "../../fixtures/transfers/server/accounts.ts";
+import type { ChequeDeposit } from "../../fixtures/transfers/pending/deposit.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
+import type { ActorRef } from "../../src/index.ts";
 
 // The bank's balance card and cheque deposit. Expected results: an answer asked before a write
 // that invalidates its entry lands nothing, and the trailing read shows the written state
@@ -16,6 +18,19 @@ const load = async () => ({
   ...(await import("../../fixtures/transfers/pending/balance.ts")),
   ...(await import("../../fixtures/transfers/pending/deposit.ts")),
 });
+
+// The deposit alone: it loads today, so its reds fail on the member it lacks, not on the card.
+const loadDeposit = async () => ({
+  ...(await import("../../fixtures/transfers/pending/deposit-stories.ts")),
+  ...(await import("../../fixtures/transfers/pending/deposit.ts")),
+});
+
+// A deposit's row's progress at a cut, none with no row or no progress.
+const progressOf = (cut: Cut, ref: ActorRef<typeof ChequeDeposit>) => {
+  const row = cut.read(ref)?.operations.get("depositCheque")?.get('{"depositId":"dep-1"}');
+
+  return Predicate.hasProperty(row, "progress") ? row.progress : undefined;
+};
 
 describe("the balance card and cheque deposits (Operations R4; Plan Operations O1, O6)", () => {
   it.fails("Operations R4, I7, T4.4: a refresh asked before a card payment loses, and the read after shows the payment", async () => {
@@ -44,20 +59,47 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
   });
 
   it.fails("Plan Operations O6: a deposit's row shows its progress after each part", async () => {
-    const { depositInParts, rentCheque } = await load();
+    const { depositInParts, rentCheque } = await loadDeposit();
     const run = await depositInParts.run();
 
-    const progress = (cut: Cut) => {
-      const row = cut
-        .read(rentCheque)
-        ?.operations.get("depositCheque")
-        ?.get('{"depositId":"dep-1"}');
-
-      return Predicate.hasProperty(row, "progress") ? row.progress : undefined;
-    };
-
-    expect(progress(run.checkpoints["one part"])).toBe(1 / 3);
+    expect(progressOf(run.checkpoints["one part"], rentCheque)).toBe(1 / 3);
     expect(run.checkpoints.deposited.read(rentCheque)?.state).toBe("DONE");
+  });
+
+  it.fails("Plan Operations O3, O6, S6: a deposit whose screen closes goes on, and the screen opened again shows its progress", async () => {
+    const { depositClosedMidway, rentCheque } = await loadDeposit();
+    const run = await depositClosedMidway.run();
+
+    expect(progressOf(run.checkpoints.reopened, rentCheque)).toBe(1 / 3);
+    expect(run.checkpoints.deposited.read(rentCheque)?.state).toBe("DONE");
+  });
+
+  it.fails("Plan Operations O6, E8: a reload mid-deposit leaves it unsure with no progress, and resuming deposits it", async () => {
+    const { depositReloaded, rentCheque } = await loadDeposit();
+    const run = await depositReloaded.run();
+    const reloaded = run.checkpoints.reloaded.read(rentCheque);
+
+    expect([reloaded?.state, reloaded?.memory.notice]).toEqual(["READY", "not sure it arrived"]);
+    expect(progressOf(run.checkpoints.reloaded, rentCheque)).toBeUndefined();
+    expect(run.checkpoints.resumed.read(rentCheque)?.state).toBe("DONE");
+  });
+
+  it.fails("Plan Operations O6: a lost part leaves the deposit unsure, its row at the parts it sent", async () => {
+    const { depositPartLost, rentCheque } = await loadDeposit();
+    const run = await depositPartLost.run();
+    const lost = run.checkpoints.lost.read(rentCheque);
+
+    expect([lost?.state, lost?.memory.notice]).toEqual(["READY", "not sure it arrived"]);
+    expect(progressOf(run.checkpoints.lost, rentCheque)).toBe(1 / 3);
+  });
+
+  it.fails("Plan Operations O3, O6: an aborted deposit is unsure, and resuming sends the same deposit again until it lands", async () => {
+    const { depositAbortResume, rentCheque } = await loadDeposit();
+    const run = await depositAbortResume.run();
+
+    expect(run.checkpoints.aborted.read(rentCheque)?.memory.notice).toBe("not sure it arrived");
+    expect(progressOf(run.checkpoints.aborted, rentCheque)).toBe(1 / 3);
+    expect(run.checkpoints.resumed.read(rentCheque)?.state).toBe("DONE");
   });
 
   it.fails("Plan Operations O1: a money write declares the input field the server keys it by", async () => {

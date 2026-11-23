@@ -2,7 +2,6 @@ import { Story } from "../../../src/host/testing/index.ts";
 import { Customer } from "../machines/customer.ts";
 import { Accounts } from "../server/accounts.ts";
 import { AvailableFake, BalanceCard, balanceSetup, card, me } from "./balance.ts";
-import { ChequeDeposit, depositSetup, Deposits, DepositsFake, rentCheque } from "./deposit.ts";
 
 const cardStory = (id: string) =>
   Story.app(balanceSetup, { id, fixtures: [AvailableFake] })
@@ -32,18 +31,3 @@ export const switchAccount = cardStory("transfers/switch-account")
   .checkpoint("switching")
   .world(Accounts.balance.release())
   .checkpoint("switched");
-
-/**
- * A cheque deposited in three parts: after the first part the deposit shows a third done.
- */
-export const depositInParts = Story.app(depositSetup, {
-  id: "transfers/deposit-in-parts",
-  fixtures: [DepositsFake],
-})
-  .ensure(rentCheque)
-  .world(Deposits.part.hold(), Deposits.part.hold())
-  .send(rentCheque, ChequeDeposit.E.Send({ parts: 3 }))
-  .world(Deposits.part.release())
-  .checkpoint("one part")
-  .world(Deposits.part.release())
-  .checkpoint("deposited");

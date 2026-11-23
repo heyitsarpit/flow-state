@@ -113,11 +113,30 @@ export const ThreadMachine = machine(Thread, ({ S, O }) => ({
             pending: [...memory.pending, event.clientId],
           }),
           actions: [
-            O.send.commit(({ memory, event }) => ({
-              thread: memory.thread,
-              clientId: event.clientId,
-              text: event.text,
-            })),
+            O.send.commit(
+              ({ memory, event }) => ({
+                thread: memory.thread,
+                clientId: event.clientId,
+                text: event.text,
+              }),
+              // @ts-expect-error Plan Operations O5: a commit's `optimistic` value on a read
+              {
+                // The echo: the thread's history shows the message under its client id at once.
+                // @ts-expect-error Plan Operations O5: `optimistic` reads the starting turn's memory and event
+                optimistic: ({ memory, event, context }) => ({
+                  history: {
+                    key: { thread: memory.thread },
+                    // @ts-expect-error Plan Operations O5: an optimistic value updates the read's current data
+                    data: (current) => ({
+                      messages: [
+                        ...current.messages,
+                        { id: event.clientId, author: context.author ?? "", text: event.text },
+                      ],
+                    }),
+                  },
+                }),
+              },
+            ),
           ],
         },
         Sent: {

@@ -70,4 +70,17 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(settled.read(Carts.cart)).toHaveLength(2);
     expect(lineIds(settled, miniCart)).toEqual(["l1"]);
   });
+
+  it.fails("Operations R4, I7; Plan Operations O5: overlapping adds keep both lines shown, and the stale snapshot between them lands nothing", async () => {
+    const { staleOverlappingAdds, miniCart } = await load();
+    const run = await staleOverlappingAdds.run();
+    const shown = ["sending", "one answered", "settled"] as const;
+
+    expect(shown.map((name) => lineIds(run.checkpoints[name], miniCart))).toEqual([
+      ["l1", "l2"],
+      ["l1", "l2"],
+      ["l1", "l2"],
+    ]);
+    expect(run.checkpoints.settled.read(Carts.cart)).toHaveLength(3);
+  });
 });

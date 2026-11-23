@@ -68,3 +68,18 @@ export const staleSnapshot = Story.app(miniCartSetup, {
   .send(miniCart, MiniCart.E.Add({ lineId: "l1", variantId: "v-red" }))
   .world(Carts.cart.release())
   .checkpoint("settled");
+
+/**
+ * Two adds overlap: the first one's answer starts a refresh whose snapshot misses the second line,
+ * and the second add answers before that snapshot does. The stale snapshot lands nothing, the second
+ * line stays shown throughout, and the trailing read shows both lines.
+ */
+export const staleOverlappingAdds = miniCartStory("shop/stale-overlapping-adds")
+  .world(Carts.addLine.hold(), Carts.addLine.hold())
+  .send(miniCart, MiniCart.E.Add({ lineId: "l1", variantId: "v-red" }))
+  .send(miniCart, MiniCart.E.Add({ lineId: "l2", variantId: "v-green" }))
+  .checkpoint("sending")
+  .world(Carts.cart.hold({ at: "response" }), Carts.addLine.release())
+  .checkpoint("one answered")
+  .world(Carts.addLine.release(), Carts.cart.release())
+  .checkpoint("settled");

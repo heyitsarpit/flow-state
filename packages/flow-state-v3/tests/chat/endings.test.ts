@@ -1,5 +1,7 @@
+import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { general } from "../../fixtures/chat/app.ts";
+import { send } from "../../fixtures/chat/operations/writes.ts";
 import { BURST, sendBurst } from "../../fixtures/chat/stories/load.ts";
 import {
   askTwice,
@@ -118,5 +120,14 @@ describe("services at boot (Operations, Rows: MissingService)", () => {
     await expect(missingHistory().run()).rejects.toThrow(
       /MissingService.*Chat\/history.*HistoryApi/su,
     );
+  });
+});
+
+describe("a declared idempotency (Plan Operations O1)", () => {
+  it.fails("Plan Operations O1: the send declares the client id as the field the server keys it by, and a resend carries it", async () => {
+    const run = await played(resendLimit);
+
+    expect(Predicate.hasProperty(send, "idempotency") && send.idempotency).toEqual(["clientId"]);
+    expect(run.end.read(Chat.send).map((c) => c.input.key)).toEqual(["c-1", "c-1", "c-1"]);
   });
 });

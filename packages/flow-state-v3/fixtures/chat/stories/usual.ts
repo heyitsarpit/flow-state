@@ -178,6 +178,20 @@ export const releaseOverdue = signedIn(
   .checkpoint("ended");
 
 /**
+ * Ada sends a message while its answer is held, and the sidebar opens `general` five seconds later:
+ * the history is fresh, so the preview is served from it with the send's echo applied, with no
+ * request; once the server answers, the message stays.
+ */
+export const echoInPreview = joined("chat/echo-in-preview")
+  .world(Chat.send.hold())
+  .send(general, Thread.E.Send({ clientId: "c-1", text: "hello" }))
+  .advance("5 seconds")
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .checkpoint("previewed")
+  .world(Chat.send.release())
+  .checkpoint("sent");
+
+/**
  * The app booted without the history service its reads list, as a Layer whose type was widened
  * can: a type error where the type is kept, and refused at boot, by name, where it is not.
  */
@@ -204,4 +218,5 @@ export const stories = {
   newDeleteAfterReload,
   askTwice,
   releaseOverdue,
+  echoInPreview,
 };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { general, hub, random, threadOf } from "../../fixtures/chat/app.ts";
 import { manyThreads, THREADS } from "../../fixtures/chat/stories/load.ts";
 import {
+  echoInPreview,
   noReaderLeft,
   oneReaderLeft,
   releaseOverdue,
@@ -94,5 +95,17 @@ describe("a released history read (Operations R8, I11)", () => {
     expect(
       [released, run.checkpoints["before bound"], run.checkpoints["past bound"], ended].map(codes),
     ).toEqual([[], [], ["ReleaseOverdue"], []]);
+  });
+});
+
+describe("a send's echo on the history (Plan Operations O5)", () => {
+  it.fails("Plan Operations O5: a fresh history serves the sidebar with a held send's echo applied, with no request, and the message stays once sent", async () => {
+    const run = await echoInPreview.run();
+    const { previewed, sent } = run.checkpoints;
+
+    expect(historyCalls(previewed, "general")).toHaveLength(1);
+    expect(previewed.read(hub)?.memory.preview).toBe("hello");
+    expect(sent.read(hub)?.memory.preview).toBe("hello");
+    expect(ids(sent)).toEqual(["m-1", "m-2", "m-3"]);
   });
 });

@@ -219,7 +219,8 @@ Stripe's 3-D Secure flow (<https://docs.stripe.com/payments/3d-secure>, not chec
     `tests/shop/mini-cart.test.ts`.
     - [ ] `shop/switch-carts` (the left switching-carts item below), `shop/add-shown-at-once` (the add-at-once
       item), `shop/refused-add-removed`, `shop/failed-add-during-load` (the failed-change item),
-      `shop/stale-snapshot` (the stale-snapshot finding). Stale overlapping add answers: not yet written.
+      `shop/stale-snapshot` (the stale-snapshot finding), `shop/stale-overlapping-adds` (stale overlapping add
+      answers; adapts [cart-transactions.test.ts:253][hy-tx] to two adds).
   - **Context forms** (@task.V3.T107; tests in `tests/shop/context.test.ts`):
     - [x] Usual: pass-through, derived, `when`, payload; an equal count silent, a declined change still the
       baseline. `shop/pulse-adds`. Copies [cart-tracker.test.ts:358][hy-track] "publishes product_added_to_cart
@@ -575,8 +576,10 @@ kamp.us for rows restored after a failure.
     `ChequeDeposit` (T `depositCheque`, `progress`, `idempotency` by deposit id); tests in
     `tests/transfers/reads.test.ts`.
     - [ ] `transfers/read-after-write` (the read-after-write item), `transfers/switch-account` (placeholder),
-      `transfers/deposit-in-parts` (the deposit-in-chunks item). Deposit S6, E8, a failing part and abort and
-      resume: not yet written. Bigint key "$1n": no owner in this slice.
+      `transfers/deposit-in-parts` (the deposit-in-chunks item); `transfers/deposit-closed-midway` (S6),
+      `transfers/deposit-reloaded` (E8), `transfers/deposit-part-lost` (a failing part, test-parallel-uploads.js:41,
+      :325), `transfers/deposit-abort-resume` (test-parallel-uploads.js:448), in `pending/deposit-stories.ts`.
+      Bigint key "$1n": @task.V3.T122.
   - **Customer's bill reminders (@task.V3.T118),** no source (Schedules R1, R3, R5, R14; tests in
     `tests/transfers/reminders.test.ts`):
     - [x] Usual: reminded at the due date, held by a snooze, restarted when the date moves, gone when paid. built:
@@ -1457,6 +1460,9 @@ checked here).
       `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`, `stress-send-burst` (L5, 100),
       `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`; samples `chat`.
     - [ ] Pair sweep: red (`tests/chat/pairs.test.ts`), rejoins the manifest when it passes.
+    - [ ] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar); T `send`
+      declares `idempotency` by client id (`tests/chat/endings.test.ts`); `Attachment` (pending), T `upload` with
+      `progress`: `chat/upload-progress`, `chat/upload-stopped` (`tests/chat/attachments.test.ts`).
   - **Usual:**
     - [ ] Send with an instant echo. Copies [use-chat.ui.test.tsx:628][ai-react] "should show user message immediately".
     - [ ] One id serves sending and resuming. Copies [chat.test.ts:140][ai-chat] "uses the same lazily generated id for
