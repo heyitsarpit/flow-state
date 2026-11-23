@@ -64,6 +64,9 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
    any fact the host mirrors (leases, subscriptions).
 15. **A slice that replaces the turn's core costs about 8% of the weekly limit** [proposed, as a planning figure]:
    slice T119 took 82% to 90% across requirements, two reviews, a build and one fix round.
+16. **A test oracle for a boundary is derived from the writer it judges, never hand-written beside it** [proposed].
+   Why: slice T92's close review blocked on a made-up ending that passed because the writer, the reader and the
+   corrupt-record oracle were three copies, the oracle the widest; deriving all three from one codec closed it.
 
 ## Already merged
 
