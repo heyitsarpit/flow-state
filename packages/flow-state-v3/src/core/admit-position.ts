@@ -181,7 +181,9 @@ const graphOf = (machines: ReadonlyMap<string, Compiled>, graph: Position["graph
       (a) => actorKey(a.actor) === owned,
     );
 
-    if (Option.isNone(owner)) return [`graph.${owned}`];
+    // The writer saves no wiring of a provider that keeps its own record.
+    if (Option.isNone(owner) || machines.get(owner.value.actor.machine)?.persist === true)
+      return [`graph.${owned}`];
 
     const wiring = wiringOf(machines, owned, owner.value.actor, wired);
     read.set(owned, wiring.bound);
@@ -196,7 +198,7 @@ const graphOf = (machines: ReadonlyMap<string, Compiled>, graph: Position["graph
  * A position read against its machine through the reference table: Live, with the leaves it
  * dropped (a name the machine lacks or one that does not read), or Reset by a state the machine
  * lacks or a memory field that does not read. A memory field the name holds is not read: the name
- * gives it. Instances and bookmarks no machine declares yet are dropped.
+ * gives it. Instances no machine declares yet are dropped.
  */
 export const resolvePosition = (
   machines: ReadonlyMap<string, Compiled>,
@@ -235,10 +237,6 @@ export const resolvePosition = (
             ...slots.dropped,
             ...graph.dropped,
             ...Object.keys(body.instances).map((address) => `instances.${address}`),
-            ...Option.match(Option.fromUndefinedOr(body.bookmarks), {
-              onNone: () => [],
-              onSome: () => ["bookmarks"],
-            }),
           ],
         };
       }),

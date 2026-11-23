@@ -4,6 +4,7 @@ import type { Compiled, Operation, Values } from "./compiled.ts";
 import { Audience, Delivery, type Owed } from "./ledger.ts";
 import { keyTextOfLane } from "./record-key.ts";
 import { textOf } from "./record.ts";
+import { encodedBy, Lane as LaneCodec, Row } from "./record-shape.ts";
 import {
   type ActorId,
   type Carried,
@@ -160,6 +161,29 @@ const savedRows = (rows: ReadonlyArray<Owed>, heads: ReadonlySet<string>) => {
 // What one row saves: its JSON, or nothing when its input has no key (counted lost), with whether
 // its value was saved as unknown Restored.
 type RowSaved = { readonly json: Option.Option<Part>; readonly unsaved: boolean };
+
+// Each row's saved form, kept by the row: an owed row is immutable, so a capture encodes only the
+// rows owed since the last one, not every row the identity still owes.
+const rowsSaved = new WeakMap<Owed, Result.Result<RowSaved, "shape">>();
+
+// A row's saved form, encoded by the row codec.
+const savedRow = (operation: Option.Option<Operation>, row: Owed) => {
+  const known = rowsSaved.get(row);
+
+  if (known !== undefined) return known;
+
+  const made = rowJson(operation, row);
+
+  const saved = Option.match(made.json, {
+    onNone: () => Result.succeed(made),
+    onSome: (json) =>
+      Result.map(encodedBy(Row)(json), (encoded) => ({ ...made, json: Option.some(encoded) })),
+  });
+
+  rowsSaved.set(row, saved);
+
+  return saved;
+};
 
 // RETURN_TYPE: a RowSaved, so its JSON branches are one Part option.
 const rowJson = (operation: Option.Option<Operation>, row: Owed): RowSaved => {
@@ -355,8 +379,13 @@ export const encodeWork = (machines: ReadonlyMap<string, Compiled>, parts: WorkP
       ),
     );
 
+    yield* Result.all([...lanes, ...displaced].map((e) => encodedBy(LaneCodec)(laneJson(e.lane))));
+
     const heads = new Set<string>(parts.lanes.map(([, lane]) => lane.head.id));
-    const rows = savedRows(owed, heads).map((row) => rowJson(operationOf(row.operation), row));
+
+    const rows = yield* Result.all(
+      savedRows(owed, heads).map((row) => savedRow(operationOf(row.operation), row)),
+    );
 
     const body = {
       lanes: lanesOf([...lanes, ...displaced], parts.carried),

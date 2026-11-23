@@ -53,3 +53,5 @@ export type { Property, Samples } from "./samples.ts";
 export { FAULTS, PHASES, pairSweep } from "./sweep.ts";
 
 export type { Cell, Fault } from "./sweep.ts";
+
+export { recordLiterals, writerDecodes } from "./records.ts";

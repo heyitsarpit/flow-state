@@ -2006,6 +2006,32 @@ tasks
             after decode; World's runtime ActorId is not a record, and branding it is not this Task's. Why: no hand copy
             can drift again, and the acceptance text is met, not relaxed. Reverse: hand checks plus an oracle kept in
             step by review. The R16 Kept-unknown gap lands as an it.fails titled by R16, owned by @task.V3.T121.
+        comment     2026-11-23T00:08:59Z
+            Fix round (builder): R11 closed by structure. One strict Shape codec per kind in
+            code:packages/flow-state-v3/src/core/record-shape.ts: the writer encodes every work part with it
+            (encodedBy), the boot decodes with it, and the oracle writtenForm is that codec, reached through the test
+            tooling's writerDecodes. Each slot now admits only what the writer emits (a head's unknown slot an unknown;
+            a row's ending by channel, a decline's reason its value's; slot entries that hold something; no empty
+            wiring, no instances); stepped positions and carried format 5 rows keep their own forms. The corrupt test
+            now also swaps every literal slot for each other literal the codecs name. Red: 01c59bf6; plant
+            shape-reader-wider caught.
+        comment     2026-11-23T00:09:00Z
+            Sibling: a graph entry for a provider that keeps its own record, which the writer never saves, was read; it
+            is now dropped whole and reported FieldDropped (test in saved-records.test.ts, plant
+            graph-entry-read-for-recorded-provider caught). A plant on the shared codec widens the oracle with it, so
+            shape-not-strict and attempt-form-unchecked now target direct tests.
+        comment     2026-11-23T00:09:00Z
+            [decided: agent builder 2026-11-23] The position writer is not encoded through the codec: its memory and
+            selections are cached canonical text parts the codec cannot take. Its slots are judged at stage 2 by the
+            definition, and the codec rejects every structural form it never writes. Why: the per-field text memo
+            (Records Cost). Reverse: encode positions through the codec and drop the memo.
+        comment     2026-11-23T00:09:01Z
+            recordKinds still skips every record of an identity a Story put: a carried part is written back inside a
+            text the Runtime rewrites, so the put text no longer matches, and telling a carried part from the rest needs
+            the reader. Durability 1,300 rows: not the row encode (each row's encoded form is now kept by the row; the
+            time did not move, 6.4 s); the remaining cost is unprofiled, likely the whole work text rewritten per
+            capture and the ledger's per-row list copies (Records Cost notes both). R16 Kept-unknown gap landed as
+            it.fails owned by T121 (comment there).
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
@@ -5847,6 +5873,11 @@ tasks
             Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
             without instances: per-subject ledger.ts Audience and locate, shared with @task.V3.T109; owed rows decide
             their final shape.
+        comment     2026-11-22T23:57:37Z
+            Inverted test owned here (from @task.V3.T92's close review): src/host/ledger.test.ts 'Records R16: a final
+            answer replaces its Attempt's Kept unknown live as after a reload'. The saved form already drops an unknown
+            its Attempt's final answer replaces; the live ledger delivers both, so live and reload disagree until this
+            Task's second table lands.
     T122
         title       Read entries and read slots
         status      draft

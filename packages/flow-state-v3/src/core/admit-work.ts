@@ -307,7 +307,6 @@ const resolveRow = (compiled: Compiled, actor: ActorId, row: SavedRow, stepped: 
       })),
       () =>
         row.keyText === undefined &&
-        row.rest === undefined &&
         isUnencodableDecline({ ...row.ending, attempt: Option.fromUndefinedOr(row.attempt) }),
     );
 

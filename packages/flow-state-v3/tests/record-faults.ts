@@ -3,7 +3,6 @@ import type { Fault } from "./faults.ts";
 const SAVED = "tests/restore/saved-records.test.ts";
 const WRITTEN = "tests/restore/record-shapes.test.ts";
 const RESTORE = "tests/restore/restore.test.ts";
-const CORRUPT = "tests/restore/corrupt.test.ts";
 
 const STRUCTURE = "src/core/record-structure.ts";
 const WORK = "src/core/record-work.ts";
@@ -240,7 +239,7 @@ export const recordFaults: ReadonlyArray<Fault> = [
   fault(
     "shape-not-strict",
     "Records R11, I2",
-    [CORRUPT],
+    [SAVED],
     "a record with a member no Shape names decodes",
     "src/core/record-shape.ts",
     '        try: () => Schema.decodeUnknownResult(schema)(value, { onExcessProperty: "error" }),',
@@ -249,11 +248,29 @@ export const recordFaults: ReadonlyArray<Fault> = [
   fault(
     "attempt-form-unchecked",
     "Records realization, R11",
-    [CORRUPT],
+    [SAVED],
     "an Attempt id the mint never makes is read as one",
     "src/core/record-shape.ts",
     "  Schema.isPattern(/^att-[0-9a-f]{32,}-[1-9]\\d*$/u),",
     "  Schema.isPattern(/^/u),",
+  ),
+  fault(
+    "shape-reader-wider",
+    "Records R11, R16",
+    [SAVED],
+    "the codec takes any ending in a head's unknown slot, though the writer saves only an unknown there",
+    "src/core/record-shape.ts",
+    "  unknown: Schema.optionalKey(Schema.Struct({ ending: UnknownEnding, kept: Schema.Boolean })),",
+    "  unknown: Schema.optionalKey(Schema.Struct({ ending: SavedEnding, kept: Schema.Boolean })),",
+  ),
+  fault(
+    "graph-entry-read-for-recorded-provider",
+    "Records I8 (graph), R11",
+    [SAVED],
+    "the boot reads a saved wiring of a provider that keeps its own record, which the writer never saves",
+    "src/core/admit-position.ts",
+    "    if (Option.isNone(owner) || machines.get(owner.value.actor.machine)?.persist === true)",
+    "    if (Option.isNone(owner))",
   ),
   fault(
     "attempts-once-off",

@@ -352,6 +352,29 @@ describe("the owed ledger on the production runtime", () => {
     assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
   });
 
+  // Owned by the ledger's runtime side (@task.V3.T121): live, an Attempt's final answer does not yet
+  // replace its Kept unknown, so the live run hears both while a reload hears the final alone.
+  it.fails("Records R16: a final answer replaces its Attempt's Kept unknown live as after a reload, so the live run hears it alone", () => {
+    const store = new Map<string, string>();
+    const jam: Jam = { on: true, tries: [] };
+    const { served } = tollOver(jam, []);
+    const first = bootWith(served, store, 1);
+
+    testing.attach(first.built, tolls, "host", false);
+    ring(first, "a");
+    const attempt = lastRing(first);
+    lost(first, attempt);
+    testing.send(first.built, tolls, "Again", { tone: "a" });
+    first.tab.settle();
+    rung(first, attempt);
+    jam.on = false;
+    testing.detach(first.built, tolls, "host");
+    testing.attach(first.built, tolls, "host", false);
+    first.tab.settle();
+
+    assert.deepStrictEqual(turnsOf(first.seen, ["Unsure", "Rang"]), ["Rang"]);
+  });
+
   // WriteLanes I34: "A row's life is reported from the row and nowhere else: Ended once at its
   // birth, ... and exactly one of Delivered or Recorded at its close." A row refused twice, then
   // heard at the next start, is reported Delivered once, when it is heard; today every try reports

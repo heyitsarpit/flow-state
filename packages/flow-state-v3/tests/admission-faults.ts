@@ -340,9 +340,9 @@ export const admissionFaults: ReadonlyArray<Fault> = [
     "timer-shapes-loose",
     "Records I2",
     ["tests/rules/rules.test.ts"],
-    "the run rule reads a record's members loosely, so a timer that is both due and held passes",
+    "the run rule's oracle is wider than the codec, so a timer that is both due and held passes",
     "tests/rules/records.ts",
-    '  const decoded = Schema.decodeUnknownOption(WRITTEN[kind])(json.value, {\n    onExcessProperty: "error",\n  });',
-    "  const decoded = Schema.decodeUnknownOption(WRITTEN[kind])(json.value);",
+    "  return writerDecodes(kind, json.value);",
+    "  return true;",
   ),
 ];

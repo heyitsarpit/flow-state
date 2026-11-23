@@ -2,7 +2,13 @@ import { Option, Predicate, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { manifests } from "../../fixtures/index.ts";
 import type { Manifest } from "../../fixtures/manifest.ts";
-import { Fake, Step, type Story, type StoryRun } from "../../src/host/testing/index.ts";
+import {
+  Fake,
+  recordLiterals,
+  Step,
+  type Story,
+  type StoryRun,
+} from "../../src/host/testing/index.ts";
 import { canonicalText, putBy, writtenForm } from "../rules/records.ts";
 import { breachesOf } from "../rules/rules.ts";
 import { reports } from "./opens.ts";
@@ -42,13 +48,17 @@ type Change = readonly [string, Json];
 
 // What a node of each JSON type may be replaced by: another type, empty, and for a string its
 // local and broken spellings, for a number its neighbours. Every node may also become null.
+const LITERALS = recordLiterals;
+
+// A string a codec names as a literal swapped for each other literal: a valid value of its own
+// kind, in a place the writer may never put it (Records R11).
+const swapsOf = (s: string) =>
+  LITERALS.has(s)
+    ? [...LITERALS].filter((l) => l !== s).map((l) => [`swapped ${l}`, l] as const)
+    : [];
+
 const stringChanges = (s: string) =>
-  [
-    ["a number", 0],
-    ["empty", ""],
-    ["local", `~${s}`],
-    ["spaced", `${s} `],
-  ] as const;
+  [["a number", 0], ["empty", ""], ["local", `~${s}`], ["spaced", `${s} `], ...swapsOf(s)] as const;
 
 const numberChanges = (n: number) =>
   [
@@ -432,6 +442,12 @@ const breachesOfFixture = async (m: Manifest) => {
 };
 
 describe("one corrupt field of any saved record (Records R4, R5, R6, R11; I3, I4, I9)", () => {
+  it("Records R11: the codecs name the literal values a slot is swapped for", () => {
+    expect([...LITERALS]).toEqual(
+      expect.arrayContaining(["unknown", "success", "Held", "Out", "Idle"]),
+    );
+  });
+
   for (const m of manifests.filter((x) => x.pairs.some((p) => p.reach.persisted)))
     it(`Records R5, R4, R11: every one-field corruption of ${m.name}'s saved records boots, reports no other record, starts no identity the store does not name, keeps an unread record's bytes, and invents no ending`, async () => {
       expect(await breachesOfFixture(m)).toEqual([]);

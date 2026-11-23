@@ -1,5 +1,5 @@
 import { Result, Schema } from "effect";
-import { IssueCode } from "./vocabulary.ts";
+import { Decline, IssueCode } from "./vocabulary.ts";
 
 /**
  * Flow's record format, one number for every kind of record.
@@ -81,21 +81,41 @@ const Instance = Schema.Struct({
   schedules: ScheduleMap,
 });
 
-/**
- * Where an identity was: its state, its memory without the fields its name holds, its schedules,
- * its slots, the wiring of providers that keep no record of their own, and its instances.
- */
-export const Position = Schema.Struct({
+const PositionFields = Schema.Struct({
   state: Schema.String,
   memory: Schema.Record(Schema.String, Schema.Json),
   schedules: SavedSchedules,
   slots: Schema.Record(Schema.String, Slot),
   graph: Schema.Record(Schema.String, Schema.Record(Schema.String, Provider)),
   instances: Schema.Record(Schema.String, Instance),
-  bookmarks: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Json)),
-  ),
 });
+
+const filled = <V>(map: Readonly<Record<string, V>>) => Object.keys(map).length > 0;
+
+/**
+ * Where an identity was, exactly as the writer saves it: its state, its memory without the fields
+ * its name holds, its schedules, one entry per slot that holds something, the wiring of providers
+ * that keep no record of their own (never an empty one), and no instances yet.
+ */
+export const Position = PositionFields.check(
+  Schema.makeFilter((p) => Object.values(p.graph).every(filled), {
+    expected: "each provider's wiring holds a slot",
+  }),
+  Schema.makeFilter(
+    (p) =>
+      Object.values(p.slots).every(
+        (slot) => slot.provider !== undefined || slot.seen !== undefined || filled(slot.baselines),
+      ),
+    { expected: "each slot entry holds something" },
+  ),
+  Schema.makeFilter((p) => !filled(p.instances), { expected: "no instances" }),
+);
+
+/**
+ * A position an older format steps to: the current shape, without the writer's normal form, since
+ * a step keeps what it cannot judge for stage 2.
+ */
+export const SteppedPosition = PositionFields;
 
 /**
  * The decoded {@link Position}.
@@ -103,8 +123,7 @@ export const Position = Schema.Struct({
 export type Position = typeof Position.Type;
 
 /**
- * An ending as a work record saves it: its channel, its reason and its value, none for a Flow-made
- * unknown.
+ * An ending as a format 5 record saved it, stepped: any channel, reason and value.
  */
 export const SavedEnding = Schema.Struct({
   channel: Schema.Literals(["success", "failure", "unknown", "notSent"]),
@@ -117,12 +136,56 @@ export const SavedEnding = Schema.Struct({
  */
 export type SavedEnding = typeof SavedEnding.Type;
 
+// A decline's value names its own reason.
+const ownReason = Schema.makeFilter(
+  (e: { readonly reason: string; readonly value: { readonly why: string } }) =>
+    e.reason === e.value.why,
+  { expected: "the decline's own reason" },
+);
+
+// A decline as the writer saves it: one of Flow's reasons, its value naming the same reason.
+const DeclineEnding = Schema.Struct({
+  channel: Schema.Literal("notSent"),
+  reason: Decline,
+  value: Schema.Struct({ why: Decline }),
+}).check(ownReason);
+
+// The decline of a commit whose input had no encoded form.
+const UnencodableEnding = Schema.Struct({
+  channel: Schema.Literal("notSent"),
+  reason: Schema.Literal("Unencodable"),
+  value: Schema.Struct({ why: Decline }),
+}).check(ownReason);
+
+// An unknown as the writer saves it: its reason, and its value unless Flow made it.
+const UnknownEnding = Schema.Struct({
+  channel: Schema.Literal("unknown"),
+  reason: Schema.String,
+  value: Schema.optionalKey(Schema.Json),
+});
+
+// An ending exactly as the writer saves a row's: a success, a failure, an unknown or a decline.
+const RowEnding = Schema.Union([
+  Schema.Struct({
+    channel: Schema.Literal("success"),
+    reason: Schema.Literal("success"),
+    value: Schema.optionalKey(Schema.Json),
+  }),
+  Schema.Struct({
+    channel: Schema.Literal("failure"),
+    reason: Schema.String,
+    value: Schema.optionalKey(Schema.Json),
+  }),
+  UnknownEnding,
+  DeclineEnding,
+]);
+
 const Head = Schema.Struct({
   attempt: AttemptId,
   rest: Schema.Json,
   retryCount: Count,
   hold: Schema.Literals(["Out", "Held"]),
-  unknown: Schema.optionalKey(Schema.Struct({ ending: SavedEnding, kept: Schema.Boolean })),
+  unknown: Schema.optionalKey(Schema.Struct({ ending: UnknownEnding, kept: Schema.Boolean })),
   claims: Schema.Tuple([]),
 });
 
@@ -135,7 +198,7 @@ const DisplacedAttempt = Schema.Struct({
  * A lane as a work record saves it: a head with the commits queued behind it, or only the displaced
  * Attempts it still owes; never empty.
  */
-const Lane = Schema.Union([
+export const Lane = Schema.Union([
   Schema.Struct({
     head: Head,
     queue: Schema.Array(Schema.Json),
@@ -159,17 +222,39 @@ export type SavedHead = typeof Head.Type;
 
 /**
  * An owed row as a work record saves it: where its lane is, its Attempt (none for a decline or a
- * queued commit), the input without its key fields, its ending and whether it is kept.
+ * queued commit), the input without its key fields, its ending and whether it is kept. A decline
+ * whose input had no encoded form has no key and no rest; a row a format 5 record stepped to, which
+ * the writer only ever writes back as it was carried, has no rest.
  */
-export const Row = Schema.Struct({
-  subject: Schema.String,
-  contract: Schema.String,
-  keyText: Schema.optionalKey(Schema.String),
-  attempt: Schema.optionalKey(AttemptId),
-  rest: Schema.optionalKey(Schema.Json),
-  ending: SavedEnding,
-  kept: Schema.Boolean,
-});
+export const Row = Schema.Union([
+  Schema.Struct({
+    subject: Schema.String,
+    contract: Schema.String,
+    keyText: Schema.String,
+    attempt: Schema.optionalKey(AttemptId),
+    rest: Schema.Json,
+    ending: RowEnding,
+    kept: Schema.Boolean,
+  }),
+  Schema.Struct({
+    subject: Schema.String,
+    contract: Schema.String,
+    keyText: Schema.optionalKey(Schema.Never),
+    attempt: Schema.optionalKey(Schema.Never),
+    rest: Schema.optionalKey(Schema.Never),
+    ending: UnencodableEnding,
+    kept: Schema.Boolean,
+  }),
+  Schema.Struct({
+    subject: Schema.String,
+    contract: Schema.String,
+    keyText: Schema.optionalKey(Schema.String),
+    attempt: Schema.optionalKey(AttemptId),
+    rest: Schema.optionalKey(Schema.Never),
+    ending: SavedEnding,
+    kept: Schema.Boolean,
+  }),
+]);
 
 /**
  * The decoded {@link Row}.
@@ -261,4 +346,21 @@ export const strictly =
         catch: () => "schema" as const,
       }),
       (decoded) => Result.mapError(decoded, () => "schema" as const),
+    );
+
+/**
+ * A value encoded by a record Schema, strictly, as the writer saves it: a value the Schema does not
+ * describe, a member it does not name included, fails as `shape`. The writer encodes every part it
+ * writes with the Schema the boot decodes it with, so a decode accepts only what an encode makes.
+ */
+export const encodedBy =
+  <S extends Schema.Codec<unknown, unknown>>(schema: S) =>
+  // FLOW_STATE_ALLOW_UNKNOWN: a part the writer built, checked here by its kind's Schema.
+  (value: unknown) =>
+    Result.flatMap(
+      Result.try({
+        try: () => Schema.encodeUnknownResult(schema)(value, { onExcessProperty: "error" }),
+        catch: () => "shape" as const,
+      }),
+      (encoded) => Result.mapError(encoded, () => "shape" as const),
     );

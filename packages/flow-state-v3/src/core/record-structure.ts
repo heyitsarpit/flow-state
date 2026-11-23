@@ -9,6 +9,7 @@ import {
   FormatOf,
   type Position,
   PositionRecord,
+  SteppedPosition,
   strictly,
   type Work,
   WorkRecord,
@@ -161,7 +162,7 @@ const positionBody = (machines: ReadonlyMap<string, Compiled>, owner: Owner, rea
 
   return Result.flatMap(
     Result.mapError(positionFromOlder(compiled, owner, read.format, read.json), () => "step"),
-    (body) => Result.mapError(strictly(PositionRecord.fields.body)(body), () => "schema"),
+    (body) => Result.mapError(strictly(SteppedPosition)(body), () => "schema"),
   );
 };
 

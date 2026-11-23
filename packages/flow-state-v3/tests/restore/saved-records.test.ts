@@ -20,7 +20,7 @@ import { bankStory } from "../../fixtures/transfers/stories/usual.ts";
 import { Fake, type Story, type StoryRun } from "../../src/host/testing/index.ts";
 import { canonicalText } from "../rules/records.ts";
 import { checked } from "../rules/rules.ts";
-import { heard, inOpen, reports } from "./opens.ts";
+import { heard, inOpen, reports, reportsWithReasons } from "./opens.ts";
 
 const JsonText = Schema.fromJsonString(Schema.Json);
 
@@ -127,7 +127,7 @@ describe("a saved work record (Records Types WorkShape; R16)", () => {
 });
 
 describe("a value the writer never emits in its place (Records R11)", () => {
-  it.fails("Records R11, R16: a Held head whose unknown slot holds a success is kept unread and reported, and no Done is heard", async () => {
+  it("Records R11, R16: a Held head whose unknown slot holds a success is kept unread and reported, and no Done is heard", async () => {
     const lane = {
       displaced: [],
       head: {
@@ -145,6 +145,49 @@ describe("a value the writer never emits in its place (Records R11)", () => {
 
     expect(keptUnread(run, ACCOUNT_WORK, forged)).toEqual({ reported: true, bytes: true });
     expect(heard(run, 2, "transfer")).toEqual([]);
+  });
+
+  it("Records R11, realization: a head with a member no Shape names, or an Attempt id the mint never makes, is kept unread and reported", async () => {
+    for (const saved of [
+      { ...head("Out", { cents: 500 }), extra: 1 },
+      { ...head("Out", { cents: 500 }), attempt: "att-1" },
+    ]) {
+      const forged = transferWork({ displaced: [], head: saved, queue: [] });
+      const run = await bootAccount("records/off-codec-head", ACCOUNT_WORK, forged);
+
+      expect(keptUnread(run, ACCOUNT_WORK, forged)).toEqual({ reported: true, bytes: true });
+      expect(heard(run, 2, "transfer")).toEqual([]);
+    }
+  });
+});
+
+describe("a position's wiring of a provider that keeps its own record (Records I8, R11)", () => {
+  it("Records I8, R11: a graph entry for a persisted provider, which the writer never saves, is dropped and reported", async () => {
+    const usual = named(home.stories, "usual");
+    const key = 'actor/Home/Room/{"room":"lounge"}';
+    const saved = checked(await usual.run()).end.records.stored.get(key) ?? "{}";
+    const json = Schema.decodeUnknownSync(JsonText)(saved);
+
+    const forged = canonicalText(
+      withMember(
+        json,
+        "body",
+        withMember(at(json, "body"), "graph", {
+          "Home/House/home": { mode: { machine: "Home/House", name: "home" } },
+        }),
+      ),
+    );
+
+    const open = usual.steps.filter((step) => step._tag === "reload").length + 2;
+    const run = checked(await usual.world(Fake.storage.put(key, forged)).reload().run());
+
+    // The whole entry is dropped, by its provider's own record, not slot by slot.
+    const dropped = reportsWithReasons(run, open).filter(
+      (r) => String(r.code) === "FieldDropped" && r.record === key,
+    );
+
+    expect(saved).not.toBe("{}");
+    expect(dropped.map((r) => r.reason)).toEqual(["dropped graph.Home/House/home"]);
   });
 });
 

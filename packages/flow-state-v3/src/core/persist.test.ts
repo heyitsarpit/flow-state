@@ -25,6 +25,9 @@ import {
 } from "./world.ts";
 import { compiledOf } from "../compiled-of.ts";
 
+// An Attempt id in the mint's form: the only form a saved record holds.
+const minted = (n: number) => `att-${"0".repeat(32)}-${n}`;
+
 // A written record's JSON object, read back from its text.
 const jsonOf = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)),
@@ -129,10 +132,10 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
     to: Audience.Identity(),
     operation: "ring",
     input: Option.some({}),
-    attempt: Option.some(attemptOf("att-1")),
+    attempt: Option.some(attemptOf(minted(1))),
     lane: Option.some(laneOf("lane-1")),
     channel: "success",
-    reason: "Success",
+    reason: "success",
     value: { receipt: "r1" },
     route: Route.Current(),
   });
@@ -144,7 +147,7 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
   expect(writes.map((w) => Option.map(w.record, (r) => rowsOf(jsonOf(r))))).toEqual([
     Option.some([
       expect.objectContaining({
-        attempt: "att-1",
+        attempt: minted(1),
         ending: expect.objectContaining({ channel: "success" }),
         kept: false,
       }),
@@ -160,10 +163,10 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
       to: Audience.Identity(),
       operation: "ring",
       input: Option.some({}),
-      attempt: Option.some(attemptOf(`att-${n}`)),
+      attempt: Option.some(attemptOf(minted(n + 1))),
       lane: Option.none(),
       channel: "success",
-      reason: "Success",
+      reason: "success",
       value: { receipt },
       route: Route.Current(),
     });
@@ -241,7 +244,7 @@ it("Codec R4: only a value with no canonical form is saved as its Attempt's unkn
 
   expect(world.withheld.size).toBe(0);
   expect(receiptsIn(owed)).toEqual([null, { receipt: "ninebytes" }]);
-  expect(endingsIn(owed)).toEqual(["unknown Restored", "success Success"]);
+  expect(endingsIn(owed)).toEqual(["unknown Restored", "success success"]);
   expect(reports).toEqual([expect.objectContaining({ code: "UnencodableValue" })]);
 });
 
@@ -253,7 +256,7 @@ it("Codec R4: a Flow-made row with no value saves none and is never reported", (
     to: Audience.Identity(),
     operation: "ring",
     input: Option.some({}),
-    attempt: Option.some(attemptOf("att-0")),
+    attempt: Option.some(attemptOf(minted(9))),
     lane: Option.none(),
     channel: "unknown",
     reason: "Restored",
@@ -327,10 +330,10 @@ const success = {
   to: Audience.Identity(),
   operation: "ring",
   input: Option.some({}),
-  attempt: Option.some(attemptOf("att-1")),
+  attempt: Option.some(attemptOf(minted(1))),
   lane: Option.none(),
   channel: "success" as const,
-  reason: "Success",
+  reason: "success",
   value: {},
   route: Route.Current(),
 };
@@ -348,7 +351,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
     actor,
     operation: "ring",
     head: {
-      id: attemptOf("att-1"),
+      id: attemptOf(minted(1)),
       input: {},
       retryCount: 0,
       owner: OwnedBy.Root(),
@@ -371,7 +374,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
 
   expect(writesOf(captured(second.tx.out().world))).toEqual([
     `actor/${actorKey(actor)}=1`,
-    `work/${actorKey(actor)}=att-1`,
+    `work/${actorKey(actor)}=${minted(1)}`,
   ]);
 });
 
@@ -381,7 +384,7 @@ it("WriteAhead I20, I22: a row saved while still in the mailbox leaves the owed 
   first.persistence.close();
   const saved = captured(first.tx.out().world);
 
-  expect(writesOf(saved)).toEqual([`work/${actorKey(actor)}=att-1`]);
+  expect(writesOf(saved)).toEqual([`work/${actorKey(actor)}=${minted(1)}`]);
 
   const second = stepOver({ count: 1 }, saved.world);
   second.ledger.tryOne(actor, id, () => {
@@ -509,7 +512,7 @@ it("WriteAhead R13: a ticket whose identity's actor record cannot encode at its 
   first.persistence.saveActor(actor);
 
   const ticket = first.persistence.saveAwaited(actor, {
-    attempt: attemptOf("att-1"),
+    attempt: attemptOf(minted(1)),
     purpose: "acknowledge",
   });
 
@@ -533,7 +536,7 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
     actor,
     operation: "ring",
     head: {
-      id: attemptOf("att-1"),
+      id: attemptOf(minted(1)),
       input: {},
       retryCount: 0,
       owner: OwnedBy.Root(),
@@ -545,7 +548,7 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
   first.persistence.saveActor(actor);
 
   const ticket = first.persistence.saveAwaited(actor, {
-    attempt: attemptOf("att-1"),
+    attempt: attemptOf(minted(1)),
     purpose: "acknowledge",
   });
 
