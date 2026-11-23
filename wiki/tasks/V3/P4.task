@@ -6203,7 +6203,7 @@ tasks
               exist at 47556c2f, so it has failed since f8422ce8: owner @task.V3.T124 (draft's fixture).
     T122
         title       Read entries and read slots
-        status      review
+        status      done
         priority    high
         parent      [@T21]
 
@@ -6426,6 +6426,45 @@ tasks
             Fix round closed: B1 at 55c51bc4; B2 and B3 at this round's commits. check 0/0, suite green, 23 own faults
             caught by `faults --only`; stress fails only draft's saved Story (predates). Left: `entries.freeze`
             (@task.V3.T109); optimistic removal on a failure has only shop reds (pending, @task.V3.T123).
+        comment     2026-11-23T07:58:29Z
+            Close review, second pass (independent reviewer, 2026-11-23) at 456e1264: PASS; one public API call goes to
+            the user (below) and blocks nothing.
+            - B1 fixed: `Command.Lookup` names machine and operation and `driver.ts` runs the read in the Runtime's
+              work. `chat/first-reader-left` is my probe made a Story (thread first, sidebar second, thread closed); it
+              was red at 4dc210eb and is green now: the call ends `answered` and the sidebar shows `standup at ten`.
+            - B2 fixed: one `entries.ts#apply(key, cue)` matches each Cue (Ask, Settled, Invalidate, Written, Clear,
+              Last hold left, Collect due, Runtime ends) against the phase. Behind and `again` are reached: generated T1
+              finds a Settled-behind answer, and Spec T4.4 is `chat/posted-mid-read`. `refetch` is a token.
+              `tests/generated/entries.test.ts` is green over 40 seeds. `entries.freeze` stays with @task.V3.T109 (the
+              orchestrator's ruling).
+            - B3 fixed: Written, InvalidWrite, typed `optimistic` and `writes` (`tests/types/read-writes.test-d.ts`,
+              two-sided); a cancelled or displaced commit removes its layer through `lanes.ts` `attemptEnded`.
+            - The tests were written after the code, so I re-planted the wrong builds. All 6 new faults are caught for
+              their stated reason: behind-result-lands (T4.4), join-when-behind, read-defect-hidden,
+              invalid-write-applied and cancelled-echo-kept by their own named tests. The run stops at the first
+              failure, so written-not-applied showed only the R4 freshness test; planted in an archive copy, it also
+              fails its own test, "the send's write answers the sidebar waiting on a held read".
+            - Choice A: not a fair test as written. The "started and released in a Leave step" check never shows that
+              any run reaches its precondition (a Leave while the entry is Running behind with `again`), so it passes on
+              absence. A is the Spec's default, wasteful and not wrong, so it stands. Route: a reach count beside the
+              check, @task.V3.T123 (it adds Release to that step).
+            - Removal after a plain failure: routed, not blocking. `entry-view.ts` sends failure through the same
+              `attemptEnded` table as Cancelled (`BY_CHANNEL.failure` is "removed"). No red check fails on current code;
+              the shop reds wait on T123's placements. Owner @task.V3.T123: flip the shop reds and plant a fault that
+              maps failure to unknown. The session reds (refetch, writes, InvalidWrite, Clear) flip there too; chat
+              already covers their rules.
+            - Needs the user (a public API call; Plan Operations O3 and O5 edits): Plan placeholder: `writes: ({ value
+              }) => ({ history: { key: { thread: value.thread }, data: (cur) => next } })`, and `O.x.setData(select)`
+              returns `{ key, data }`. Build: `writes: ({ value, input }) => [history.write({ thread: value.thread },
+              (cur) => next)]`; `optimistic: ({ memory }) => [history.write(...)]`. NEW: `resource.write`, `ReadWrite`,
+              `WriteOptions`; existing: `outcomes`, `optimistic`. View: accept. `writes` sits on the contract, where no
+              machine read name exists, so naming changes by the contract is forced there, and one typed constructor for
+              both is simpler. Three Plan gaps come with it: an updater's `undefined` no longer declines; an empty list
+              counts as InvalidWrite where the Plan's "no match" is a no-op; `setData` is not built. specs.log records
+              the deviation, not the Spec text. Runs: faults --only 6 of 6; coverage run exit 1 on 7 timeouts under
+              coverage only, no assertion failed and no type error; stress: 1 failure, draft's saved stress Story, which
+              predates (T121's comment; owner @task.V3.T124). LIMITS.durability and LIMITS.laneBound record alone and
+              full-run times (`tests/limits.ts`).
     T123
         title       Placements and release
         status      in_progress
@@ -6522,6 +6561,11 @@ tasks
         comment     2026-11-23T06:55:50Z
             Routed from slice T21's close review (orchestrator, 2026-11-23): register chat's attachment and the
             transfers deposit modules now out of pending/ only by load, not registration.
+        comment     2026-11-23T07:58:56Z
+            Routed from T122's close review 2 (orchestrator, 2026-11-23): add a count showing the generator reaches the
+            build-time-choice case (leaving the thread while its read is behind with a trailing read queued); flip the
+            shop reds for an optimistic value removed after a plain failure, with a fault that turns failure
+            into unknown.
     T124
         title       Persisted resources
         status      in_progress

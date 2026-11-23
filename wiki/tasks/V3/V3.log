@@ -933,3 +933,11 @@ note 2026-11-23T06:40:02Z
 note 2026-11-23T06:55:52Z
     T121 done (close review PASS at 4dc210eb). T122 ISSUES, three blockers; fix round goes to its builder, B1 runs a
     read's request under the Runtime. Five items routed (T56, T97, T123, T124, specs.log).
+
+note 2026-11-23T07:49:52Z
+    T122 fix round done (456e1264), back in review; the review returns to its reviewer. Builder's API call
+    resource.write(key, data) for optimistic and writes is for the user's read.
+
+note 2026-11-23T07:58:57Z
+    T122 done (close review 2 PASS at 456e1264). resource.write(key, data) goes to the user as a Plan O3/O5 change; T123
+    and T124 build next with a fresh lead.
