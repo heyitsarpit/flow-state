@@ -147,7 +147,7 @@ export const readsFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/serve.ts",
         find: "          placeholder: ending.reason === PLACEHOLDER,",
-        replace: "          placeholder: ending.reason !== ending.reason + PLACEHOLDER,",
+        replace: "          placeholder: false,",
       },
     ],
   },
