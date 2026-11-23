@@ -900,3 +900,20 @@ note 2026-11-23T02:44:52Z
 note 2026-11-23T02:46:59Z
     Amendment (2026-11-23, the user): loop findings merged into the Epic's instructions and @convention.fixtures.
     Commit: d8cc27a6.
+
+note 2026-11-23T02:49:10Z
+    Run resumed at workflow@4f316bf: tree clean at 47556c2f, no live agents, cron 7 * * * * and caffeinate set, weekly
+    usage 0%. Current: slice T21 (T121 to T124). First action: one requirements lead (Opus, high) over all four.
+
+note 2026-11-23T04:20:26Z
+    T21 requirements done (f8422ce8, bf811de7; review ISSUES folded in). Routed by orchestrator: T122/T123 freeze items
+    and fault guard-reads-other-subject to T109, T124 adoption to T48. Catalog rows still unwritten go back to the
+    requirements lead before the build.
+
+note 2026-11-23T04:21:28Z
+    Owners for T21's unowned step-4 features: progress, idempotency, late endings to T121; optimistic to T122;
+    placeholder to T123; subscribe.each to T25. Requirements lead told to add them.
+
+note 2026-11-23T04:35:06Z
+    T21 requirements closed at 0e0e5c03. Build runs as two leads in turn (T121+T122, then T123+T124), each writing its
+    Tasks' remaining catalog rows red first; see T21's comment.

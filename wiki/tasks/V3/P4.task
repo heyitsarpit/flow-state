@@ -514,6 +514,13 @@ tasks
             before instances exist. Reverse: move the items back once T109 lands. Open: owners for optimistic,
             placeholder, progress, declared idempotency, subscribe.each and late/LateMayNotLeave are settled before this
             slice closes.
+        comment     2026-11-23T04:35:05Z
+            [decided: agent orchestrator 2026-11-23] The build runs as two fresh building leads in turn: T121 and T122,
+            then T123 and T124; one build review covers all four. Why: the requirements lead judged T122 and T123 too
+            big for one 5-hour window, and new slices are avoided. Reverse: regroup T123 and T124 under a new slice
+            parent. The unwritten catalog rows (shop stale overlapping adds, transfers deposit S6, E8, failing part,
+            abort/resume, chat upload progress, idempotency and optimistic echo, draft uploads) are each builder's first
+            step, red before any code.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -6234,6 +6241,10 @@ tasks
             reports InvalidWrite and the rename succeeds). All red. The shape of a `writes` target (`{ <operation>: {
             key, data } }`) is my placeholder: the Plan gives no shape, so the builder decides it with the one red.
             Faults listed: `optimistic-kept-after-failure`, `invalid-write-applied`.
+        comment     2026-11-23T04:35:04Z
+            [decided: agent orchestrator 2026-11-23] Also owns the bigint key "$1n" row and the write-target placeholder
+            shape the requirements lead drafted (settled by its red). Why: entry keys and writes are this Task's.
+            Reverse: move the key row to @task.V3.T56.
     T123
         title       Placements and release
         status      in_progress

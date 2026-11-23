@@ -107,6 +107,13 @@ tasks
         comment     2026-11-21T18:31:24Z
             [proposed] Streams and bookmarks have no algorithm design; this Task runs skill:to-design before its Spec
             (@proposal.algo-resolutions section 4).
+        comment     2026-11-23T04:21:27Z
+            [decided: agent orchestrator 2026-11-23] Owns O.x.subscribe and subscribe.each placements
+            (@plan.Operations.O6, @plan.Machines activities); .each needs @task.V3.T110. Why: production has no
+            subscribe or stream yet. Reverse: move to T21 once streams exist.
+        comment     2026-11-23T04:35:03Z
+            Correction (orchestrator, 2026-11-23): plain O.x.subscribe placements stay with @task.V3.T123, whose
+            acceptance builds placements; this Task owns subscribe.each only.
     T24
         title       Entity store
         status      draft
@@ -273,6 +280,9 @@ tasks
             Routed from slice T21's requirements (2026-11-23): an entry already in memory wins over a saved one at
             adoption (Operations Entry store, Install cell; T124 builds the cell): its Story needs a lazy entry adopted
             after the boot.
+        comment     2026-11-23T04:20:28Z
+            Routed from @task.V3.T124 (orchestrator, 2026-11-23): an entry already in memory wins over a saved one
+            at adoption.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft
