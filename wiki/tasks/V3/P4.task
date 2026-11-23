@@ -525,6 +525,56 @@ tasks
             [decided: agent orchestrator 2026-11-23] T121 and T122 get their close review now, before T123 and T124 are
             built; the slice review checks the seams at the end. Why: the Epic's R2 addition puts a Task in review
             first, and T123 builds on T122's request-placement deviation. Reverse: none needed.
+        comment     2026-11-23T09:34:51Z
+            Slice review of the seams (independent reviewer, 2026-11-23) at 1c4bf6b5: not ready to close. T123 and T124
+            are ISSUES (their comments); one seam bug and a stale owner table remain.
+            - Seam bug, T121 x T122 x T124: an optimistic layer does not hold its entry, against Plan Operations O2 ("a
+              live placement, request or optimistic layer holds an entry"). The unknown-ending refetch
+              (`entry-writes.ts` ENDED.unknown, an Ask with no asker) then starts a request on an unheld entry, which
+              Plan O5 limits to displayed entries. If its Collect alarm comes due meanwhile, `collectDue` at Running
+              does nothing and Settled keeps `unheldSince` with no alarm. The entry and its saved copy are never
+              collected (I12, I22). The same Running entry with no holder is the only way a placement meets Behind
+              without `again` (`entries.ts:218`) and is left unfed. Chat cannot reach it, because its echo targets the
+              thread's own held history. Red first: a shop quick add from the product page with the mini-cart closed,
+              ending unknown with the cart read held past gcTime. Root fix: count live layers as holds. Proposed owner:
+              T123's fix round (it changes holds); the orchestrator confirms.
+            - Owners: the inventory names `entries.ts#apply` and `entries.ts#release`. Today entries are also written by
+              `entry-writes.ts` (layers) and `entry-store.ts` (install, the Collect alarm), and `releasing`, `callHome`
+              and the Release alarm by `entry-releases.ts`. Each split is one module per concern, called from the
+              table's cells, except install (T124 B2) and `held` (First hold arrives, outside the Cue enum). Update the
+              inventory, and route `held` into the table with Install. Lane heads are still also written by
+              `ledger.ts:369`, `lanes.ts:373` and the boot's `putLane` (T121's open item).
+            - Saved-entry lifecycle: written as a side effect of `put`; deleted at Collect by `collected` but kept at
+              Runtime end by the bare `remove`, so the outcome depends on which function a cell calls. It is not an
+              implicit state machine yet (every write is a cell), but make it one table row per cue when T124's B2
+              adds Install.
+            - D41 as built matches Pending D41: `set` and `update` with exact keys and an updater that returns the data,
+              an empty list as a no-op, `InvalidUpdate`, no `setData`, and the search and draft fixtures on `writes`,
+              each pinned two-sided in `tests/types/read-writes.test-d.ts`. Deviation: invalid targets are dropped one
+              by one and the valid ones applied, while Plan O5 says an invalid target rejects the whole batch. Decide
+              that when D41 is merged; write an inverted test either way.
+            - The orchestrator's ruling (value fires only on confirmed data; a reader's view shows optimistic values) is
+              confirmed by Plan O2 and O5. Trace, shop quick add: Plan: the mini-cart's `value` does not fire, so
+              `memory.lines` stays `[]` and its row shows the line with `predicted: true`. Test: expects `memory.lines`
+              to be `["l1"]` at `sending`. The test side is wrong, but "read the view instead" has nothing to read: no
+              snapshot row carries an entry's `data` and `predicted` (Plan Operations O6), and no Task owns it. That
+              needs an owner before the three reds can flip.
+        comment     2026-11-23T09:36:46Z
+            Resume note (building lead, rotating out on context, 2026-11-23): T123 and T124 fix round not started beyond
+            the placeholder-unmarked fault edit (commit after 1c4bf6b5). Next, in order: (1) red first: shop quick add
+            with the mini-cart closed, then a live optimistic layer holds its entry (holders gain the layer; Collect and
+            the unknown refetch see it); (2) writes all-or-nothing in entry-writes.ts#succeeded, red first with a second
+            target in chat's send writes; (3) Released and ReleaseOverdue evidence in entry-releases.ts; replace the
+            reason string compares (serve.ts PLACEHOLDER, issues-of.ts last.reason Defect) with a tagged ReadEnding
+            kind; R11 Story for a select that throws keeping its key (transfers card); (4) entry row data and predicted
+            (Plan O6), then rewrite the three optimistic reds to read the row (orchestrator's ruling); (5) register
+            search, home, shop, transfers, session placement modules out of pending/ with samples, stress samples, pairs
+            and own app ids, servers into server/; move profile.ts's @ts-expect-error to
+            tests/types/read-writes.test-d.ts; (6) T124: draft Document registered with a persisted pair so
+            corrupt.test.ts mutates entry/ records (judge: an undecodable entry's bytes go, no report); install skips a
+            key already in memory; (7) update this Task's entries.ts owner table (entry-placements.ts,
+            entry-releases.ts, entry-store.ts now own placements, releasing and saved entries). Gates as before; freeze
+            and thaw stay with T109.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -789,6 +839,9 @@ tasks
             [decided: user 2026-11-23] "if we can silence the warning i will accept the addition": SharedTransaction
             warning added to acceptance, silenced per transaction in flow.config.ts. The silencing option's exact name
             is the builder's call.
+        comment     2026-11-23T09:35:28Z
+            Routed from slice T21's close review (orchestrator, 2026-11-23): the construction warning for persist: true
+            with gcTime: 0 (Operations Q15).
     T23
         title       `nub run verify` builds and checks v3
         status      draft
@@ -2387,6 +2440,9 @@ tasks
         comment     2026-11-23T06:55:49Z
             Routed from slice T21's close review (orchestrator, 2026-11-23): chat's pair sweep stays inverted because
             one sweep cell never fires; no rule breaks.
+        comment     2026-11-23T09:35:29Z
+            Routed from slice T21's close review (orchestrator, 2026-11-23): a lost answer is built in three places (the
+            fake, the sweep, generate.ts); give it one shared constructor.
     T99
         title       Runtime life completed: unsettledWrites, cleanup failures, forgotten holds and disposal order
         status      done
@@ -3184,6 +3240,8 @@ tasks
             Routed from slice T21 (orchestrator, 2026-11-23): a freeze owes each waiting lookup one Interrupted row and
             leaves the entry's request running (T122); placements unplaced at a freeze and placed at a thaw (T123);
             plant guard-reads-other-subject (T121).
+        comment     2026-11-23T09:35:27Z
+            Routed from @task.V3.T123 (orchestrator, 2026-11-23): placements unplaced at a freeze and placed at a thaw.
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -6482,7 +6540,7 @@ tasks
             zero hits); setData moved to writes in 7867b2a4.
     T123
         title       Placements and release
-        status      review
+        status      in_progress
         priority    medium
         parent      [@T21]
 
@@ -6610,9 +6668,58 @@ tasks
             To review at 33efcd7a (build 7867b2a4, fe24f876): check 0/0, suite green, stress 113/113, 8 own faults
             caught; left: 3 optimistic-on-placement reds (the user's Plan question) and the search and home modules
             still in pending/.
+        comment     2026-11-23T09:09:31Z
+            [decided: agent orchestrator 2026-11-23] Plans O2 and O5 agree: the value event fires only on confirmed
+            data, while a reader's view of the entry shows live optimistic values. The three reds that read the
+            optimistic look through value are wrong on the test side; they read the view instead. Why: neither Plan line
+            needs changing. Reverse: if the user wants value to fire for optimistic looks, change O2.
+        comment     2026-11-23T09:34:49Z
+            Close review (independent reviewer, 2026-11-23) at 1c4bf6b5 (build 7867b2a4, fe24f876): ISSUES,
+            two blockers.
+            - B1, broken acceptance item "Fixtures first": every placement runs only in unregistered `pending/` modules
+              (search, home, shop, transfers, session). `rg subscribe` finds no `O.x.subscribe` in any manifest, so no
+              run rule, reload sweep, pair sweep, generator or saved stress judges placements, release, overdue or
+              placeholder; T21's false pass (a read rule checked only by what the runtime reports) is exactly this. They
+              all load: the requirements decision kept them in `pending/` only until they loaded. Fix: register them
+              with samples, stress samples and pairs; move each pending server and port into `server/` and
+              `services.ts`, give each app its own id, and move `session/pending/profile.ts:242`'s `@ts-expect-error`
+              into `tests/types/read-writes.test-d.ts`.
+            - B2, acceptance item 2 ("unplaced at a freeze, placed at a thaw: built here") is not built: `placements.ts`
+              decides on Begin, Turn and Inputs only. Build it, or the orchestrator moves the build to @task.V3.T109 in
+              writing, as it did for `entries.freeze`. Carried (T123's own rules or state): evidence `Released` and
+              `ReleaseOverdue` (Spec Releases, `settled`) is not recorded. No Story covers a placement select throw
+              keeping its last key (R11): the test titled R11 is the no-key case. `placeholder-unmarked` over-marks
+              every landed success; plant `placeholder: false` under that name. `serve.ts:184` and `issues-of.ts:50`
+              compare `ReadEnding.reason` strings, so a user error tag named `placeholder` or `Defect` is misread.
+              Deviations: overdue read from a taken Release alarm is accepted for now. The Spec's own `releaseDue`
+              writes no state and raises the publish, so the issue appears at since + bound. Its cost: the alarm map
+              doubles as state, and a missing alarm reads as overdue at once with no drift report. Threading `now` into
+              `issuesOf` (the Spec's signature) is the reverse; take it if another reader needs the deadline. Keyed by
+              life and operation, the extra failure endings for a placement and Written on an entry with no data:
+              accepted, each in the builder's tag. Rulings: Q12 A and Q9 kind order A stand (Release writes no state;
+              swapping the order changed no Story). Late tests: the dispose Story (`home/disposed-mid-read`) catches
+              both a dispose that does not release and one that waits the bound. The reach count shows Clear restarting
+              in a Leave step, but never a step that also loses the hold. Choice A therefore still rests on absence; it
+              is the Spec's default, so it stands. Runs: faults --only 13 of 13 caught, each for its stated rule
+              (release-alarm-not-cleared by chat no-reader-left's drift, not by the overdue Story); coverage run exit 1
+              on 9 timeouts under coverage only, no assertion failed, no type error; stress: 2 timeouts under load
+              (player-room-edges, shop-store pairs), both pass alone in 10 s at 1c4bf6b5, so not this build. Sidecars:
+              accepted: registration (fixtures), freeze (blind), the select-throw gap and the mislabeled fault (flip A),
+              evidence lines (blind), the string reasons (cohesion). Rejected: release-alarm-not-cleared survives (it is
+              caught), dispose order versus End (no observable difference found), one overdue issue per operation rather
+              than per key (no Story has two operations on one key; noted). Slips: the hand-edited code link
+              (`close.ts#cleanupsFailed`) resolves and `wk check` passes; records still go through `wk` only.
+        comment     2026-11-23T09:35:25Z
+            [decided: agent orchestrator 2026-11-23] Fix round in this Task, from close review 1: register every
+            placement fixture (search, home, shop, transfers, session out of pending/); the entry row with data and
+            predicted (@plan.Operations.O6), which the three optimistic reds read instead of value; a live optimistic
+            value holds its entry (red first: shop quick add with the mini-cart closed); a writes list with any invalid
+            target applies nothing (@plan.Operations.O5 wins over the build); the routed evidence lines, string
+            comparisons, R11 throwing-select Story and the placeholder-unmarked fault edit. Freeze and thaw placement go
+            to @task.V3.T109. Why: each is in the slice's acceptance and owners. Reverse: none.
     T124
         title       Persisted resources
-        status      review
+        status      in_progress
         priority    medium
         parent      [@T21]
 
@@ -6719,6 +6826,38 @@ tasks
         comment     2026-11-23T09:09:00Z
             To review at 33efcd7a: check 0/0, suite green, stress 113/113 (draft's saved stress Story regenerated), 5
             own faults caught; left: entry records in the corruption test.
+        comment     2026-11-23T09:34:50Z
+            Close review (independent reviewer, 2026-11-23) at 1c4bf6b5 (build 33efcd7a): ISSUES, two blockers, both
+            broken acceptance items.
+            - B1, item 4: the one-field corruption and literal-swap tests never mutate an `entry/` record (`rg entry
+              tests/restore/corrupt.test.ts` finds none). Only the writer-form run rule sees them. Origin: draft has
+              `pairs: []` and its Document, the persisted read with `writes` and `clear`, sits in `pending/`. Fix:
+              register Document and give draft a persisted pair, so the corruption tests and the reload sweep cover
+              saved entries, including a cleared read brought back by a reload.
+            - B2, item 2 ("the Install cell is built here"): `entry-store.ts#installOne` puts unconditionally, and
+              Install is no Cue of `entries.ts#apply`. The Spec's "already in memory: ignored" is not built; adoption
+              (@task.V3.T48) would overwrite live data and orphan a running call. Fix: Install as a cue of the table
+              with that cell, shown by a core test now, its Story with T48. Accepted: saved entries install with `asked:
+              none`, too old or undecodable ones are deleted with no issue, `persist` without `output` is refused, and
+              restore after a definition edit holds. Q15 choice A (a gcTime-0 read is never saved). The mark that
+              carries its own record text, and the non-strict data decode under a strict envelope, are each in the
+              builder's tag. The `generate.ts` fix is right, not shaped to pass: `lose()` builds at "response" in the
+              fake (`fake.ts:216`) and in the sweep (`sweep.ts:150`); the generator was the odd one out. Draft's saved
+              stress Story was regenerated for this build's runtime and is a change detector only. Route: one
+              constructor for an ended wire word (the fact now has three copies), @task.V3.T97. Routed: the Q15
+              construction warning (persist with gcTime 0) goes to @task.V3.T22, a construction check. Creating any
+              entry of a persisted read writes a delete mark (`entry-store.ts` `changed` with no before): a wasted
+              write; the slice comment owns it. The saved-entry lifecycle hangs off `put` and the caller's choice of
+              `collected` or `remove`: see the slice comment on T21. Runs: faults --only 5 of 5 caught
+              (saved-entry-fresh, old-entry-installed, undecodable-entry-kept, persist-without-output-accepted,
+              cleared-entry-saved); old-entry-installed has no boundary Story at exactly gcTime (noted). Coverage and
+              stress: see T123's comment.
+        comment     2026-11-23T09:35:38Z
+            [decided: agent orchestrator 2026-11-23] Fix round in this Task, from close review 1: the corruption and
+            literal-swap tests reach entry/ records (draft's Document registered with a pair sweep); Install ignores a
+            saved entry when one is already in memory, unless the builder shows with evidence that this is adoption
+            (@task.V3.T48). Why: both are in this Task's acceptance. Reverse: move the Install cell to T48 if it
+            is adoption.
     T127
         title       Declared emits at the root
         status      draft
