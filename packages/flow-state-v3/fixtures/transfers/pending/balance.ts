@@ -82,7 +82,8 @@ export const AvailableHttp = (origin: string) =>
  */
 export const available = resource({
   id: "Bank/available",
-  input: { account: Schema.String },
+  // An account id is never empty.
+  input: { account: Schema.String.check(Schema.isNonEmpty()) },
   key: ["account"],
   services: [AvailableApi],
   staleTime: "10 seconds",

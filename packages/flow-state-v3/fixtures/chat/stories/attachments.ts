@@ -1,5 +1,11 @@
 import { Story } from "../../../src/host/testing/index.ts";
-import { Attachment, attachmentSetup, photo, Uploads, UploadsFake } from "./attachment.ts";
+import {
+  Attachment,
+  attachmentSetup,
+  photo,
+  Uploads,
+  UploadsFake,
+} from "../machines/attachment.ts";
 
 const attachmentStory = (id: string) =>
   Story.app(attachmentSetup, { id, fixtures: [UploadsFake] }).ensure(photo);

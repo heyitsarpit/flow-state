@@ -203,7 +203,7 @@ describe("a cleanup outside a call that fails at the close (Actors R23, I33)", (
 });
 
 describe("a cleanup that does not end (Actors R22, R23)", () => {
-  it("Actors R22, R23: a call that cannot be interrupted is waited for no longer than the bound; dispose rejects CleanupFailed", () => {
+  it("Actors R22, Operations R8 (Releases): a call that cannot be interrupted is waited for no longer than the bound; dispose rejects ReleaseOverdue", () => {
     const tab = platformOver(new Map(), 1);
 
     const stuck = Layer.succeed(
@@ -215,19 +215,19 @@ describe("a cleanup that does not end (Actors R22, R23)", () => {
     runtime.ensureActor(front).send({ _tag: "Ring", tone: "ding" });
     tab.settle();
 
-    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["CleanupFailed"]);
+    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["ReleaseOverdue"]);
   });
 
-  it("Actors R22, R23: an interrupt cleanup that never ends is waited for no longer than the bound; dispose rejects CleanupFailed", () => {
+  it("Actors R22, Operations R8 (Releases): an interrupt cleanup that never ends is waited for no longer than the bound; dispose rejects ReleaseOverdue", () => {
     const tab = platformOver(new Map(), 1);
     const runtime = readyOver(tab.platform, ringingBell(Effect.never));
     runtime.ensureActor(front).send({ _tag: "Ring", tone: "ding" });
     tab.settle();
 
-    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["CleanupFailed"]);
+    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["ReleaseOverdue"]);
   });
 
-  it("Actors R23, Restore R10: a forget after a work close past its bound fails StorageFailure beside CleanupFailed and deletes nothing", () => {
+  it("Actors R23, Restore R10: a forget after a work close past its bound fails StorageFailure beside ReleaseOverdue and deletes nothing", () => {
     const store = new Map<string, string>();
     const tab = platformOver(store, 1);
     const runtime = readyOver(tab.platform, ringingBell(Effect.never));
@@ -239,14 +239,14 @@ describe("a cleanup that does not end (Actors R22, R23)", () => {
     assert.ok(kept.size > 0, "the note landed");
 
     assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime, { forget: true })), [
-      "CleanupFailed",
+      "ReleaseOverdue",
       "StorageFailure",
     ]);
 
     assert.deepStrictEqual(store, kept);
   });
 
-  it("Actors R22, R23: a services finalizer that never ends is waited for no longer than the bound; dispose rejects CleanupFailed", () => {
+  it("Actors R22, Operations R8 (Releases): a services finalizer that never ends is waited for no longer than the bound; dispose rejects ReleaseOverdue", () => {
     const tab = platformOver(new Map(), 1);
 
     const hungLine = Layer.merge(
@@ -256,7 +256,7 @@ describe("a cleanup that does not end (Actors R22, R23)", () => {
 
     const runtime = readyOver(tab.platform, hungLine);
 
-    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["CleanupFailed"]);
+    assert.deepStrictEqual(codesIn(disposedPastBounds(tab, runtime)), ["ReleaseOverdue"]);
   });
 });
 

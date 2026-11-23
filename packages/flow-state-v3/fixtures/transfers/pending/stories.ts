@@ -22,6 +22,20 @@ export const readAfterWrite = cardStory("transfers/read-after-write")
   .checkpoint("settled");
 
 /**
+ * The card is shown before the customer has chosen an account, so its placement names no valid
+ * key; once an account is chosen, the card places its balance.
+ */
+export const noAccountYet = Story.app(balanceSetup, {
+  id: "transfers/no-account-yet",
+  fixtures: [AvailableFake],
+})
+  .ensure(me)
+  .ensure(card)
+  .checkpoint("unchosen")
+  .send(me, Customer.E.Choose({ account: "acct-1" }))
+  .checkpoint("chosen");
+
+/**
  * The customer switches to an account whose balance is on the wire: the card shows the last
  * account's balance, marked as a placeholder, until the new one lands.
  */

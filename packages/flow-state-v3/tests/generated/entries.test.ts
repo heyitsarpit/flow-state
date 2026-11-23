@@ -62,6 +62,17 @@ describe("the entry table over generated read sequences (Operations T1, T2; R3, 
     expect(wasted).toEqual([]);
   });
 
+  it("Operations T2 (the build-time choice's case is reached): some runs leave a thread while its read runs and a read is still wanted, so the leave starts one", () => {
+    // Clear on a Running entry starts a request only when one is wanted then (a trailing read or
+    // a waiter): a history call started in a Leave step is that case, the one the check above
+    // judges.
+    const reached = runs.filter(({ run }) =>
+      historyCalls(run).some((call) => leaves(run).has(call.step)),
+    );
+
+    expect(reached.length).toBeGreaterThan(0);
+  });
+
   it("Operations T1 (Settled, Running behind): the generated runs reach a history answer that went behind and lands nothing", () => {
     // A history read is superseded either by a slot's newer lookup (a join or an open) or by its
     // own answer settling behind; only the second happens in a step that looks nothing up.

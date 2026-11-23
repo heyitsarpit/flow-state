@@ -3,6 +3,7 @@ import { benchTurn, manifest } from "../manifest.ts";
 import { chatApp, chatSetup, threadOf } from "./app.ts";
 import { manyThreads, seededStress, sendBurst } from "./stories/load.ts";
 import { samples } from "./stories/samples.ts";
+import { uploadProgress, uploadStopped } from "./stories/attachments.ts";
 import { stories, usual } from "./stories/usual.ts";
 
 /**
@@ -12,7 +13,7 @@ export const chat = manifest({
   name: "chat",
   setup: chatSetup,
   app: chatApp,
-  stories: { ...stories, sendBurst, manyThreads, seededStress },
+  stories: { ...stories, sendBurst, manyThreads, seededStress, uploadProgress, uploadStopped },
   samples: [samples],
   stressSamples: [samples],
   long: Option.none(),

@@ -9,7 +9,6 @@ import {
   Fiber,
   Layer,
   Option,
-  Predicate,
   Brand,
   Scope,
 } from "effect";
@@ -319,47 +318,9 @@ const hangsUntil = (gate: Deferred.Deferred<void>): Outcome => ({
   failure: () => Option.some(late),
 });
 
-// Whether a Cause holds the close's own failure for a cleanup it stopped waiting for.
-// FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it was given.
-const overdue = (cause: Cause.Cause<unknown>) =>
-  cause.reasons.some((r) => Cause.isFailReason(r) && Predicate.isTagged(r.error, "CleanupOverdue"));
-
-describe("a cleanup that outlives the close's bound (Actors R22, R23)", () => {
+describe("the Runtime's close still running at its bound (Actors R22, R23; Operations, Releases: one fact, one name)", () => {
   for (const kind of kinds)
-    it(`Actors R22, R23: ${kind.name} whose cleanup hangs past the bound rejects dispose with CleanupOverdue, and its late failure goes to the host's report once`, () => {
-      const gate = Deferred.makeUnsafe<void>();
-      const started = kind.start(hangsUntil(gate));
-      const ended = disposedPastBounds(started);
-
-      assert.ok(Option.isSome(ended), "the dispose ended within its bounds");
-      assert.ok(Exit.isFailure(ended.value), "dispose rejected");
-
-      const rejected = Option.flatMap(Cause.findErrorOption(ended.value.cause), (e) => flowOf(e));
-
-      assert.deepStrictEqual(
-        Option.map(rejected, (r) => r.code),
-        Option.some("CleanupFailed"),
-      );
-      assert.ok(
-        Option.exists(rejected, (r) => overdue(r.cause)),
-        "CleanupOverdue kept",
-      );
-      assert.equal(started.tab.reports.length, 0, "nothing reported before the cleanup ends");
-
-      Deferred.doneUnsafe(gate, Exit.void);
-      started.tab.settle();
-
-      assert.equal(started.tab.reports.length, 1, "one late report");
-      assert.ok(
-        started.tab.reports.every((cause) => keeps(cause, late)),
-        "the late failure kept",
-      );
-    });
-});
-
-describe("the Runtime's close still running at its bound (Operations, Releases: one fact, one name)", () => {
-  for (const kind of kinds)
-    it.fails(`Operations R8, Releases: ${kind.name} whose cleanup hangs past the bound rejects dispose with one ReleaseOverdue at the path of the Owner still closing, and no CleanupOverdue`, () => {
+    it(`Operations R8, Releases: ${kind.name} whose cleanup hangs past the bound rejects dispose with one ReleaseOverdue, and its late failure goes to the host's report once`, () => {
       const gate = Deferred.makeUnsafe<void>();
       const started = kind.start(hangsUntil(gate));
       const ended = disposedPastBounds(started);
@@ -371,10 +332,16 @@ describe("the Runtime's close still running at its bound (Operations, Releases: 
         Option.map(rejected, (r) => r.code),
         Option.some("ReleaseOverdue"),
       );
-      assert.ok(!Option.exists(rejected, (r) => overdue(r.cause)), "no CleanupOverdue");
+      assert.equal(started.tab.reports.length, 0, "nothing reported before the cleanup ends");
 
       Deferred.doneUnsafe(gate, Exit.void);
       started.tab.settle();
+
+      assert.equal(started.tab.reports.length, 1, "one late report");
+      assert.ok(
+        started.tab.reports.every((cause) => keeps(cause, late)),
+        "the late failure kept",
+      );
     });
 });
 
@@ -398,7 +365,7 @@ describe("an ended actor's cleanup that outlives the Runtime's close (Actors R23
 
     assert.ok(
       Option.exists(Option.fromUndefinedOr(disposing.pollUnsafe()), Exit.isFailure),
-      "dispose rejected CleanupOverdue",
+      "dispose rejected ReleaseOverdue",
     );
 
     Deferred.doneUnsafe(gate, Exit.void);

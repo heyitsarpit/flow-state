@@ -3,7 +3,6 @@ import {
   Cause,
   Clock,
   type Context,
-  Data,
   Deferred,
   Duration,
   Effect,
@@ -17,7 +16,7 @@ import { laneKeyText } from "../core/lane-moves.ts";
 import { Input } from "../core/step.ts";
 import { isInFlight } from "../core/tx.ts";
 import { actorKey, type AttemptId, byCodeUnits } from "../core/world.ts";
-import { type FlowError, flowError, flowErrorOf } from "../error.ts";
+import { type Finding, type FlowError, flowError, flowErrorOf } from "../error.ts";
 import type { Driver } from "./driver.ts";
 import {
   detach,
@@ -90,19 +89,27 @@ export function unsettledOf(driver: Driver): ReadonlyArray<Unsettled> {
     }));
 }
 
+// The finding of the cleanups that failed as the Runtime closed, if any.
 // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it threw.
-const cleanupFailed = (failures: readonly [Cause.Cause<unknown>, ...Array<Cause.Cause<unknown>>]) =>
-  flowErrorOf(
-    [
-      {
-        code: "CleanupFailed",
-        path: ["dispose"],
-        summary: `${failures.length} cleanups failed as the Runtime closed`,
-        help: "Fix the failing cleanup; every failure's cause is on this error.",
-      },
-    ],
-    failures.reduce((all, failure) => Cause.combine(all, failure)),
-  );
+const cleanupsFailed = (failures: ReadonlyArray<Cause.Cause<unknown>>) =>
+  failures.length === 0
+    ? []
+    : [
+        {
+          code: "CleanupFailed",
+          path: ["dispose"],
+          summary: `${failures.length} cleanups failed as the Runtime closed`,
+          help: "Fix the failing cleanup; every failure's cause is on this error.",
+        } satisfies Finding,
+      ];
+
+// The finding of the Runtime's own close still running at its bound: one fact, one name.
+const releaseOverdue: Finding = {
+  code: "ReleaseOverdue",
+  path: ["dispose", "runtime"],
+  summary: "the Runtime's work was still closing one disposal bound after its core ended",
+  help: "Make each cleanup and call stop when interrupted; a later failure goes to the host's report.",
+};
 
 const forgetFailed = flowError([
   {
@@ -175,13 +182,6 @@ export const heldUntilReleased = (given: Store["Service"], services: Scope.Scope
   });
 
 /**
- * A close that did not end within one disposal bound of the core's end: a cleanup that cannot be interrupted or
- * never returns. Dispose stops waiting for it; the close goes on, and each failure it finds later
- * goes to the host's report.
- */
-export class CleanupOverdue extends Data.TaggedError("CleanupOverdue")<Record<string, never>> {}
-
-/**
  * The Runtime's one close and the result every caller shares: once the core's life ends
  * (Disposed, or Stopped by a defect), the Runtime's work closes (every task interrupted and
  * awaited, each incarnation's and each runPromise's Owner first), then a wanted forget deletes the
@@ -194,7 +194,7 @@ export class CleanupOverdue extends Data.TaggedError("CleanupOverdue")<Record<st
  * comes before the services' release: a forget asked once the close passed its forget fails
  * StorageFailure with no store call. Once the core's life ends (within its own disposal bound), the
  * Owner tree's close is waited for at most one more bound, the forget's storage wait not counted;
- * past it the close keeps running, dispose rejects CleanupFailed holding `CleanupOverdue`, and each
+ * past it the close keeps running, dispose rejects with a `ReleaseOverdue` diagnostic, and each
  * later failure goes to the host's report. A forget after a work close past its bound fails
  * StorageFailure with no store call: a task still closing may yet write. Each failed cleanup the
  * close hears (a task's, a services finalizer's, a quarantine no ensure reported) fails it with
@@ -251,12 +251,10 @@ export const makeClose = (
       workClosed &&
       Option.isSome(yield* waitAtMost(released, Duration.millis(Math.max(0, bound - spent))));
 
-    const overdue = servicesClosed ? [] : [Cause.fail(new CleanupOverdue({}))];
+    const overdue = servicesClosed ? [] : [releaseOverdue];
 
     if (overdue.length > 0) {
-      driver.input(Input.CleanupFailed());
-
-      // The wait that passed its bound, told as a task that failed with CleanupOverdue.
+      // The wait that passed its bound, told as a task that failed.
       if (Option.isSome(traced))
         for (const record of [
           OwnerRecord.Task({
@@ -283,16 +281,22 @@ export const makeClose = (
           traced.value(record);
     }
 
-    const failures = [...report.late(), ...overdue, ...driver.unheard()];
+    // Every cleanup that failed, then the overdue close: one FlowError keeping every Cause.
+    const causes = [...report.late(), ...driver.unheard()];
 
-    const closed = Arr.match(failures, {
-      onEmpty: () => ended,
-      onNonEmpty: (all) =>
+    const failed = Arr.match([...cleanupsFailed(causes), ...overdue], {
+      onEmpty: () => Option.none<FlowError>(),
+      onNonEmpty: (findings) =>
+        Option.some(flowErrorOf(findings, causes.reduce(Cause.combine, Cause.empty))),
+    });
+
+    const closed = Option.match(failed, {
+      onNone: () => ended,
+      onSome: (error) =>
         // oxlint-disable-next-line flow-state/owners-only -- the core's own end, not a task's: a defect that stopped the Runtime leads its rejection
         Exit.match(ended, {
-          onFailure: (defect) =>
-            Exit.failCause(Cause.combine(defect, Cause.die(cleanupFailed(all)))),
-          onSuccess: () => Exit.fail(cleanupFailed(all)),
+          onFailure: (defect) => Exit.failCause(Cause.combine(defect, Cause.die(error))),
+          onSuccess: () => Exit.fail(error),
         }),
     });
 

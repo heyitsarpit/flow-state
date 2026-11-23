@@ -142,8 +142,8 @@ export const runtimeLifeFaults: ReadonlyArray<Fault> = [
     ["src/host/cleanups.test.ts"],
     "a quarantine no ensure reported is left out of dispose's CleanupFailed, so its failure is reported nowhere",
     "src/host/close.ts",
-    "    const failures = [...report.late(), ...overdue, ...driver.unheard()];",
-    "    const failures = [...report.late(), ...overdue];",
+    "    const causes = [...report.late(), ...driver.unheard()];",
+    "    const causes = [...report.late()];",
   ),
   fault(
     "abort-interrupts-wait",

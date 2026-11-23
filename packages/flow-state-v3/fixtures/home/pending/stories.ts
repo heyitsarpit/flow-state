@@ -19,6 +19,22 @@ export const cardUsual = Story.app(homeReadingsSetup, {
   .checkpoint("refreshed");
 
 /**
+ * The Runtime is disposed while the card's reading is on the wire: the reading is told to stop and
+ * the disposal ends at once, well within its bound.
+ */
+export const disposedMidRead = Story.app(homeReadingsSetup, {
+  id: "home/disposed-mid-read",
+  fixtures: [SensorsFake],
+})
+  .world(Sensors.reading.hold())
+  .ensure(loungeCard)
+  .checkpoint("reading")
+  .disposeRuntime()
+  .checkpoint("disposed")
+  .world(Sensors.reading.release())
+  .checkpoint("released");
+
+/**
  * Over a hub that never stops a reading, the card goes away while its reading is asked, so that
  * reading is told to stop and runs on; the card comes back on its own one disposal bound later, the
  * instant the stopped reading passes the disposal bound. The card shows one issue then, and none

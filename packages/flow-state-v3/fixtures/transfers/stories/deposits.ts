@@ -1,5 +1,11 @@
 import { Story } from "../../../src/host/testing/index.ts";
-import { ChequeDeposit, depositSetup, Deposits, DepositsFake, rentCheque } from "./deposit.ts";
+import {
+  ChequeDeposit,
+  depositSetup,
+  Deposits,
+  DepositsFake,
+  rentCheque,
+} from "../machines/deposit.ts";
 
 const depositStory = (id: string) =>
   Story.app(depositSetup, { id, fixtures: [DepositsFake] }).ensure(rentCheque);

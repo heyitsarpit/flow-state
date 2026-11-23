@@ -1,7 +1,12 @@
 import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Accounts } from "../../fixtures/transfers/server/accounts.ts";
-import type { ChequeDeposit } from "../../fixtures/transfers/pending/deposit.ts";
+import {
+  type ChequeDeposit,
+  depositCheque,
+  rentCheque,
+} from "../../fixtures/transfers/machines/deposit.ts";
+import * as deposits from "../../fixtures/transfers/stories/deposits.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import type { ActorRef } from "../../src/index.ts";
 
@@ -10,20 +15,15 @@ import type { ActorRef } from "../../src/index.ts";
 // (Operations R4, I7, entry table: Invalidate on a Running placed entry); a placement's
 // `placeholder({ previous })` shows the last key's data, marked, while a new key has none (Plan
 // Operations O6); a commit's `progress(p)` shows on its row with no turn (Plan Operations O6); a
-// money write declares the input field the server keys it by (Plan Operations O1). These use
-// members not yet built, so their fixtures load inside each test.
+// money write declares the input field the server keys it by (Plan Operations O1).
 
 const load = async () => ({
   ...(await import("../../fixtures/transfers/pending/stories.ts")),
   ...(await import("../../fixtures/transfers/pending/balance.ts")),
-  ...(await import("../../fixtures/transfers/pending/deposit.ts")),
+  depositCheque,
 });
 
-// The deposit alone: it loads today, so its reds fail on the member it lacks, not on the card.
-const loadDeposit = async () => ({
-  ...(await import("../../fixtures/transfers/pending/deposit-stories.ts")),
-  ...(await import("../../fixtures/transfers/pending/deposit.ts")),
-});
+const loadDeposit = async () => Promise.resolve({ ...deposits, rentCheque });
 
 // A deposit's row's progress at a cut, none with no row or no progress.
 const progressOf = (cut: Cut, ref: ActorRef<typeof ChequeDeposit>) => {
@@ -40,6 +40,22 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(run.checkpoints.shown.read(card)?.memory.cents).toBe(10_000);
     expect(run.checkpoints.settled.read(Accounts.balance)).toHaveLength(3);
     expect(run.checkpoints.settled.read(card)?.memory.cents).toBe(7500);
+  });
+
+  it("Operations R11, I23: a placement whose select names no valid key places nothing and shows its issue, gone once a key is named", async () => {
+    const { noAccountYet, card } = await load();
+    const run = await noAccountYet.run();
+
+    const shown = (cut: Cut) => ({
+      issues: (cut.read(card)?.issues ?? []).map((i) => i.code),
+      calls: cut.read(Accounts.balance).length,
+      cents: cut.read(card)?.memory.cents,
+    });
+
+    expect([run.checkpoints.unchosen, run.checkpoints.chosen].map(shown)).toEqual([
+      { issues: ["Defect"], calls: 0, cents: 0 },
+      { issues: [], calls: 1, cents: 10_000 },
+    ]);
   });
 
   it("Plan Operations O6: an account switch shows the last account's balance as a placeholder until its own lands", async () => {

@@ -1,18 +1,15 @@
 import { Predicate } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import type { Attachment } from "../../fixtures/chat/pending/attachment.ts";
+import { type Attachment, photo } from "../../fixtures/chat/machines/attachment.ts";
+import { uploadProgress, uploadStopped } from "../../fixtures/chat/stories/attachments.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 import type { ActorRef } from "../../src/index.ts";
 
 // A message's attachment, uploaded in chunks. Expected results are Plan Operations O6: a write row's
 // `progress` is set by the commit's `progress(p)` with no turn, and stays on the row while its
-// Attempt is held unsure. The upload uses a member not yet built, so its fixture loads inside each
-// test.
+// Attempt is held unsure.
 
-const load = async () => ({
-  ...(await import("../../fixtures/chat/pending/stories.ts")),
-  ...(await import("../../fixtures/chat/pending/attachment.ts")),
-});
+const load = async () => Promise.resolve({ uploadProgress, uploadStopped, photo });
 
 const progressOf = (cut: Cut, ref: ActorRef<typeof Attachment>) => {
   const row = cut.read(ref)?.operations.get("upload")?.get('{"uploadId":"up-1"}');

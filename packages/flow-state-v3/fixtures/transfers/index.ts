@@ -32,6 +32,7 @@ import {
 } from "./stories/edges.ts";
 import { manyAccounts, manyOrders, orderOffline, owedAtBoot } from "./stories/load.ts";
 import { visibilityStories } from "./stories/visibility.ts";
+import * as depositStories from "./stories/deposits.ts";
 import {
   samples as formSamples,
   orderSamples,
@@ -59,6 +60,7 @@ export const transfers = manifest({
   stories: {
     ...stories,
     ...visibilityStories,
+    ...depositStories,
     formBoundLate,
     checkAndSend,
     chain,
