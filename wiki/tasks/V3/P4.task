@@ -6154,7 +6154,7 @@ tasks
             `chat/pending/attachment.ts` and `transfers/pending/deposit*.ts` out of pending with registration.
     T122
         title       Read entries and read slots
-        status      in_progress
+        status      review
         priority    high
         parent      [@T21]
 
@@ -6184,8 +6184,8 @@ tasks
 
             **Supersedes:** `packages/flow-state-v3/src/core/lanes.ts#lookup`,
             `packages/flow-state-v3/src/core/lanes.ts#interruptReads`;
-            `packages/flow-state-v3/src/core/answers.ts#settledRead`; the Read arm of cancel in `src/core/lanes.ts`
-            and the loop in `src/core/incarnations.ts#retire` (lines 301-302);
+            `packages/flow-state-v3/src/core/answers.ts#settledRead`; the Read arm of cancel in `src/core/lanes.ts` and
+            the loop in `src/core/incarnations.ts#retire` (lines 301-302);
             `packages/flow-state-v3/src/core/world.ts#Read`, `packages/flow-state-v3/src/core/world.ts#reads`;
             code:packages/flow-state-v3/src/handles.ts#readHandle; code:packages/flow-state-v3/src/host/driver.ts#call,
             code:packages/flow-state-v3/src/host/driver.ts#resultOf,
@@ -6271,6 +6271,35 @@ tasks
             [decided: agent orchestrator 2026-11-23] Also owns the bigint key "$1n" row and the write-target placeholder
             shape the requirements lead drafted (settled by its red). Why: entry keys and writes are this Task's.
             Reverse: move the key row to @task.V3.T56.
+        comment     2026-11-23T06:21:50Z
+            [decided: agent builder 2026-11-23] Build-time choice (`again` on a Running entry that lost its holds): B. A
+            start from `again` runs only for a holder present then (`firstHolder`), and Last hold left releases and
+            clears `again` at the step end. Why: the deciding generator (`tests/generated/entries.test.ts`) runs search
+            pending results, which need placements (T123), and Clear, the cell that met the case, is a T123 member, so A
+            cannot waste a call today. Reverse: start from `again` with no holder check.
+        comment     2026-11-23T06:21:52Z
+            [decided: agent builder 2026-11-23] A read request still runs in the asking life work (Command.Lookup names
+            that life), not the Runtime work as the Spec Start move says. Why: moving it changes Actors R23 ref
+            quarantine for a read failed cleanup (44 tests in src/host/cleanups.test.ts), which belongs with Releases
+            (@task.V3.T123); today a request outlives other holders only while its starting life lives. Reverse: fork
+            under the Runtime work and route a released read cleanup failure by Releases.
+        comment     2026-11-23T06:21:54Z
+            Left in T122 (evidence, 2026-11-23): `writes` and InvalidWrite (O3) are not built: no loadable fixture uses
+            `writes` (session red needs placements). Invalidate, Written and Clear cells are not built; their members
+            are T123, and faults behind-result-lands and join-when-behind wait with them. `entries.freeze` waits for
+            T109. Bigint key "$1n" not written (canonical key names, Records format; reverse owner T56). Commit
+            `optimistic` is typed nowhere yet (fixture lines keep their directives); its failure and unknown paths have
+            only shop reds (pending, T123).
+        comment     2026-11-23T06:21:55Z
+            Pinned old behaviour turned to the entry table: PAY-15 and PAY-16 polls now join the held read (OneWait),
+            the cleanups "read replaced while open" case joins, and wizard/slots-usual advances 5 minutes, since the
+            booking fake returns an absolute hold time that a 10 minute advance had passed once mappers delivered.
+        comment     2026-11-23T06:31:38Z
+            Build closed at the commit after 2e161047: check 0/0, suite green (25333 pass, 55 inverted), 7 own faults
+            caught by `faults --only`; stress keeps only the 3 failures that fail the same at ce69f1ba (durability and
+            lane-bound timeouts, draft saved stress Story); search saved stress Story regenerated from seed 36. Left:
+            the items in the earlier left comment (writes, InvalidWrite, Invalidate/Written/Clear cells, freeze, "$1n",
+            optimistic typing).
     T123
         title       Placements and release
         status      in_progress

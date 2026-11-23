@@ -1100,9 +1100,11 @@ here) for the booking; no source for the quote.
 - **Scenarios:**
   - **Slot picker (slice T21; written red at requirements, checked at the build's close):** `SlotPicker`
     (grown, `machines/slot-picker.ts`), R `area` (fresh an hour), R `slots` (gcTime 0), T `holdSlot` (`reject`).
-    - [ ] Usual and freshness: `wizard/slots-usual`. Mapper input: `wizard/slot-taken`, `wizard/double-pick`.
-    - [ ] Input refused at run time: `wizard/blank-postcode` (E1, E7). gcTime 0: `wizard/day-changed`. No retry
-      loop: `wizard/uncovered-not-retried`. Samples `wizard-slots`. No source (Cal.com not checked).
+    - [x] Usual and freshness: `wizard/slots-usual` (@task.V3.T122). Mapper input: `wizard/slot-taken`,
+      `wizard/double-pick` (@task.V3.T121).
+    - [x] Input refused at run time: `wizard/blank-postcode` (E1, E7). gcTime 0: `wizard/day-changed`. No retry
+      loop: `wizard/uncovered-not-retried`. Samples `wizard-slots`. No source (Cal.com not checked). built:
+      @task.V3.T122.
   - [ ] **Usual:** forward through every step, Back by history, submit once.
   - [ ] **Load:** L2: 64 queued Next and Back events; a double submit; L1 × 16 wizards; L4.
   - [ ] **Structure:** S1: a subroutine in a compound in a compound, four deep, with history through each and S9 at the
@@ -1144,10 +1146,11 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
   - **Slice T21 (written red at requirements, checked at the build's close):** `Typeahead` (registered);
     `SearchPage` and `Saved` in `pending/` until `subscribe`, `refetch`, `setData`, `invalidate` and `clear`
     exist, with the grown app in `results-app.ts`.
-    - [ ] Box: `search/latest-wins` (guard), `search/repeat-query` (fresh, Collect), `search/two-boxes`,
+    - [x] Box: `search/latest-wins` (guard), `search/repeat-query` (fresh, Collect), `search/two-boxes`,
       `search/blank-query`, `search/stress-typing-burst` (L5, 14), `search-box/stress-36`; S7 builder
-      `missingSearch`.
-    - [ ] Results: `search/results-usual`, `shared-results`, `refresh-joins`, `clear-results`,
+      `missingSearch`. built: @task.V3.T122 (S7: @task.V3.T121).
+    - [ ] Results: left, @task.V3.T123 (placements, `refetch`, `invalidate`, `clear`, `setData`):
+      `search/results-usual`, `shared-results`, `refresh-joins`, `clear-results`,
       `closed-mid-read`, `turned-mid-read`, `saved-write-wins`, `saved-unsure`; samples `search-results` and the
       generated entry-table test.
   - [ ] **Usual:** type, results, a cached repeat, a refetch after the stale time. The field follows the URL's query
@@ -1157,7 +1160,7 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
   - **Structure:**
     - [ ] S2: one read shared by 64 `ResultList`s under L5.
     - [ ] S8: `subscribe.each` as facets change under L5. left: @task.V3.T25, needs `subscribe.each`.
-    - [ ] S2 written red: `search/stress-many-lists` (64 `ResultList`s, local, under one read).
+    - [x] S2: `search/stress-many-lists` (64 `ResultList`s, local, under one read). built: @task.V3.T122.
     - [ ] S3: two search pages sharing no entries.
     - [ ] S6 × {page first, list first} under live reads; late answers dropped. Copies
       [restore-late-items.test.ts:123][ui-late] "stops waiting for the items once destroyed".
@@ -1458,11 +1461,12 @@ checked here).
   - **Slice T21 (written red at requirements, checked at the build's close):** `Account`, `Hub`, `Thread`
     (registered; `Thread` ⇠ the account's `who`, not `hub`); R `history`; T `send` (`serialize`),
     `deleteMessage`, `ask` (`reject`).
-    - [ ] `chat/usual`, `two-threads`, `one-reader-left`, `no-reader-left` (S6), `release-overdue`,
-      `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`, `stress-send-burst` (L5, 100),
-      `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`; samples `chat`.
+    - [x] built (@task.V3.T122 reads, @task.V3.T121 endings): `chat/usual`, `two-threads`, `one-reader-left`,
+      `no-reader-left` (S6), `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`,
+      `stress-send-burst` (L5, 100), `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`;
+      samples `chat`. `chat/release-overdue`: left, @task.V3.T123 (ReleaseOverdue).
     - [ ] Pair sweep: red (`tests/chat/pairs.test.ts`), rejoins the manifest when it passes.
-    - [ ] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar): left,
+    - [x] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar). built:
       @task.V3.T122.
     - [x] built (@task.V3.T121): T `send` declares `idempotency` by client id (`tests/chat/endings.test.ts`);
       `Attachment`, T `upload` with `progress`: `chat/upload-progress`, `chat/upload-stopped`

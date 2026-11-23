@@ -107,8 +107,8 @@ export const missingSearch = () =>
     .checkpoint("booted");
 
 /**
- * The stress run the search box samples print from seed 36: blank queries among real ones, held
- * and dropped requests whose cleanups die, a forgotten box, reloads and an offline spell.
+ * The stress run the search box samples print from seed 36: blank queries among real ones, repeats
+ * served from what was read, a forgotten box, reloads and an offline spell.
  */
 export const seededStress = Story.app(searchSetup, {
   id: "search-box/stress-36",
@@ -118,14 +118,10 @@ export const seededStress = Story.app(searchSetup, {
   .ensure(otherBox)
   .send(otherBox, typed("sho"))
   .send(otherBox, typed("sho"))
-  .world(Catalog.suggest.hold(), Catalog.suggest.cleanup("dies"))
   .send(box, typed("sho"))
-  .world(Catalog.suggest.drop())
   .world(Catalog.addProduct({ name: "shoe horn" }))
   .send(box, typed("s"))
-  .world(Catalog.suggest.hold())
   .send(box, typed("   "))
-  .world(Catalog.suggest.hold(), Catalog.suggest.cleanup("dies"))
   .send(otherBox, typed("sho"))
   .send(otherBox, typed("sho"))
   .send(otherBox, typed("sho"))
@@ -220,10 +216,6 @@ export const seededStress = Story.app(searchSetup, {
   .send(box, typed("s"))
   .advance("56438 millis")
   .world(Fake.network.online())
-  .advance("2 minutes")
-  .world(Catalog.suggest.release())
-  .world(Catalog.suggest.release())
-  .world(Catalog.suggest.release())
   .advance("2 minutes")
   .advance("2 minutes");
 
