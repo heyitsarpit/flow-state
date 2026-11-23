@@ -127,6 +127,91 @@ export const readsFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
+    name: "two-calls-one-entry",
+    tests: ["tests/chat/reads.test.ts", "tests/search/typeahead.test.ts"],
+    says: "an ask of a Running entry starts a second request instead of waiting on the first",
+    rule: "Operations R3, I6",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "      Current: () => waits(entry),",
+        replace: "      Current: () => waits(start(key, entry, h, slot.actor)),",
+      },
+    ],
+  },
+  {
+    name: "fresh-entry-asks-again",
+    tests: ["tests/chat/reads.test.ts", "tests/search/typeahead.test.ts"],
+    says: "a lookup of fresh data starts a request instead of serving what was read",
+    rule: "Operations R4",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "        if (!refetch && fresh(entry))",
+        replace: "        if (!refetch && fresh(entry) && Number.isNaN(0))",
+      },
+    ],
+  },
+  {
+    name: "no-release-at-last-hold",
+    tests: ["tests/chat/reads.test.ts", "tests/search/typeahead.test.ts"],
+    says: "a Running entry that lost its last hold keeps its request on the wire",
+    rule: "Operations R5, StepBoundary",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "      const unheld = { ...release(key, entry), again: false, unheldSince: Option.some(now()) };",
+        replace:
+          "      const unheld = { ...entry, again: false, unheldSince: Option.some(now()) };",
+      },
+    ],
+  },
+  {
+    name: "collect-without-gctime",
+    tests: ["tests/search/typeahead.test.ts"],
+    says: "an unheld entry's Collect is due at once, so it is removed before its gcTime",
+    rule: "Operations R5, I12",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "        tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);",
+        replace: "        tx.setAlarm(Alarm.Collect({ entry: key }), now());",
+      },
+    ],
+  },
+  {
+    name: "gc-zero-keeps-entry",
+    tests: ["tests/wizard/slots.test.ts"],
+    says: "an entry with gcTime 0 is kept with a Collect alarm a moment on instead of removed in the step",
+    rule: "Operations R5, I12",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "      if (gcTime <= 0) remove(key);",
+        replace: "      if (gcTime < 0) remove(key);",
+      },
+      {
+        file: "src/core/entries.ts",
+        find: "        tx.setAlarm(Alarm.Collect({ entry: key }), now() + gcTime);",
+        replace: "        tx.setAlarm(Alarm.Collect({ entry: key }), now() + Math.max(gcTime, 1));",
+      },
+    ],
+  },
+  {
+    name: "lookup-input-unchecked",
+    tests: ["tests/search/typeahead.test.ts", "tests/wizard/slots.test.ts"],
+    says: "a lookup's input is sent without its Schema's check",
+    rule: "Operations, Slot cells (intake)",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "      Option.liftPredicate(input, (i) => Result.isSuccess(operation.walk.input.text(i))),\n      (i) => operation.walk.keyText(pick(i, operation.keyFields)),",
+        replace:
+          "      Option.liftPredicate(input, (i) => i === input),\n      (i) => Option.some(JSON.stringify(pick(i, operation.keyFields))),",
+      },
+    ],
+  },
+  {
     name: "attempt-id-without-seed",
     tests: ["tests/chat/keys.test.ts"],
     says: "an Attempt id is minted from the count alone, so a boot mints ids an earlier boot used",

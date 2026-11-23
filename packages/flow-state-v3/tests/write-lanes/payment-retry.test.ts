@@ -150,9 +150,9 @@ describe("PAY-16 (WriteLanes R2, R3, R5, R8; Restore R3; Turn I12)", () => {
     expect(lastReason(run.evidence, "intent")).toBe("Defect");
   });
 
-  it.fails("Operations T4.2, R3, OneWait: polls every check against a status read slower than the check join the read on the wire, and the payment hears its answer", async () => {
+  it("Operations T4.2, R3, OneWait: polls every check against a status read slower than the check join the read on the wire, and the payment hears its answer", async () => {
     const run = await onWire("PAY-16/poll-joins-read", Shop.confirm.drop())
-      .world(Shop.intent.hold(), Shop.intent.hold(), Shop.intent.hold())
+      .world(Shop.intent.hold())
       .advance(CHECK)
       .advance(CHECK)
       .advance(CHECK)
