@@ -592,3 +592,8 @@ note 2026-11-23T10:48:45Z
     T123 and T124 done (close review 2 PASS at 7ce526a3, seams across T121 to T124 hold). Page
     @page.T21-reads-and-operations written; slice T21 waits on the user's read before its close. Loop findings 1-5
     proposed.
+
+note 2026-11-23T11:22:08Z
+    Run paused (2026-11-23, the user): records compacted (9936f1bc), cron removed, caffeinate stopped. Resume: the user
+    reads @page.T21-reads-and-operations, then close slice T21 and start the next P4 slice; skills proposal waits on the
+    user's Q1-Q3.
