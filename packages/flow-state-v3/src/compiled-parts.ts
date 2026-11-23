@@ -14,7 +14,7 @@ import {
   type Values,
   type Writes,
 } from "./core/compiled.ts";
-import type { Bound, BoundInternals } from "./contract.ts";
+import { type Bound, type BoundInternals, dataKeyOf } from "./contract.ts";
 import { internalsOf } from "./made.ts";
 import { defect } from "./core/defect.ts";
 import { isUncertain } from "./config.ts";
@@ -85,7 +85,7 @@ export const operationOf = (name: string, bound: Bound) => {
     input: bound.input,
     inputJson: bound.inputJson,
     walk: operationWalkOf(bound),
-    success: mappingOf(bound.success, `operations.${name}.success`),
+    success: mappingOf(bound.success, `operations.${name}.${dataKeyOf(bound)}`),
     failure,
   };
 

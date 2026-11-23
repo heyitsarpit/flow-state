@@ -31,6 +31,7 @@ export type Kind =
   | "event"
   | "mapping"
   | "action"
+  | "activity"
   | "guard"
   | "send"
   | "change"

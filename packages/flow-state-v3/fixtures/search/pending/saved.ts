@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or mapper context the Operations Spec adds and the package lacks, so its values type as any until it lands */
 import { Schema } from "effect";
 import { definition, Flow, machine } from "../../../src/index.ts";
 import { saved } from "../operations/reads.ts";
@@ -25,16 +24,18 @@ export const Saved = definition({
   },
   operations: ({ E }) => ({
     saved: saved.outcomes({
-      // @ts-expect-error Operations O2: a placed read maps `value`
       value: E.Listed.from((v) => ({ searches: v.searches })),
       failure: { NoResponse: E.ListFailed, Defect: E.ListFailed, Interrupted: E.ListFailed },
     }),
-    saveSearch: saveSearch.outcomes({
-      success: E.SavedOk.from((v) => ({ searches: v.searches })),
-      failure: {},
-      notSent: E.SaveRefused.from((n) => ({ why: n.why })),
-      unknown: E.SaveUnsure,
-    }),
+    saveSearch: saveSearch.outcomes(
+      {
+        success: E.SavedOk.from((v) => ({ searches: v.searches })),
+        failure: {},
+        notSent: E.SaveRefused.from((n) => ({ why: n.why })),
+        unknown: E.SaveUnsure,
+      },
+      { writes: ({ value, input }) => [saved.write({ shopper: input.shopper }, value)] },
+    ),
   }),
 });
 
@@ -47,7 +48,6 @@ export const SavedMachine = machine(Saved, ({ S, O }) => ({
   default: S.READY,
   states: {
     READY: {
-      // @ts-expect-error Operations O2: a state places a read with `subscribe` in `activities`
       activities: [O.saved.subscribe(({ memory }) => ({ shopper: memory.shopper }))],
       on: {
         Listed: { updateMemory: ({ event }) => ({ searches: event.searches }) },
@@ -55,15 +55,6 @@ export const SavedMachine = machine(Saved, ({ S, O }) => ({
         Save: {
           actions: [
             O.saveSearch.commit(({ memory, event }) => ({ shopper: memory.shopper, q: event.q })),
-          ],
-        },
-        SavedOk: {
-          actions: [
-            // @ts-expect-error Operations O5: `setData` writes `{ key, data }` into the read
-            O.saved.setData(({ memory, event }) => ({
-              key: { shopper: memory.shopper },
-              data: event,
-            })),
           ],
         },
         SaveUnsure: {

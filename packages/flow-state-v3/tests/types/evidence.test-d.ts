@@ -204,7 +204,13 @@ describe("Diagnostics R2, R7: a diagnostic's details are the keys its code write
       "reason" | "contract" | "first" | "refused" | "slot"
     >();
     expectTypeOf(diagnostic.details.refused).toEqualTypeOf<
-      "Defect" | "InvalidTurn" | "GuardDefect" | "StorageFailure" | "CleanupFailed" | undefined
+      | "Defect"
+      | "InvalidTurn"
+      | "GuardDefect"
+      | "StorageFailure"
+      | "CleanupFailed"
+      | "ReleaseOverdue"
+      | undefined
     >();
     expectTypeOf(diagnostic.details.slot).toEqualTypeOf<string | null | undefined>();
     expectTypeOf(error.diagnostics[0].details.reason).toEqualTypeOf<string | undefined>();

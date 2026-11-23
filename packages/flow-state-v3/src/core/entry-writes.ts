@@ -74,17 +74,21 @@ export const makeEntryWrites = (tx: Tx, apply: (key: EntryKey, cue: Cue) => void
   };
 
   // One success write on its entry: Written with the update applied to the confirmed data, or
-  // Invalidate when data landed after the commit started or there is none to update.
+  // Invalidate when data landed after the commit started or there is none to update; a write that
+  // gives the data itself lands on an entry with no data at all.
   const written = (w: ReadWrite, started: Option.Option<number>) => {
     for (const { key, entry } of Option.toArray(entryOf(w))) {
       const confirmed = Option.filter(entry.data, (d) =>
         Option.exists(d.asked, (asked) => Option.exists(started, (s) => asked <= s)),
       );
 
+      const empty = w.replaces && Option.isNone(entry.data);
+
       apply(
         key,
         Option.match(confirmed, {
-          onNone: () => Cue.Invalidate(),
+          onNone: () =>
+            empty ? Cue.Written({ value: applied(w.update, undefined) }) : Cue.Invalidate(),
           onSome: (d) => Cue.Written({ value: applied(w.update, d.value) }),
         }),
       );

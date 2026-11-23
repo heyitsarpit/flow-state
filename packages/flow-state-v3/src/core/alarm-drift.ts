@@ -1,5 +1,6 @@
-import { Equal, Option } from "effect";
+import { Duration, Equal, Option } from "effect";
 import { Alarm, type Alarmed, alarmKey, earliest } from "./alarms.ts";
+import { RuntimeDefaults } from "./defaults.ts";
 import { Life } from "./life.ts";
 import { alarmOf, dueRunsOf } from "./schedule-plan.ts";
 import { isInFlight } from "./tx.ts";
@@ -45,14 +46,20 @@ const owed = (world: World) => {
 };
 
 // Whether a held alarm stands for a fact the world still owes it for, by `owed`. A silence is not
-// judged: its owner fact is the store's unanswered batch, which the World does not keep.
+// judged: its owner fact is the store's unanswered batch, which the World does not keep. A release's
+// alarm is judged only while held, at its call's release plus the disposal bound: once taken, its
+// absence is the fact that the call is overdue, so no missing one is reported.
 const ownedBy =
-  (wanted: ReadonlyMap<string, Option.Option<number>>) =>
+  (world: World, wanted: ReadonlyMap<string, Option.Option<number>>) =>
   (key: string, { alarm, at }: Alarmed) =>
     Alarm.$match(alarm, {
       Silent: () => true,
       Bound: () => wanted.has(key),
-      Release: () => false,
+      Release: ({ call }) =>
+        Option.exists(
+          Option.fromUndefinedOr(world.releasing.get(call)),
+          (r) => r.since + Duration.toMillis(RuntimeDefaults.disposalBound) === at,
+        ),
       Collect: () => wanted.has(key),
       Grace: () => wanted.has(key),
       Schedule: () =>
@@ -65,7 +72,7 @@ const ownedBy =
  */
 export const alarmDrift = (world: World) => {
   const wanted = owed(world);
-  const owns = ownedBy(wanted);
+  const owns = ownedBy(world, wanted);
 
   // The host holds one wake exactly while an alarm is due, at the earliest deadline.
   const wake = earliest(world.alarms);

@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call, typescript/no-unsafe-return -- each line under an `@ts-expect-error` uses a read member or option the Operations Spec adds and the package lacks, so its values type as any until it lands */
 // @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
 import { Context, Effect, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpIncomingMessage } from "effect/http";
@@ -119,7 +118,8 @@ export const BalanceCard = definition({
   internalEvents: {
     Read: { cents: Schema.Number, placeholder: Schema.Boolean },
     Unread: {},
-    Paid: {},
+    Paid: { account: Schema.String },
+    Refresh: {},
     PayUnsure: Flow.uncertain({}),
   },
   memory: {
@@ -130,27 +130,28 @@ export const BalanceCard = definition({
   context: { account: Flow.context(Customer.M.account) },
   operations: ({ E }) => ({
     available: available.outcomes({
-      // @ts-expect-error Operations O2, O6: a placed read maps `value`, its placeholder marked
       value: E.Read.from((v, { placeholder }) => ({ cents: v.cents, placeholder })),
       failure: { NoAnswer: E.Unread, Defect: E.Unread, Interrupted: E.Unread },
     }),
-    cardPayment: cardPayment.outcomes({ success: E.Paid, failure: {}, unknown: E.PayUnsure }),
+    cardPayment: cardPayment.outcomes({
+      success: E.Paid.from((_, { input }) => ({ account: input.account })),
+      failure: {},
+      unknown: E.PayUnsure,
+    }),
   }),
+  schedules: { refresh: {} },
 });
 
 /**
  * The card places the customer's account's balance, showing the last account's while a new
  * account has none yet; a payment that lands marks the balance stale, so it is read again.
  */
-export const BalanceCardMachine = machine(BalanceCard, ({ S, O }) => ({
+export const BalanceCardMachine = machine(BalanceCard, ({ S, E, O }) => ({
   default: S.SHOWN,
   states: {
     SHOWN: {
-      // @ts-expect-error Operations O2: a state places a read in `activities`
       activities: [
-        // @ts-expect-error Operations O2, O6: `subscribe` with a `placeholder` from the previous key
         O.available.subscribe(({ context }) => ({ account: context.account ?? "" }), {
-          // @ts-expect-error Operations O6: `placeholder` reads the placement's previous key and data
           placeholder: ({ previous }) => previous?.data,
         }),
       ],
@@ -168,12 +169,12 @@ export const BalanceCardMachine = machine(BalanceCard, ({ S, O }) => ({
             })),
           ],
         },
-        Paid: {
-          // @ts-expect-error a member's select reads memory and the event, not context
-          actions: [O.available.invalidate(({ context }) => ({ account: context.account ?? "" }))],
-        },
+        Paid: { actions: [O.available.invalidate(({ event }) => ({ account: event.account }))] },
+        Refresh: { actions: [O.available.refetch] },
         PayUnsure: { updateMemory: () => ({ notice: "checking the payment" }) },
       },
+      // Time passing starts no read: the card refreshes its balance on a schedule.
+      schedules: { refresh: { schedule: "10 seconds", send: E.Refresh, armOn: [Flow.entry] } },
     },
   },
 }));

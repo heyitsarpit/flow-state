@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or mapper context the Operations Spec adds and the package lacks, so its values type as any until it lands */
 import { Schema } from "effect";
 import { definition, deny, Flow, machine } from "../../../src/index.ts";
 import { results } from "../operations/reads.ts";
@@ -29,7 +28,6 @@ export const SearchPage = definition({
   },
   operations: ({ E }) => ({
     results: results.outcomes({
-      // @ts-expect-error Operations O2: a placed read maps `value`
       value: E.Shown.from((v) => ({ rows: v.rows, total: v.total })),
       failure: { NoResponse: E.Failed, Defect: E.Failed, Interrupted: E.Failed },
     }),
@@ -53,7 +51,6 @@ export const SearchPageMachine = machine(SearchPage, ({ S, O }) => ({
   states: {
     EMPTY: {},
     RESULTS: {
-      // @ts-expect-error Operations O2: a state places a read with `subscribe` in `activities`
       activities: [O.results.subscribe(({ memory }) => ({ q: memory.q, page: memory.page }))],
       on: {
         Page: { updateMemory: ({ event }) => ({ page: event.page }) },

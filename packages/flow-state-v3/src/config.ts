@@ -187,6 +187,9 @@ const ScheduleEntry = Schema.Struct({
   help: "Place a schedule declared on the definition as { schedule, send: E.X }, with its keys, restartOn and paused as its declaration names them.",
 });
 
+// A read a state places, as `O.x.subscribe` makes it.
+const Activity = madeKind("activity", "Place a read with O.x.subscribe(select).");
+
 // A slot's change reaction, as `C.slot.change` makes it: when a change counts, and its event.
 const Change = madeKind("change", "Write a reaction as C.slot.change({ when, event }).");
 
@@ -196,10 +199,13 @@ const StateBody: Schema.Decoder<unknown> = Schema.Struct({
   default: Schema.optionalKey(StateToken),
   on: Schema.optionalKey(On),
   schedules: Schema.optionalKey(Schema.Record(Schema.String, ScheduleEntry)),
+  activities: Schema.optionalKey(Schema.Array(Activity)),
   states: Schema.optionalKey(
     Schema.Record(Schema.String, Schema.UndefinedOr(Schema.suspend(() => StateBody))),
   ),
-}).annotate({ help: "A state body declares on and schedules, and a compound default and states." });
+}).annotate({
+  help: "A state body declares on, schedules and activities, and a compound default and states.",
+});
 
 const MachineBody = Schema.Struct({
   default: Schema.optionalKey(StateToken),

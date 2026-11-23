@@ -25,7 +25,7 @@ import {
 import { Arming, timersIn, Timing, type Tracked, valueOf } from "../core/timers.ts";
 import type { AnyDefinition, KeyOfDecl, ReasonOfDecl, Machine, Operations } from "../definition.ts";
 import type { Parts } from "../derive.ts";
-import { type Code, Diagnostic } from "../error.ts";
+import { type Classification, type Code, Diagnostic } from "../error.ts";
 import type { Driver } from "./driver.ts";
 import { compiledOf } from "../compiled-of.ts";
 
@@ -196,20 +196,44 @@ const DIAGNOSTIC_OF = {
   Defect: "Defect",
   StorageFailure: "StorageFailure",
   CleanupFailed: "CleanupFailed",
+  ReleaseOverdue: "ReleaseOverdue",
 } as const satisfies Record<IssueCode, Code>;
+
+// What kind of failure each issue reports.
+const CLASS_OF = {
+  InvalidTurn: "Failure",
+  GuardDefect: "Defect",
+  Defect: "Defect",
+  StorageFailure: "Failure",
+  CleanupFailed: "Defect",
+  ReleaseOverdue: "Failure",
+} as const satisfies Record<IssueCode, Classification>;
 
 // An open issue as the Diagnostic a snapshot shows: its identity and source in the path, the
 // refusal and the callback slot that failed in details.
 const issueOf = (actor: ActorId, issue: Issue) =>
   new Diagnostic({
-    classification:
-      issue.code === "InvalidTurn" || issue.code === "StorageFailure" ? "Failure" : "Defect",
+    classification: CLASS_OF[issue.code],
     code: DIAGNOSTIC_OF[issue.code],
     path: [actor.machine, actor.name, sourceText(issue.source)],
     details: { refused: issue.code, slot: Option.getOrNull(issue.slot) },
     summary: `${sourceText(issue.source)} raised ${issue.code}${Option.match(issue.slot, { onNone: () => "", onSome: (slot) => ` at ${slot}` })}`,
-    help: "Fix the callback the slot names; the issue clears when this source next succeeds.",
+    help: HELP_OF[issue.code],
   });
+
+const FIX_CALLBACK =
+  "Fix the callback the slot names; the issue clears when this source next succeeds.";
+
+// What to do about each issue.
+const HELP_OF = {
+  InvalidTurn: FIX_CALLBACK,
+  GuardDefect: FIX_CALLBACK,
+  Defect: FIX_CALLBACK,
+  StorageFailure: FIX_CALLBACK,
+  CleanupFailed: FIX_CALLBACK,
+  ReleaseOverdue:
+    "Make the read's lookup stop when interrupted; the issue clears when the call ends.",
+} as const satisfies Record<IssueCode, string>;
 
 // The memory an ensure would start an identity with: what a quarantined record's snapshot shows.
 const freshStart = (compiled: Compiled, actor: ActorId) =>

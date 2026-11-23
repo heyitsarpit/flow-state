@@ -137,6 +137,7 @@ type NodeBody<D extends AnyDefinition, C, P extends string> = [C] extends [never
 type CompoundBody<D extends AnyDefinition, L, P extends string> = {
   readonly on?: Handlers<D>;
   readonly schedules?: LeafBody<D>["schedules"];
+  readonly activities?: LeafBody<D>["activities"];
   readonly default: StateToken<`${P}${NamesOf<L>}`, Parts<D>["Id"]>;
   readonly states?: StatesBody<D, L, P>;
 };

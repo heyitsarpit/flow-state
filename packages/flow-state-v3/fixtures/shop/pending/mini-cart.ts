@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or commit option the Operations Spec adds and the package lacks, so its values type as any until it lands */
 // @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
 import { Context, Effect, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpIncomingMessage } from "effect/http";
@@ -135,7 +134,6 @@ export const MiniCart = definition({
   },
   operations: ({ E }) => ({
     cart: cart.outcomes({
-      // @ts-expect-error Operations O2: a placed read maps `value`
       value: E.Read.from((v) => ({ lines: v.lines })),
       failure: { NoResponse: E.Unread, Defect: E.Unread, Interrupted: E.Unread },
     }),
@@ -155,7 +153,6 @@ export const MiniCartMachine = machine(MiniCart, ({ S, O }) => ({
   default: S.SHOWN,
   states: {
     SHOWN: {
-      // @ts-expect-error Operations O2: a state places a read with `subscribe` in `activities`
       activities: [O.cart.subscribe(({ memory }) => ({ cartId: memory.cartId }))],
       on: {
         Show: { updateMemory: ({ event }) => ({ cartId: event.cartId }) },

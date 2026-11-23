@@ -1,5 +1,5 @@
 import { Data, Option, Result } from "effect";
-import type { Values } from "./compiled.ts";
+import type { Previous, Values } from "./compiled.ts";
 import { CallResult } from "./input.ts";
 import type { Channel } from "./vocabulary.ts";
 import type { AttemptId, CallId, IncarnationId, OwnedBy, ActorId } from "./world.ts";
@@ -92,9 +92,63 @@ export type ReadSlot = {
 };
 
 /**
- * A slot as its entry's holders name it: its life and its operation.
+ * One placement per life and operation, while a state of the life places the read and after.
+ *
+ * **Details**
+ *
+ * - `Placed`: it holds the entry its key names, owned by the placing state's activation, with the
+ *   last value it was owed (compared by `Equal.equals`) and its select's slot while that select's
+ *   last run threw, keeping the key.
+ * - `Unkeyed`: placed, but its select threw before it ever named a key; it holds nothing.
+ * - `Left`: no active state places it; it keeps its last key's input and data for the next
+ *   placement's `placeholder`.
+ */
+export type Placement = Data.TaggedEnum<{
+  Placed: {
+    entry: EntryKey;
+    actor: ActorId;
+    owner: OwnedBy;
+    // FLOW_STATE_ALLOW_UNKNOWN: a read's data is the lookup's own value.
+    shown: Option.Option<unknown>;
+    failed: Option.Option<string>;
+  };
+  Unkeyed: { failed: string; previous: Option.Option<Previous> };
+  Left: { previous: Option.Option<Previous> };
+}>;
+
+/**
+ * Constructors and matchers for {@link Placement}.
+ */
+export const Placement = Data.taggedEnum<Placement>();
+
+/**
+ * A call the core told to stop and has not heard end: the entry it was the request of, and when.
+ */
+export type Releasing = { readonly entry: EntryKey; readonly since: number };
+
+/**
+ * The reason of a row that owes a placement its `placeholder`, not landed data.
+ */
+export const PLACEHOLDER = "placeholder";
+
+/**
+ * A slot or a placement as its entry's holders name it: its life and its operation.
  */
 export type Holder = { readonly life: IncarnationId; readonly operation: string };
+
+/**
+ * A life's records with one holder's set or dropped.
+ */
+export const withOne = <V>(kept: ReadonlyMap<string, V>, h: Holder, value: Option.Option<V>) => {
+  const next = new Map(kept);
+
+  Option.match(value, {
+    onNone: () => next.delete(h.operation),
+    onSome: (v) => next.set(h.operation, v),
+  });
+
+  return next;
+};
 
 /**
  * A holder's text, which its entry's holders are kept under.

@@ -21,6 +21,7 @@ export type Scope = { readonly state: string; readonly memory: Values; readonly 
  * - `Schedule`: a delay, `keys`, a pause reason or `restartOn` reads the committed view (a turn's
  *   own arm, the after view), its timer's key, the lanes' rows and the time.
  * - `Reaction`: a context reaction's `when` reads the consumer's memory.
+ * - `Place`: a placement's select reads the committed view's memory and context.
  */
 export type Extras = {
   readonly Guard: { readonly event: Values };
@@ -32,6 +33,7 @@ export type Extras = {
     readonly now: number;
   };
   readonly Reaction: Record<string, never>;
+  readonly Place: Record<string, never>;
 };
 
 type Reads = {
@@ -50,6 +52,7 @@ type Reads = {
   readonly Select: { readonly memory: Values; readonly event: Values };
   readonly Schedule: ScheduleInput;
   readonly Reaction: { readonly memory: Values };
+  readonly Place: { readonly memory: Values; readonly context: Values };
 };
 
 const builders: { readonly [K in keyof Extras]: (scope: Scope, extra: Extras[K]) => Reads[K] } = {
@@ -69,6 +72,7 @@ const builders: { readonly [K in keyof Extras]: (scope: Scope, extra: Extras[K])
     now,
   }),
   Reaction: (scope) => ({ memory: scope.memory }),
+  Place: (scope) => ({ memory: scope.memory, context: scope.context }),
 };
 
 /**

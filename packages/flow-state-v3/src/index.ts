@@ -5,8 +5,12 @@ export { resource, transaction } from "./contract.ts";
 
 export type {
   Ending,
+  LookupEndings,
   MapperContext,
+  PlacedContext,
+  PlacedEndings,
   ReadEndings,
+  ReadFailures,
   Resource,
   Transaction,
   UnknownEnding,

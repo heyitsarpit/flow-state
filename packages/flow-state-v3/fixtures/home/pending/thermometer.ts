@@ -1,5 +1,4 @@
 // @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or mapper context the Operations Spec adds and the package lacks, so its values type as any until it lands */
 import { Layer, Schema } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { layerIndexedDb } from "../../../src/host/persistence.ts";
@@ -30,7 +29,6 @@ export const Thermometer = definition({
   },
   operations: ({ E }) => ({
     readings: readings.outcomes({
-      // @ts-expect-error Operations O2: a placed read maps `value`
       value: E.Read.from((v) => ({ celsius: v.celsius })),
       failure: { NoResponse: E.Unread, Defect: E.Unread, Interrupted: E.Unread },
     }),
@@ -47,7 +45,6 @@ export const ThermometerMachine = machine(Thermometer, ({ S, E, O }) => ({
   on: { Read: { updateMemory: ({ event }) => ({ celsius: event.celsius }) } },
   states: {
     SHOWN: {
-      // @ts-expect-error Operations O2: a state places a read with `subscribe` in `activities`
       activities: [O.readings.subscribe(({ memory }) => ({ room: memory.room }))],
       on: {
         Away: S.AWAY,

@@ -23,7 +23,7 @@ const lineIds = (cut: Cut, ref: ActorRef<typeof MiniCart>) =>
   Object.keys(cut.read(ref)?.memory.lines ?? {}).toSorted();
 
 describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
-  it.fails("Operations, entry table (Last hold left, Running): switching carts stops the old cart's refresh", async () => {
+  it("Operations, entry table (Last hold left, Running): switching carts stops the old cart's refresh", async () => {
     const { switchCarts } = await load();
     const run = await switchCarts.run();
 
@@ -45,7 +45,7 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(lineIds(added, miniCart)).toEqual(["l1"]);
   });
 
-  it.fails("Plan Operations O5: a refused add's optimistic line goes, with no refetch", async () => {
+  it("Plan Operations O5: a refused add's optimistic line goes, with no refetch", async () => {
     const { refusedAddRemoved, miniCart } = await load();
     const run = await refusedAddRemoved.run();
     const refused = run.checkpoints.refused;
@@ -54,7 +54,7 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(refused.read(Carts.cart)).toHaveLength(1);
   });
 
-  it.fails("Plan Operations O5: an add that fails while the first read is on the wire leaves the loaded cart, with no phantom line", async () => {
+  it("Plan Operations O5: an add that fails while the first read is on the wire leaves the loaded cart, with no phantom line", async () => {
     const { failedAddDuringLoad, miniCart } = await load();
     const run = await failedAddDuringLoad.run();
     const loaded = run.checkpoints.loaded;
@@ -62,7 +62,7 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(lineIds(loaded, miniCart)).toEqual([]);
   });
 
-  it.fails("Operations R4, I7, T4.4: a snapshot asked before an add lands nothing, and the trailing read shows the added line", async () => {
+  it("Operations R4, I7, T4.4: a snapshot asked before an add lands nothing, and the trailing read shows the added line", async () => {
     const { staleSnapshot, miniCart } = await load();
     const run = await staleSnapshot.run();
     const settled = run.checkpoints.settled;

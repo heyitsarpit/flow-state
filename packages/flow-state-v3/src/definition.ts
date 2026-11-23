@@ -246,7 +246,7 @@ export type Definition<
     readonly root: RootToken<LeavesOf<States>, NamesOf<States>>;
   };
   readonly E: Tokens<Ev & In, Id>;
-  readonly O: Handles<O, MemoryOf<M>, Id, LeavesOf<States>>;
+  readonly O: Handles<O, MemoryOf<M>, Id, LeavesOf<States>, Partial<ContextOf<Cx>>>;
   readonly Event: Schema.Codec<
     { readonly [K in keyof Ev & string]: Envelope<K, PayloadOf<Ev[K]>> }[keyof Ev & string],
     Values

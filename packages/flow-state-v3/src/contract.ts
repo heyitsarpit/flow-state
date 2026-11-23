@@ -112,12 +112,50 @@ export type WriteEndings<E, A, Id extends string = string, C = unknown> = {
 };
 
 /**
- * A read's endings mapped onto the declarer's events: its value, each of its failure tags with its
- * error, and Flow's `Defect` and `Interrupted`. Every mapper also takes `C`, the call's
- * {@link MapperContext}.
+ * A read's endings mapped onto the declarer's events: its data, by the read's one verb, each of its
+ * failure tags with its error, and Flow's `Defect` and `Interrupted`. Every mapper also takes `C`,
+ * the call's {@link MapperContext}.
+ *
+ * **Details**
+ *
+ * `success` maps a lookup's answer, so the read is asked with `O.x.lookup`; `value` maps the data a
+ * placement shows, so the read is placed with `O.x.subscribe`, and its mapper's context also says
+ * whether the value is the placement's `placeholder`. A read declares one of the two.
  */
-export type ReadEndings<E, A, Id extends string = string, C = unknown> = {
+export type ReadEndings<E, A, Id extends string = string, C = unknown> = (
+  | LookupEndings<A, Id, C>
+  | PlacedEndings<A, Id, C>
+) &
+  ReadFailures<E, Id, C>;
+
+/**
+ * A looked-up read's data mapping: `success`, the lookup's answer.
+ */
+export type LookupEndings<A, Id extends string = string, C = unknown> = {
   readonly success: Ending<A, Id, C>;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the other verb's key, never written beside this one
+  readonly value?: never;
+};
+
+/**
+ * A placed read's data mapping: `value`, each change of the data its placement shows.
+ */
+export type PlacedEndings<A, Id extends string = string, C = unknown> = {
+  readonly value: Ending<A, Id, C & PlacedContext>;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the other verb's key, never written beside this one
+  readonly success?: never;
+};
+
+/**
+ * What a `value` mapper reads beside the call's input and key: whether the value is the
+ * placement's `placeholder` for a key that has no data yet.
+ */
+export type PlacedContext = { readonly placeholder: boolean };
+
+/**
+ * A read's failure mappings: each of its own failure tags, and Flow's `Defect` and `Interrupted`.
+ */
+export type ReadFailures<E, Id extends string = string, C = unknown> = {
   readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id, C> } & {
     // FLOW_STATE_ALLOW_UNKNOWN: Flow's defect and interruption carry no value a mapper reads.
     readonly Defect?: Ending<unknown, Id, C>;
@@ -142,7 +180,7 @@ export type Bound<
       readonly notSent: Option.Option<ErasedEnding>;
       readonly unknown: ErasedEnding;
     }
-  : BoundFields & { readonly kind: "read" }) &
+  : BoundFields & { readonly kind: "read"; readonly verb: Verb }) &
   Branded<"bound"> & {
     readonly "~requires"?: R;
     readonly "~input"?: I;
@@ -150,6 +188,39 @@ export type Bound<
     // A phantom type: the definition whose events its endings map onto.
     readonly "~definition"?: Id;
   };
+
+/**
+ * How a read is used: asked with `O.x.lookup`, or placed with `O.x.subscribe`.
+ */
+export type Verb = "lookup" | "subscribe";
+
+/**
+ * A read bound with `success`: asked by its states' lookups.
+ */
+export type LookedUp = {
+  // A phantom type: the verb its handle offers.
+  readonly "~verb"?: "lookup";
+};
+
+/**
+ * A read bound with `value`: placed by its states, with data of type `A`.
+ */
+export type Placed<A> = {
+  // A phantom type: the verb its handle offers.
+  readonly "~verb"?: "subscribe";
+  // A phantom type: the data a placement's `placeholder` gives.
+  readonly "~value"?: A;
+};
+
+// A read's data mapping by its verb, as the bound read holds it.
+const dataOf = (
+  endings:
+    | { readonly success: ErasedEnding; readonly value?: undefined }
+    | { readonly value: ErasedEnding; readonly success?: undefined },
+) =>
+  endings.value === undefined
+    ? { verb: "lookup" as const, success: endings.success }
+    : { verb: "subscribe" as const, success: endings.value };
 
 /**
  * The decoded input a bound contract takes, as its handles' selects return it.
@@ -191,12 +262,19 @@ export type KeyRecord<F extends Fields, Key extends ReadonlyArray<string>> = Pic
 >;
 
 /**
+ * The key a bound contract's data mapping is written under: a placed read's `value`, else
+ * `success`.
+ */
+export const dataKeyOf = (bound: Bound) =>
+  bound.kind === "read" && bound.verb === "subscribe" ? "value" : "success";
+
+/**
  * Every ending a bound contract maps, each with its place in the contract's endings: `success`,
  * each `failure` tag, and a write's `notSent` and `unknown`.
  */
 export const endingsOf = (bound: Bound) => {
   const endings: Array<readonly [ReadonlyArray<string>, ErasedEnding]> = [
-    [["success"], bound.success],
+    [[dataKeyOf(bound)], bound.success],
     ...Object.entries(bound.failure).map(([tag, e]) => [["failure", tag], e] as const),
   ];
 
@@ -368,9 +446,14 @@ export type Resource<
   readonly staleTime: Duration.Input;
   readonly gcTime: Duration.Input;
   readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
-  readonly outcomes: <Id extends string = string>(
-    endings: ReadEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
-  ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>;
+  readonly outcomes: <
+    Id extends string = string,
+    const X extends ReadEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>> =
+      ReadEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
+  >(
+    endings: X,
+  ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id> &
+    (X extends { readonly value: unknown } ? Placed<A> : LookedUp);
   /**
    * A change of this read's entry at a key, for a commit's `optimistic` or an operation's
    * `writes`: the new data, or an update of the current data.
@@ -520,6 +603,7 @@ export const resource = entry(
             contract: config.id,
             keyText: codecs.textOfKey(key),
             update: updateOf(`${config.id}.write`, data),
+            replaces: !Predicate.isFunction(data),
           }),
         ),
         outcomes: entry(
@@ -538,7 +622,7 @@ export const resource = entry(
                 ...codecs.face,
                 key: config.key,
                 concurrency: "reject",
-                success: endings.success,
+                ...dataOf(endings),
                 failure: endings.failure,
               },
               {

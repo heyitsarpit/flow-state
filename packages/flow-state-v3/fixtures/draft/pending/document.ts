@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or mapper context the Operations Spec adds and the package lacks, so its values type as any until it lands */
 import { Layer, Schema } from "effect";
 import { layerIndexedDb } from "../../../src/host/persistence.ts";
 import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../../src/index.ts";
@@ -36,12 +35,24 @@ export const Document = definition({
       success: E.Loaded.from((v) => ({ title: v.title, body: v.body, revision: v.revision })),
       failure: { NoResponse: E.LoadFailed, Defect: E.LoadFailed, Interrupted: E.LoadFailed },
     }),
-    save: save.outcomes({
-      success: E.Saved.from((v, { input }) => ({ body: input.body, revision: v.revision })),
-      failure: { Conflict: E.Conflicted.from((e) => ({ revision: e.revision })) },
-      notSent: E.SaveNotSent.from((n) => ({ why: n.why })),
-      unknown: E.SaveUnsure,
-    }),
+    save: save.outcomes(
+      {
+        success: E.Saved.from((v, { input }) => ({ body: input.body, revision: v.revision })),
+        failure: { Conflict: E.Conflicted.from((e) => ({ revision: e.revision })) },
+        notSent: E.SaveNotSent.from((n) => ({ why: n.why })),
+        unknown: E.SaveUnsure,
+      },
+      {
+        // A save the server took is written into the read, so the document shows it as fresh.
+        writes: ({ value, input }) => [
+          document.write({ id: input.id }, (current) => ({
+            ...current,
+            body: input.body,
+            revision: value.revision,
+          })),
+        ],
+      },
+    ),
   }),
 });
 
@@ -82,13 +93,6 @@ export const DocumentMachine = machine(Document, ({ S, O }) => ({
         },
         Saved: {
           updateMemory: ({ event }) => ({ revision: event.revision, notice: "saved" }),
-          actions: [
-            // @ts-expect-error Operations O5: `setData` writes `{ key, data }` into the read
-            O.document.setData(({ memory, event }) => ({
-              key: { id: memory.id },
-              data: { title: memory.title, body: event.body, revision: event.revision },
-            })),
-          ],
         },
         Conflicted: {
           updateMemory: ({ event }) => ({

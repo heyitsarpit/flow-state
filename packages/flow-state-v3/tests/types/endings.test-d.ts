@@ -8,7 +8,10 @@ import {
   machine,
   type Machine,
   type MapperContext,
+  type LookupEndings,
+  type PlacedEndings,
   type ReadEndings,
+  type ReadFailures,
   resource,
   send,
   transaction,
@@ -269,6 +272,14 @@ describe("Compile R9, Reads R1: a read's failures are its lookup's tags, each ma
     expectTypeOf<Parameters<typeof look.outcomes>[0]>().toEqualTypeOf<
       ReadEndings<Gone, { readonly cents: number }, string, IdContext>
     >();
+    expectTypeOf<
+      PlacedEndings<{ readonly cents: number }, string, IdContext> &
+        ReadFailures<Gone, string, IdContext>
+    >().toExtend<ReadEndings<Gone, { readonly cents: number }, string, IdContext>>();
+    expectTypeOf<
+      LookupEndings<{ readonly cents: number }, string, IdContext> &
+        ReadFailures<Gone, string, IdContext>
+    >().toExtend<ReadEndings<Gone, { readonly cents: number }, string, IdContext>>();
   });
 });
 

@@ -1,6 +1,8 @@
 import { Option, Result } from "effect";
 import { Alarm } from "./alarms.ts";
 import { Operation, type Values } from "./compiled.ts";
+import { makeEntryPlacements } from "./entry-placements.ts";
+import { makeEntryReleases } from "./entry-releases.ts";
 import {
   againOf,
   type Asker,
@@ -14,19 +16,24 @@ import {
   holderText,
   matches,
   phaseOf,
+  Placement,
   type ReadEnding,
   type ReadSlot,
   Request,
   type Row,
   viewOf,
   withAgain,
+  withOne,
 } from "./entry-view.ts";
 import { makeEntryWrites } from "./entry-writes.ts";
 import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
 import { type LedgerSteps, Route } from "./ledger.ts";
 import { pick, type Tx } from "./tx.ts";
-import { type CallId, Command, type Incarnation, type OwnedBy } from "./world.ts";
+import { type ActorId, type CallId, Command, type Incarnation, type OwnedBy } from "./world.ts";
+
+// Who a row goes to: the identity and the activation that owns the ask or the placement.
+type Recipient = { readonly actor: ActorId; readonly owner: OwnedBy };
 
 // Landed data's value: the lookup's own.
 type Landed = Option.Option.Value<Entry["data"]>["value"];
@@ -71,12 +78,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     Option.fromUndefinedOr(tx.world().slots.get(h.life)?.get(h.operation));
 
   const setSlot = (h: Holder, slot: Option.Option<ReadSlot>) => {
-    const slots = new Map(tx.world().slots.get(h.life) ?? []);
-
-    Option.match(slot, {
-      onNone: () => slots.delete(h.operation),
-      onSome: (s) => slots.set(h.operation, s),
-    });
+    const slots = withOne(tx.world().slots.get(h.life) ?? new Map<string, ReadSlot>(), h, slot);
 
     if (slots.size === 0) tx.drop("slots", h.life);
     else tx.put("slots", h.life, slots);
@@ -105,18 +107,28 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       ),
     );
 
-  // One row to a slot's life, with the entry's key as the row's input.
-  const owe = (h: Holder, slot: ReadSlot, entry: Entry, ending: ReadEnding) =>
+  // One row to a slot's or a placement's life, with the entry's key as the row's input.
+  const owe = (h: Holder, to: Recipient, entry: Entry, ending: ReadEnding) =>
     ledger.owe({
-      actor: slot.actor,
+      actor: to.actor,
       life: Option.some(h.life),
       operation: h.operation,
       input: Option.some(entry.key),
       attempt: Option.none(),
       lane: Option.none(),
       ...ending,
-      route: Route.From({ owner: slot.owner }),
+      route: Route.From({ owner: to.owner }),
     });
+
+  // The placements, which call back into the table's moves only once a step runs.
+  const { place, unplace, placementsOf, placementOf, placedOn, show } = makeEntryPlacements(tx, {
+    hold,
+    held: (key, incarnation, operation, input) => held(key, incarnation, operation, input),
+    apply: (key, cue) => apply(key, cue),
+    owe,
+    holdersOf,
+    keyOf: (operation, input) => keyOf(operation, input),
+  });
 
   // ── the moves.
 
@@ -162,19 +174,13 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     }
   };
 
-  // Release: the running call is told to stop and leaves the entry, which is Idle at once.
-  // RETURN_TYPE: the entry's own type, Idle after.
-  const release = (key: EntryKey, entry: Entry): Entry =>
-    Request.$match(entry.request, {
-      Idle: () => entry,
-      Running: ({ call }) => {
-        tx.drop("callHome", call);
-        tx.put("releasing", call, key);
-        tx.command(Command.Interrupt({ call }));
-
-        return { ...entry, request: Request.Idle() };
-      },
-    });
+  // The releasing calls: a holder's identity is its slot's or its placement's.
+  const { release, ended, releaseDue } = makeEntryReleases(tx, holdersOf, (h) =>
+    Option.orElse(
+      Option.map(slotOf(h), (s) => s.actor),
+      () => Option.map(Option.filter(placementOf(h), Placement.$is("Placed")), (p) => p.actor),
+    ),
+  );
 
   const remove = (key: EntryKey) => {
     tx.drop("entries", key);
@@ -217,17 +223,18 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     },
   };
 
+  // Whether anything wants the entry's data now: a waiting slot or a placement.
+  const wanted = (key: EntryKey) => waitersOf(key).length > 0 || placedOn(key).length > 0;
+
   const invalidated = (key: EntryKey, entry: Entry) =>
-    put(
-      key,
-      withAgain(
-        { ...entry, staleAt: tx.mintPosition() },
-        againOf(entry) || waitersOf(key).length > 0,
-      ),
-    );
+    put(key, withAgain({ ...entry, staleAt: tx.mintPosition() }, againOf(entry) || wanted(key)));
+
+  // An Idle entry a placement holds starts a request at once; any other only changes.
+  const startIfPlaced = (key: EntryKey, entry: Entry) =>
+    put(key, placedOn(key).length > 0 ? start(key, entry) : entry);
 
   const invalidate: Row<"Invalidate"> = {
-    Idle: (key, entry) => put(key, { ...entry, staleAt: tx.mintPosition() }),
+    Idle: (key, entry) => startIfPlaced(key, { ...entry, staleAt: tx.mintPosition() }),
     Current: invalidated,
     Behind: invalidated,
   };
@@ -238,17 +245,18 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
 
     put(key, next);
     oweWaiters(key, next, { channel: "success", reason: "success", value: viewOf(next, value) });
+    show(key, next);
   };
 
   const clearRunning = (key: EntryKey, entry: Entry) => {
-    const restart = againOf(entry) || waitersOf(key).length > 0;
+    const restart = againOf(entry) || wanted(key);
     const idle = release(key, cleared(entry));
 
     put(key, restart ? start(key, idle) : idle);
   };
 
   const clear: Row<"Clear"> = {
-    Idle: (key, entry) => put(key, cleared(entry)),
+    Idle: (key, entry) => startIfPlaced(key, cleared(entry)),
     Current: clearRunning,
     Behind: clearRunning,
   };
@@ -272,6 +280,10 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
         next,
         ending.channel === "success" ? { ...ending, value: viewOf(next, ending.value) } : ending,
       );
+
+      // A placement sees landed data once it changes, and every landed ending that is not data.
+      if (ending.channel === "success") show(key, next);
+      else for (const { h, placed } of placedOn(key)) owe(h, placed, next, ending);
     },
     Behind: (key, entry) => {
       tx.act(Act.ReadReplaced({ operation: entry.read.operation }));
@@ -374,10 +386,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
   ) => {
     const input = tx.env.admit(given);
 
-    const text = Option.flatMap(
-      Option.liftPredicate(input, (i) => Result.isSuccess(operation.walk.input.text(i))),
-      (i) => operation.walk.keyText(pick(i, operation.keyFields)),
-    );
+    const text = keyOf(operation, input);
 
     if (Option.isNone(text)) return refused(incarnation, operation.name, input, owner);
 
@@ -390,6 +399,16 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       if (slot.entry !== key) hold(slot.entry, h, false);
     }
 
+    const slot = { entry: key, actor: incarnation.actor, owner, waiting: false };
+
+    held(key, incarnation, operation, input);
+    setSlot(h, Option.some(slot));
+    hold(key, h, true);
+    apply(key, Cue.Ask({ asker: Option.some({ h, slot }), refetch: false }));
+  };
+
+  // An entry a new hold points at: made if absent, its first hold arriving if it was unheld.
+  const held = (key: EntryKey, incarnation: Incarnation, operation: Operation, input: Values) => {
     const entry: Entry = tx.world().entries.get(key) ?? {
       contract: operation.contract,
       key: input,
@@ -405,22 +424,28 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     // First hold arrives: an unheld entry is held again, and its Collect is cleared.
     if (Option.isSome(entry.unheldSince)) tx.clearAlarm(Alarm.Collect({ entry: key }));
 
-    const slot = { entry: key, actor: incarnation.actor, owner, waiting: false };
-
     put(key, { ...entry, unheldSince: Option.none() });
-    setSlot(h, Option.some(slot));
-    hold(key, h, true);
-    apply(key, Cue.Ask({ asker: Option.some({ h, slot }), refetch: false }));
   };
 
+  // The key text a read's input names, none when its Schema refuses it.
+  const keyOf = (operation: Operation, input: Values) =>
+    Option.flatMap(
+      Option.liftPredicate(input, (i) => Result.isSuccess(operation.walk.input.text(i))),
+      (i) => operation.walk.keyText(pick(i, operation.keyFields)),
+    );
+
   /**
-   * A read's refetch through its slot: its entry is asked again; with no slot, nothing.
+   * A read's refetch through its slot or its placement: its entry is asked again; with neither,
+   * nothing.
    */
   const refetch = (incarnation: Incarnation, operation: string) => {
     const h = { life: incarnation.id, operation };
 
     for (const slot of Option.toArray(slotOf(h)))
       apply(slot.entry, Cue.Ask({ asker: Option.some({ h, slot }), refetch: true }));
+
+    for (const placed of Option.toArray(Option.filter(placementOf(h), Placement.$is("Placed"))))
+      apply(placed.entry, Cue.Ask({ asker: Option.none(), refetch: true }));
   };
 
   // Every entry of a read's contract whose key holds a partial key's fields.
@@ -429,18 +454,10 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       .filter(([, e]) => e.contract === operation.contract && matches(e.key, partial))
       .map(([key]) => key);
 
-  /**
-   * A read's invalidate: every entry of its contract the partial key names is stale.
-   */
-  const invalidate_ = (operation: Operation, partial: Values) => {
-    for (const key of named(operation, tx.env.admit(partial))) apply(key, Cue.Invalidate());
-  };
-
-  /**
-   * A read's clear: every entry of its contract the partial key names loses its data.
-   */
-  const clear_ = (operation: Operation, partial: Values) => {
-    for (const key of named(operation, tx.env.admit(partial))) apply(key, Cue.Clear());
+  // A cue on every entry of a read's contract a partial key names: a read's invalidate makes each
+  // stale, its clear empties each.
+  const onNamed = (cue: Cue) => (operation: Operation, partial: Values) => {
+    for (const key of named(operation, tx.env.admit(partial))) apply(key, cue);
   };
 
   /**
@@ -461,6 +478,10 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
   const end = (incarnation: Incarnation) => {
     for (const operation of Array.from(tx.world().slots.get(incarnation.id)?.keys() ?? []))
       cancel(incarnation, operation);
+
+    for (const operation of placementsOf(incarnation)) unplace(incarnation, operation);
+
+    tx.drop("placements", incarnation.id);
   };
 
   const { layer, attemptEnded, succeeded } = makeEntryWrites(tx, apply);
@@ -472,11 +493,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
    * cell. Returns whether the call was a read's.
    */
   const settledCall = (call: CallId, result: CallResult) => {
-    if (tx.world().releasing.has(call)) {
-      tx.drop("releasing", call);
-
-      return true;
-    }
+    if (ended(call)) return true;
 
     const key = tx.world().callHome.get(call);
 
@@ -518,18 +535,23 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
     for (const key of tx.world().entries.keys()) apply(key, Cue.RuntimeEnds());
 
     tx.replace("slots", new Map());
+    tx.replace("placements", new Map());
     tx.replace("holders", new Map());
   };
 
   return {
     lookup,
+    place,
+    unplace,
+    placementsOf,
     refetch,
-    invalidate: invalidate_,
-    clear: clear_,
+    invalidate: onNamed(Cue.Invalidate()),
+    clear: onNamed(Cue.Clear()),
     cancel,
     end,
     settled: settledCall,
     collectDue: collect,
+    releaseDue,
     stepEnds,
     runtimeEnds: runtimeEnded,
     layer,

@@ -24,9 +24,18 @@ declare const published: EvidenceOf<"Published">;
 const scope = { state: "ON", memory: {}, context: {} };
 
 describe("the unions of the turn's parts (Changes R11, T14, Q5, realization)", () => {
-  it("Changes R11: a Change is one of nine tags, and its why is a function of its tag", () => {
+  it("Changes R11: a Change is one of ten tags, and its why is a function of its tag", () => {
     expectTypeOf(change._tag).toEqualTypeOf<
-      "Begin" | "Turn" | "Refused" | "Unturned" | "Inputs" | "Lanes" | "Settled" | "Use" | "End"
+      | "Begin"
+      | "Turn"
+      | "Refused"
+      | "Unturned"
+      | "Inputs"
+      | "Lanes"
+      | "Settled"
+      | "Use"
+      | "Shown"
+      | "End"
     >();
     expectTypeOf(whyOf(change)).toEqualTypeOf<Option.Option<Why>>();
 

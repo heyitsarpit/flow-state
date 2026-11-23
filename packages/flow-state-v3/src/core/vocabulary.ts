@@ -73,6 +73,7 @@ export const IssueCode = Schema.Literals([
   ...RefusedCode.literals,
   "StorageFailure",
   "CleanupFailed",
+  "ReleaseOverdue",
 ]);
 
 /**

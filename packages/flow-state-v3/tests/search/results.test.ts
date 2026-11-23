@@ -3,8 +3,7 @@ import { Catalog } from "../../fixtures/search/server/catalog.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 
 // The results page and saved searches: placements (`O.x.subscribe` in a state's `activities`),
-// `refetch`, `clear`, `setData` and `invalidate`. These members are not built, so each fixture
-// module loads inside its test, and the test fails until they are. Expected results are the entry
+// `refetch`, `clear`, a save's `writes` and `invalidate`. Expected results are the entry
 // table and slot cells of Operations' `algorithm`: a placement holds its entry and asks with no
 // waiter; a fresh entry serves; Ask Refetch joins a current request; Clear drops data and starts
 // a request for a placed entry; the last hold leaving a Running entry releases its call; Written
@@ -22,7 +21,7 @@ const results = (cut: Cut) =>
   cut.read(Catalog.results).map((c) => `${c.input.q}#${String(c.input.page)}`);
 
 describe("the results page's placed read (Operations R3, R4, R5; placements)", () => {
-  it.fails("Operations O2, entry table (Ask Lookup by a placement; fresh): pages read when missing, the first page shown again from what was read, a refresh after 40 seconds reads it again", async () => {
+  it("Operations O2, entry table (Ask Lookup by a placement; fresh): pages read when missing, the first page shown again from what was read, a refresh after 40 seconds reads it again", async () => {
     const { resultsUsual, page } = await load();
     const run = await resultsUsual.run();
 
@@ -33,7 +32,7 @@ describe("the results page's placed read (Operations R3, R4, R5; placements)", (
     expect(results(run.checkpoints.refreshed)).toEqual(["sho#0", "sho#1", "sho#0"]);
   });
 
-  it.fails("Operations R3: two pages placing one query and page share one request", async () => {
+  it("Operations R3: two pages placing one query and page share one request", async () => {
     const { sharedResults, page, otherPage } = await load();
     const run = await sharedResults.run();
 
@@ -44,7 +43,7 @@ describe("the results page's placed read (Operations R3, R4, R5; placements)", (
     ]);
   });
 
-  it.fails("Operations, entry table (Ask Refetch, Running current; Idle): a refresh joins the read on the wire, and after it lands reads again", async () => {
+  it("Operations, entry table (Ask Refetch, Running current; Idle): a refresh joins the read on the wire, and after it lands reads again", async () => {
     const { refreshJoins, page } = await load();
     const run = await refreshJoins.run();
 
@@ -53,7 +52,7 @@ describe("the results page's placed read (Operations R3, R4, R5; placements)", (
     expect(run.checkpoints.refreshed.read(page)?.memory.total).toBe(5);
   });
 
-  it.fails("Operations O5, entry table (Clear, Idle, placed): clearing the shown results reads the placed page again at once", async () => {
+  it("Operations O5, entry table (Clear, Idle, placed): clearing the shown results reads the placed page again at once", async () => {
     const { clearResults, page } = await load();
     const run = await clearResults.run();
 
@@ -61,7 +60,7 @@ describe("the results page's placed read (Operations R3, R4, R5; placements)", (
     expect(run.checkpoints.cleared.read(page)?.memory.total).toBe(5);
   });
 
-  it.fails("Operations, placements (unplace at exit), Last hold left (Running): closing the page mid-read stops the read", async () => {
+  it("Operations, placements (unplace at exit), Last hold left (Running): closing the page mid-read stops the read", async () => {
     const { closedMidRead } = await load();
     const run = await closedMidRead.run();
 
@@ -70,7 +69,7 @@ describe("the results page's placed read (Operations R3, R4, R5; placements)", (
     ]);
   });
 
-  it.fails("Operations R8, I11: a page turned while its read runs on shows ReleaseOverdue past the bound while it holds that page again, and none once the read ends", async () => {
+  it("Operations R8, I11: a page turned while its read runs on shows ReleaseOverdue past the bound while it holds that page again, and none once the read ends", async () => {
     const { turnedMidRead, page } = await load();
     const run = await turnedMidRead.run();
     const codes = (cut: Cut) => (cut.read(page)?.issues ?? []).map((i) => i.code);
@@ -82,7 +81,7 @@ describe("the results page's placed read (Operations R3, R4, R5; placements)", (
 });
 
 describe("writes into saved searches (Operations R4, I7, I9; O5)", () => {
-  it.fails("Operations R4, I7, entry table (Written; Settled behind): the save's answer is written into the read and the older answer never replaces it", async () => {
+  it("Operations R4, I7, entry table (Written; Settled behind): the save's answer is written into the read and the older answer never replaces it", async () => {
     const { savedWriteWins, adaSaved } = await load();
     const run = await savedWriteWins.run();
 
@@ -90,7 +89,7 @@ describe("writes into saved searches (Operations R4, I7, I9; O5)", () => {
     expect(run.checkpoints["old answer"].read(adaSaved)?.memory.searches).toEqual(["shoes"]);
   });
 
-  it.fails("Operations T4.4, entry table (Invalidate, Running, placed; Settled behind with again): an unsure save's invalidate makes the older answer land nothing and the trailing read show the saved search", async () => {
+  it("Operations T4.4, entry table (Invalidate, Running, placed; Settled behind with again): an unsure save's invalidate makes the older answer land nothing and the trailing read show the saved search", async () => {
     const { savedUnsure, adaSaved } = await load();
     const run = await savedUnsure.run();
 

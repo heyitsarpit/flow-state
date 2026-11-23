@@ -165,10 +165,64 @@ export type ReadHandle<M, I, Id extends string = string> = {
   readonly clear: <P>(key: (input: SelectArg<M, P>) => Partial<I>) => ActionToken<P, Id>;
 };
 
-export type Handles<O, M, Id extends string, L extends string> = {
+/**
+ * A read a state places while it is active, in its `activities`: `O.x.subscribe(select)`.
+ */
+export type ActivityToken<Id extends string = string> = Branded<"activity"> & {
+  readonly operation: string;
+  // A phantom type: the definition whose state may place it.
+  readonly "~definition"?: Id;
+};
+
+/**
+ * What a placement's select reads: the committed memory and the context `Cx`.
+ */
+export type PlacementArg<M, Cx = Values> = { readonly memory: M; readonly context: Cx };
+
+/**
+ * A placement's options: `placeholder`, the data shown while a new key has none, from the
+ * placement's last key's input and data (none before its first) and the new key's input.
+ */
+export type SubscribeOptions<I, A> = {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: a placement without a placeholder shows nothing while a new key has no data
+  readonly placeholder?: (
+    input: PlaceholderArg<I, A>,
+    // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: a placeholder may give nothing, as `previous?.data` does before a first key
+  ) => A | undefined;
+};
+
+/**
+ * What a placement's `placeholder` reads: the last key's input and data, absent before the
+ * placement's first key had data, and the new key's input.
+ */
+export type PlaceholderArg<I, A> = {
+  // oxlint-disable-next-line lint-bomb/no-nullish-function-contracts -- the Plan's public word: `previous` is absent before a first key, read as `previous?.data`
+  readonly previous: { readonly input: I; readonly data: A } | undefined;
+  readonly input: I;
+};
+
+/**
+ * A placed read operation's members: `subscribe` places it in a state's `activities`, keyed by its
+ * select; `refetch` asks the placement's entry again now; `invalidate` and `clear` make every entry
+ * a partial key names stale or empty.
+ */
+export type PlacedReadHandle<M, I, A, Id extends string = string, Cx = Values> = {
+  readonly subscribe: {
+    (select: (input: PlacementArg<M, Cx>) => I): ActivityToken<Id>;
+    (select: (input: PlacementArg<M, Cx>) => I, options: SubscribeOptions<I, A>): ActivityToken<Id>;
+  };
+  // FLOW_STATE_ALLOW_UNKNOWN: a keyless member reads no event, so it fits a handler of any.
+  readonly refetch: ActionToken<unknown, Id>;
+  readonly invalidate: <P>(key: (input: SelectArg<M, P>) => Partial<I>) => ActionToken<P, Id>;
+  readonly clear: <P>(key: (input: SelectArg<M, P>) => Partial<I>) => ActionToken<P, Id>;
+};
+
+export type Handles<O, M, Id extends string, L extends string, Cx = Values> = {
   readonly [K in keyof O]: O[K] extends { readonly kind: "write" }
     ? WriteHandle<M, BoundInput<O[K]>, BoundKey<O[K]>, Id, L, keyof O & string>
-    : ReadHandle<M, BoundInput<O[K]>, Id>;
+    : O[K] extends { readonly "~verb"?: "subscribe"; readonly "~value"?: infer A }
+      ? PlacedReadHandle<M, BoundInput<O[K]>, A, Id, Cx>
+      : ReadHandle<M, BoundInput<O[K]>, Id>;
 };
 
 export type GuardElement<
@@ -391,6 +445,7 @@ export type StateConfig<
 > = {
   readonly on?: On<M, Ev, S, W, Id, L, Cx>;
   readonly schedules?: SchedulesOf<M, Ev, Id, Cx, Sch>;
+  readonly activities?: ReadonlyArray<ActivityToken<Id>>;
 };
 
 /**

@@ -3,6 +3,9 @@ import {
   Action,
   Guard,
   type GuardInput,
+  type PlaceholderInput,
+  type PlaceInput,
+  type Placement,
   type ReadWrite,
   type SelectInput,
   type Slot,
@@ -70,6 +73,11 @@ export type ActionInternals = { readonly make: (at: string) => Action };
  * What a guard token keeps for the core: how it compiles at its place in a body.
  */
 export type GuardInternals = { readonly make: (at: string) => Guard };
+
+/**
+ * What an activity token keeps for the core: how it compiles at its place in a state.
+ */
+export type ActivityInternals = { readonly make: (at: string) => Placement };
 
 // RETURN_TYPE: the ActionToken protocol every member returns.
 const member = (owner: symbol, operation: string, make: (at: string) => Action): ActionToken =>
@@ -188,6 +196,25 @@ export const readHandle = (operation: string, owner: symbol) => ({
     ),
   ),
   cancel: keyed("Cancel", owner, operation)(Option.none()),
+  subscribe: builder(
+    `O.${operation}.subscribe`,
+    (
+      select: (input: PlaceInput) => Values,
+      options: {
+        // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: a placement without a placeholder shows nothing while a new key has no data
+        readonly placeholder?: (input: PlaceholderInput) => unknown;
+      } = {},
+    ) =>
+      made("activity", owner, { operation }, {
+        make: (at) => ({
+          operation,
+          select: slot<(input: PlaceInput) => Values>(`${at}.select`, select),
+          placeholder: Option.map(Option.fromUndefinedOr(options.placeholder), (placeholder) =>
+            slot<(input: PlaceholderInput) => unknown>(`${at}.placeholder`, placeholder),
+          ),
+        }),
+      } satisfies ActivityInternals),
+  ),
   refetch: member(owner, operation, () => Action.Refetch({ operation })),
   invalidate: partialKeyed("Invalidate", owner, operation),
   clear: partialKeyed("Clear", owner, operation),

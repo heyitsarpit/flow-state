@@ -20,11 +20,16 @@ import { invalid } from "./error.ts";
 import type { TreeNode } from "./construction.ts";
 import { type Compile, foreign, type Path, slotOf } from "./compile-names.ts";
 import { scheduleOf } from "./compile-schedules.ts";
-import { type ActionInternals, type GuardInternals, slot } from "./handles.ts";
+import {
+  type ActionInternals,
+  type ActivityInternals,
+  type GuardInternals,
+  slot,
+} from "./handles.ts";
 import { endingOf } from "./events.ts";
 import { internalsOf, ownerOf } from "./made.ts";
 import type { TokenInternals } from "./definition.ts";
-import type { ActionToken, Change, ErasedPlacement, GuardToken } from "./tokens.ts";
+import type { ActionToken, ActivityToken, Change, ErasedPlacement, GuardToken } from "./tokens.ts";
 
 // One guard element as the compiler reads it: its callback takes `never`.
 type AnyGuard = StateToken | GuardToken<never> | ((input: never) => true | Denial);
@@ -50,6 +55,7 @@ export type AnyState = {
     | Readonly<Partial<Record<string, AnyAlternative | ReadonlyArray<AnyAlternative>>>>
     | undefined;
   readonly schedules?: Readonly<Partial<Record<string, ErasedPlacement>>> | undefined;
+  readonly activities?: ReadonlyArray<ActivityToken> | undefined;
   readonly states?: Readonly<Partial<Record<string, AnyState>>> | undefined;
 };
 
@@ -327,7 +333,16 @@ export const walkOf = (compile: Compile, body: AnyBody) => {
     const paths = Option.match(node, { onNone: () => compile.top, onSome: (n) => n.children });
     const here = Option.match(node, { onNone: () => "", onSome: (n) => n.path });
     const isLeaf = Option.isSome(node) && paths.length === 0;
-    const { on, initial, schedules } = levelFacts(compile, state, paths, here, isLeaf, at);
+
+    const { on, initial, schedules, placements } = levelFacts(
+      compile,
+      state,
+      paths,
+      here,
+      isLeaf,
+      at,
+    );
+
     const written = isLeaf ? {} : (state.states ?? {});
 
     const children = paths.flatMap((c) =>
@@ -344,6 +359,7 @@ export const walkOf = (compile: Compile, body: AnyBody) => {
         default: isLeaf ? Option.none() : initial,
         on,
         schedules,
+        placements,
       });
 
     for (const child of children)
@@ -380,10 +396,27 @@ const levelFacts = (
     entry === undefined ? [] : [scheduleOf(compile, name, entry, [...at, "schedules", name])],
   );
 
+  const placements = (state.activities ?? []).map((activity, i) =>
+    placementOf(compile, activity, [...at, "activities", i]),
+  );
+
   if (isLeaf && state.states !== undefined)
     compile.findings.push(leafHasChildren(here, [...at, "states"]));
 
-  return { on, schedules, initial: Option.orElse(chosen, () => Option.fromUndefinedOr(paths[0])) };
+  return {
+    on,
+    schedules,
+    placements,
+    initial: Option.orElse(chosen, () => Option.fromUndefinedOr(paths[0])),
+  };
+};
+
+// One placed read, checked to be this definition's own operation's.
+const placementOf = (compile: Compile, activity: ActivityToken, at: Path) => {
+  if (ownerOf("activity", activity) !== compile.owner)
+    compile.findings.push(foreign(at, `the operation ${activity.operation}`));
+
+  return internalsOf<ActivityInternals>("activity", activity).make(slotOf(at));
 };
 
 // A body written for a state the tree does not hold below this one.

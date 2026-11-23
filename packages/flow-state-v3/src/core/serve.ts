@@ -1,6 +1,7 @@
 import { Option, Result } from "effect";
 import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
+import { PLACEHOLDER } from "./entry-view.ts";
 import { runTurn, TurnResult } from "./walk.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { Change, refusalOf } from "./change.ts";
@@ -177,7 +178,11 @@ export const makeServe = (
       onNone: () => Result.succeed<Values>({}),
       // FLOW_STATE_ALLOW_UNKNOWN: a throw from an outcome mapper refuses the turn.
       onSome: (from) =>
-        callSlot(from, ending.value, { input, key: pick(input, operation.keyFields) }),
+        callSlot(from, ending.value, {
+          input,
+          key: pick(input, operation.keyFields),
+          placeholder: ending.reason === PLACEHOLDER,
+        }),
     });
 
     tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));

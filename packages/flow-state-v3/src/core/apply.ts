@@ -18,6 +18,7 @@ import { historyAfter } from "./tree.ts";
 import { Resolved } from "./turn.ts";
 import type { Turn } from "./walk.ts";
 import { routeOf } from "./trigger.ts";
+import { makePlacements } from "./placements.ts";
 import type { Tx } from "./tx.ts";
 import { create } from "./tree.ts";
 import {
@@ -27,7 +28,6 @@ import {
   Command,
   type Incarnation,
   Mail,
-  type StoredIssue,
   trackOf,
 } from "./world.ts";
 
@@ -72,6 +72,7 @@ const refusalIn = (failure: Failure) => ({ code: failure.code, slot: Option.some
 export const makeApply = (tx: Tx, parts: ApplierParts) => {
   const { persistence, ledger, lanes, schedules, context } = parts;
   const { incarnationOf } = tx;
+  const { decide } = makePlacements(tx, parts.entries);
 
   // An incarnation written, with its record marked when the change touches what it saves.
   const install = (next: Incarnation, save: boolean) => {
@@ -82,23 +83,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
     return next;
   };
 
-  // The outcomes after their edits: a raise replaces its source's issue and is reported; a clear
-  // drops it. No edit keeps the same issues.
-  const outcomesAfter = (incarnation: Incarnation, edits: ReadonlyArray<OutcomeEdit>) =>
-    edits.reduce<ReadonlyArray<StoredIssue>>(
-      (issues, edit) =>
-        OutcomeEdit.$match(edit, {
-          Raise: ({ issue }) => [
-            ...issues.filter((i) => !Equal.equals(i.source, issue.source)),
-            tx.refuse(incarnation.actor, issue),
-          ],
-          Clear: ({ source }) =>
-            issues.some((i) => Equal.equals(i.source, source))
-              ? issues.filter((i) => !Equal.equals(i.source, source))
-              : issues,
-        }),
-      incarnation.issues,
-    );
+  const { outcomesAfter } = context;
 
   // The guard: a turn whose sends would pass the loop guard is refused whole, naming its chain.
   const guard = (change: Change) =>
@@ -236,6 +221,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       Lanes: () => before,
       Settled: () => before,
       Use: () => before,
+      Shown: () => before,
       End: ({ how }) => {
         const ending = ENDS[how._tag];
 
@@ -313,6 +299,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       Lanes: () => undefined,
       Settled: () => undefined,
       Use: () => undefined,
+      Shown: () => undefined,
       End: ({ how }) => {
         const { rows } = ENDS[how._tag];
 
@@ -401,6 +388,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
 
           return current;
         },
+        Shown: () => current,
         End: () => current,
       }),
     );
@@ -493,6 +481,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
       },
       Lanes: () => undefined,
       Settled: () => undefined,
+      Shown: () => undefined,
       Use: () => {
         for (const incarnation of Option.toArray(after))
           for (const { tracked, run } of overdue)
@@ -531,6 +520,10 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
     if (change !== given) return apply(before, change);
 
     const written = write(before, change);
+
+    // The placements follow the written state and memory before the turn's members run.
+    decide(change, written);
+
     const current = members(change, written, before);
     holders(
       change,

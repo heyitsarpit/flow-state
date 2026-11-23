@@ -68,6 +68,7 @@ const exactRecords = [
     | "owed"
     | "entries"
     | "slots"
+    | "placements"
     | "releasing"
     | "displaced"
     | "mail"

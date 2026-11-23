@@ -16,7 +16,7 @@ const load = async () => {
 };
 
 describe("the thermometer card (Operations O2, Q2; R8)", () => {
-  it.fails("Operations O2, Q2: the card's placed reading shows at once, and its scheduled refresh reads the warmer room", async () => {
+  it("Operations O2, Q2: the card's placed reading shows at once, and its scheduled refresh reads the warmer room", async () => {
     const { cardUsual, loungeCard } = await load();
     const run = await cardUsual.run();
 
@@ -25,7 +25,7 @@ describe("the thermometer card (Operations O2, Q2; R8)", () => {
     expect(run.checkpoints.refreshed.read(loungeCard)?.memory.celsius).toBe(22);
   });
 
-  it.fails("Changes Q9 (deciding), Operations R8, I11, I22: a Release and a Schedule alarm at one instant: the card is back, holds the key, and shows one ReleaseOverdue until the reading ends, whichever alarm is taken first (the Release writes no state)", async () => {
+  it("Changes Q9 (deciding), Operations R8, I11, I22: a Release and a Schedule alarm at one instant: the card is back, holds the key, and shows one ReleaseOverdue until the reading ends, whichever alarm is taken first (the Release writes no state)", async () => {
     const { releaseMeetsSchedule, loungeCard } = await load();
     const run = await releaseMeetsSchedule.run();
 

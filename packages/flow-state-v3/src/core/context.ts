@@ -398,7 +398,25 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
       })),
     );
 
-  return { bind, unbind, wave, settling, inputsOf, owes, restoredBaselines };
+  // The outcomes after their edits: a raise replaces its source's issue and is reported; a clear
+  // drops it. No edit keeps the same issues.
+  const outcomesAfter = (incarnation: Incarnation, edits: ReadonlyArray<OutcomeEdit>) =>
+    edits.reduce<ReadonlyArray<StoredIssue>>(
+      (issues, edit) =>
+        OutcomeEdit.$match(edit, {
+          Raise: ({ issue }) => [
+            ...issues.filter((i) => !Equal.equals(i.source, issue.source)),
+            tx.refuse(incarnation.actor, issue),
+          ],
+          Clear: ({ source }) =>
+            issues.some((i) => Equal.equals(i.source, source))
+              ? issues.filter((i) => !Equal.equals(i.source, source))
+              : issues,
+        }),
+      incarnation.issues,
+    );
+
+  return { bind, unbind, wave, settling, inputsOf, owes, restoredBaselines, outcomesAfter };
 };
 
 /**

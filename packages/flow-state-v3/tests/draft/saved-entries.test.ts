@@ -19,8 +19,7 @@ import { loose } from "../../src/test/loose.ts";
 // Idle entry with `asked: none`, never fresh, so the first ask starts a request; a saved copy at
 // least `gcTime` old, or one `output` does not decode, starts missing and its bytes go (a cache
 // record carries no obligation: every failure is Discard); `persist: true` requires `output`
-// (Plan Operations O1). The open document's members (`setData`, `clear`) are not built, so its
-// fixture loads inside its tests.
+// (Plan Operations O1). The open document's module loads inside its tests.
 
 const DOCUMENT = "entry/Draft/document|";
 
@@ -149,7 +148,7 @@ describe("writes into a persisted read (Operations R4; Entry store)", () => {
     expect(entries(run.checkpoints.closed, DOCUMENT)).toEqual([]);
   });
 
-  it.fails("Plan Operations O5 (clear blocks old results), Entry store: a save answered after the plan was closed does not bring its saved copy back", async () => {
+  it("Plan Operations O5 (clear blocks old results), Entry store: a save answered after the plan was closed does not bring its saved copy back", async () => {
     const { saveAfterClose } = await load();
     const run = await saveAfterClose.run();
 

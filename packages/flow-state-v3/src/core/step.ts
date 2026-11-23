@@ -14,7 +14,7 @@ import { type Env, type Machines, makeTx } from "./tx.ts";
 import { admit, Life, Verdict } from "./life.ts";
 import { type ActorId, actorKey, Mail, byStart, type World } from "./world.ts";
 import { Alarm, byDeadline } from "./alarms.ts";
-import { defect } from "./defect.ts";
+import { Change } from "./change.ts";
 import { scheduleOrder } from "./schedule-plan.ts";
 
 export { CallResult, Input } from "./input.ts";
@@ -91,7 +91,10 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
             if (awaits(lane, ticket))
               tx.act(Act.Silent({ operation: lane.operation, attempt: lane.head.id }));
         },
-        Release: () => defect("a Release alarm was set, and no owner sets one"),
+        Release: ({ call }) => {
+          for (const actor of entries.releaseDue(call))
+            incarnations.apply(Option.fromUndefinedOr(incarnationOf(actor)), Change.Shown());
+        },
         Collect: ({ entry }) => entries.collectDue(entry),
         Grace: ({ actor, incarnation }) => {
           if (incarnationOf(actor)?.id === incarnation) end(actor);

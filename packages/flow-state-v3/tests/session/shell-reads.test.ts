@@ -15,7 +15,7 @@ const load = async () => ({
 });
 
 describe("the shell's reads (Operations entry table; Plan Operations O3, O5)", () => {
-  it.fails("Operations, entry table (Ask Refetch): a refresh reads the profile again and shows the new name", async () => {
+  it("Operations, entry table (Ask Refetch): a refresh reads the profile again and shows the new name", async () => {
     const { shellUsual, shell, Workspace } = await load();
     const run = await shellUsual.run();
 
@@ -36,7 +36,7 @@ describe("the shell's reads (Operations entry table; Plan Operations O3, O5)", (
     expect(run.checkpoints.renamed.read(Workspace.teams)).toHaveLength(1);
   });
 
-  it.fails("Plan Operations O3 (InvalidWrite): a write whose key the answer leaves out applies nothing, is reported, and the rename succeeds", async () => {
+  it("Plan Operations O3 (InvalidWrite): a write whose key the answer leaves out applies nothing, is reported, and the rename succeeds", async () => {
     const { invalidWrite, shell } = await load();
     const run = await invalidWrite.run();
 
@@ -44,7 +44,7 @@ describe("the shell's reads (Operations entry table; Plan Operations O3, O5)", (
     expect(run.checkpoints.renamed.read(shell)?.memory.notice).toBe("");
   });
 
-  it.fails("Operations, entry table (Clear): signing out clears the profile, so signing in again within its stale time reads it again", async () => {
+  it("Operations, entry table (Clear): signing out clears the profile, so signing in again within its stale time reads it again", async () => {
     const { signOutClears, shell, Workspace } = await load();
     const run = await signOutClears.run();
 

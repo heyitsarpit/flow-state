@@ -296,6 +296,39 @@ export type Schedule = {
 };
 
 /**
+ * What a placement's select reads: the committed memory and the context slots' values.
+ */
+export type PlaceInput = { readonly memory: Values; readonly context: Values };
+
+/**
+ * A placement's last key's input and data.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a read's data is the lookup's own value.
+export type Previous = { readonly input: Values; readonly data: unknown };
+
+/**
+ * What a placement's `placeholder` reads: the placement's last key's input and data, if it had
+ * any, and the new key's input.
+ */
+export type PlaceholderInput = {
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the user's callback reads it as the Plan writes it, `previous?.data`
+  readonly previous: Previous | undefined;
+  readonly input: Values;
+};
+
+/**
+ * A read a state places while it is active (`O.x.subscribe` in its `activities`): its operation,
+ * the select its key is read from on the committed view, and the data its `placeholder` gives a
+ * new key that has none.
+ */
+export type Placement = {
+  readonly operation: string;
+  readonly select: Slot<(input: PlaceInput) => Values>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a placeholder is the read's own value, or nothing.
+  readonly placeholder: Option.Option<Slot<(input: PlaceholderInput) => unknown>>;
+};
+
+/**
  * A declared schedule's codecs and reasons: its key's codec to canonical text when it is keyed, its
  * `restartOn` selection's codec when it declares one, and its pause reasons in declaration order.
  */
@@ -319,6 +352,7 @@ export type Node = {
   readonly default: Option.Option<string>;
   readonly on: Level;
   readonly schedules: ReadonlyArray<Schedule>;
+  readonly placements: ReadonlyArray<Placement>;
   readonly chain: ReadonlyArray<string>;
   readonly depth: number;
   readonly leaf: string;
@@ -376,14 +410,19 @@ export type EventEntry = {
 };
 
 /**
- * What an ending's mapper reads beside its value: the row's input and its key fields.
+ * What an ending's mapper reads beside its value: the row's input, its key fields, and whether
+ * its value is a placement's placeholder rather than landed data.
  */
-export type EndingContext = { readonly input: Values; readonly key: Values };
+export type EndingContext = {
+  readonly input: Values;
+  readonly key: Values;
+  readonly placeholder: boolean;
+};
 
 /**
  * The context of a mapping that ends no call, such as a context reaction's: no input, no key.
  */
-export const NO_CALL: EndingContext = { input: {}, key: {} };
+export const NO_CALL: EndingContext = { input: {}, key: {}, placeholder: false };
 
 /**
  * Where an ending goes: its event and the mapper that makes the event's payload.
@@ -427,13 +466,15 @@ export type Commit = (
 
 /**
  * One change of a read's entry, as `resource.write(key, data)` names it: the read's contract, its
- * key's canonical text (none when the key has no valid form) and the update of its current value.
+ * key's canonical text (none when the key has no valid form), the update of its current value, and
+ * whether the write gives the data itself, so it needs no current value to apply.
  */
 export type ReadWrite = {
   readonly contract: string;
   readonly keyText: Option.Option<string>;
   // FLOW_STATE_ALLOW_UNKNOWN: an update takes and returns the read's own value, typed at `write`.
   readonly update: (current: unknown) => unknown;
+  readonly replaces: boolean;
 };
 
 /**

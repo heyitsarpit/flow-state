@@ -9,7 +9,15 @@ import type { Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
 import type { Alarmed } from "./alarms.ts";
 import type { Scheduled, TimerKey } from "./timers.ts";
-import type { Entry, EntryKey, Holder, ReadSlot } from "./entry-view.ts";
+import {
+  type Entry,
+  type EntryKey,
+  type Holder,
+  holderText,
+  type Placement,
+  type ReadSlot,
+  type Releasing,
+} from "./entry-view.ts";
 
 /**
  * An actor's identity: its machine and its name.
@@ -160,14 +168,17 @@ export type Incarnation = {
 /**
  * What raised an issue: an event's turn, a schedule's timer (a keyed one's key by its canonical
  * text; none for an unkeyed schedule or its `keys`), an owed ending of an operation at one key, a
- * read entry's last ending at one key, a context slot's selector, or an `onContext` reaction. An
- * issue is replaced or cleared only by its own source.
+ * read entry's last ending at one key, a placement's select, a released call of a key the
+ * incarnation holds, a context slot's selector, or an `onContext` reaction. An issue is replaced or
+ * cleared only by its own source.
  */
 export type IssueSource = Data.TaggedEnum<{
   Event: { tag: string };
   Schedule: { name: string; key: Option.Option<string> };
   Ending: { operation: string; key: string };
   Entry: { operation: string; key: string };
+  Placement: { operation: string };
+  Call: { operation: string; key: string };
   Context: { slot: string };
   OnContext: { at: number };
 }>;
@@ -191,6 +202,8 @@ export const sourceText = (source: IssueSource) =>
       }),
     Ending: ({ operation, key }) => `operation ${operation} ${key}`,
     Entry: ({ operation, key }) => `read ${operation} ${key}`,
+    Placement: ({ operation }) => `placement ${operation}`,
+    Call: ({ operation, key }) => `call ${operation} ${key}`,
     Context: ({ slot }) => `context ${slot}`,
     OnContext: ({ at }) => `onContext ${at}`,
   });
@@ -488,7 +501,8 @@ export type World = {
   readonly owed: Ledger;
   readonly entries: ReadonlyMap<EntryKey, Entry>;
   readonly slots: ReadonlyMap<IncarnationId, ReadonlyMap<string, ReadSlot>>;
-  readonly releasing: ReadonlyMap<CallId, EntryKey>;
+  readonly placements: ReadonlyMap<IncarnationId, ReadonlyMap<string, Placement>>;
+  readonly releasing: ReadonlyMap<CallId, Releasing>;
   readonly displaced: ReadonlyMap<string, Displaced>;
   readonly mail: ReadonlyMap<string, ReadonlyArray<Mail>>;
   readonly uses: ReadonlyMap<ActorKey, ReadonlyArray<Use>>;
@@ -541,6 +555,7 @@ export const emptyWorld = (persistence: boolean): World => ({
   owed: new Map(),
   entries: new Map(),
   slots: new Map(),
+  placements: new Map(),
   releasing: new Map(),
   displaced: new Map(),
   mail: new Map(),
@@ -619,15 +634,15 @@ const entryIndexesOf = (world: World) => {
   for (const [key, entry] of world.entries)
     if (entry.request._tag === "Running") callHome.set(entry.request.call, key);
 
+  const held = (entry: EntryKey, h: Holder) =>
+    holders.set(entry, (holders.get(entry) ?? new Map<string, Holder>()).set(holderText(h), h));
+
   for (const [life, slots] of world.slots)
-    for (const [operation, slot] of slots)
-      holders.set(
-        slot.entry,
-        (holders.get(slot.entry) ?? new Map<string, Holder>()).set(`${life}\u0000${operation}`, {
-          life,
-          operation,
-        }),
-      );
+    for (const [operation, slot] of slots) held(slot.entry, { life, operation });
+
+  for (const [life, placed] of world.placements)
+    for (const [operation, placement] of placed)
+      if (placement._tag === "Placed") held(placement.entry, { life, operation });
 
   return { callHome, holders };
 };

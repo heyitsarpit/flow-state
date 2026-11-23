@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call, typescript/no-unsafe-return -- each line under an `@ts-expect-error` uses a read member or option the Operations Spec adds and the package lacks, so its values type as any until it lands */
 // @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
 import { Context, Effect, Exit, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpIncomingMessage } from "effect/http";
@@ -229,12 +228,10 @@ export const Shell = definition({
   },
   operations: ({ E }) => ({
     profile: profile.outcomes({
-      // @ts-expect-error Operations O2: a placed read maps `value`
       value: E.Profiled.from((v) => ({ name: v.name })),
       failure: { NoAnswer: E.Unread, Defect: E.Unread, Interrupted: E.Unread },
     }),
     teams: teams.outcomes({
-      // @ts-expect-error Operations O2: a placed read maps `value`
       value: E.Teamed.from((v) => ({ names: v.names })),
       failure: { NoAnswer: E.Unread, Defect: E.Unread, Interrupted: E.Unread },
     }),
@@ -261,11 +258,8 @@ export const ShellMachine = machine(Shell, ({ S, O }) => ({
   default: S.SIGNED_IN,
   states: {
     SIGNED_IN: {
-      // @ts-expect-error Operations O2: a state places reads in `activities`
       activities: [
-        // @ts-expect-error Operations O2: `subscribe` places a read
         O.profile.subscribe(({ memory }) => ({ user: memory.user })),
-        // @ts-expect-error Operations O2: `subscribe` places a read
         O.teams.subscribe(({ memory }) => ({ org: memory.org })),
       ],
       on: {

@@ -105,7 +105,7 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
 });
 
 describe("a released history read (Operations R8, I11)", () => {
-  it.fails("Operations R8, I11, T4.5: a read told to stop that runs on shows no issue before the disposal bound, one after it for the holder of its key, and none once it ends", async () => {
+  it("Operations R8, I11, T4.5: a read told to stop that runs on shows no issue before the disposal bound, one after it for the holder of its key, and none once it ends", async () => {
     const run = await releaseOverdue.run();
 
     const { released, ended } = run.checkpoints;

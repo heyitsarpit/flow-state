@@ -74,6 +74,8 @@ export const ENDS = {
  * - `Lanes`: the actor's lanes moved outside a turn.
  * - `Settled`: a firing whose send did not commit, with its refusal when it was refused.
  * - `Use`: the actor's first use returned, or its last one was released.
+ * - `Shown`: what its snapshot shows changed outside it: a released call of a key it holds passed
+ *   the disposal bound.
  * - `End`: the actor's live incarnation ends, by `how`.
  */
 export type Change = Data.TaggedEnum<{
@@ -90,6 +92,7 @@ export type Change = Data.TaggedEnum<{
   Lanes: {};
   Settled: { firing: Firing; refusal: Option.Option<Failure> };
   Use: { returned: boolean };
+  Shown: {};
   End: { how: How };
 }>;
 
@@ -112,6 +115,7 @@ export const whyOf = (change: Change) =>
     Lanes: () => Option.none<Why>(),
     Settled: () => Option.some<Why>("Other"),
     Use: () => Option.some<Why>("Other"),
+    Shown: () => Option.some<Why>("Other"),
     End: () => Option.none<Why>(),
   });
 
@@ -129,8 +133,26 @@ export const publishesAlways = (change: Change) =>
     Lanes: () => false,
     Settled: () => false,
     Use: () => false,
+    Shown: () => true,
     End: () => false,
   });
+
+/**
+ * The changes after which the placements are decided: those that move the state or change the
+ * committed memory or context a placement's select reads.
+ */
+export const PLACES = {
+  Begin: true,
+  Turn: true,
+  Inputs: true,
+  Refused: false,
+  Unturned: false,
+  Lanes: false,
+  Settled: false,
+  Use: false,
+  Shown: false,
+  End: false,
+} as const satisfies Record<Change["_tag"], boolean>;
 
 /**
  * The change a refusal before commit is: a firing's is its schedule's `Settled`; any other's is

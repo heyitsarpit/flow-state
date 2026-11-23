@@ -33,7 +33,7 @@ const progressOf = (cut: Cut, ref: ActorRef<typeof ChequeDeposit>) => {
 };
 
 describe("the balance card and cheque deposits (Operations R4; Plan Operations O1, O6)", () => {
-  it.fails("Operations R4, I7, T4.4: a refresh asked before a card payment loses, and the read after shows the payment", async () => {
+  it("Operations R4, I7, T4.4: a refresh asked before a card payment loses, and the read after shows the payment", async () => {
     const { readAfterWrite, card } = await load();
     const run = await readAfterWrite.run();
 
@@ -42,7 +42,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(run.checkpoints.settled.read(card)?.memory.cents).toBe(7500);
   });
 
-  it.fails("Plan Operations O6: an account switch shows the last account's balance as a placeholder until its own lands", async () => {
+  it("Plan Operations O6: an account switch shows the last account's balance as a placeholder until its own lands", async () => {
     const { switchAccount, card } = await load();
     const run = await switchAccount.run();
 
@@ -102,7 +102,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(run.checkpoints.resumed.read(rentCheque)?.state).toBe("DONE");
   });
 
-  it.fails("Plan Operations O1: a money write declares the input field the server keys it by", async () => {
+  it("Plan Operations O1: a money write declares the input field the server keys it by", async () => {
     const { cardPayment, depositCheque } = await load();
 
     expect(
