@@ -15,13 +15,13 @@ import { Session } from "../machines/session.ts";
 import { Team } from "../machines/team.ts";
 import { actorRef } from "../../../src/index.ts";
 import { Identity } from "../server/identity.ts";
-import { IdentityFake } from "../server/layer.ts";
+import { IdentityFake, WorkspaceFake } from "../server/layer.ts";
 
 /**
- * The grown workspace over its identity fake, with no steps yet.
+ * The grown workspace over its identity and workspace fakes, with no steps yet.
  */
 export const grownStory = (id: string) =>
-  Story.app(workspaceGrownSetup, { id, fixtures: [IdentityFake] });
+  Story.app(workspaceGrownSetup, { id, fixtures: [IdentityFake, WorkspaceFake] });
 
 const signInAda = Session.E.SignIn({ user: "ada" });
 

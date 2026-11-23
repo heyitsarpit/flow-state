@@ -2,8 +2,9 @@ import { Layer } from "effect";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { SearchLive } from "./adapters/search.ts";
-import { SavedMachine } from "./pending/saved.ts";
-import { SearchPageMachine } from "./pending/search-page.ts";
+import { ResultListMachine } from "./machines/result-list.ts";
+import { SavedMachine } from "./machines/saved.ts";
+import { SearchPageMachine } from "./machines/search-page.ts";
 import { TypeaheadMachine } from "./machines/typeahead.ts";
 
 /**
@@ -22,11 +23,17 @@ export const otherPage = actorRef(SearchPageMachine, "other-page");
 export const adaSaved = actorRef(SavedMachine, { shopper: "ada" });
 
 /**
- * The search app grown with the results page and saved searches around the search box.
+ * The search app grown with the results page and saved searches around the search box and its
+ * result lists: every machine of the fixture.
  */
 export const searchResultsApp = app({
   id: "search",
-  machines: { box: TypeaheadMachine, page: SearchPageMachine, saved: SavedMachine },
+  machines: {
+    box: TypeaheadMachine,
+    lists: ResultListMachine,
+    page: SearchPageMachine,
+    saved: SavedMachine,
+  },
 });
 
 /**

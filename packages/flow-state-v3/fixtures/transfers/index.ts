@@ -2,8 +2,9 @@ import { actorRef } from "../../src/index.ts";
 import { TransfersMachine } from "./machines/transfers.ts";
 import { Option } from "effect";
 import { benchPoint, benchStress, benchTurn, manifest } from "../manifest.ts";
-import { bankReminding, bankRemindingSetup } from "./app.ts";
+import { bankAll, bankAllSetup } from "./app.ts";
 import { reminderSamples, reminderStories } from "./stories/reminders.ts";
+import * as balanceStories from "./stories/balance.ts";
 import {
   switcherEdges,
   switcherRecent,
@@ -34,6 +35,8 @@ import { manyAccounts, manyOrders, orderOffline, owedAtBoot } from "./stories/lo
 import { visibilityStories } from "./stories/visibility.ts";
 import * as depositStories from "./stories/deposits.ts";
 import {
+  balanceSamples,
+  depositSamples,
   samples as formSamples,
   orderSamples,
   plannedSamples,
@@ -55,12 +58,13 @@ import {
  */
 export const transfers = manifest({
   name: "transfers",
-  setup: bankRemindingSetup,
-  app: bankReminding,
+  setup: bankAllSetup,
+  app: bankAll,
   stories: {
     ...stories,
     ...visibilityStories,
     ...depositStories,
+    ...balanceStories,
     formBoundLate,
     checkAndSend,
     chain,
@@ -96,6 +100,8 @@ export const transfers = manifest({
     switcherSamples,
     reminderSamples,
     recordSamples,
+    balanceSamples,
+    depositSamples,
   ],
   stressSamples: [
     stressSamples,
@@ -105,6 +111,8 @@ export const transfers = manifest({
     switcherSamples,
     reminderSamples,
     recordSamples,
+    balanceSamples,
+    depositSamples,
   ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 45 },
@@ -147,6 +155,26 @@ export const transfers = manifest({
         persisted: true,
         cancelsAcknowledging: false,
         retainsUnknown: false,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: balanceSamples,
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: depositSamples,
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: true,
+        retainsUnknown: true,
         storesBeside: false,
       },
     },

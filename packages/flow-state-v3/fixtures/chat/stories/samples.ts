@@ -1,9 +1,12 @@
 import { samplesOf } from "../../../src/host/testing/index.ts";
-import { general, hub, me, random } from "../app.ts";
+import { general, hub, me, photo, random } from "../app.ts";
 import { Account } from "../machines/account.ts";
+import { Attachment } from "../machines/attachment.ts";
 import { Hub } from "../machines/hub.ts";
 import { Thread } from "../machines/thread.ts";
 import { Chat } from "../server/chat.ts";
+import { Uploads } from "../server/uploads.ts";
+import { attachmentStory } from "./attachments.ts";
 import { chatStory } from "./usual.ts";
 
 /**
@@ -50,4 +53,25 @@ export const samples = samplesOf({
       .send(general, Thread.E.Delete({ messageId: "m-1" }))
       .send(general, Thread.E.LetGo({ messageId: "m-1" }))
       .send(general, Thread.E.Ask({ question: "when is standup" })),
+});
+
+/**
+ * What a photo can do, for generated runs: upload it in four chunks or in none, and stop an upload
+ * while its chunks are on the wire.
+ */
+export const attachmentSamples = samplesOf({
+  id: "chat-attachments",
+  story: attachmentStory("chat/attachment-samples"),
+  names: { setup: "attachmentSetup", fixtures: ["UploadsFake"] },
+  actors: { photo },
+  servers: { Uploads },
+  failures: [],
+  landedFailures: [],
+  controls: [],
+  values: {},
+  steps: (story) =>
+    story
+      .send(photo, Attachment.E.Upload({ chunks: 4 }))
+      .send(photo, Attachment.E.Stop())
+      .send(photo, Attachment.E.Upload({ chunks: 0 })),
 });

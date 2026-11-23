@@ -278,9 +278,11 @@ const bootOf = (run: StoryRun<string>, open: number): Boot => {
 
   const minted = new Set(later.flatMap((e) => (e._tag === "Minted" ? [e.attempt] : [])));
 
-  // An Attempt minted after the boot is the app's own new work, not something the store owed.
+  // An Attempt minted after the boot is the app's own new work, not something the store owed; so is
+  // a read's ending, which has no Attempt: what a read lands follows its key, which a corrupt
+  // provider's fresh start may change for every identity that reads it as context.
   const ended = later.flatMap((e) =>
-    e._tag === "Ended" && !Option.exists(e.attempt, (a) => minted.has(a)) ? [e] : [],
+    e._tag === "Ended" && Option.exists(e.attempt, (a) => !minted.has(a)) ? [e] : [],
   );
 
   return {
@@ -345,6 +347,19 @@ const othersHeard = (b: Boot, owners: ReadonlySet<string>) =>
     .map((e) => `${e.owner} ${e.text}`)
     .join("\n");
 
+// How a record outside the writer's form must be met: an identity's record is reported for its
+// key; a saved entry is a cache that owes nothing (Records R18), deleted at the boot with no report.
+const unreadBreaches = (tag: string, key: string, boot: Boot, reportedHere: boolean) => {
+  if (!key.startsWith("entry/"))
+    return reportedHere
+      ? []
+      : [`R11, R13: ${tag}: outside the writer's form, and nothing reports ${key}`];
+
+  return reportedHere || boot.booted.has(key)
+    ? [`R18: ${tag}: an unreadable saved entry was reported or kept its bytes`]
+    : [];
+};
+
 // The breaches of one mutant against its uncorrupted boot.
 const judge = (control: Boot, mutant: Mutant, original: string, boot: Boot) => {
   const owners = new Set([ownerOf(original), ownerOf(mutant.key)]);
@@ -378,8 +393,7 @@ const judge = (control: Boot, mutant: Mutant, original: string, boot: Boot) => {
     ...local.map((a) => `R4, I9: ${tag}: the local actor ${a} started from the store`),
   ];
 
-  if (outside && !reportedHere)
-    breaches.push(`R11, R13: ${tag}: outside the writer's form, and nothing reports ${mutant.key}`);
+  if (outside) breaches.push(...unreadBreaches(tag, mutant.key, boot, reportedHere));
 
   if (outside)
     breaches.push(

@@ -38,6 +38,27 @@ export class TimedOut extends Schema.TaggedError<TimedOut>()("TimedOut", {}) {}
 export const Receipt = Schema.Struct({ receipt: Schema.String });
 
 /**
+ * An account's available cents, as the accounts service answers a balance or a debit.
+ */
+export const Cents = Schema.Struct({ cents: Schema.Number });
+
+/**
+ * The available-balance port: an account's available cents, and a card payment that debits it.
+ */
+export class AvailableApi extends Context.Service<
+  AvailableApi,
+  {
+    readonly available: (input: {
+      readonly account: string;
+    }) => Effect.Effect<typeof Cents.Type, NoAnswer>;
+    readonly debit: (
+      input: { readonly account: string; readonly cents: number },
+      options: { readonly idempotencyKey: string },
+    ) => Effect.Effect<typeof Cents.Type, NoAnswer>;
+  }
+>()("flow-state-v3/fixtures/transfers/AvailableApi") {}
+
+/**
  * The bank's API: where the data comes from. Its production Layer is `BankHttp`; each send
  * carries its Attempt's id as the idempotency key.
  */

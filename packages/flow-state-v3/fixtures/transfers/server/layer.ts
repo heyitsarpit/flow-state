@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { AccountsApi, BankApi } from "../services.ts";
+import { AccountsApi, AvailableApi, BankApi } from "../services.ts";
 import { Accounts } from "./accounts.ts";
 import { Bank } from "./bank.ts";
 
@@ -10,6 +10,20 @@ import { Bank } from "./bank.ts";
 export const AccountsFake = Layer.effect(
   AccountsApi,
   Effect.map(Accounts, (accounts) => AccountsApi.of({ balance: accounts.balance })),
+);
+
+/**
+ * The available-balance port fake over the accounts server: its reads and its debits are the
+ * accounts server's own.
+ */
+export const AvailableFake = Layer.effect(
+  AvailableApi,
+  Effect.map(Accounts, (accounts) =>
+    AvailableApi.of({
+      available: accounts.balance,
+      debit: (input, { idempotencyKey }) => accounts.debit({ ...input, key: idempotencyKey }),
+    }),
+  ),
 );
 
 const bankApi = (cleanupThrows: boolean) =>

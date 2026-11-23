@@ -14,7 +14,8 @@ import {
   waveNoop,
   wallOfSize,
 } from "./stories/load.ts";
-import { grownSamples } from "./stories/samples.ts";
+import { grownSamples, shellSamples } from "./stories/samples.ts";
+import { invalidWrite, renameShownAtOnce, shellUsual, signOutClears } from "./stories/shell.ts";
 import {
   corruptSeen,
   digestHeard,
@@ -93,9 +94,13 @@ export const session = manifest({
     guestDotReturns,
     corruptSeen,
     formatOneAvatar,
+    shellUsual,
+    renameShownAtOnce,
+    invalidWrite,
+    signOutClears,
   },
-  samples: [samples, grownSamples, inboxSamples, nestsSamples],
-  stressSamples: [stressSamples, nestsStressSamples],
+  samples: [samples, grownSamples, inboxSamples, nestsSamples, shellSamples],
+  stressSamples: [stressSamples, nestsStressSamples, shellSamples],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: stressSamples }),
@@ -106,6 +111,16 @@ export const session = manifest({
         writes: true,
         persisted: true,
         cancelsAcknowledging: true,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: shellSamples,
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
         retainsUnknown: true,
         storesBeside: false,
       },

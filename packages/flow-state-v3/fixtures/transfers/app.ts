@@ -1,12 +1,14 @@
 import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
-import { AccountsLive } from "./adapters/accounts.ts";
+import { AccountsLive, AvailableLive } from "./adapters/accounts.ts";
 import { BankLive } from "./adapters/bank.ts";
 import { TransfersMachine } from "./machines/transfers.ts";
 import { CustomerMachine } from "./machines/customer.ts";
 import { AccountSwitcherMachine } from "./machines/account-switcher.ts";
 import { TransferFormMachine } from "./machines/transfer-form.ts";
 import { StandingOrderMachine } from "./machines/standing-order.ts";
+import { BalanceCardMachine } from "./machines/balance-card.ts";
+import { ChequeDepositMachine, DepositsLive } from "./machines/deposit.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
@@ -192,6 +194,56 @@ export const bankRemindingSetup = runtimeSetup({
   services: Layer.mergeAll(
     BankLive("https://bank.example"),
     AccountsLive("https://accounts.example"),
+    layerIndexedDb(),
+  ),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The customer's balance card.
+ */
+export const card = actorRef(BalanceCardMachine, "card");
+
+/**
+ * The bank grown with the balance card around the customer.
+ */
+export const balanceSetup = runtimeSetup({
+  app: app({
+    id: "bank",
+    machines: {
+      customer: CustomerMachine,
+      card: { machine: BalanceCardMachine, context: { account: mainCustomer } },
+    },
+  }),
+  services: Layer.merge(AvailableLive("https://accounts.example"), layerIndexedDb()),
+  scope: "bank",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The reminding bank app grown with the balance card and the cheque deposits.
+ */
+export const bankAll = app({
+  id: "bank",
+  machines: {
+    ...bankReminding.machines,
+    card: { machine: BalanceCardMachine, context: { account: mainCustomer } },
+    deposits: ChequeDepositMachine,
+  },
+});
+
+/**
+ * The whole bank app's real setup: every service the app's machines call, over HTTP, persisted,
+ * each capture written at once.
+ */
+export const bankAllSetup = runtimeSetup({
+  app: bankAll,
+  services: Layer.mergeAll(
+    BankLive("https://bank.example"),
+    AccountsLive("https://accounts.example"),
+    AvailableLive("https://accounts.example"),
+    DepositsLive("https://deposits.example"),
     layerIndexedDb(),
   ),
   scope: "bank",

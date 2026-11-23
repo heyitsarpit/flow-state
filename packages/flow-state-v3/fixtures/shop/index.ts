@@ -2,7 +2,7 @@ import { actorRef } from "../../src/index.ts";
 import { PayMachine } from "../services/shop/machines/pay.ts";
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
-import { storePulsing, storePulsingSetup } from "./app.ts";
+import { storeMiniCart, storePulsingSetup } from "./app.ts";
 import {
   long,
   samples,
@@ -58,6 +58,16 @@ import {
   reloadedMidAdd,
   shopperForgotten,
 } from "./stories/structure.ts";
+import {
+  addShownAtOnce,
+  closedAddUnsure,
+  failedAddDuringLoad,
+  miniCartSamples,
+  refusedAddRemoved,
+  staleOverlappingAdds,
+  staleSnapshot,
+  switchCarts,
+} from "./stories/mini-cart.ts";
 
 /**
  * The shop fixture, the shop around the checkout, as every runner reads it.
@@ -65,7 +75,7 @@ import {
 export const shop = manifest({
   name: "shop",
   setup: storePulsingSetup,
-  app: storePulsing,
+  app: storeMiniCart,
   stories: {
     ...stories,
     flowBoundLate,
@@ -113,6 +123,13 @@ export const shop = manifest({
     pulseBurst,
     pulseReloaded,
     pulseReloadMidAdd,
+    switchCarts,
+    addShownAtOnce,
+    refusedAddRemoved,
+    failedAddDuringLoad,
+    staleSnapshot,
+    staleOverlappingAdds,
+    closedAddUnsure,
   },
   samples: [
     samples,
@@ -121,6 +138,7 @@ export const shop = manifest({
     renewalSamples,
     pulseSamples,
     recordSamples,
+    miniCartSamples,
   ],
   stressSamples: [
     samples,
@@ -129,6 +147,7 @@ export const shop = manifest({
     renewalSamples,
     pulseSamples,
     recordSamples,
+    miniCartSamples,
   ],
   long: Option.some(long),
   savedStress: { story: seededStress, seed: 36 },
@@ -159,6 +178,16 @@ export const shop = manifest({
       reach: {
         writes: true,
         persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: miniCartSamples,
+      reach: {
+        writes: true,
+        persisted: false,
         cancelsAcknowledging: false,
         retainsUnknown: true,
         storesBeside: false,

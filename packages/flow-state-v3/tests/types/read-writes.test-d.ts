@@ -4,6 +4,9 @@ import { history } from "../../fixtures/chat/operations/reads.ts";
 import { send } from "../../fixtures/chat/operations/writes.ts";
 import type { Message } from "../../fixtures/chat/services.ts";
 import type { ReadWrite, WriteOptions } from "../../src/index.ts";
+import { Shell } from "../../fixtures/session/machines/shell.ts";
+import { teams } from "../../fixtures/session/operations/reads.ts";
+import { renameTeam } from "../../fixtures/session/operations/writes.ts";
 
 // Plan Operations O3, O5 (Pending D41): a read change is named by its contract, as Effect's
 // `Ref.set` and `Ref.update` name a change: `history.set(key, value)` replaces the data and
@@ -63,6 +66,20 @@ describe("Plan Operations O3, O5: read changes are typed by their read", () => {
           expectTypeOf(input.text).toEqualTypeOf<string>();
 
           return [history.set({ thread: value.thread }, { messages: [] })];
+        },
+      },
+    );
+
+    expectTypeOf(teams.update({ org: "acme" }, (current) => current)).toEqualTypeOf<ReadWrite>();
+
+    renameTeam.outcomes(
+      { success: Shell.E.Renamed, failure: {}, unknown: Shell.E.RenameUnsure },
+      {
+        writes: ({ value }) => {
+          // @ts-expect-error Pending D41: a key's fields have the read's key types
+          const refused = teams.update({ org: value.org }, (current) => current);
+
+          return [refused, teams.update({ org: value.org ?? "" }, (current) => current)];
         },
       },
     );

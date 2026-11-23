@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { benchStress, benchTurn, manifest } from "../manifest.ts";
-import { homeApp, homeSetup, roomOf } from "./app.ts";
+import { homeGrownApp, homeSetup, roomOf } from "./app.ts";
 import { hubManyDevices, hubSamples, hubStories, hubUsual } from "./stories/hub.ts";
 import {
   chimeLocal,
@@ -13,6 +13,12 @@ import {
   vacationEdges,
 } from "./stories/edges.ts";
 import { manyRooms, seededStress } from "./stories/load.ts";
+import {
+  cardUsual,
+  disposedMidRead,
+  readingsSamples,
+  releaseMeetsSchedule,
+} from "./stories/readings.ts";
 import { samples, tripSamples } from "./stories/samples.ts";
 import {
   houseFirst,
@@ -31,9 +37,12 @@ import { stories } from "./stories/usual.ts";
 export const home = manifest({
   name: "home",
   setup: homeSetup,
-  app: homeApp,
+  app: homeGrownApp,
   stories: {
     ...stories,
+    cardUsual,
+    disposedMidRead,
+    releaseMeetsSchedule,
     chimeRingsThrice,
     chimeLocal,
     reloadedPaused,
@@ -53,8 +62,8 @@ export const home = manifest({
     manyRooms,
     seededStress,
   },
-  samples: [samples, hubSamples, tripSamples],
-  stressSamples: [samples, hubSamples, tripSamples],
+  samples: [samples, hubSamples, tripSamples, readingsSamples],
+  stressSamples: [samples, hubSamples, tripSamples, readingsSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -84,6 +93,16 @@ export const home = manifest({
       reach: {
         writes: false,
         persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: readingsSamples,
+      reach: {
+        writes: false,
+        persisted: false,
         cancelsAcknowledging: false,
         retainsUnknown: false,
         storesBeside: false,

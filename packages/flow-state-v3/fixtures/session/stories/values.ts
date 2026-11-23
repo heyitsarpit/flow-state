@@ -403,7 +403,7 @@ export const inboxSamples = samplesOf({
     .ensure(mainCalendar)
     .ensure(mainAgenda)
     .ensure(agendaPeek),
-  names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake"] },
+  names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake", "WorkspaceFake"] },
   actors: {
     mainInbox,
     mainDigest,
@@ -475,7 +475,7 @@ const nestsSamplesAt = (depth: number, id: string) => {
   return samplesOf({
     id,
     story: grownStory(`session/${id}`).ensure(mainNests).ensure(nestView),
-    names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake"] },
+    names: { setup: "workspaceGrownSetup", fixtures: ["IdentityFake", "WorkspaceFake"] },
     actors: { mainNests, nestView },
     servers: { Identity },
     failures: [],

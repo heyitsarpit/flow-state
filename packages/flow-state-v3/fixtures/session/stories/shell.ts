@@ -1,7 +1,13 @@
 import { Story } from "../../../src/host/testing/index.ts";
-import { Shell, shell, shellSetup, Workspace, WorkspaceFake } from "./profile.ts";
+import { shell, shellSetup } from "../app.ts";
+import { Shell } from "../machines/shell.ts";
+import { WorkspaceFake } from "../server/layer.ts";
+import { Workspace } from "../server/workspace.ts";
 
-const shellStory = (id: string) => Story.app(shellSetup, { id, fixtures: [WorkspaceFake] });
+/**
+ * The shell's Story over the workspace fake, with no steps yet.
+ */
+export const shellStory = (id: string) => Story.app(shellSetup, { id, fixtures: [WorkspaceFake] });
 
 /**
  * The shell shows Ada's profile and teams; she renames herself elsewhere and refreshes, and the
@@ -26,8 +32,8 @@ export const renameShownAtOnce = shellStory("session/rename-shown-at-once")
   .checkpoint("renamed");
 
 /**
- * A legacy rename answer leaves out the org, so its write into the teams read has no key: the write
- * applies nothing and is reported, and the rename still succeeds.
+ * A legacy rename answer leaves out the org, so its write into the teams read has an empty key,
+ * which the read refuses: the write applies nothing and is reported, and the rename still succeeds.
  */
 export const invalidWrite = shellStory("session/invalid-write")
   .ensure(shell)

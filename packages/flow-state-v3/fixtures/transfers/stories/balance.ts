@@ -1,12 +1,14 @@
 import { Story } from "../../../src/host/testing/index.ts";
+import { balanceSetup, card, mainCustomer } from "../app.ts";
+import { BalanceCard } from "../machines/balance-card.ts";
 import { Customer } from "../machines/customer.ts";
 import { Accounts } from "../server/accounts.ts";
-import { AvailableFake, BalanceCard, balanceSetup, card, me } from "./balance.ts";
+import { AvailableFake } from "../server/layer.ts";
 
 const cardStory = (id: string) =>
   Story.app(balanceSetup, { id, fixtures: [AvailableFake] })
-    .ensure(me)
-    .send(me, Customer.E.Choose({ account: "acct-1" }))
+    .ensure(mainCustomer)
+    .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
     .ensure(card);
 
 /**
@@ -29,10 +31,10 @@ export const noAccountYet = Story.app(balanceSetup, {
   id: "transfers/no-account-yet",
   fixtures: [AvailableFake],
 })
-  .ensure(me)
+  .ensure(mainCustomer)
   .ensure(card)
   .checkpoint("unchosen")
-  .send(me, Customer.E.Choose({ account: "acct-1" }))
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
   .checkpoint("chosen");
 
 /**
@@ -42,9 +44,9 @@ export const noAccountYet = Story.app(balanceSetup, {
  */
 export const garbledLink = cardStory("transfers/garbled-link")
   .checkpoint("shown")
-  .send(me, Customer.E.Choose({ account: "acct%2" }))
+  .send(mainCustomer, Customer.E.Choose({ account: "acct%2" }))
   .checkpoint("garbled")
-  .send(me, Customer.E.Choose({ account: "acct-2" }))
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-2" }))
   .checkpoint("chosen");
 
 /**
@@ -53,7 +55,7 @@ export const garbledLink = cardStory("transfers/garbled-link")
  */
 export const switchAccount = cardStory("transfers/switch-account")
   .world(Accounts.balance.hold())
-  .send(me, Customer.E.Choose({ account: "acct-2" }))
+  .send(mainCustomer, Customer.E.Choose({ account: "acct-2" }))
   .checkpoint("switching")
   .world(Accounts.balance.release())
   .checkpoint("switched");

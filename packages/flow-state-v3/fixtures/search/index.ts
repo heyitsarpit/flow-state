@@ -1,6 +1,8 @@
 import { Option } from "effect";
 import { benchTurn, manifest } from "../manifest.ts";
-import { boxOf, searchApp, searchSetup } from "./app.ts";
+import { boxOf } from "./app.ts";
+import { searchResultsApp, searchResultsSetup } from "./results-app.ts";
+import { resultsSamples, resultsStories } from "./stories/results.ts";
 import {
   seededStress,
   typeaheadSamples,
@@ -13,11 +15,11 @@ import {
  */
 export const search = manifest({
   name: "search",
-  setup: searchSetup,
-  app: searchApp,
-  stories: { ...typeaheadStories },
-  samples: [typeaheadSamples],
-  stressSamples: [typeaheadSamples],
+  setup: searchResultsSetup,
+  app: searchResultsApp,
+  stories: { ...typeaheadStories, ...resultsStories },
+  samples: [typeaheadSamples, resultsSamples],
+  stressSamples: [typeaheadSamples, resultsSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: typeaheadSamples, stress: typeaheadSamples }),
@@ -29,6 +31,16 @@ export const search = manifest({
         persisted: false,
         cancelsAcknowledging: false,
         retainsUnknown: false,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: resultsSamples,
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
         storesBeside: false,
       },
     },

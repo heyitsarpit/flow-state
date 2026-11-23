@@ -56,3 +56,27 @@ export class CartApi extends Context.Service<
     ) => Effect.Effect<typeof Line.Type, NotEnough | NoResponse>;
   }
 >()("flow-state-v3/fixtures/pay/CartApi") {}
+
+/**
+ * A cart's lines by line id, each with its variant and quantity, as the cart read reports them.
+ */
+export const Lines = Schema.Record(
+  Schema.String,
+  Schema.Struct({ variantId: Schema.String, quantity: Schema.Number }),
+);
+
+/**
+ * The cart read port: a whole cart's lines, and a quick add from the mini cart.
+ */
+export class CartViewApi extends Context.Service<
+  CartViewApi,
+  {
+    readonly cart: (input: {
+      readonly cartId: string;
+    }) => Effect.Effect<{ readonly lines: typeof Lines.Type }, NoResponse>;
+    readonly quickAdd: (
+      input: { readonly cartId: string; readonly lineId: string; readonly variantId: string },
+      options: Idem,
+    ) => Effect.Effect<void, SoldOut | NoResponse>;
+  }
+>()("flow-state-v3/fixtures/shop/CartViewApi") {}

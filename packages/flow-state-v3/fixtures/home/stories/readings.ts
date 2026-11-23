@@ -1,6 +1,7 @@
-import { Story } from "../../../src/host/testing/index.ts";
+import { samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { RuntimeDefaults } from "../../../src/index.ts";
-import { homeReadingsSetup, loungeCard, Thermometer } from "../pending/thermometer.ts";
+import { homeReadingsSetup, loungeCard } from "../app.ts";
+import { Thermometer } from "../machines/thermometer.ts";
 import { SensorsFake, SensorsFakeSteadfast } from "../server/layer.ts";
 import { Sensors } from "../server/sensors.ts";
 
@@ -52,3 +53,24 @@ export const releaseMeetsSchedule = Story.app(homeReadingsSetup, {
   .checkpoint("met")
   .world(Sensors.reading.release())
   .checkpoint("ended");
+
+/**
+ * What a lounge card does for generated runs: shown, taken away and brought back, with the room
+ * warming between them; the generator holds, drops and answers its readings in any order.
+ */
+export const readingsSamples = samplesOf({
+  id: "home-readings",
+  story: Story.app(homeReadingsSetup, { id: "home-readings/samples", fixtures: [SensorsFake] }),
+  names: { setup: "homeReadingsSetup", fixtures: ["SensorsFake"] },
+  actors: { loungeCard },
+  servers: { Sensors },
+  failures: [],
+  landedFailures: [],
+  values: {},
+  controls: [Sensors.warm({ room: "lounge", celsius: 22 })],
+  steps: (story) =>
+    story
+      .ensure(loungeCard)
+      .send(loungeCard, Thermometer.E.Away())
+      .send(loungeCard, Thermometer.E.Back()),
+});

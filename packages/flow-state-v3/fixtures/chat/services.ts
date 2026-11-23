@@ -73,3 +73,17 @@ export class AssistantApi extends Context.Service<
     }) => Effect.Effect<{ readonly answer: string }, Busy | NoResponse>;
   }
 >()("flow-state-v3/fixtures/chat/AssistantApi") {}
+
+/**
+ * The uploads port: one chunk of an attachment, sent with the upload's id as its key.
+ */
+export class UploadsApi extends Context.Service<
+  UploadsApi,
+  {
+    readonly chunk: (input: {
+      readonly uploadId: string;
+      readonly chunk: number;
+      readonly of: number;
+    }) => Effect.Effect<void, NoResponse>;
+  }
+>()("flow-state-v3/fixtures/chat/UploadsApi") {}

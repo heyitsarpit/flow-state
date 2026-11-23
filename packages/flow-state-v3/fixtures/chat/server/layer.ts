@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
-import { AssistantApi, HistoryApi, MessagesApi } from "../services.ts";
+import { AssistantApi, HistoryApi, MessagesApi, UploadsApi } from "../services.ts";
 import { Chat } from "./chat.ts";
+import { Uploads } from "./uploads.ts";
 
 const historyApi = (steadfast: boolean) =>
   Effect.map(Chat, (chat) =>
@@ -40,4 +41,14 @@ export const MessagesFake = Layer.effect(
 export const AssistantFake = Layer.effect(
   AssistantApi,
   Effect.map(Chat, (chat) => AssistantApi.of({ ask: chat.ask })),
+);
+
+/**
+ * The uploads port over its fake.
+ */
+export const UploadsFake = Layer.effect(
+  UploadsApi,
+  Effect.map(Uploads, (server) =>
+    UploadsApi.of({ chunk: (input) => server.chunk(input).pipe(Effect.asVoid) }),
+  ),
 );

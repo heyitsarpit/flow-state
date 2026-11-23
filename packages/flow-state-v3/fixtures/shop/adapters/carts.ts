@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off -- the production adapter's port is Effect's HttpClient, as the app's real Layer would be
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import {
   FetchHttpClient,
   HttpClient,
@@ -7,7 +7,7 @@ import {
   HttpClientResponse,
   HttpIncomingMessage,
 } from "effect/http";
-import { CartApi, Line, NoResponse, NotEnough, SoldOut } from "../services.ts";
+import { CartApi, CartViewApi, Line, Lines, NoResponse, NotEnough, SoldOut } from "../services.ts";
 
 const lost = () => Effect.fail(new NoResponse());
 
@@ -77,3 +77,49 @@ export const CartHttp = (origin: string) =>
  */
 export const CartLive = (origin: string) =>
   CartHttp(origin).pipe(Layer.provide(FetchHttpClient.layer));
+
+/**
+ * The cart read port over HTTP: a whole cart's lines, and a quick add, a 409 the sold-out refusal,
+ * anything else or no answer `NoResponse`.
+ */
+export const CartViewHttp = (origin: string) =>
+  Layer.effect(
+    CartViewApi,
+    Effect.map(HttpClient.HttpClient, (http) => {
+      const client = HttpClient.mapRequest(http, HttpClientRequest.prependUrl(origin));
+
+      return CartViewApi.of({
+        cart: ({ cartId }) =>
+          HttpClientRequest.get(`/carts/${encodeURIComponent(cartId)}`).pipe(
+            client.execute,
+            Effect.flatMap((r) =>
+              HttpIncomingMessage.schemaBodyJson(Schema.Struct({ lines: Lines }))(r),
+            ),
+            Effect.catchTags({ HttpClientError: lost, SchemaError: lost }),
+          ),
+        quickAdd: ({ cartId, lineId, variantId }, { idempotencyKey }) =>
+          HttpClientRequest.post(`/carts/${encodeURIComponent(cartId)}/lines`).pipe(
+            HttpClientRequest.setHeader("Idempotency-Key", idempotencyKey),
+            HttpClientRequest.bodyJsonUnsafe({ lineId, variantId }),
+            client.execute,
+            Effect.flatMap(
+              HttpClientResponse.matchStatus({
+                "2xx": () => Effect.void,
+                409: (r) =>
+                  Effect.flatMap(HttpIncomingMessage.schemaBodyJson(SoldOut)(r), ({ lineId }) =>
+                    Effect.fail(SoldOut.make({ lineId })),
+                  ),
+                orElse: lost,
+              }),
+            ),
+            Effect.catchTags({ HttpClientError: lost, SchemaError: lost }),
+          ),
+      });
+    }),
+  );
+
+/**
+ * `CartViewHttp` over the browser's fetch: what the mini cart's setup provides.
+ */
+export const CartViewLive = (origin: string) =>
+  CartViewHttp(origin).pipe(Layer.provide(FetchHttpClient.layer));

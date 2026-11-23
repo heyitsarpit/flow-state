@@ -1,23 +1,20 @@
 import { describe, expect, it } from "vite-plus/test";
+import { loungeCard } from "../../fixtures/home/app.ts";
 import { Sensors } from "../../fixtures/home/server/sensors.ts";
+import {
+  cardUsual,
+  disposedMidRead,
+  releaseMeetsSchedule,
+} from "../../fixtures/home/stories/readings.ts";
 import type { Cut } from "../../src/host/testing/index.ts";
 
 // The thermometer card: a placed read refreshed by a schedule (Operations Q2: a refetch on an
 // interval is a schedule running `O.x.refetch()`), and a released reading whose `Release` alarm
 // shares an instant with a `Schedule` alarm (Changes Q9; kind order A, Release before Schedule,
-// kept by the turn walk's tag). The card's machine uses read members that are not built, so the
-// fixture loads inside each test.
-
-const load = async () => {
-  const stories = await import("../../fixtures/home/pending/stories.ts");
-  const refs = await import("../../fixtures/home/pending/thermometer.ts");
-
-  return { ...stories, ...refs };
-};
+// kept by the turn walk's tag).
 
 describe("the thermometer card (Operations O2, Q2; R8)", () => {
   it("Operations O2, Q2: the card's placed reading shows at once, and its scheduled refresh reads the warmer room", async () => {
-    const { cardUsual, loungeCard } = await load();
     const run = await cardUsual.run();
 
     expect(run.checkpoints.shown.read(loungeCard)?.memory.celsius).toBe(19);
@@ -26,7 +23,6 @@ describe("the thermometer card (Operations O2, Q2; R8)", () => {
   });
 
   it("Operations R8, Releases (placements' build-time choice): a disposal during a placement's read releases it within the disposal bound, at once", async () => {
-    const { disposedMidRead } = await load();
     const run = await disposedMidRead.run();
 
     expect(run.checkpoints.reading.read(Sensors.reading).map((c) => c.status)).toEqual([
@@ -41,7 +37,6 @@ describe("the thermometer card (Operations O2, Q2; R8)", () => {
   });
 
   it("Changes Q9 (deciding), Operations R8, I11, I22: a Release and a Schedule alarm at one instant: the card is back, holds the key, and shows one ReleaseOverdue until the reading ends, whichever alarm is taken first (the Release writes no state)", async () => {
-    const { releaseMeetsSchedule, loungeCard } = await load();
     const run = await releaseMeetsSchedule.run();
 
     const shown = (cut: Cut) => ({

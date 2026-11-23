@@ -1,8 +1,5 @@
-import { Layer, Schema } from "effect";
-import { layerIndexedDb } from "../../../src/host/persistence.ts";
-import { actorRef, app, definition, Flow, machine, runtimeSetup } from "../../../src/index.ts";
-import { DocsLive } from "../adapters/docs.ts";
-import { LibraryMachine } from "../machines/library.ts";
+import { Schema } from "effect";
+import { definition, Flow, machine } from "../../../src/index.ts";
 import { document } from "../operations/reads.ts";
 import { save } from "../operations/writes.ts";
 
@@ -14,7 +11,7 @@ export const Document = definition({
   id: "Draft/Document",
   persist: true,
   states: ["LOADING", "EDITING"],
-  events: { Open: {}, Edit: { body: Schema.String }, Close: {} },
+  events: { Open: {}, Edit: { body: Schema.String }, Retry: {}, Close: {} },
   internalEvents: {
     Loaded: { title: Schema.String, body: Schema.String, revision: Schema.Number },
     LoadFailed: {},
@@ -59,8 +56,8 @@ export const Document = definition({
 /**
  * Opening reads the document; each edit saves the body on the revision read, the latest edit
  * winning, and a save the server took is written into the read, so the document shows it as
- * fresh; a save that conflicts reads the document again now; closing clears the read off the
- * device.
+ * fresh; a save that conflicts reads the document again now; a save the author is unsure of is
+ * tried again on Retry; closing clears the read off the device.
  */
 export const DocumentMachine = machine(Document, ({ S, O }) => ({
   default: S.LOADING,
@@ -101,32 +98,9 @@ export const DocumentMachine = machine(Document, ({ S, O }) => ({
           actions: [O.document.refetch],
         },
         SaveUnsure: { updateMemory: () => ({ notice: "not sure it saved" }) },
+        Retry: { actions: [O.save.retry(({ memory }) => ({ id: memory.id }))] },
         SaveNotSent: { updateMemory: ({ event }) => ({ notice: `not saved: ${event.why}` }) },
       },
     },
   },
 }));
-
-/**
- * The plan document.
- */
-export const plan = actorRef(DocumentMachine, { id: "doc-1" });
-
-/**
- * The draft app grown with open documents around the library.
- */
-export const documentApp = app({
-  id: "draft",
-  machines: { library: LibraryMachine, document: DocumentMachine },
-});
-
-/**
- * The grown draft app's real setup: the documents service over HTTP, persisted, each capture
- * written at once.
- */
-export const documentSetup = runtimeSetup({
-  app: documentApp,
-  services: Layer.merge(DocsLive("https://docs.example"), layerIndexedDb()),
-  scope: "draft",
-  persistence: { captureMs: 0 },
-});

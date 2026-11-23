@@ -5,6 +5,11 @@ import { Docs } from "../../fixtures/draft/server/docs.ts";
 import { DocsFake } from "../../fixtures/draft/server/layer.ts";
 import { Doc, DocsApi } from "../../fixtures/draft/services.ts";
 import {
+  closeClears,
+  saveAfterClose,
+  savedAfterWrite,
+} from "../../fixtures/draft/stories/document.ts";
+import {
   outlineKeptNoTime,
   savedEntry,
   savedEntryExpired,
@@ -125,14 +130,7 @@ describe("a persisted read's saved entry (Operations R12, I24; Records R18)", ()
 });
 
 describe("writes into a persisted read (Operations R4; Entry store)", () => {
-  const load = async () => {
-    const stories = await import("../../fixtures/draft/pending/stories.ts");
-
-    return stories;
-  };
-
   it("Operations R4, entry table (Written): a saved edit written into the read is the saved copy across a reload", async () => {
-    const { savedAfterWrite } = await load();
     const run = await savedAfterWrite.run();
     const second = { title: "Plan", body: "second draft", revision: 2 };
 
@@ -141,7 +139,6 @@ describe("writes into a persisted read (Operations R4; Entry store)", () => {
   });
 
   it("Operations Entry store, Clear (decided: the saved copy mirrors the entry's data): closing the plan clears its read, and its saved copy goes with it", async () => {
-    const { closeClears } = await load();
     const run = await closeClears.run();
 
     expect(entries(run.checkpoints.loaded, DOCUMENT)).toEqual([first]);
@@ -149,7 +146,6 @@ describe("writes into a persisted read (Operations R4; Entry store)", () => {
   });
 
   it("Plan Operations O5 (clear blocks old results), Entry store: a save answered after the plan was closed does not bring its saved copy back", async () => {
-    const { saveAfterClose } = await load();
     const run = await saveAfterClose.run();
 
     expect(run.checkpoints.answered.read(Docs.save)).toHaveLength(1);

@@ -2,7 +2,9 @@ import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 import { ChatLive } from "./adapters/chat.ts";
+import { UploadsLive } from "./adapters/uploads.ts";
 import { AccountMachine } from "./machines/account.ts";
+import { AttachmentMachine } from "./machines/attachment.ts";
 import { HubMachine } from "./machines/hub.ts";
 import { ThreadMachine } from "./machines/thread.ts";
 
@@ -49,6 +51,35 @@ export const chatApp = app({
 export const chatSetup = runtimeSetup({
   app: chatApp,
   services: Layer.merge(ChatLive("https://chat.example"), layerIndexedDb()),
+  scope: "chat",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * A photo attached to a message.
+ */
+export const photo = actorRef(AttachmentMachine, { uploadId: "up-1" });
+
+/**
+ * The chat app grown with attachments: every machine of the chat fixture, under the same app id.
+ */
+export const chatGrownApp = app({
+  id: "chat",
+  machines: {
+    account: AccountMachine,
+    hub: { machine: HubMachine, context: { who: me } },
+    thread: { machine: ThreadMachine, context: { author: me } },
+    attachment: AttachmentMachine,
+  },
+});
+
+/**
+ * The attachment's own setup, with the chat app id and only the attachment machine: the uploads
+ * server over HTTP, persisted, each capture written at once.
+ */
+export const attachmentSetup = runtimeSetup({
+  app: app({ id: "chat", machines: { attachment: AttachmentMachine } }),
+  services: Layer.merge(UploadsLive("https://uploads.chat.example"), layerIndexedDb()),
   scope: "chat",
   persistence: { captureMs: 0 },
 });

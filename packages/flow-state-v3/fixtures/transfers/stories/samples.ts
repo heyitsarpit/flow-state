@@ -1,12 +1,21 @@
 import { Schema } from "effect";
-import { Fake, samplesOf } from "../../../src/host/testing/index.ts";
-import { account, mainCustomer, rent, savings, sendForm } from "../app.ts";
+import { Fake, samplesOf, Story } from "../../../src/host/testing/index.ts";
+import { account, balanceSetup, card, mainCustomer, rent, savings, sendForm } from "../app.ts";
+import { BalanceCard } from "../machines/balance-card.ts";
+import {
+  ChequeDeposit,
+  depositSetup,
+  Deposits,
+  DepositsFake,
+  rentCheque,
+} from "../machines/deposit.ts";
 import { Customer } from "../machines/customer.ts";
 import { StandingOrder } from "../machines/standing-order.ts";
 import { TransferForm } from "../machines/transfer-form.ts";
 import { Transfers } from "../machines/transfers.ts";
 import { Accounts } from "../server/accounts.ts";
 import { Bank } from "../server/bank.ts";
+import { AvailableFake } from "../server/layer.ts";
 import { EARLIEST, EPOCH, LATEST } from "./edges.ts";
 import {
   acct1Record,
@@ -254,3 +263,68 @@ export const plannedStressSamples = plannedSamplesOf("edges");
  * relation at a time, for every runner.
  */
 export const recordSamples = plannedSamplesOf("records");
+
+const payCard = BalanceCard.E.Pay({ paymentId: "p-1", account: "acct-1", cents: 2500 });
+const payLarge = BalanceCard.E.Pay({ paymentId: "p-2", account: "acct-2", cents: 2 ** 53 });
+
+/**
+ * What the customer and the balance card can do, for generated runs: choose an account, a garbled
+ * one and an empty one, and pay from an account, 2^53 cents among the payments; the accounts
+ * service's balance is set to nothing or to 10,000 cents.
+ */
+export const balanceSamples = samplesOf({
+  id: "transfers-balance",
+  story: Story.app(balanceSetup, {
+    id: "transfers-balance/samples",
+    fixtures: [AvailableFake],
+  }),
+  names: { setup: "balanceSetup", fixtures: ["AvailableFake"] },
+  actors: { mainCustomer, card },
+  servers: { Accounts },
+  failures: [],
+  landedFailures: [],
+  values: { payCard, payLarge },
+  controls: [
+    Accounts.setBalance({ account: "acct-1", cents: 0 }),
+    Accounts.setBalance({ account: "acct-1", cents: 10_000 }),
+  ],
+  steps: (story) =>
+    story
+      .ensure(mainCustomer)
+      .ensure(card)
+      .send(mainCustomer, Customer.E.Choose({ account: "acct-1" }))
+      .send(card, payCard)
+      .send(mainCustomer, Customer.E.Choose({ account: "acct%2" }))
+      .send(mainCustomer, Customer.E.Choose({ account: "" }))
+      .send(card, payLarge)
+      .send(mainCustomer, Customer.E.Choose({ account: "acct-2" })),
+});
+
+const sendThree = ChequeDeposit.E.Send({ parts: 3 });
+const sendNone = ChequeDeposit.E.Send({ parts: 0 });
+
+/**
+ * What the customer can do with the rent cheque, for generated runs: send it in three parts, or in
+ * none, which is an edge; abort it while its parts are on the wire; and resume it.
+ */
+export const depositSamples = samplesOf({
+  id: "transfers-deposits",
+  story: Story.app(depositSetup, {
+    id: "transfers-deposits/samples",
+    fixtures: [DepositsFake],
+  }),
+  names: { setup: "depositSetup", fixtures: ["DepositsFake"] },
+  actors: { rentCheque },
+  servers: { Deposits },
+  failures: [],
+  landedFailures: [],
+  values: { sendThree, sendNone },
+  controls: [],
+  steps: (story) =>
+    story
+      .ensure(rentCheque)
+      .send(rentCheque, sendThree)
+      .send(rentCheque, ChequeDeposit.E.Abort())
+      .send(rentCheque, ChequeDeposit.E.Resume())
+      .send(rentCheque, sendNone),
+});

@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 import { Outcome, transaction } from "../../../src/index.ts";
-import { AssistantApi, MessagesApi } from "../services.ts";
+import { AssistantApi, MessagesApi, UploadsApi } from "../services.ts";
 
 /**
  * Posts one message; a thread's sends go one at a time, in order. The server keys a message by its
@@ -48,4 +48,32 @@ export const ask = transaction({
     AssistantApi.use((api) => api.ask(input)).pipe(
       Effect.catchTag("NoResponse", (e) => Outcome.unknown(e)),
     ),
+});
+
+/**
+ * An attachment sent in chunks, keyed by its upload id, reporting the share sent after each chunk.
+ */
+export const upload = transaction({
+  id: "Chat/upload",
+  input: { uploadId: Schema.String, chunks: Schema.Number },
+  key: ["uploadId"],
+  concurrency: "reject",
+  idempotency: ["uploadId"],
+  progress: Schema.Number,
+  services: [UploadsApi],
+  commit: (input, context) =>
+    Effect.forEach(
+      Array.from({ length: input.chunks }, (_, n) => n),
+      (n) =>
+        UploadsApi.use((api) =>
+          api.chunk({ uploadId: input.uploadId, chunk: n, of: input.chunks }),
+        ).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              context.progress((n + 1) / input.chunks);
+            }),
+          ),
+        ),
+      { concurrency: 1 },
+    ).pipe(Effect.catchTag("NoResponse", (e) => Outcome.unknown(e))),
 });

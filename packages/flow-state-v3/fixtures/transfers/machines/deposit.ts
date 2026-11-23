@@ -101,6 +101,12 @@ export const DepositsHttp = (origin: string) =>
   );
 
 /**
+ * `DepositsHttp` over the browser's fetch: what the grown apps' setups provide.
+ */
+export const DepositsLive = (origin: string) =>
+  DepositsHttp(origin).pipe(Layer.provide(FetchHttpClient.layer));
+
+/**
  * A cheque deposit sent in parts, reporting its progress after each; keyed by the deposit's id.
  */
 export const depositCheque = transaction({
@@ -200,10 +206,7 @@ export const rentCheque = actorRef(ChequeDepositMachine, { depositId: "dep-1" })
  */
 export const depositSetup = runtimeSetup({
   app: app({ id: "bank", machines: { deposits: ChequeDepositMachine } }),
-  services: Layer.merge(
-    DepositsHttp("https://deposits.example").pipe(Layer.provide(FetchHttpClient.layer)),
-    layerIndexedDb(),
-  ),
+  services: Layer.merge(DepositsLive("https://deposits.example"), layerIndexedDb()),
   scope: "bank",
   persistence: { captureMs: 0 },
 });

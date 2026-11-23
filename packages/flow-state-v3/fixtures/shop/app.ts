@@ -1,11 +1,12 @@
 import { Layer } from "effect";
 import { actorRef, app, runtimeSetup } from "../../src/index.ts";
-import { CartLive } from "./adapters/carts.ts";
+import { CartLive, CartViewLive } from "./adapters/carts.ts";
 import { PayMachine } from "../services/shop/machines/pay.ts";
 import { CartMachine } from "./machines/cart.ts";
 import { CartBadgeMachine } from "./machines/cart-badge.ts";
 import { CartPulseMachine } from "./machines/cart-pulse.ts";
 import { CheckoutFlowMachine } from "./machines/checkout-flow.ts";
+import { MiniCartMachine } from "./machines/mini-cart.ts";
 import { ShopperMachine } from "./machines/shopper.ts";
 import { SubscriptionMachine } from "./machines/subscription.ts";
 import { ShopLive } from "../services/shop/adapters/shop.ts";
@@ -177,4 +178,27 @@ export const storePulsingSetup = runtimeSetup({
   ),
   scope: "shop",
   persistence: { captureMs: 0 },
+});
+
+/**
+ * The header's mini cart, which shows one cart at a time and adds lines to it.
+ */
+export const miniCart = actorRef(MiniCartMachine, "header");
+
+/**
+ * The shop with the header's mini cart alone, over the cart read port: the mini cart's own setup.
+ */
+export const miniCartSetup = runtimeSetup({
+  app: app({ id: "shop", machines: { miniCart: MiniCartMachine } }),
+  services: Layer.merge(CartViewLive("https://carts.example"), layerIndexedDb()),
+  scope: "shop",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The shop grown with the header's mini cart: every machine of the shop, the mini cart among them.
+ */
+export const storeMiniCart = app({
+  id: "shop",
+  machines: { ...storePulsing.machines, miniCart: MiniCartMachine },
 });

@@ -1,7 +1,7 @@
 import { samplesOf, Story } from "../../../src/host/testing/index.ts";
 import { RuntimeDefaults } from "../../../src/index.ts";
-import { SearchPage } from "../pending/search-page.ts";
-import { Saved } from "../pending/saved.ts";
+import { Saved } from "../machines/saved.ts";
+import { SearchPage } from "../machines/search-page.ts";
 import { adaSaved, otherPage, page, searchResultsSetup } from "../results-app.ts";
 import { Catalog } from "../server/catalog.ts";
 import { SearchFake, SearchFakeSteadfast } from "../server/layer.ts";
@@ -139,14 +139,17 @@ export const resultsSamples = samplesOf({
     story
       .send(page, SearchPage.E.Search({ q: "sho" }))
       .send(page, SearchPage.E.Search({ q: "socks" }))
+      .send(page, SearchPage.E.Search({ q: "   " }))
       .send(otherPage, SearchPage.E.Search({ q: "sho" }))
       .send(page, SearchPage.E.Page({ page: 1 }))
+      .send(otherPage, SearchPage.E.Page({ page: 2 }))
       .send(otherPage, SearchPage.E.Page({ page: 0 }))
       .send(page, SearchPage.E.Refresh())
       .send(otherPage, SearchPage.E.Refresh())
       .send(page, SearchPage.E.ClearResults())
       .send(page, SearchPage.E.Close())
-      .send(adaSaved, Saved.E.Save({ q: "shoes" })),
+      .send(adaSaved, Saved.E.Save({ q: "shoes" }))
+      .send(adaSaved, Saved.E.Save({ q: "" })),
 });
 
 /**

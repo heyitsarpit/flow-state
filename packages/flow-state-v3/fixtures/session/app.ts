@@ -20,6 +20,8 @@ import { OutlineMachine, PreviewMachine } from "./machines/outline.ts";
 import { DotMachine, PresenceMachine } from "./machines/presence.ts";
 import { BylineMachine } from "./machines/byline.ts";
 import { StatusMachine } from "./machines/status.ts";
+import { ShellMachine } from "./machines/shell.ts";
+import { WorkspaceLive } from "./adapters/workspace.ts";
 import { layerIndexedDb } from "../../src/host/persistence.ts";
 
 /**
@@ -202,7 +204,8 @@ export const guestDot = actorRef(DotMachine, "guest-dot", { context: { online: g
 
 /**
  * The workspace grown with the header avatar, the page byline, team status lines, the inbox with its
- * digest and thread view, and presence with its online dots around its four layers.
+ * digest and thread view, presence with its online dots around its four layers, and the shell's
+ * profile and team reads.
  */
 export const workspaceGrown = app({
   id: "workspace",
@@ -252,16 +255,37 @@ export const workspaceGrown = app({
     peek: { machine: PeekMachine, context: { days: mainCalendar } },
     presence: { machine: PresenceMachine, context: { user: mainSession } },
     dot: { machine: DotMachine, context: { online: actorRef(PresenceMachine, "main") } },
+    shell: ShellMachine,
   },
 });
 
 /**
- * The grown workspace's real setup: the identity provider over HTTP, persisted, each capture
- * written at once.
+ * The grown workspace's real setup: the identity provider and the workspace over HTTP, persisted,
+ * each capture written at once.
  */
 export const workspaceGrownSetup = runtimeSetup({
   app: workspaceGrown,
-  services: Layer.merge(IdentityLive("https://id.example"), layerIndexedDb()),
+  services: Layer.mergeAll(
+    IdentityLive("https://id.example"),
+    WorkspaceLive("https://workspace.example"),
+    layerIndexedDb(),
+  ),
+  scope: "workspace",
+  persistence: { captureMs: 0 },
+});
+
+/**
+ * The workspace shell.
+ */
+export const shell = actorRef(ShellMachine, "shell");
+
+/**
+ * The workspace with only the shell, over the workspace's HTTP adapter: the app the shell's Stories
+ * run on, as its own setup.
+ */
+export const shellSetup = runtimeSetup({
+  app: app({ id: "workspace", machines: { shell: ShellMachine } }),
+  services: Layer.merge(WorkspaceLive("https://workspace.example"), layerIndexedDb()),
   scope: "workspace",
   persistence: { captureMs: 0 },
 });

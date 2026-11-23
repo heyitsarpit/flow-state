@@ -1,8 +1,8 @@
 import { Option } from "effect";
 import { benchTurn, manifest } from "../manifest.ts";
-import { chatApp, chatSetup, threadOf } from "./app.ts";
+import { chatGrownApp, chatSetup, threadOf } from "./app.ts";
 import { manyThreads, seededStress, sendBurst } from "./stories/load.ts";
-import { samples } from "./stories/samples.ts";
+import { attachmentSamples, samples } from "./stories/samples.ts";
 import { uploadProgress, uploadStopped } from "./stories/attachments.ts";
 import { stories, usual } from "./stories/usual.ts";
 
@@ -12,10 +12,10 @@ import { stories, usual } from "./stories/usual.ts";
 export const chat = manifest({
   name: "chat",
   setup: chatSetup,
-  app: chatApp,
+  app: chatGrownApp,
   stories: { ...stories, sendBurst, manyThreads, seededStress, uploadProgress, uploadStopped },
-  samples: [samples],
-  stressSamples: [samples],
+  samples: [samples, attachmentSamples],
+  stressSamples: [samples, attachmentSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -26,6 +26,16 @@ export const chat = manifest({
         writes: true,
         persisted: true,
         cancelsAcknowledging: true,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
+    },
+    {
+      samples: attachmentSamples,
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
         retainsUnknown: true,
         storesBeside: false,
       },

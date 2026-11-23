@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { CartApi } from "../services.ts";
+import { CartApi, CartViewApi } from "../services.ts";
 import { Carts } from "./carts.ts";
 
 /**
@@ -13,6 +13,20 @@ export const CartFake = Layer.effect(
       addLine: (input, { idempotencyKey }) => carts.addLine({ ...input, key: idempotencyKey }),
       setQuantity: (input, { idempotencyKey }) =>
         carts.setQuantity({ ...input, key: idempotencyKey }),
+    }),
+  ),
+);
+
+/**
+ * The cart read port's fake: `CartViewApi` over the carts server, where a quick add is a plain add.
+ */
+export const CartViewFake = Layer.effect(
+  CartViewApi,
+  Effect.map(Carts, (carts) =>
+    CartViewApi.of({
+      cart: carts.cart,
+      quickAdd: (input, { idempotencyKey }) =>
+        carts.addLine({ ...input, key: idempotencyKey }).pipe(Effect.asVoid),
     }),
   ),
 );
