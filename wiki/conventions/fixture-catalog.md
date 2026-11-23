@@ -1465,9 +1465,14 @@ checked here).
       `no-reader-left` (S6), `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`,
       `stress-send-burst` (L5, 100), `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`;
       samples `chat`. `chat/release-overdue`: left, @task.V3.T123 (ReleaseOverdue).
-    - [ ] Pair sweep: red (`tests/chat/pairs.test.ts`), rejoins the manifest when it passes.
+    - [x] Pair sweep: passes since the read members joined the samples; chat is in the manifest's `pairs`
+      (@task.V3.T122).
     - [x] `chat/echo-in-preview` (`optimistic` echo of T `send` on R `history`, served to the sidebar). built:
       @task.V3.T122.
+    - [x] built (@task.V3.T122): `history.invalidate`, `refetch`, `clear` (`chat/posted-mid-read`, Spec T4.4;
+      `unsure-then-posted`; `refresh-and-leave`); `send`'s `writes` (`chat/sent-writes-history`) and InvalidWrite
+      (`sent-write-invalid`); a cancelled send drops its echo (`unsent-echo`); a read's Defect issue
+      (`history-down`); samples drive `tests/generated/entries.test.ts`.
     - [x] built (@task.V3.T121): T `send` declares `idempotency` by client id (`tests/chat/endings.test.ts`);
       `Attachment`, T `upload` with `progress`: `chat/upload-progress`, `chat/upload-stopped`
       (`tests/chat/attachments.test.ts`); mapper context `chat/usual`, `stress-send-burst`, `delete-gone`;

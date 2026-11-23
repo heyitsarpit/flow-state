@@ -829,3 +829,8 @@ note 2026-11-22T23:01:37Z
 note 2026-11-23T06:55:52Z
     Operations deviations from T121's build (orchestrator, 2026-11-23): an unhandled ending closes as heard; a restored
     kept row carries no refusal. Recorded on @task.V3.T121; Spec text unchanged.
+
+note 2026-11-23T07:41:58Z
+    Operations deviations from T122's fix round: read changes are `resource.write(key, data)`; Written applies an update
+    to data asked before the commit started, else Invalidate; a throwing `writes` is InvalidWrite. Recorded on
+    @task.V3.T122; Spec text unchanged.

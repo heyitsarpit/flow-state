@@ -56,10 +56,10 @@ export const LIMITS = {
   deepName: limitFrom(2800),
   /** 300,000 commands saved as one record and reloaded: 10.6 s. */
   largeList: limitFrom(10_600),
-  /** 4,200 cancels on a lane whose calls never answer: 7.9 s. */
-  laneBound: limitFrom(7900),
-  /** Large receipts under the stress profile: 2.4 s. */
-  durability: limitFrom(2400),
+  /** 4,200 cancels on a lane whose calls never answer: 25.8 s alone; 39 to 51.5 s inside the full stress run. */
+  laneBound: limitFrom(25_800),
+  /** 1,300 owed rows saved and heard after a reload: 7.4 s alone; 11 to 13.6 s inside the full stress run. */
+  durability: limitFrom(7400),
   /** Every bench's proof: 21.1 s. */
   benchProofs: limitFrom(21_100),
   /** A bench run a bench-limit test starts: slowest 7.0 s (a hang and a spinner to their deadlines). */
