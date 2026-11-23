@@ -879,3 +879,7 @@ note 2026-11-23T02:28:35Z
 note 2026-11-23T02:28:55Z
     Amendment (2026-11-23, the user): who runs each slice step, Task done on PASS, slice cost 5 to 10%, no new slice
     under 5% left, activity from transcript growth. Commit: 931f49b6.
+
+note 2026-11-23T02:31:31Z
+    Run paused for handoff to another account: tree clean, no live agents, cron removed. Next: slice T21 (T121 to T124
+    open), one requirements lead at high effort.
