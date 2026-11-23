@@ -2032,6 +2032,28 @@ tasks
             time did not move, 6.4 s); the remaining cost is unprofiled, likely the whole work text rewritten per
             capture and the ledger's per-row list copies (Records Cost notes both). R16 Kept-unknown gap landed as
             it.fails owned by T121 (comment there).
+        comment     2026-11-23T00:15:46Z
+            Close review 2: PASS at ecf7851c. The blocker is closed by structure: record-shape.ts holds one strict codec
+            per kind, the writer encodes every work part with it (encodedBy), the boot decodes with it and the oracle
+            writtenForm is that codec (writerDecodes); the deleted head-success probe now hears nothing, and
+            shape-reader-wider, shape-not-strict, attempt-form-unchecked and graph-entry-read-for-recorded-provider are
+            each caught by their own targets (4 of 4). Targeted files: 202 passed, 2 expected fail; nub run check clean.
+            No coverage or stress run (records code only; no stress Story changed).
+
+            The literal swaps are drawn from the codecs' ASTs, so a new literal is swapped automatically. Numbers,
+            Attempt ids, key texts, states, providers and booleans get no valid other value; a valid other value there
+            is one the writer can emit (R20), and anything outside that is judged at stage 2 against the definition. The
+            position writer is still hand-built (the builder's tagged decision), so its codec is wider than the writer,
+            e.g. any memory name. Probe: a guest cart position whose memory holds the input field owner = main boots as
+            guest and sends no main cartId, because stage 2 decodes state, memory, slots, baselines and graph against
+            the definition and drops input fields; an out-of-range timer attempt resumes like a real last step. Safe,
+            but R11's 'both directions' holds for work records only: for the user's read.
+
+            Routed: the 1,300-row durability time (6.4 s alone) to @task.V3.T56 with R21's records-boot bench row,
+            likely the whole work text rewritten per capture and the ledger's per-row copies (Records Cost); the R16
+            Kept-unknown it.fails to @task.V3.T121; recordKinds' put-identity exemption stays with the builder's reason.
+            Notes: tests/write-lanes/write-ahead-records.test.ts keeps a hand WorkRecord projection (retryCount Number,
+            hold String) that can drift; World's ActorId branding is not this Task's (orchestrator ruling).
     T95
         title           Callback results checked before they enter a turn
         status          tombstone
