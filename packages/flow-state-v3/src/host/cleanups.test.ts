@@ -345,6 +345,27 @@ describe("a cleanup that outlives the close's bound (Actors R22, R23)", () => {
     });
 });
 
+describe("the Runtime's close still running at its bound (Operations, Releases: one fact, one name)", () => {
+  for (const kind of kinds)
+    it.fails(`Operations R8, Releases: ${kind.name} whose cleanup hangs past the bound rejects dispose with one ReleaseOverdue at the path of the Owner still closing, and no CleanupOverdue`, () => {
+      const gate = Deferred.makeUnsafe<void>();
+      const started = kind.start(hangsUntil(gate));
+      const ended = disposedPastBounds(started);
+
+      assert.ok(Option.isSome(ended) && Exit.isFailure(ended.value), "dispose rejected");
+
+      const rejected = Option.flatMap(Cause.findErrorOption(ended.value.cause), (e) => flowOf(e));
+      assert.deepStrictEqual(
+        Option.map(rejected, (r) => r.code),
+        Option.some("ReleaseOverdue"),
+      );
+      assert.ok(!Option.exists(rejected, (r) => overdue(r.cause)), "no CleanupOverdue");
+
+      Deferred.doneUnsafe(gate, Exit.void);
+      started.tab.settle();
+    });
+});
+
 describe("an ended actor's cleanup that outlives the Runtime's close (Actors R23)", () => {
   it("Actors R23: a read whose cleanup fails only after dispose stopped waiting goes to the host's report, as no ensure can hear it", () => {
     const gate = Deferred.makeUnsafe<void>();

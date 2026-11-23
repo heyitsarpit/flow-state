@@ -11,6 +11,18 @@ export class Offline extends Schema.TaggedError<Offline>()("Offline", {}) {}
 export class NoResponse extends Schema.TaggedError<NoResponse>()("NoResponse", {}) {}
 
 /**
+ * The sensors port the readings read calls: a room's temperature now.
+ */
+export class SensorsApi extends Context.Service<
+  SensorsApi,
+  {
+    readonly reading: (input: {
+      readonly room: string;
+    }) => Effect.Effect<{ readonly celsius: number }, NoResponse>;
+  }
+>()("flow-state-v3/fixtures/home/SensorsApi") {}
+
+/**
  * The thermostat port the target contract calls.
  */
 export class ThermostatApi extends Context.Service<

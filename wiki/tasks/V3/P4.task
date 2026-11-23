@@ -461,6 +461,26 @@ tasks
             Slice texts written (orchestrator, 2026-11-23): T121 to T124 opened with the current fault wording and the
             items routed from T119 and T92 (R16 kept unknown, Audience, the pipe pin, Collect and Release writers,
             format 6 codec for saved entries). Next: one requirements lead for the whole slice.
+        comment     2026-11-23T04:00:01Z
+            Slice state inventory (requirements lead, 2026-11-23): one owner function per state, decided once for the
+            slice; transition tables are the Spec's, cited not restated.
+
+            | State | Owner function (Task) | Writers today -> after | Saved |
+            | --- | --- | --- | --- |
+            | Lane, displaced head | `cells.ts#table` via `lane-moves` (T121; table unchanged, I20) | unchanged; guards read it only through `lanes.viewOf` | Records' head |
+            | Owed row (+`input`, +`refusal`) | `ledger.ts`: `owe` (one unknown per Attempt), `afterTry` (Rows table: delivery x Heard/Unmapped/Refused), `letGo`, `suspend`, `start`, `restore` (T121) | ledger only; `refusal` written only by `afterTry` | input yes, refusal never |
+            | Ending issue | none: `issuesOf` reads `Owed.refusal` (T121) | today stored under `IssueSource.Operation` by name -> deleted | never |
+            | Read entry `entries[contract][keyText]` | `entries.ts#apply`, the entry table, total over cue x phase (T122) | today none (`World.reads` per call) -> cues Ask Lookup/Refetch, Invalidate, Written, Clear, Settled, Last hold left, First hold arrives, Collect due, Install, Runtime ends | data+at when persist |
+            | Read slot `slots[life][operation]` | `entries.ts` slot rules (T122) | lookup, refetch, cancel, freeze, end | never |
+            | Placement (life, path) | `placements.ts#decide` (T123): unplace at exit, freeze, end; place at entry, thaw; calls `entries.place/unplace` | new | never |
+            | Releasing call + `Alarm.Release` | `entries.ts#release` adds and sets the alarm; `entries.ts#released` (called by the dispatch) removes and clears it (T123) | new; the table's Release move calls `release` (crossing value: CallId) | never |
+            | `Alarm.Collect` | `entries.ts#unheld` sets it (Last hold left, Idle; Install), First hold arrives clears it (T122) | union holds it with no writer today | never |
+            | Saved entry `entry/<contract>|<keyText>` | Records' Shape codec (kind, T124); written when data lands, deleted at Clear and Collect, kept at Runtime ends, deleted at install when too old or undecodable (T124) | new | it is the save |
+            | Services list on a Compiled operation | static; boot check `MissingService` (T121) | new | n/a |
+            | `World.reads`, `IssueSource.Operation`, `CleanupOverdue` | deleted (T122, T121, T123) | | |
+
+            Freeze and thaw: no life freezes in production before instances (T109), so the freeze cells of slots (T122)
+            and placements (T123) are built as functions here and their Stories wait on T109.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -3097,6 +3117,12 @@ tasks
             Routed from @task.V3.T119's build (orchestrator, 2026-11-23): T119 superseded this but could not delete it
             without instances: per-subject ledger.ts Audience and locate (with @task.V3.T121), and Mail.Event.at. Delete
             them on the new walk here.
+        comment     2026-11-23T04:02:13Z
+            Routed from slice T21's requirements (2026-11-23): no life freezes before instances, so these Stories land
+            here: a freeze owes each waiting lookup one Interrupted row and keeps the entry's request running
+            (Operations Slot cells, FreezeAndCalls; T122 builds `entries.freeze`); placements unplaced at a freeze and
+            placed at a thaw (T123); a guard in a fragment reads its own copy's lane, fault `guard-reads-other-subject`
+            (Operations R15, I21; T121).
     T110
         title       Fan-out into .each copies and FanOutNeverHandled (slice 3d)
         status      draft
@@ -5820,7 +5846,7 @@ tasks
             (tests/turn/nested-placement.test.ts: the inner placement's timer is lost today, inner 0 for 1).
     T121
         title       Operation endings and the retry guards
-        status      open
+        status      in_progress
         priority    high
         parent      [@T21]
 
@@ -5914,9 +5940,113 @@ tasks
             answer replaces its Attempt's Kept unknown live as after a reload'. The saved form already drops an unknown
             its Attempt's final answer replaces; the live ledger delivers both, so live and reload disagree until this
             Task's second table lands.
+        comment     2026-11-23T04:00:22Z
+            Requirements (requirements lead, 2026-11-23): each rule, its source, its check (red today unless marked
+            guard), mapped to acceptance (A1-A9 in order).
+            - A1 Operations R2, DerivedTypes: a mapper takes `(value, { input, key })`, inferred. Checks:
+              `tests/types/mapper-context.test-d.ts` (inverted directive), the `@ts-expect-error Operations R2` lines in
+              `fixtures/chat/machines/thread.ts`, `wizard/machines/slot-picker.ts`, `draft/pending/document.ts` (flip at
+              build); runtime `tests/chat/endings.test.ts` (R2 usual, R2 under L5 burst of 100),
+              `tests/wizard/slots.test.ts` (Taken names its slot; reject).
+            - A2 Operations R15, I21: `idle`/`retryable` read `lanes.viewOf` at the part's subject.
+              `tests/chat/endings.test.ts` R15 (two resends, reload, RetryLimit; guard) with fault
+              `retryable-ignores-count` (caught). `guard-reads-other-subject` cannot be planted before instances (T109):
+              every lane is subject "" today; listed, routed to T109.
+            - A3 Records R16, Operations I15: live and reloaded runs agree on a final answer replacing a Kept unknown:
+              `src/host/ledger.test.ts` inverted (owned); plus the four restore inverts the Spec names.
+            - A4 the per-subject `Audience` and `locate` replaced or deleted with T109: `locate` no longer exists;
+              `Audience` stays in `ledger.ts`; builder's close gate `rg -n "Audience" src/core` (absence). `pipe` pin in
+              `tests/types/excess-keys.test-d.ts` (inverted, owned).
+            - A5 Operations R11, I23, Rows: a mapper throw refuses its row's turn, tried once more, then Kept with its
+              issue; R6, I13: the issue is a view of the row, one per key. `tests/chat/endings.test.ts`: kept with one
+              issue (guard), another key heard leaves it standing (red), letting go clears it (guard). Found by chat's
+              pair sweep (red, `tests/chat/pairs.test.ts`): a refused send ending's turn also sends and mints the queued
+              commit (R11/I23, Turn I14) and a reload re-delivers a deleteMessage ending with nothing owed (R16).
+            - A6 planted faults: `retryable-ignores-count`, `attempt-id-without-seed` added to `tests/reads-faults.ts`,
+              both caught by `nub run faults --only`. Listed for the build: `issue-cleared-by-other-key`,
+              `refusal-kept-after-close`, `publish-before-row-move` (R7, I14), `second-unknown-row` (I15),
+              `timeout-as-failure`, `mapper-throw-not-refused`, `missing-service-booted`,
+              `guard-reads-other-subject` (T109).
+            - A7 boot refuses an operation whose service the Layer lacks, by name (algorithm Rows; Plan Operations O1):
+              `tests/chat/endings.test.ts` S7 and `tests/search/typeahead.test.ts` S7 (red). The typed form is a compile
+              error (`@ts-expect-error Operations O1` in each builder, permanent).
+            - A8 fixtures first: chat (new), wizard SlotPicker (grown), search (new); proof in this Task's
+              fixtures comment.
+            - A9 correctness: also Operations R1, I16 (`tests/chat/keys.test.ts`, guard, fault caught), R2 timeout
+              (`tests/write-lanes/timeout.test.ts`, red), R7/I14 (row before publish: covered by the pair-sweep red and
+              the listed fault; no Story isolates it yet), I8 (every ask ends once: `tests/generated/entries.test.ts`
+              red, with T122), I20 (`cells.ts` table test, kept), Records R1-R3, I6, I7 (T92's suites stand; R3 also in
+              the resend Story). Real resources: network (port fakes; a read fake that ignores abort is
+              `HistoryFakeSteadfast`), store (`Fake.storage`), clock (Story clock). Fake gaps: a held call interrupted
+              shows `held at request` until released, so open-call counts are read after release. [decided: agent
+              requirements 2026-11-23] Fixture lines that use a member this slice adds carry `@ts-expect-error <rule>`;
+              machines that cannot load before the build sit in `fixtures/<app>/pending/` and their tests import them
+              inside `it.fails`. Why: fixtures first with no type error and a green suite; each directive flips when its
+              member lands. Reverse: write those fixtures at the build.
+        comment     2026-11-23T04:01:50Z
+            Fixtures proof for slice T21 (requirements lead, 2026-11-23), per @convention.fixtures:
+            - Shared entries and freshness (Operations R3, R4): fixture chat (new), machines Hub, Thread, journey Join;
+              usual chat/usual; load chat/stress-many-threads (L1, S2 x 64); structure chat/one-reader-left,
+              chat/no-reader-left (S6 orders: reader first; last reader leaves); samples E1, E3 (chat); combos
+              persistence (Thread persisted, reloads in chat/stress-36); also search/two-boxes, search/repeat-query,
+              wizard/slots-usual, the pay poll (T4.2); sources use-chat.ui.test.tsx:2540 (partial),
+              trigger-menu.test.ts:183; red today: two requests where one is shared, a fresh repeat asks again.
+            - Collect and gcTime (R5, I12, I22): fixture search, machine Typeahead; usual search/repeat-query; edge
+              wizard/day-changed (gcTime 0); red: no Collect alarm exists.
+            - Input checked at run time (Slot cells): wizard/blank-postcode, search/blank-query; E1, E7; red: the empty
+              input is sent.
+            - Mapper context (R2): chat/usual, chat/stress-send-burst (L5, 100), wizard/slot-taken, wizard/double-pick,
+              draft pending saved-after-write; red: the mapper throws on its missing context.
+            - Kept row and its issue (R6, R11, I13): chat/delete-bad-undo (E7, a garbled undo link); red: another key's
+              clean ending erases the issue. Pair sweep: chat's samples, red (two findings, see A5).
+            - Retry guards (R15) and keys (R1, I16): chat/resend-limit (E4 at and past times 2, L4 reload),
+              chat/new-delete-after-reload; green guards with faults caught.
+            - Missing service (algorithm Rows; S7): builders missingHistory (chat), missingSearch (search).
+            - Placements, refetch, invalidate, setData, clear (O2, O5, entry table): fixture search (pending SearchPage,
+              Saved): search/results-usual, shared-results, refresh-joins, clear-results, closed-mid-read (S6),
+              saved-write-wins, saved-unsure, generated search-results samples; home pending Thermometer:
+              home/card-usual (refetch by schedule); draft pending Document; sources restore-late-items.test.ts:102 and
+              :123, App.test.tsx:642 (partial); red: the members do not exist.
+            - Released calls (R8, I11): chat/release-overdue, search/turned-mid-read, home/release-meets-schedule (Q9),
+              dispose in `src/host/cleanups.test.ts`; red: no releasing state.
+            - Persisted resources (R12, I24, R18): fixture draft (new), machine Library, journey Show;
+              draft/saved-entry, draft/saved-entry-expired, draft/outline-kept-no-time, draft/stress-36; restore after
+              edits in `tests/restore/entry-edits.test.ts`; source draftStorage.unit.test.ts:40, :81; red: nothing is
+              saved. Registration: chat, search (box), draft (library) and wizard (slot picker) are in
+              `fixtures/index.ts` with samples, stress samples, saved stress, mix and bench; chat's pairs wait on its
+              red sweep; pending modules (search, home, draft) register at the build, when they load. Not written (gap,
+              needs the build or a decision): shop R cart rows (switching carts, stale snapshot, failed first load),
+              transfers read-after-write, session profile and teams (clear on sign-out, setData), search facets and
+              ResultList, kanban (needs `.each`, T109/T110); unowned features listed in the report.
+        comment     2026-11-23T04:02:05Z
+            Fixture review by four sidecars (code shape, stress and registration, expected results, catalog coverage),
+            each finding verified:
+            - Accepted and fixed: a fresh rejoin replaced the thread's messages (Joined now keeps sent messages; chat
+              reads test); draft read counts mixed two reads on one endpoint (outline has its own endpoint and memory);
+              the Collect test read `dueAt`, which inspection gives only for schedules (now a count); the gcTime-0 check
+              was vacuous (new wizard/day-changed); a postcode retyped mid-hold dropped the hold's answer (guarded) and
+              a second hold after one was taken was lost (picker DONE); a conflicting save left a stale revision
+              (refetch); the Q15 test pinned choice A as decided (split into common and choice-A tests); titles citing
+              the wrong rule (Records R2, R8; Operations O1; the ask Story's wording); duplicated literals in the
+              draft server.
+            - Changed: unloadable modules moved under `pending/` (their stories broke the CLI, the manifest and the
+              fixture-folder scans); draft gained a loadable Library so it registers.
+            - Rejected, with reason: port-fake steadfast variants, ref helpers, Story builders and adapters per fixture
+              are the existing house pattern; `(truth: Truth)` handler types and `typeof`-typed helpers follow existing
+              fakes; Spec rule ids in `@ts-expect-error` comments are rules, not records; the slot picker's reach
+              `persisted: false` is what the pair sweep accepts (its writes belong to the unpersisted picker); stress
+              samples equal to samples, as in existing fixtures; `value` firing for placed reads is Plan Operations O2,
+              which T122's description assigns.
+        comment     2026-11-23T04:02:05Z
+            Supersedes inventory (rg against a sidecar's agent inventory, which agree): `ledger.ts`
+            owe/tryOne/afterTry/refused/start/restore, `serve.ts#serveEnding`, `trigger.ts#endingSource`,
+            `world.ts#IssueSource` (6 files), `Audience` (10 files, 33 hits); `locate` and `incarnations.ts#CREATION` no
+            longer exist; T122's `incarnations.ts#retire` loop is now `apply.ts:250`; T123's `disposal.ts` line 85 is
+            now `:99`; `CleanupOverdue` is in `close.ts` and `cleanups.test.ts` only; `ReadReplaced` in `evidence-of.ts`
+            and `lanes.ts`.
     T122
         title       Read entries and read slots
-        status      open
+        status      in_progress
         priority    high
         parent      [@T21]
 
@@ -5977,9 +6107,43 @@ tasks
               tests (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
               @spec.Operations (R3–R5, R12, R14, I1–I7, I9, I10, I12, I22, I24, I25); the Invariants its tests check
               after every step are @spec.Operations (I1–I10, I12, I22, I24, I25; tests T1, T2, T4, T5, T7).
+        comment     2026-11-23T04:00:40Z
+            Requirements (requirements lead, 2026-11-23), mapped to acceptance A1-A7; Spec range Operations R3-R5, R12,
+            R14, I1-I7, I9, I10, I12, I22, I24, I25.
+            - A1 entry table cell by cell (R3, R4, R5, I1-I3, I6, I7, I9; T1, T2): `tests/generated/entries.test.ts` (40
+              generated runs of the search results samples; oracle the fake's call log: no step starts two requests for
+              one key unless it clears it). Cell Stories: Ask Lookup fresh/stale (`tests/chat/reads.test.ts`,
+              `tests/search/typeahead.test.ts`, `tests/wizard/slots.test.ts`), Running current join (chat usual, two
+              threads, `tests/write-lanes/payment-retry.test.ts` T4.2), Ask Refetch (`tests/search/results.test.ts`),
+              Invalidate behind with `again` and Written behind (results saved-unsure, saved-write-wins), Clear placed
+              (clear-results), Last hold left Running (chat no-reader-left, search latest-wins guard), Settled behind
+              lands nothing (saved stories).
+            - A2 R5, I12: `gcTime` removes by `Alarm.Collect`; 0 removes in the same step.
+              `tests/search/typeahead.test.ts` (one Collect, removed a minute on, read again) and
+              `tests/wizard/slots.test.ts` (gcTime 0 leaves no Collect; guard).
+            - A3 a freeze owes each waiting lookup one `Interrupted` row: no life freezes before T109; built as
+              `entries.freeze`, Story routed to T109 (comment there).
+            - A4 a lookup's input checked by its Schema at run time (Slot cells): wizard blank postcode, search blank
+              query (red).
+            - A5 `Alarm.Collect` writer; the harness judges owed alarms at every cut (I22): the harness derivation gains
+              Collect at the build; checked by A2 through `inspection.timers`.
+            - A6 faults listed for the build (no code to plant yet): `behind-result-lands`, `join-when-behind`,
+              `two-calls-one-entry`, `no-release-at-last-hold`, `collect-without-gctime`, `gc-zero-keeps-entry`,
+              `lookup-input-unchecked`, `ask-scans-reads` (R14, I25: also the bench `--only` cases of T7).
+            - A7 fixtures: chat, search, wizard; proof in T121's fixtures comment. Also covered: R12, I24 by T124's
+              tests; R14, I25 by the listed fault and T7 bench rows (none written: T7 is a bench item). [decided: agent
+              requirements 2026-11-23] `O.x.refetch()` on a placed read asks its placement's entry (Slot cells: "A
+              placement is the same with no wait"), not nothing (`refetch` operation: "Without one: nothing"). Why: Q2
+              makes a refresh on an interval a schedule running `O.x.refetch()` on a subscribed read; reading B would
+              drop it. Reverse: refetch through slots only. Plan sentences T122 builds with a red first: `value` fires
+              at placement and then only on a change by `Equal.equals` (Plan Operations O2): the placed Stories in
+              search, home and draft read it; `InvalidWrite`: no fixture yet (owner T122, needs a commit's `writes`,
+              which no Task names). Build-time choice (`again`, Q9/Q19): the deciding test is
+              `tests/generated/entries.test.ts` with a count of started-then-released calls added by the builder; none
+              written beyond the two-requests oracle.
     T123
         title       Placements and release
-        status      open
+        status      in_progress
         priority    medium
         parent      [@T21]
 
@@ -6035,9 +6199,30 @@ tasks
             Routed from @task.V3.T119 (orchestrator, 2026-11-22): own the Story where a Release and a Schedule alarm
             share an instant and the schedule's reason reads that lane; it decides @spec.Changes Q9's first choice (kind
             order A, kept by T119's tag) once Release has a writer.
+        comment     2026-11-23T04:01:01Z
+            Requirements (requirements lead, 2026-11-23), mapped to acceptance A1-A6; Spec range Operations R8, I4,
+            I11, I22.
+            - A1 R8, I11, Releases: a released call within the bound shows nothing, past it `ReleaseOverdue` for every
+              holder of its key, gone when it ends. `tests/chat/reads.test.ts` (sidebar over a steadfast history read),
+              `tests/search/results.test.ts` (page turned mid-read), `tests/home/readings.test.ts` (card away and
+              back) - all red. Dispose: `src/host/cleanups.test.ts` new inverted test, the Runtime's own close past its
+              bound rejects with `ReleaseOverdue`, no `CleanupOverdue` (the old assertions at the same file's
+              `CleanupOverdue` tests are the builder's to delete, with `close.ts#CleanupOverdue`).
+            - A2 placements unplaced at a freeze and placed at a thaw: no freeze before T109; Story routed to T109.
+              Unplace at exit and place at entry: `tests/search/results.test.ts` (closed mid-read stops the read; turned
+              pages), `tests/home/readings.test.ts`.
+            - A3 `Alarm.Release` writer; Changes Q9: `tests/home/readings.test.ts` (deciding Story: Release and Schedule
+              due at one instant). Release writes no state, so the published result is the same in either kind order:
+              keep A.
+            - A4 faults listed for the build: `overdue-early`, `overdue-kept-after-end`, `release-alarm-not-cleared`,
+              `placement-kept-after-exit`, `release-without-interrupt`.
+            - A5, A6 fixtures and correctness: chat, search, home; I4 (one home per open read call) is judged by T122's
+              generated oracle; I22 by `inspection.timers` and the harness. Supersedes inventory (rg): `disposal.ts:99`
+              `tx.replace("reads", new Map())` (the Task text says line 85; it moved); `close.ts:182,197,254` and
+              `cleanups.test.ts:313,317,333,368` for `CleanupOverdue`.
     T124
         title       Persisted resources
-        status      open
+        status      in_progress
         priority    medium
         parent      [@T21]
 
@@ -6090,6 +6275,34 @@ tasks
         comment     2026-11-22T03:54:14Z
             Fix 11: owns the resource-entry persist gate (`gcTime: 0`, Q15); @task.V3.T56 owns the discard of machine
             records under `persist: false`. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-23T04:01:13Z
+            Requirements (requirements lead, 2026-11-23), mapped to acceptance A1-A8; Spec range Operations R12, I24;
+            Records R8, R18, I12, I19.
+            - A1 a saved entry installs with `asked: none`, so the first ask after a reload starts a request (R12, I24):
+              `tests/draft/saved-entries.test.ts` (red).
+            - A2 an entry in memory wins over a saved one at adoption: adoption needs lazy entries (T48); the Install
+              cell is a no-op on an existing entry, checked in core at the build; Story routed to T48.
+            - A3 `persist: true` without `output` refused at construction (Plan Operations O1): same file (red).
+            - A4 the saved entry is a format 6 kind with one Shape codec shared by writer, boot and corrupt-record
+              oracle (Records R11): the tests decode with a local envelope Schema today; the builder replaces it with
+              the kind's codec and adds the kind to the one-field corruption and literal-swap tests.
+            - A5 restore after a definition edit: `tests/restore/entry-edits.test.ts` (reorder installs; optional add
+              installs; required add, field rename and resource rename discard; field removal installs), red.
+            - A6 faults listed: `saved-entry-fresh`, `old-entry-installed`, `undecodable-entry-kept`,
+              `persist-without-output-accepted`, `cleared-entry-saved`.
+            - A7, A8 fixtures (draft new: registered Library, pending Document) and correctness: also an expired copy
+              dropped, an undecodable copy discarded with no issue (R18), the Q15 deciding pair, Written saved and Clear
+              deleting (pending). Records I12 and I19 are T92's and T115's; nothing new here. Build-time choice Q15: the
+              deciding tests are the two `Operations Q15` tests in the draft test file; the second pins choice A and
+              goes if B is taken.
+        comment     2026-11-23T04:01:14Z
+            [decided: agent requirements 2026-11-23] The saved entry mirrors the entry's data: written when data lands,
+            deleted at Clear and at Collect, kept at Runtime ends. Why: the Spec is silent; a cleared read (a sign-out)
+            brought back by a reload would show data the app removed. Reverse: delete only at install.
+        comment     2026-11-23T04:01:15Z
+            [decided: agent requirements 2026-11-23] A saved entry under a contract no build declares is discarded at
+            the boot. Why: a cache record carries no obligation (Records R18) and nothing can read it. Reverse: keep and
+            report it, as R8 does for a machine's record.
     T127
         title       Declared emits at the root
         status      draft

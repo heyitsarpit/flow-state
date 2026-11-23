@@ -1,8 +1,9 @@
 import { Option } from "effect";
 import { benchTurn, manifest } from "../manifest.ts";
-import { wizardApp, wizardSetup } from "./app.ts";
+import { wizardGrown, wizardGrownSetup } from "./app.ts";
 import { manyBookings, quoteOf, seededStress } from "./stories/load.ts";
 import { samples } from "./stories/samples.ts";
+import { slotSamples, slotStories } from "./stories/slots.ts";
 import { stories } from "./stories/usual.ts";
 
 /**
@@ -10,11 +11,11 @@ import { stories } from "./stories/usual.ts";
  */
 export const wizard = manifest({
   name: "wizard",
-  setup: wizardSetup,
-  app: wizardApp,
-  stories: { ...stories, manyBookings, seededStress },
-  samples: [samples],
-  stressSamples: [samples],
+  setup: wizardGrownSetup,
+  app: wizardGrown,
+  stories: { ...stories, ...slotStories, manyBookings, seededStress },
+  samples: [samples, slotSamples],
+  stressSamples: [samples, slotSamples],
   long: Option.none(),
   savedStress: { story: seededStress, seed: 36 },
   mix: Option.some({ usual: samples, stress: samples }),
@@ -22,6 +23,10 @@ export const wizard = manifest({
     {
       samples,
       reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+    },
+    {
+      samples: slotSamples,
+      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
     },
   ],
   bench: {

@@ -269,6 +269,10 @@ tasks
             unverifiable-now outcome for dormant records; supplies the adoption state to T115 as a value.
         comment     2026-11-20T13:12:05Z
             Breakdown fix (orchestrator, 2026-11-20): acceptance exposes the adoption state T115 transfers and merges.
+        comment     2026-11-23T04:02:14Z
+            Routed from slice T21's requirements (2026-11-23): an entry already in memory wins over a saved one at
+            adoption (Operations Entry store, Install cell; T124 builds the cell): its Story needs a lazy entry adopted
+            after the boot.
     T28
         title       Host adapters: IndexedDB and in-memory
         status      draft

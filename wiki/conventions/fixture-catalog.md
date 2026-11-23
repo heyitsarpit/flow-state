@@ -1076,6 +1076,11 @@ here) for the booking; no source for the quote.
   - **step 15:** lazy entries `{ id, load }`, adoption, dormant records (`Explainer`); `EntryMismatch`, a failed load, a
     send to an unadopted entry (`Explainer`'s failed load).
 - **Scenarios:**
+  - **Slot picker (slice T21; written red at requirements, checked at the build's close):** `SlotPicker`
+    (grown, `machines/slot-picker.ts`), R `area` (fresh an hour), R `slots` (gcTime 0), T `holdSlot` (`reject`).
+    - [ ] Usual and freshness: `wizard/slots-usual`. Mapper input: `wizard/slot-taken`, `wizard/double-pick`.
+    - [ ] Input refused at run time: `wizard/blank-postcode` (E1, E7). gcTime 0: `wizard/day-changed`. No retry
+      loop: `wizard/uncovered-not-retried`. Samples `wizard-slots`. No source (Cal.com not checked).
   - [ ] **Usual:** forward through every step, Back by history, submit once.
   - [ ] **Load:** L2: 64 queued Next and Back events; a double submit; L1 × 16 wizards; L4.
   - [ ] **Structure:** S1: a subroutine in a compound in a compound, four deep, with history through each and S9 at the
@@ -1114,6 +1119,15 @@ Product search with a results pager. Source: ui-sdk's async loads; kamp.us's sea
     `DehydrateCommitInFlight`, `DehydrateUnsettled`, `Hydration*` (a saved shape that doesn't match
     (`HydrationIncompatible`)).
 - **Scenarios:**
+  - **Slice T21 (written red at requirements, checked at the build's close):** `Typeahead` (registered);
+    `SearchPage` and `Saved` in `pending/` until `subscribe`, `refetch`, `setData`, `invalidate` and `clear`
+    exist, with the grown app in `results-app.ts`.
+    - [ ] Box: `search/latest-wins` (guard), `search/repeat-query` (fresh, Collect), `search/two-boxes`,
+      `search/blank-query`, `search/stress-typing-burst` (L5, 14), `search-box/stress-36`; S7 builder
+      `missingSearch`.
+    - [ ] Results: `search/results-usual`, `shared-results`, `refresh-joins`, `clear-results`,
+      `closed-mid-read`, `turned-mid-read`, `saved-write-wins`, `saved-unsure`; samples `search-results` and the
+      generated entry-table test.
   - [ ] **Usual:** type, results, a cached repeat, a refetch after the stale time. The field follows the URL's query
     with no stale second source. Copies [App.test.tsx:642][kp-app] "reads q live — a different query renders a different
     echoed value (no stale/double source)".
@@ -1180,6 +1194,8 @@ A smart-home dashboard. Source: ui-sdk's toast pause reasons for `pausedBy`; Sup
     `liveReadings`); `Feed.multiplex`, `DuplicateSession`, `UnplacedStream` (one connection for every room).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (schedule events).
 - **Scenarios:**
+  - **Thermometer card (slice T21; written red, in `pending/` until placements exist):** `home/card-usual`
+    (a refetch run by a schedule, Operations Q2), `home/release-meets-schedule` (Changes Q9). R `readings`.
   - [ ] **Usual:** set a target, readings on schedule, the heater cycles, a vacation pause and resume.
   - [ ] **Load:** L1 × 256 rooms; L5: readings faster than turns, well past the old 1,024 mailbox (step 11);
     L4 mid-pause.
@@ -1413,6 +1429,13 @@ checked here).
   - **step 16:** `inspect`, `trace.export`/`trace.import`, sinks, redaction (a sink).
   - **step 18:** `useActor` (React) (Strict Mode).
 - **Scenarios:**
+  - **Slice T21 (written red at requirements, checked at the build's close):** `Account`, `Hub`, `Thread`
+    (registered; `Thread` ⇠ the account's `who`, not `hub`); R `history`; T `send` (`serialize`),
+    `deleteMessage`, `ask` (`reject`).
+    - [ ] `chat/usual`, `two-threads`, `one-reader-left`, `no-reader-left` (S6), `release-overdue`,
+      `delete-bad-undo`, `resend-limit`, `new-delete-after-reload`, `ask-twice`, `stress-send-burst` (L5, 100),
+      `stress-many-threads` (L1, S2 × 64), `stress-36`; S7 builder `missingHistory`; samples `chat`.
+    - [ ] Pair sweep: red (`tests/chat/pairs.test.ts`), rejoins the manifest when it passes.
   - **Usual:**
     - [ ] Send with an instant echo. Copies [use-chat.ui.test.tsx:628][ai-react] "should show user message immediately".
     - [ ] One id serves sending and resuming. Copies [chat.test.ts:140][ai-chat] "uses the same lazily generated id for
@@ -1530,6 +1553,11 @@ migrations, kamp.us's draft storage, ui-sdk's tree tests.
     non-durable (quota and a slow read).
   - **step 14:** multi-tab ownership (Web Lock, second tab) (a second tab).
 - **Scenarios:**
+  - **Slice T21 (written red at requirements, checked at the build's close):** `Library` (registered) and
+    `Document` (in `pending/` until `setData`, `clear` and `refetch` exist); R `document` and `outline`
+    (`persist: true` with `output`), T `save` (`latest`).
+    - [ ] `draft/saved-entry`, `saved-entry-expired`, `outline-kept-no-time` (Q15), `stress-36`; pending
+      `saved-after-write`, `close-clears`; restore after edits in `tests/restore/entry-edits.test.ts`.
   - **Usual:**
     - [ ] Drafts are kept per document. Copies [draftStorage.unit.test.ts:40][kp-draft] "keys drafts by route so two
       surfaces never collide".

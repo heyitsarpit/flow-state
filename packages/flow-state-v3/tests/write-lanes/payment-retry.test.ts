@@ -150,6 +150,22 @@ describe("PAY-16 (WriteLanes R2, R3, R5, R8; Restore R3; Turn I12)", () => {
     expect(lastReason(run.evidence, "intent")).toBe("Defect");
   });
 
+  it.fails("Operations T4.2, R3, OneWait: polls every check against a status read slower than the check join the read on the wire, and the payment hears its answer", async () => {
+    const run = await onWire("PAY-16/poll-joins-read", Shop.confirm.drop())
+      .world(Shop.intent.hold(), Shop.intent.hold(), Shop.intent.hold())
+      .advance(CHECK)
+      .advance(CHECK)
+      .advance(CHECK)
+      .checkpoint("polled")
+      .world(Shop.intent.release())
+      .checkpoint("answered")
+      .run();
+
+    expect(run.checkpoints.polled.read(Shop.intent)).toHaveLength(1);
+    expect(run.checkpoints.answered.read(Shop.intent).map((c) => c.status)).toEqual(["answered"]);
+    expect(lastReason(run.evidence, "intent")).toBe("success");
+  });
+
   it("PAY-16/superseded-read: a newer read interrupts the older one", async () => {
     const run = await played(
       onWire("PAY-16/superseded-read", Shop.confirm.drop())
