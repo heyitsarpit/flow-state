@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Duration` API](https://www.effect.website/docs/v4/api/effect/Duration). Examples assume `import { Duration } from "effect"`.
 
+`Duration` represents a time span in a normalized form that can be constructed, compared, transformed, and passed to Effect timing APIs.
+
 ## API index
 
 1. [Duration.Duration](#durationduration)
@@ -47,7 +49,7 @@ Source: [Effect v4 `Duration` API](https://www.effect.website/docs/v4/api/effect
 
 ### Additional known APIs (not expanded)
 
-`isZero`, `isNegative`, `isPositive`, `micros`, `days`, `weeks`, `toHours`, `toDays`, `toWeeks`, `toNanosUnsafe`, `matchPair`, `divideUnsafe`, `isGreaterThan`, `isGreaterThanOrEqualTo`, `ReducerSum`, `CombinerMax`, `CombinerMin`
+`isZero`, `isNegative`, `isPositive`, `micros`, `days`, `weeks`, `toHours`, `toDays`, `toWeeks`, `toNanosUnsafe`, `matchPair`, `divideUnsafe`, `isGreaterThan`, `isGreaterThanOrEqualTo`, `ReducerSum`, `CombinerMax`, `CombinerMin`, `toMicros`, `formatIso`, `fromIso`
 
 ### [Duration.Duration](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Duration.ts:70)
 

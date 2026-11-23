@@ -1,0 +1,41 @@
+KILLED   commit-over-hold-mints               3 cases: PAY-15/press-pay-while-held LIKE-01 LIKE-03
+SURVIVED latest-never-sent-head-not-replaced  0 cases: 
+KILLED   latest-replaced-w-not-withdrawn      2 cases: STORE-04/Superseded CART-02/five-taps
+KILLED   serialize-w-is-lifo                  1 cases: REFUND-01/three-refunds
+KILLED   reject-is-evidence-not-ending        3 cases: PAY-02 PAY-15/press-pay-while-held PAY-16/rejected-is-delivered
+KILLED   retry-count-at-retry-not-invoked     1 cases: PAY-16/resend-refused-capture
+KILLED   cancel-held-drops-waiting            0 cases:  + search
+SURVIVED cancel-resend-not-released           0 cases: 
+KILLED   refused-resend-ends-not-sent         1 cases: PAY-16/resend-refused-capture
+SURVIVED dispose-resend-as-never-sent         0 cases: 
+KILLED   rule18-first-retry-failure-definite  3 cases: PAY-05 PAY-16/restore-keeps-mayHaveApplied STORE-05/failed-retry-does-not
+KILLED   owner-tested-by-node-not-activation  1 cases: PAY-07/late-in-a-new-PAYING
+KILLED   late-routes-from-leaf                1 cases: PAY-07/late-in-a-new-PAYING
+KILLED   restored-takes-owner-test            1 cases: PAY-08/reload-while-reconciling
+KILLED   late-may-leave                       2 cases: PAY-07/late-may-not-leave PAY-19/place-answers-first
+KILLED   commit-select-reads-before           3 cases: CART-01 CART-02/five-taps CART-02/repriced-under-pending
+KILLED   ending-admitted-after-its-turn       4 cases: PAY-11/guard CART-01 REFUND-01/unsure-holds-the-charge REFUND-01/reload-mid-refund
+KILLED   invalid-turn-rolls-back-ending-cell  1 cases: PAY-11/guard
+SURVIVED promoted-skips-acknowledgement       0 cases: 
+KILLED   capture-omits-predicted-keys         2 cases: STORE-09 REFUND-01/reload-mid-refund
+KILLED   queue-blocks-on-first-record-only    0 cases:  + search
+KILLED   repair-end-removes-live-hold         9 cases: LIKE-01 LIKE-02 LIKE-04 LIKE-06 ...
+SURVIVED resend-does-not-wait-for-repair      0 cases: 
+SURVIVED still-unknown-takes-failure-row      0 cases: 
+SURVIVED later-success-clears-unresolved-mark 0 cases: 
+KILLED   overflow-only-if-every-queue-full    1 cases: STORE-06
+KILLED   acknowledged-restores-not-sent       9 cases: PAY-08/reloadDuringCharge PAY-09/ack-stored-confirmation-lost PAY-13/hung-commit PAY-14 ...
+SURVIVED restore-ignores-parked-ending        0 cases: 
+KILLED   silent-storage-refuses               2 cases: PAY-10/hang PAY-18
+KILLED   send-deferred-when-idle              1 cases: ORDER-03
+KILLED   sync-commit-throw-sends-nothing      1 cases: DRV-02
+KILLED   hook-throw-is-fatal                  6 cases: PAY-11/module PAY-17/hook-throws-on-sent PAY-17/hook-throws-on-timer PAY-17/hook-throws-on-acked ...
+SURVIVED notify-chain-never-resets            0 cases: 
+KILLED   superseded-read-answer-accepted      3 cases: PAY-15/dead-activation-timer PAY-16/superseded-read PAY-17/hook-throws-on-timer
+SURVIVED stale-send-exit-accepted             0 cases: 
+KILLED   follow-up-joins-tail                 watchdog rss at 1888 MB
+
+not applied (0):
+
+
+26/36 killed (second)

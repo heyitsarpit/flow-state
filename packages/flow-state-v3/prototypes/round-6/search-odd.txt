@@ -1,0 +1,19 @@
+{
+ "search": "odd",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  15,
+  80,
+  327
+ ],
+ "states": 551,
+ "edges": 3976,
+ "steps": 25423,
+ "depthCompleted": 3,
+ "classes": {},
+ "ms": 60275,
+ "peakRssMb": 234
+}
+
+WATCH peak 226 MB, 60.3 s, exit 0, killed no

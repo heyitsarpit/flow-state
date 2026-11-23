@@ -1,0 +1,24 @@
+{
+ "search": "fragstore.row",
+ "verdict": "failed",
+ "perDepth": [
+  1,
+  5,
+  25,
+  97,
+  389,
+  1635,
+  6586,
+  25018
+ ],
+ "states": 83322,
+ "edges": 293025,
+ "steps": 5382547,
+ "depthCompleted": 7,
+ "failure": "silently wrong: shows {\"id\":\"a\",\"v\":0,\"revision\":1}, server {\"id\":\"a\",\"v\":1,\"revision\":2} on Go ack put.lost GiveUp reload Fetch fetch.truth landLate",
+ "classes": {},
+ "ms": 104964,
+ "peakRssMb": 300
+}
+
+WATCH peak 286 MB, 105.0 s, exit 1, killed no

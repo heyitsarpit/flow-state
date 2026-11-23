@@ -1,7 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
 
 import { apiReferenceMetadata } from "./api-reference-metadata.mjs";
 
@@ -38,29 +37,22 @@ const routeSources = [
   },
 ];
 
-function parseSource(filePath) {
-  return ts.createSourceFile(
-    filePath,
-    readFileSync(filePath, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-  );
-}
-
 function extractNamedValueExports(filePath) {
-  const source = parseSource(filePath);
+  const source = readFileSync(filePath, "utf8");
   const exports = [];
+  const exportDeclarationPattern = /(?:^|\n)\s*export\s*\{([\s\S]*?)\}\s*from\s*["'][^"']+["']\s*;/g;
 
-  for (const statement of source.statements) {
-    if (!ts.isExportDeclaration(statement) || statement.isTypeOnly) {
-      continue;
-    }
-    if (!statement.exportClause || !ts.isNamedExports(statement.exportClause)) {
-      continue;
-    }
+  for (const match of source.matchAll(exportDeclarationPattern)) {
+    for (const specifier of match[1].split(",")) {
+      const trimmed = specifier.trim();
+      if (trimmed.length === 0 || trimmed.startsWith("type ")) {
+        continue;
+      }
 
-    for (const specifier of statement.exportClause.elements) {
-      exports.push(specifier.name.text);
+      const exportedName = trimmed.split(/\s+as\s+/).at(-1);
+      if (exportedName !== undefined) {
+        exports.push(exportedName.trim());
+      }
     }
   }
 

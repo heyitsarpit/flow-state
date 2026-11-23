@@ -1,0 +1,20 @@
+{
+ "search": "listen.load",
+ "verdict": "failed",
+ "perDepth": [
+  1,
+  6,
+  34,
+  190
+ ],
+ "states": 1015,
+ "edges": 2109,
+ "steps": 16957,
+ "depthCompleted": 3,
+ "failure": "silently wrong: shows {\"id\":\"t1\",\"title\":\"title t1\",\"slug\":\"title t1\",\"archived\":false,\"readAt\":null,\"revision\":1}, server {\"id\":\"t1\",\"title\":\"other1\",\"slug\":\"title t1\",\"archived\":false,\"readAt\":null,\"revision\":2} on hello other frame.now frame.was",
+ "classes": {},
+ "ms": 774,
+ "peakRssMb": 157
+}
+
+WATCH peak 150 MB, 0.8 s, exit 1, killed no

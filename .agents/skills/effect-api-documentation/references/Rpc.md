@@ -4,6 +4,8 @@ Import from `effect/unstable/rpc`. This API is unstable; the pinned local
 `effect@4.0.0-beta.86` source is authoritative. See the [official Effect v4
 Rpc API](https://www.effect.website/docs/v4/api/effect/unstable/rpc/Rpc).
 
+`Rpc` defines schema-backed remote procedures whose payload, success, failure, and transport metadata form a shared contract.
+
 ## API index
 
 1. [Rpc.make](#rpcmake)

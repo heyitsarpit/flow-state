@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Resource` API](https://www.effect.website/docs/v4/api/effect/Resource). Examples assume `import { Effect, Resource, Schedule } from "effect"`.
 
+`Resource` represents a scoped value that can be acquired, refreshed, observed, and released according to manual or scheduled lifetime policy.
+
 ## API index
 
 1. [Resource.manual](#resourcemanual)

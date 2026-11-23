@@ -1,0 +1,434 @@
+epic         V3
+title        Flow State v3 production
+status       active
+description
+    **Goal:** "production code for Flow State v3 at high quality, with good error messages and the correctness
+    guarantees the prototypes proved, plus example apps and generated documentation" (the user, 2026-11-04). Built with
+    skill:to-epic at the library revision in skill, and rewritten from scratch on 2026-11-15 after the conformance suite
+    was deleted.
+
+    Records: Plans @plan.FlowState, @plan.Machines, @plan.Operations, @plan.Runtime, @plan.Persistence,
+    @plan.EntityDomains, @plan.React, @plan.ServerRendering, @plan.Testing, @plan.Inspection, @plan.Diagnostics,
+    @plan.CommandLine, @plan.LazyFeatures, @plan.Package (status proposed), @plan.Rules. v3 Specs @spec.Schedules,
+    @spec.Changes, @spec.Records, @spec.Operations, @spec.Types, @spec.Host (each with a companion `.md` in
+    `wiki/specs/v3/`); the core Specs in `wiki/specs/core/` are superseded. Deferred and open items:
+    @revisit.revisit, @revisit.open-items.
+
+    Locations:
+
+    - production code `packages/flow-state-v3/src/`: `src/core/` and the files beside it are the pure core, `src/host/`
+      is the Effect host, and `src/host/testing/` is the test tooling;
+    - fixtures `packages/flow-state-v3/fixtures/`, shared by the tests and the bench;
+    - Flow's own tests `packages/flow-state-v3/tests/`; the bench `packages/flow-state-v3/bench/`;
+    - the prototype reference `packages/flow-state-v3/prototypes/round-14/`;
+    - proposal files `wiki/plans/flow/references/proposals/`; the test system's design is @proposal.test-system, and the
+      tools' API is @proposal.test-tooling-reuse;
+    - reference apps `wiki/plans/flow/references/checkout/` and `dispatch-desk/`, guides where the P2 card says;
+    - example apps `examples/` (P6); docs `apps/docs/` (P7).
+
+    ## Stages and stage exits
+
+    | Stage | Phases | Stage exit |
+    | --- | --- | --- |
+    | A Settled | P1 | Done: design and prototype agree; Plans and core Specs written; Pay path runs on production |
+    | B Test system | P2 | Flow's tests run on its own tooling; one test style is left; every named fault is caught |
+    | C Core | P3 | Every built core Requirement holds on production, each shown by a check failing on a planted fault |
+    | D Preview | P4 | Fixtures (Pay, checkout) run in Chrome, Safari; `flow check` works; `nub run verify` builds v3 |
+    | E Features | P5 | Each feature's Spec is written, then holds on production |
+    | F Examples and docs | P6, P7 | Example apps run in real Chrome and Safari; docs generated from source |
+    | G Hardening and release | P8, P9, P10 | Budgets met, findings swept, released as far as the user asks |
+
+    ## Scope
+
+    Bounds: P1 to P10; UI is React and Next.js only. Assumptions: the prototype is the reference implementation for what
+    production has not built. Exclusions: Electron; TanStack DB integration; tla-ts; new prototyping; feature Specs
+    before P5, except the test tooling's, which P2 writes; migration functions and manual versions (revisit.md). Reused
+    evidence: stage A's results (P1), and the 81 hand cases that pass on production, kept in `tests/bridge/` until P2
+    ports them.
+
+    Order of authority: Specs, then Plans; where a Plan and the prototype disagree, the prototype wins until a Spec
+    records it. Specs and Plans are guides: when building shows one wrong, it is fixed with a logged reason, not obeyed.
+
+    ## Constraints
+
+    - One runtime, one way to run it: Flow's own tests run on the test tooling users will get (Story, Fake, the runtime
+      cut and trace, the CLI), so both are hardened. No model of the core, second runtime, gate file, list of owed
+      checks or recorded baseline of test output is built (the user, 2026-11-15; whole run). Performance baselines (P8,
+      P9) are not test output.
+    - Keep it stupid simple: plain functions and plain tests; no tool, runner or ledger where a test or a grep does the
+      job (the user, 2026-11-15; whole run).
+    - Set up before building: work goes in Tasks, and the layout and import rules are in place before code is written
+      against them (the user, 2026-11-15; whole run).
+    - No new prototyping; production may converge again (session, 2026-11-04; whole run).
+    - The core and its tests are written cleanly, with the prototype open beside them; prototype code never moves into
+      the package (session, 2026-11-04; P2 to P5).
+    - Production code is built from `.spec` files written with skill:to-design and skill:to-spec; briefs cite the Spec,
+      reviews check code against it (the user, 2026-11-09; whole run).
+    - Specs are written just in time and revised whenever building shows them wrong, with the reason logged (the user,
+      2026-11-09; whole run).
+    - Production features are built test-first (memory, 2026-11-04; P2 to P10).
+    - Test the spec, not the code: expected results come from a cited Spec rule, are written before the code, and never
+      come from running the code; recorded output is a change detector only (memory, 2026-11-04; whole run).
+    - Every public feature in the Plans is represented in a fixture, and the same fixtures feed the tests and the bench
+      (the user, 2026-11-11; whole run).
+    - The package is self-contained: its code reads and imports nothing outside it, and names no temporary record (a
+      dated proposal, a review, a Task or step id), in code or in comments (the user, 2026-11-14; whole run).
+    - Code style: every brief carries AGENTS.md "Code style (v3 production)", lint-bomb's `tools/lint-bomb/STYLE.md` and
+      `tools/lint-bomb/FLOW-STATE.md`; the core is plain, pure, synchronous and deterministic, returning work as data;
+      Effect only in `src/host/` and the edges; doc comments only on exported API; `nub run check:fix`, then `nub run
+      check` at zero errors and warnings (AGENTS.md; the user, 2026-11-09; P2 to P10).
+    - Write idiomatic Effect and build nothing parallel to it; an Effect API is checked against the installed source
+      with the project's `effect-api-documentation` skill, and new host code gets an idiomatic-Effect review (the user,
+      2026-11-11 and 2026-11-15; whole run).
+    - No plan or invariant ids in production code; the Spec owns them and tests cite them (session, 2026-11-04;
+      whole run).
+    - Lint covers the whole package: `src`, `tests`, `fixtures` and `bench` (the user, 2026-11-09; whole run).
+    - UI is React and Next.js only; Electron and TanStack DB integration are out (session, 2026-11-04; whole run). The
+      CLI keeps only `flow check`, `explain`, `graph`, `story` and `trace` (the user, 2026-11-02; P2 to P5).
+    - Docs live in `apps/docs/`, written in the source in Effect's shape and generated to Markdown; example apps go in
+      `examples/`, built with Next.js, each explaining what it demos (session, 2026-11-04; P6, P7).
+    - Plans hold what is wanted, with code examples and the behaviour that matters, not prose; this is the standard when
+      a Plan is next written, not a rewrite to start unasked (the user, 2026-11-15; whole run).
+    - Ask in numbered rounds with before and after and a recommendation; never present a recommendation as decided; call
+      him "the user" (AGENTS.md; whole run).
+    - Work serially: one lead at a time. Up to 8 deterministic processes, about 16 GB; real-browser runs and benchmarks
+      alone; kill only this run's processes, by exact pid (memory, 2026-11-04; whole run).
+    - Business keys for money (2026-11-01; P3 to P5). Entities are optional but not up for cutting (memory, 2026-11-01;
+      P5). No tla-ts (memory, 2026-11-03; whole run).
+
+    ## Authority
+
+    By default: read, edit within the phase's scope, run checks, repair own defects, update records. Also allowed, by
+    the user's approval of this Epic:
+
+    - commit locally to `flow-rewrite` with explicit paths; never push, never stash;
+    - start agents as the loop's instructions say;
+    - insert Tasks, split a phase that keeps its goal, reorder without breaking a dependency;
+    - move, split or add context comments to Tasks within a slice; new slices are avoided (the user, 2026-11-22);
+    - start the next phase after its completion audit passes, unless it starts with a stop;
+    - write and revise Specs (skill:to-spec, skill:to-design), each change logged in `wiki/specs/specs.log` (`wk log
+      add specs`).
+
+    Orchestrator decides: design calls in P2 to P5 and P9; the internal module layout and the tests' layout; small
+    public API changes (a flag, a default, a field or member name, where an option sits); small amendments to a Task's
+    acceptance that keep it correct and the work going (the user, 2026-11-12). Each is noted for the user's read.
+
+    User decides: public entry-point names; new concepts; large public API changes; relaxing a gate; changes to the
+    Plans' decisions or outcomes, and any edit to a Plan (list the change and wait for the user's yes); scope; the frame
+    (skill:build-a-loop#rules, R16); which example apps, and accepting each app; the CLI outputs; the docs criteria;
+    budget targets; each ship stage; more agents than the instructions allow. Everything else still needs the user.
+
+    ## Limits
+
+    No budget of iterations, time or usage, for the Epic, a phase or a Task (the user, 2026-11-10). No failure limit
+    (the user, 2026-11-22; this overrides skill:build-a-loop's default and its stop): a slice that fails again on one
+    root cause after convergence does not stop the run or hold the phase. The orchestrator records the root cause and
+    what is left as a comment on the slice's Tasks, leaves those Tasks open, and goes on to the next slice. Usage
+    reserve: the run stops at 100 percent weekly usage, all models (the user, 2026-11-15); at the reserve the lead
+    finishes its step, commits and leaves a resume note. No new slice starts with less than 5% of the weekly limit left;
+    a running lead finishes (the user, 2026-11-23). Usage always means the weekly window, never the 5-hour one, read
+    from the harness's usage view. The user changes the reserve at any time: a new value is an edit here and a note.
+
+    ## Glossary
+
+    Library terms: skill:to-epic#terms. This project's terms:
+
+    - The conformance suite: the old private test system (a Spec model, a port, round-14 as a second runtime, owed
+      lists), deleted on 2026-11-15; its last full copy is commit `52a883e6`. The Specs still name its oracles and owed
+      rows in places; those lines describe it, not today's tests.
+    - Story: a run scripted as an array of steps, as data. Fake: a second Layer for a service a fixture declares,
+      answering from its own state.
+    - Runtime cut: one read of the Runtime's state (each live actor's snapshot, lanes, timers, batches out). Checkpoint:
+      a named point in a Story where the run records the time, the runtime cut, what each fake received and the store.
+    - Run rule: a function from a finished run to its breaches of one Spec rule, applied to every Story run.
+    - Planted fault: this project's mutant: a named wrong behaviour of the runtime with the rule it breaks, in
+      `packages/flow-state-v3/tests/faults.ts`. `nub run faults` plants each in a scratch copy and reports which its own
+      target tests catch; runtime rules only. Dead core: the null implementation, a `step` that changes nothing, planted
+      the same way.
+    - Bridge: the old hand cases rehosted in `tests/bridge/`, deleted file by file as they become Story tests.
+    - Slice (the user, 2026-11-22): an execution slice, a parent Task's open children run together through one loop
+      (Building a Task, Slices); a Task with no parent is its own slice. Before 2026-11-22 a slice meant one Task of P3
+      or P4 built end to end, as older notes use it. The Pay path: the fixtures, including Pay and checkout, run through
+      the public API.
+    - Reload sweep: every fixture Story run again with a reload inserted at each position, with the run rules applied.
+      Dead tab: an earlier open of a tab, abandoned by a reload; nothing from it may write or be answered afterwards.
+    - Wire words: the steps that control one call to a fake (hold, release, dropRequest, dropResponse, answer). Storage
+      words: the same for the fake store (hold, refuse, release).
+    - Step samples: the steps a fixture offers the generator. Open calls: calls a fake has received and not
+      yet answered.
+    - Owed endings: a domain term of @spec.Records, an ending the Runtime still has to deliver; it is unrelated to the
+      old suite's owed lists.
+    - First commit of a Task: its requirements list in the Task's comments, with each requirement as a check that
+      fails today.
+    - The user's page: one page at a slice's close on what an app author will notice, written in
+      `wiki/plans/flow/references/pages/`, one page per slice (the user, 2026-11-22).
+    - Build-time choice: a block in a Task description giving two approaches, the reasoning for each and the test that
+      decides; the builder runs that test, picks one and records a `[decided: agent <role> <date>]` tag with Why and
+      Reverse (the user, 2026-11-22).
+skill        workflow@4f316bf
+run
+    To start: "run the loop in wiki/tasks/V3/epic.task". You are the orchestrator: you start, track and route agents;
+    you never build.
+
+    Start and resume by skill:build-a-loop#rules R1 to R7, R25 and R26: read, current Task, cron, real agent state,
+    start note, one building lead, activity, keep the machine awake (for example `caffeinate -i` on this Mac). Project
+    additions to R2: a Task in `review` comes first, and its independent check starts before any builder; a phase's
+    Tasks stay `draft` until it starts; before its first Task starts, run R48's breakdown review, apply its re-splits,
+    then write the next Task's full text with skill:to-task and open it; within a phase, follow its card's Order line.
+    Project addition to R7: a background agent's output file stays empty until it finishes, so activity is its
+    transcript file growing (size and time only, never its contents), plus commits and status changes (the
+    user, 2026-11-23).
+
+    Rules: follow skill:build-a-loop#rules, skill:policy-delegation and skill:policy-verification at the library
+    revision in skill; instructions override their defaults. The library is the Git repository
+    `/Users/arpit/Developer/workflow/skills`, with the suite at `suites/workflow`; check its revision with `git -C
+    /Users/arpit/Developer/workflow/skills rev-parse --short HEAD`, and if it differs from skill, read the pinned files
+    from its Git history or ask the user.
+instructions
+    **Models and agents**
+
+    - Opus leads and Haiku sidecars, Claude Code (detected 2026-11-09). Every lead runs at medium effort, except the
+      requirements lead, which runs at high (the user, 2026-11-22); Haiku review sidecars at high, read-only sweeps at
+      medium (the user, 2026-11-14; overrides the effort defaults of R30 and skill:policy-delegation).
+    - Agents at once: one lead, building or reviewing, never both (the user, 2026-11-16; was one of each). The lead runs
+      up to eight sidecars and decides how many and which jobs they do, never one per angle by default (the user,
+      2026-11-14 to 2026-11-16). A review runs between builds: the builder stops at `review`, the review runs, then the
+      fix round or the next Task. Extra work (merges, code-quality reviews) waits for the slot. Before starting any
+      agent, the orchestrator reads the 5-hour window: above 80% only the current lead continues; above 90% it
+      checkpoints and stops until the reset. Processes and browsers: the Constraints' serial-work line.
+    - Settled conflicts with AGENTS.md (the user, 2026-11-22): the Epic's local commits stand and nothing is ever
+      pushed; a lead may run up to eight Haiku sidecars.
+    - Haiku never writes or runs production code; it may run experiments or hill-climb in scratch files outside the
+      package and submit ideas (the user, 2026-11-10 and 2026-11-15). A lead reads every line a sidecar wrote (the user,
+      2026-11-08); re-running and logging results is skill:policy-delegation's.
+    - A lead works through three context compactions and is rotated out only when a fourth is close: finish the step,
+      commit, leave a resume note (the user, 2026-11-14).
+    - Who runs each step of a slice (the user, 2026-11-23): the requirements lead, at high effort, writes the
+      requirements and their fix round, then stops; a fresh building lead at medium effort takes the build and every
+      later fix round. A fix round's review goes back by message to the lead that wrote the verdict, so it re-runs its
+      own probes; a fresh reviewer is started only when that lead is gone or past its compactions.
+    - Leads report once per batch or stop, in at most 10 lines: verdict, commits, test counts, and what needs a decision
+      (the user, 2026-11-11).
+    - Constraints: the Epic's Constraints section. Limits: its Limits section.
+
+    **Building a Task**
+
+    - Every brief carries the Constraints' code-style line (the user, 2026-11-09).
+    - A Task's "May change" is a guide, not a fence: a Task may add its planted faults to `tests/faults.ts` and touch
+      any file its acceptance needs, naming each extra file in a Task comment (2026-11-15).
+    - Slices (the user, 2026-11-22): a parent Task groups an execution slice. When a ready Task has a parent, the
+      orchestrator takes all of that parent's open children together as one slice, through one requirements phase with a
+      whole-slice state inventory, one requirements review, one build and one build review. The parent closes when every
+      child is accepted and the slice review has checked the seams between them. Tasks stay the unit of acceptance. A
+      Task with no parent is its own slice. Slices run in the order of the phase's Task order. The orchestrator may
+      regroup by moving `parent`, with the reason in a V3 log note. A slice fits one builder run inside one 5-hour
+      usage window.
+    - Slice commands (wk): `wk show @epic.V3 --tree` lists parents with their children (a child shows `Parent:`); `wk
+      show @task.V3.Tn --tree` lists one parent's children. `wk next` offers leaf Tasks only, since a parent is never
+      ready: when it offers a child, take that child's parent and all its open children. `wk brief` on a parent shows
+      only the phase card, so brief each child. Regroup with `wk edit @task.V3.Tn --set parent=@task.V3.Tm`; make a Task
+      its own slice with `wk edit @task.V3.Tn --clear parent`. A parent may not be `blocked_by` its own children (wk
+      refuses the cycle); it closes after them because it is never ready. A new slice parent is a Task titled "Slice:
+      <name>" whose acceptance is every child accepted and the seams checked by the slice review.
+    - Correctness (the user, 2026-11-22): every Task that builds or changes a v3 design says in its acceptance how its
+      correctness is established, as one "Correctness:" item. Each of these holds: a corresponding fixture app exists
+      that uses the feature (a whole app written the way a user would write it; see @convention.fixture-catalog for the
+      apps and how to build them); a Story tests that fixture's feature, plus the Spec's Story of the wrong ending; a
+      test runs the Story; type tests show the feature is typed fully and correctly, the way a user would expect
+      (two-sided pins, and no annotations needed in user code); each new runtime rule has a planted fault its own target
+      tests catch (type and lint rules have none; the user, 2026-11-22). See the existing tests
+      (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. The item's last line names the Spec
+      Requirements this Task's tests cover and the Invariants they check after every step, with the Spec tests that
+      check them, by @spec id. A new Task inherits this rule and states it in the same item.
+    - Requirements first (the user, 2026-11-12), by skill:execute-task step 2. The requirements list is in the Task's
+      comments, each rule with its source, mapped one to one to the Task's acceptance. The lead may gather it with
+      read-only sidecars on named angles (the Specs and Plans; the code and prior art; open findings; an adversary). The
+      list maps every Requirement in the Task's Spec range, not only its Invariants: a rule no Invariant carries is
+      otherwise missed (the user, 2026-11-23). The requirements brief names @convention.fixtures' variety rule and the
+      extend-first rule below up front (the user, 2026-11-23).
+    - The whole Task at once (the user, 2026-11-20): skill:execute-task step 1, with Task boundaries by skill:to-task
+      step 1 and R48's phase-start review. The state's one owner function ships with its guard and its planted faults in
+      the same Task; an implicit state machine spread across separate checks is a blocking finding.
+    - A feature's benches are its fixture's `bench` entries, added with its Stories (the user, 2026-11-18).
+    - Fixtures first (the user, 2026-11-16): a Task that builds or changes a public feature, or lands a review finding,
+      meets @convention.fixtures as part of its requirements, before any code. The orchestrator owns it and checks it by
+      asking the lead for that page's proof, never by reading the tests itself; a gap returns to the lead before the
+      build, and the requirements review checks the proof, not the claim. Before posting the proof, the lead has
+      sidecars review its fixtures against every part of that page: scenarios, load and structural stress, edge values,
+      combinations, variety, real-shaped data, registration with every runner, and that each expected result is correct
+      for its cited rule; the lead verifies and logs each finding (the user, 2026-11-16). Every Task with fixture work
+      links the page in its acceptance, and every brief cites it too. What to build comes from
+      @convention.fixture-catalog (the user, 2026-11-17): each Task's fixtures line names its migration step and
+      fixtures; the lead builds those rows' scenarios from their cited sources, growing apps additively: a feature
+      extends an existing machine where a real app would, and a new machine is added only when none has a natural reason
+      to own it (the user, 2026-11-22). Fixture counts are set from the bench and recorded in each Story; a count may
+      change only by a recorded re-measurement (the user, 2026-11-17, Q8 A). The catalog is a task list: at the close
+      the lead marks every scenario item in those fixtures built (with its Story id) or left (with the later Task and
+      the feature it needs), never leaves one unmarked, and corrects any row the build proved wrong; only a scenario
+      needing a later Task's feature may be left, and the review checks each. The scenarios and their linked tests are
+      best-guess guidance: the lead targets proper coverage and may add, reshape or replace scenarios, writing each
+      change back as a catalog item.
+    - Coverage before fixes and reviews (the user, 2026-11-17): a Task's bug fixing and its review wait until the
+      fixtures its catalog step names are built, with every scenario written; a bug those Stories find lands as an
+      inverted test with its owner Task, and is fixed by that owner against the full coverage.
+    - A new runtime rule is shown red on a planted fault (the user, 2026-11-22, Q7 B): add the fault to
+      `tests/faults.ts`, and `nub run faults --only <names>` must catch it with its own target tests; a fault its
+      targets miss is re-aimed, never judged by the whole suite. Type and lint rules get no planted fault: their tests
+      are two-sided (`@ts-expect-error`, a rule's must-flag cases). A Task plants only its own faults, by name, never
+      the whole list. Plants go in a scratch copy, never the live tree.
+    - Lint-driven refactors (the user, 2026-11-22): to find an old pattern to migrate or delete, plain search (`rg`) and
+      search-and-replace are the first choice and suit most cases: names, imports, strings, small changes. A temporary
+      lint rule is used only when the lead names why it is the right tool for this job: the pattern is structural (a
+      shape, not a name) that search can't match reliably, spans many sites, or must stay gone. Such a rule goes in
+      `tools/flow-state-lint/rules/` with its own test of the patterns it must and must not flag, so the hits are
+      trusted. It runs on demand, outside `nub run check`, as the mechanical pass beside any agent inventory. At zero
+      hits it is deleted, or promoted into `nub run check` when the pattern must never return. A sidecar may draft one
+      in the scratchpad as a finder; a committed rule is written by the lead. A migration or deletion of a public form
+      gets one agent inventory and one mechanical pass (`rg`, or a temporary lint rule), compared before its
+      requirements are written (the user, 2026-11-23).
+    - A known bug is one inverted test (`it.fails`), titled by the Spec rule it breaks; `it.todo` is not used. A gap a
+      review routes to a later Task lands as an inverted test, or as a comment on its owner Task when no fixture can
+      express it yet (the user, 2026-11-12).
+    - Which side is wrong (the user, 2026-11-12): before a red becomes a requirement or a fix, the lead replays it and
+      names the wrong side with evidence: the runtime breaks a cited rule, or the test, the fake or the tooling does. An
+      unknown is never given a default.
+    - Spec contradictions (the user, 2026-11-12): the lead writes one concrete case with both results and decides a
+      small or internal one itself, keeping the reading that loses no ending. Running code overrides a Spec, guarantees
+      included, once the change is weighed across the whole system (the user, 2026-11-15): two traces of the same Story,
+      every rule and reader that depends on it checked, and the next independent review confirms it was not shaped to
+      fit the code; the user reads it afterwards. The Spec is guidance and need not be kept in step with the code (the
+      user, 2026-11-22): the lead records each deviation, and each call where a Spec is silent, as a `[decided: agent
+      builder <date>]` tag with Why and Reverse in a Task comment, so it can be reversed; editing the Spec is optional.
+      A silent Spec is never filled with the code's current behaviour as if it were the design.
+    - A gap is never written into a Spec as a limit (the user, 2026-11-16): a lost, doubled or made-up ending the code
+      can't yet meet lands as an inverted test titled by its rule, with an owner Task, and the Spec keeps the rule.
+    - Lessons from the 2026-11-15 run (the user, 2026-11-16): comments are stamped only with `--now`, and every `.log`
+      entry only with `wk log add`, never a hand-written time (the user, 2026-11-22); a gate counts by its exit code,
+      never its summary line; a slice with its reviews costs about 5 to 10% of the weekly limit (slices T119 and T92
+      took about 8% each; the user, 2026-11-23).
+    - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11),
+      with the same whole-system check (the user, 2026-11-15).
+    - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features that cover its
+      needs and why each is used or skipped. Adapters use typed failures, defects apart.
+    - Speed (the user, 2026-11-14): batch independent tool calls in one message; launch a round's sidecars in one
+      message; the package's suite (without the stress runs) may run whenever useful, and `nub run check` and that suite
+      run before each checkpoint commit; a builder that needs a ruling states it and keeps doing independent work.
+    - Big test commands run at the end of a Task (the user, 2026-11-16): the stress runs (stress Stories, their reload
+      sweeps, generated stress seeds) sit behind a flag outside the default suite; they run once at a Task's close, in
+      its review, and at a phase's close, never mid-Task. The whole `nub run faults` runs only on the user's demand (the
+      user, 2026-11-22; was daily): no wake, Task, review or phase close starts it; a phase gate that names it asks the
+      user. When it runs, it runs in the background, timings taken meanwhile are marked as such, and each missed fault
+      is routed.
+    - Proof has a time budget (the user, 2026-11-18): any single verification step a lead or reviewer runs (a harness, a
+      sweep, a matrix) is capped at 10 minutes; past it, it stops, reports what it has, and the orchestrator decides
+      whether more is worth it. A review runs the suite once, alone, plus the stress runs only when the Task touched
+      stress Stories or the sweeps.
+    - At a Task's close the builder runs the stress runs and the generated Stories over fresh seeds; every new failure
+      lands as a fix or an inverted test before review.
+    - Earlier surfacing of what close reviews kept finding (the user, 2026-11-20):
+      - a design question found mid-build is validated before the build builds on it (the user, 2026-11-22): two traces
+        in a Task comment and one blind Haiku sidecar on that rule (skill:execute-task step 3), and the reds it touches
+        are reconciled and re-run;
+      - checks walk a structure the way the cited rule defines it, never the way the code traverses it, so a test cannot
+        share the code's blind spot (the user, 2026-11-23);
+      - a test oracle for a boundary is derived from the writer it judges (one codec or Schema used by the writer, the
+        reader and the oracle), never hand-written beside it (the user, 2026-11-23);
+      - when the host mirrors a fact the core owns (a timer, a lease, a subscription), the harness checks both sides at
+        every cut, not only the core's (the user, 2026-11-23);
+      - an acceptance item stated as an absence ("no `it.fails` left", "no caller of X") gets an `rg` in the builder's
+        close gates (the user, 2026-11-23);
+      - every requirements list names each real resource the Task touches (store, page, network, clock) and what its
+        fake does not yet do (close, refuse after close, hold, hide); a gap is hardened in the fake or checked for real;
+      - a Task touching a persisted shape shows restore after the definition is edited: a reorder, an add, a remove and
+        a rename.
+
+    **Reviews and done**
+
+    - Root cause first (the user, 2026-11-22): every finding a reviewer raises, and every fix or ruling a builder or the
+      orchestrator makes, names where the behaviour originates, traced to its source (Flow's code, a fixture, the
+      tooling, or a dependency such as Effect, checked against the installed source), before a fix or a ruling is
+      proposed. A finding without its origin goes back for one. Example: `Duration.millis(NaN)` became 0 ms inside
+      Effect, which settled the call at once (follow Effect) and made Flow's guards needless.
+    - Reviews run on events, not on the clock (overrides R22): a Task's first commit, a Task's close, a Spec change, and
+      a change to the test tooling or the run rules. One review sidecar is blind to the Task's requirements list (the
+      user, 2026-11-12).
+    - A requirements review has five fixed sidecars (the user, 2026-11-20), covering
+      skill:check-task#at-the-requirements-review: blind A (requirements from the acceptance and Specs); blind B (from
+      the proposal, catalog and routed comments, as an adversary hunting edge cases); flip A (red for its stated
+      reason); flip B (the simplest wrong build); cohesion, which also lists the whole family up front (every export of
+      the touched entries, every sibling of a changed type or helper) and every state with more than one writer. The
+      lead checks the mapping and re-runs the cited reds itself; no suite re-run and no fixtures-proof re-check (the
+      close review reads the fixtures).
+    - A close review's one suite run is the coverage run (`nub run test:coverage`); one sidecar reads the uncovered
+      lines and branches in the files the Task changed and names, for each, the Story or edge value that would reach it,
+      dead code to delete, or a defect-only path (the user, 2026-11-20). No coverage percentage or baseline. Flip A
+      re-runs on the Task's final checks.
+    - A close review (R17) runs skill:check-task and reviews the Task's diff in the same pass.
+    - Stopping rule (the user, 2026-11-12): a finding blocks only when it is in the Task's range, has a check red on
+      current code, and is a lost, doubled, made-up or wrong ending, a hang, or a broken acceptance item; others are
+      routed or noted. A fix round is checked by the next review, with no separate re-check. A fix round carries the
+      blockers and the user's decisions; other routed items go to their owner Tasks, unless they change the same state
+      as a blocker (the user, 2026-11-23).
+    - Every accepted finding names why the tests missed it, by R17; its class is covered per @convention.fixtures, and a
+      class that recurs across Tasks becomes a run rule or a fixture every later Task inherits (the user, 2026-11-16).
+    - Convergence follows skill:policy-convergence (the user, 2026-11-20, after T57; the threshold for a local cause is
+      2, the user, 2026-11-12; R35). Tests before convergence (the user, 2026-11-16): first every known behaviour of the
+      part gets its fixtures, Stories and tests, the class shown red; only then redesign. On running code the freedom is
+      taken away by structure (skill:policy-convergence#converging-live-code, the user, 2026-11-19, after T99).
+    - When a whole `nub run faults` misses a fault, it lands as a run rule or a Story test, owned by the Task in range.
+    - Every review checks the code it reads for outside imports, temporary names and what it re-creates of Effect; code
+      quality is otherwise left to lint (the user, 2026-11-14).
+    - Every requirements review and close review runs skill:check-task step 5 (cohesion) (the user, 2026-11-19), with
+      this project's house patterns: tokens not strings, `$match` or tag tables, branded ids, `X.use`, Schema-derived
+      types. One sidecar takes cohesion as its fixed angle.
+    - A ruling is asked as two traces of the same Story, not as prose. A ruling that changes how fixtures or user code
+      look comes with complete before/after code (AGENTS.md "Showing designs"). A decision the user doubts gets a fresh
+      spike, measured, before it is ruled on again (the user, 2026-11-23).
+    - Loop findings (the user, 2026-11-22): at each slice's close the orchestrator also adds to @proposal.loop-findings
+      what worked and what should change for future slices, only lessons that apply beyond that slice, each marked
+      proposed; the user confirms them, confirmed items are merged into the Epic or a convention and removed from
+      the record.
+    - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
+      user, 2026-11-12); that is in stops. On a close review's PASS the orchestrator still sets the Task `done`; only
+      the slice's close (its parent, and the page's loop findings) waits on the unread page (the user, 2026-11-23). The
+      user's page ends with a "Review the diff" section of `hunk diff <from> <to>` commands for the slice: the whole
+      slice, then its requirements commits, its build, and each fix round, then each Task's own changes (with a pathspec
+      where Tasks share commits) (the user, 2026-11-22).
+    - Benchmarks follow @convention.bench (the user, 2026-11-18): no agent sits blocked on a bench; `--dev` while
+      working, every longer run capped and in the background; a Task's close runs no bench by default, and a performance
+      Task records the quick tier once at its end, its review reading `--summary`. No full or tier-wide bench run, the
+      tooling bench included: only narrow `--only <ids>` cases a Task needs (the user, 2026-11-22; a full run takes
+      about 3 hours).
+
+    **Records and commands**
+
+    - An Epic note is 1 to 3 lines; a Task comment is a verdict, the decisions that still matter and their reason (the
+      user, 2026-11-11). No progress comments, commit lists or test counts beyond the one revision verified.
+    - Command time limit: 5 minutes each (memory, 2026-11-04).
+    - No worktrees (the user, 2026-11-08): the builder works in the main checkout on `flow-rewrite`.
+    - No agent reads agent transcripts (the user, 2026-11-15).
+cadence
+    A wake every 60 minutes (the user, 2026-11-17; was 30) checks for a Task in review, a stalled lead, the usage
+    reserve and the 5-hour window; no wake starts a bench (the user, 2026-11-22; was the tooling bench every three
+    hours). Reviews run on the events in instructions, not on the clock.
+
+    Session cron `7 * * * *`. One job only: the scheduler adds a different fixed delay to each job, so several jobs
+    drift apart.
+
+    Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage and the
+    5-hour window from the harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it;
+    follow instructions' 5-hour pacing. Never start a bench or `nub run faults` whole (the user's demand only). If a
+    Task is in review with no verdict yet, or a review event in instructions has no review covering it, and no lead is
+    running, start one Opus lead at medium effort with its read-only Haiku sidecars, one of them blind; verify its
+    findings, route the accepted ones, and note the review. If the lead has shown no activity for 100 minutes, resume it
+    by message or replace it (R7) and note it. Otherwise write nothing."
+
+    Quiet rule: a wake that finds nothing writes no note and sends no message; timings within bound are not noted.
+stops
+    - The user's decisions in the Authority section;
+    - a guarantee that can't be met;
+    - a slice's close while the previous slice's user's page is unread, which holds only that close;
+    - a change proposal whose judge is the user;
+    - the user-judged decisions in P5, P6, P7 and P9 (their cards);
+    - each ship stage in P10;
+    - the real-phone run in P9, which holds only that item.

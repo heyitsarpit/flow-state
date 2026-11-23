@@ -1,0 +1,21 @@
+{
+ "search": "listen.none",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  8,
+  51,
+  301,
+  1632,
+  8184
+ ],
+ "states": 31633,
+ "edges": 70222,
+ "steps": 856315,
+ "depthCompleted": 5,
+ "classes": {},
+ "ms": 60001,
+ "peakRssMb": 226
+}
+
+WATCH peak 215 MB, 60.3 s, exit 0, killed no

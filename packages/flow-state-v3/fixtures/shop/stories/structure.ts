@@ -1,0 +1,135 @@
+import { Schema } from "effect";
+import { actorRef, definition, Flow, machine } from "../../../src/index.ts";
+import { guestShopper, mainBadge, mainCart, mainFlow, mainShopper } from "../app.ts";
+import { Cart, CartMachine } from "../machines/cart.ts";
+import { CartPulse } from "../machines/cart-pulse.ts";
+import { CheckoutFlow } from "../machines/checkout-flow.ts";
+import { Shopper } from "../machines/shopper.ts";
+import { Carts } from "../server/carts.ts";
+import { storeStory } from "./usual.ts";
+
+/**
+ * Shopper, cart and badge, three layers; the add's answer is lost after it landed; the tab reloads
+ * and only the badge, the deepest node, is ensured.
+ */
+export const chain = storeStory("shop/chain")
+  .ensure(mainShopper)
+  .ensure(mainCart)
+  .ensure(mainBadge)
+  .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
+  .world(Carts.addLine.drop({ at: "response" }))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .send(mainCart, Cart.E.SetQuantity({ lineId: "l1", quantity: 2 }))
+  .reload({ reattach: false })
+  .ensure(mainBadge)
+  .checkpoint("reloaded");
+
+const everything = (id: string) =>
+  storeStory(id)
+    .ensure(mainShopper)
+    .ensure(mainCart)
+    .ensure(mainBadge)
+    .ensure(mainFlow)
+    .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }));
+
+/**
+ * The checkout flow is disposed first, then the badge, the cart and the shopper; the Pay the flow
+ * read is left with no use, and its grace passes.
+ */
+export const flowFirst = everything("shop/flow-first")
+  .dispose(mainFlow)
+  .dispose(mainBadge)
+  .dispose(mainCart)
+  .dispose(mainShopper)
+  .advance("1 second")
+  .checkpoint("disposed");
+
+/**
+ * Only the checkout flow is ensured, which starts the cart, the shopper and the checkout's Pay it
+ * reads; the flow is disposed, freeing the cart and the Pay in one step, and their graces pass.
+ */
+export const flowAlone = storeStory("shop/flow-alone")
+  .ensure(mainFlow)
+  .checkpoint("bound")
+  .dispose(mainFlow)
+  .advance("1 second")
+  .checkpoint("graces passed");
+
+/**
+ * The cart is let go and ends after its grace, then the shopper is forgotten; the cart, ensured
+ * again, reads a fresh shopper.
+ */
+export const shopperForgotten = storeStory("shop/shopper-forgotten")
+  .ensure(mainShopper)
+  .send(mainShopper, Shopper.E.SignIn({ name: "ada" }))
+  .ensure(mainCart)
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .detach(mainCart)
+  .advance("1 second")
+  .dispose(mainShopper, { how: "forget" })
+  .ensure(mainCart)
+  .checkpoint("fresh");
+
+/**
+ * An add is on the wire when the tab reloads.
+ */
+export const reloadedMidAdd = storeStory("shop/reloaded-mid-add")
+  .ensure(mainCart)
+  .world(Carts.addLine.hold({ at: "response" }))
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .reload()
+  .checkpoint("reloaded");
+
+/**
+ * The cart is disposed while its badge and checkout flow are bound to it.
+ */
+export const cartFirst = () => everything("shop/cart-first").dispose(mainCart);
+
+/**
+ * The main cart is live with the main shopper; a second ref names it with the guest.
+ */
+export const conflictingCart = () =>
+  storeStory("shop/conflicting-cart")
+    .ensure(mainShopper)
+    .ensure(guestShopper)
+    .ensure(mainCart)
+    .ensure(actorRef(CartMachine, { owner: "main" }, { context: { shopper: guestShopper } }));
+
+/**
+ * The cart gets a line before its checkout flow is bound; then checkout begins.
+ */
+export const flowBoundLate = storeStory("shop/flow-bound-late")
+  .ensure(mainShopper)
+  .ensure(mainCart)
+  .send(mainCart, Cart.E.Add({ lineId: "l1", variantId: "v1" }))
+  .ensure(mainFlow)
+  .send(mainFlow, CheckoutFlow.E.Begin())
+  .checkpoint("begun");
+
+/**
+ * A mini-cart count read from the cart and the shopper, two providers: a type error, and at run time
+ * the definition refuses it (S7): `InvalidConfiguration` at the read that names the second provider.
+ */
+export const mixedProviderPulse = () =>
+  definition({
+    id: "Shop/MixedPulse",
+    states: ["SHOWN"],
+    events: {},
+    context: {
+      count: Flow.context(Schema.Number, {
+        // @ts-expect-error Compile S7: a derived slot reads one provider
+        reads: { lines: Cart.M.lines, name: Shopper.M.name },
+        select: () => 0,
+      }),
+    },
+  });
+
+/**
+ * A mini-cart whose count reaction enqueues an event no state handles (S7): refused when the
+ * machine is built.
+ */
+export const unhandledPulse = () =>
+  machine(CartPulse, ({ S, E, C }) => ({
+    default: S.QUIET,
+    onContext: [C.count.change({ event: E.Grew })],
+  }));

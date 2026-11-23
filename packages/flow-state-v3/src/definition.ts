@@ -1,0 +1,568 @@
+import { Predicate, Result, Schema } from "effect";
+import type { Values } from "./core/compiled.ts";
+import { atOrBelow } from "./core/tree.ts";
+import type { Bound, BoundInternals, Fields } from "./contract.ts";
+import { fieldsOf, tokensOf } from "./events.ts";
+import { readHandle, writeHandle } from "./handles.ts";
+import { configFindings, inDeclarationOrder, operationsFindings } from "./config.ts";
+import { flowErrorOf, raise, refuse } from "./error.ts";
+import { door, entry } from "./entry.ts";
+import type { Declaration, DefinitionInternals } from "./declaration-of.ts";
+import type { Declared, InputOf, MemoryOf, OutsideOf, PayloadOf } from "./derive.ts";
+import { type Branded, type Container, frozen, internalsOf, made } from "./made.ts";
+import {
+  definitionFindings,
+  isInput,
+  isPrivate,
+  schemaOfField,
+  type TreeNode,
+  treeOf,
+  unwrapPrivate,
+} from "./construction.ts";
+import { type Field, type Reader, slotReadsOf, type Uncertain } from "./flow.ts";
+
+export type EventFields = Fields | Uncertain;
+
+/**
+ * A definition's memory fields, each with its one source.
+ */
+export type MemoryConfig = Readonly<Record<string, Field>>;
+
+/**
+ * A public event as `send` takes it: its tag and its payload.
+ */
+export type Envelope<Name extends string = string, P = Values> = { readonly _tag: Name } & P;
+
+export type { EventToken, MappedEvent, Tokens } from "./event-tokens.ts";
+
+export type {
+  ActionToken,
+  AlternativeConfig,
+  GuardElement,
+  GuardToken,
+  Handler,
+  HistoryToken,
+  KeyOfDecl,
+  On,
+  Operations,
+  ReadHandle,
+  RootToken,
+  ReasonOfDecl,
+  ScheduleBodyOf,
+  ScheduleDecl,
+  ScheduleDecls,
+  ScheduleMetadata,
+  SchedulesOf,
+  SelOfDecl,
+  StateConfig,
+  StateRead,
+  StateToken,
+  StateTokens,
+  WriteHandle,
+} from "./tokens.ts";
+
+import type {
+  Handles,
+  MemoryToken,
+  ScheduleDecls,
+  RootToken,
+  StateNameToken,
+  StateRead,
+  StateTokens,
+} from "./tokens.ts";
+
+import type { Tokens } from "./event-tokens.ts";
+
+/**
+ * A state tree: leaf names, and single-key compounds holding their children's list.
+ */
+export type StateTree = ReadonlyArray<string | { readonly [name: string]: StateTree }>;
+
+type NameOf<X> = X extends string ? X : keyof X & string;
+
+type ChildOf<X, N extends string> = X extends { readonly [K in N]: infer C } ? C : never;
+
+/**
+ * The names of a list's direct children.
+ */
+export type NamesOf<L> = L extends ReadonlyArray<infer X> ? NameOf<X> : never;
+
+/**
+ * The child list of a compound named `N` in list `L`; `never` for a leaf.
+ */
+export type ChildrenOf<L, N extends string> =
+  L extends ReadonlyArray<infer X> ? ChildOf<X, N> : never;
+
+/**
+ * Every state path of a tree, compounds included (`ON`, `ON.PLAYING`).
+ */
+export type PathsOf<L, P extends string = ""> =
+  string extends NamesOf<L> ? string : PathsOfLiteral<L, P>;
+
+type PathsOfLiteral<L, P extends string> = {
+  readonly [N in NamesOf<L>]: `${P}${N}` | PathsOfLiteral<ChildrenOf<L, N>, `${P}${N}.`>;
+}[NamesOf<L>];
+
+/**
+ * Every leaf path of a tree.
+ */
+export type LeavesOf<L, P extends string = ""> =
+  string extends NamesOf<L> ? string : LeavesOfLiteral<L, P>;
+
+type LeavesOfLiteral<L, P extends string> = {
+  readonly [N in NamesOf<L>]: [ChildrenOf<L, N>] extends [never]
+    ? `${P}${N}`
+    : LeavesOfLiteral<ChildrenOf<L, N>, `${P}${N}.`>;
+}[NamesOf<L>];
+
+/**
+ * A context slot (`Flow.context`): a value of its Schema read from one provider's tokens, a
+ * pass-through's one token or a derived slot's reads and select. The machine entry or the ref wires
+ * which actor provides it.
+ */
+export type ContextSlot<V = unknown, P = unknown> = Branded<"context"> & {
+  // FLOW_STATE_ALLOW_UNKNOWN: the encoded side of a slot's Schema is the Schema's own.
+  readonly schema: Schema.Codec<V, unknown>;
+  readonly form: "pass" | "derived";
+  // A phantom type: the provider's state tree and memory, which the wiring's ref must have.
+  readonly "~provider"?: P;
+};
+
+/**
+ * A definition's context slots, by name.
+ */
+export type ContextConfig = Readonly<Record<string, ContextSlot>>;
+
+/**
+ * A provider's state tree and memory, by which a slot's wiring ref is checked.
+ */
+export type ProvidedBy<States, M> = {
+  readonly [Declared]: { readonly states: States; readonly memory: M };
+};
+
+/**
+ * The values a definition's context slots select, by slot.
+ */
+export type ContextOf<Cx> = {
+  readonly [K in keyof Cx]: Cx[K] extends ContextSlot<infer V> ? V : never;
+};
+
+// What a states list may not hold, by sibling list: a name twice, or a compound with no children.
+type ListFault<L, Seen = never> = L extends readonly [infer H, ...infer T]
+  ? | (NameOf<H> extends Seen ? "a duplicate state name" : never)
+    | (H extends string
+        ? never
+        : ChildrenOf<readonly [H], NameOf<H>> extends readonly []
+          ? "a compound with no children"
+          : ListFault<ChildrenOf<readonly [H], NameOf<H>>>)
+    | ListFault<T, Seen | NameOf<H>>
+  : never;
+
+// A definition's literal checks: its states list kept literal and well formed, and a non-empty id.
+type DefinitionCheck<States, Id extends string> = (string extends NamesOf<States>
+  ? { readonly states: "a states list widened to string[]: write it inline" }
+  : [ListFault<States>] extends [never]
+    ? Record<never, never>
+    : { readonly states: ListFault<States> }) &
+  (Id extends "" ? { readonly id: "a non-empty id" } : Record<never, never>);
+
+type DefinitionConfig<
+  States extends StateTree,
+  Ev extends Readonly<Record<string, EventFields>>,
+  In extends Readonly<Record<string, EventFields>>,
+  M extends MemoryConfig,
+  O extends Readonly<Record<string, Bound>>,
+  Cx extends ContextConfig,
+  Id extends string,
+  Sch extends ScheduleDecls,
+> = {
+  readonly id: Id;
+  readonly persist?: boolean;
+  readonly states: States;
+  readonly events: Ev;
+  readonly internalEvents?: In;
+  readonly memory?: M;
+  readonly context?: Cx;
+  readonly operations?: (tokens: { readonly E: Tokens<In, Id> }) => O;
+  readonly schedules?: Sch;
+};
+
+// A definition's configuration as its implementation reads it, its literal types erased.
+type ErasedConfig = {
+  readonly id: string;
+  readonly persist?: boolean;
+  readonly states: StateTree;
+  readonly events: Readonly<Record<string, EventFields>>;
+  readonly internalEvents?: Readonly<Record<string, EventFields>>;
+  readonly memory?: MemoryConfig;
+  readonly context?: ContextConfig;
+  readonly operations?: (tokens: { readonly E: Values }) => Readonly<Record<string, Bound>>;
+  readonly schedules?: ScheduleDecls;
+};
+
+/**
+ * A definition: a machine's structure, before its handlers.
+ *
+ * **Details**
+ *
+ * `Event`, `State`, `Input`, `Memory` and `Snapshot` are its Schemas: `Event` decodes its public
+ * envelopes, `State` its leaf paths, `Input` what a creator supplies, `Memory` the whole memory and
+ * `Snapshot` an outside snapshot's state and memory, without the `Flow.private` fields.
+ *
+ * The declaration itself stays off the face: its states are read through `S`, its events through
+ * `E` and `Event`, its memory through `M` and `Memory`, its operations through `O`.
+ *
+ * `M`, `S` and `state` are what another definition's context slots read: `M` has one token per
+ * public memory field (a `Flow.private` field has none), `S` each state, true while the actor is in
+ * it or below it, and `state` the current state's name. A slot's value passes through its Schema's
+ * JSON form once, so a consumer reads, saves and compares the same value live and after a reload.
+ *
+ * ```ts
+ * context: { user: Flow.context(Session.M.user), signedIn: Flow.context(Session.S.SIGNED_IN) }
+ * ```
+ */
+export type Definition<
+  States extends StateTree = StateTree,
+  Ev extends Readonly<Record<string, EventFields>> = Readonly<Record<string, EventFields>>,
+  In extends Readonly<Record<string, EventFields>> = Readonly<Record<string, EventFields>>,
+  M extends MemoryConfig = MemoryConfig,
+  O extends Readonly<Record<string, Bound>> = Readonly<Record<string, Bound>>,
+  Cx extends ContextConfig = ContextConfig,
+  Id extends string = string,
+  Sch extends ScheduleDecls = ScheduleDecls,
+> = Branded<"definition"> & {
+  readonly [Declared]: Declaration<States, Ev, In, M, O, Cx, Sch>;
+  readonly id: Id;
+  readonly persist: boolean;
+  readonly M: {
+    readonly [K in keyof OutsideOf<M> & string]-?: MemoryToken<
+      OutsideOf<M>[K],
+      Id,
+      ProvidedBy<States, M>
+    >;
+  };
+  readonly state: StateNameToken<LeavesOf<States>, Id, ProvidedBy<States, M>>;
+  readonly S: StateTokens<States, "", Id, LeavesOf<States>, ProvidedBy<States, M>> & {
+    readonly root: RootToken<LeavesOf<States>, NamesOf<States>>;
+  };
+  readonly E: Tokens<Ev & In, Id>;
+  readonly O: Handles<O, MemoryOf<M>, Id, LeavesOf<States>, Partial<ContextOf<Cx>>>;
+  readonly Event: Schema.Codec<
+    { readonly [K in keyof Ev & string]: Envelope<K, PayloadOf<Ev[K]>> }[keyof Ev & string],
+    Values
+  >;
+  readonly State: Schema.Codec<LeavesOf<States>, string>;
+  readonly Input: Schema.Codec<InputOf<M>, Values>;
+  readonly Memory: Schema.Codec<MemoryOf<M>, Values>;
+  readonly Snapshot: Schema.Codec<
+    { readonly state: LeavesOf<States>; readonly memory: OutsideOf<M> },
+    Values
+  >;
+};
+
+const pick = (tokens: Values, names: ReadonlyArray<string>) =>
+  Object.fromEntries(names.map((name) => [name, tokens[name]]));
+
+// ── the state tree.
+
+const readOf = (read: StateRead) => (Predicate.isString(read) ? read : read.state);
+
+const childUnder = (path: string, read: StateRead) => {
+  const state = readOf(read);
+  const depth = path === "" ? 0 : path.split(".").length;
+
+  return path === "" || atOrBelow(state, path) ? state.split(".")[depth] : undefined;
+};
+
+// What a state token reads: whether a snapshot is at its state or below it, and its active child.
+const stateReads = (path: string) => ({
+  is: entry(`S.${path}.is`, (read: StateRead) => atOrBelow(readOf(read), path)),
+  child: entry(`S.${path}.child`, (read: StateRead) => childUnder(path, read)),
+});
+
+// The definition a context read comes from: by identity and by id.
+type Origin = { readonly owner: symbol; readonly provider: string };
+
+/**
+ * What a state, history, memory or state-name token keeps for the core: its path or field, and how
+ * a context slot reads it.
+ */
+export type TokenInternals = { readonly path: string; readonly reader: Reader };
+
+// A state token: its reads and a compound's children beside them, read as context as true at the
+// state or below it.
+const stateToken = (path: string, face: Container, origin: Origin) =>
+  made("state", origin.owner, face, {
+    path,
+    reader: { ...origin, schema: Schema.Boolean, read: { kind: "state", path } },
+  } satisfies TokenInternals);
+
+// The S tokens of a tree, a compound's children under it, with the path of each state and history
+// token by identity, for the compile of the definition's machines.
+const tokenTree = (
+  nodes: ReadonlyArray<TreeNode>,
+  paths: ReadonlyArray<string>,
+  origin: Origin,
+) => {
+  const byPath = new Map(nodes.map((n) => [n.path, n]));
+  // FLOW_STATE_ALLOW_UNKNOWN: a made token, recognised by identity.
+  const tokens = new Map<unknown, string>();
+  // FLOW_STATE_ALLOW_UNKNOWN: a made token, recognised by identity.
+  const histories = new Map<unknown, string>();
+
+  const historyOf = (path: string) => {
+    const history = made("history", origin.owner, {}, { path });
+
+    histories.set(history, path);
+
+    return history;
+  };
+
+  // RETURN_TYPE: recursive: each state's token by name, a compound's children under it.
+  const build = (list: ReadonlyArray<string>): Values =>
+    Object.fromEntries(
+      list.map((path) => {
+        const node = byPath.get(path);
+        const kids = node?.children ?? [];
+
+        const token = stateToken(
+          path,
+          kids.length === 0
+            ? stateReads(path)
+            : { ...build(kids), ...stateReads(path), history: historyOf(path) },
+          origin,
+        );
+
+        tokens.set(token, path);
+
+        return [node?.name ?? path, token];
+      }),
+    );
+
+  const S = {
+    ...build(paths),
+    root: { child: entry("S.root.child", (read: StateRead) => childUnder("", read)) },
+  };
+
+  return { S, tokens, histories };
+};
+
+/**
+ * Declares a machine's structure: its states, events, memory and operations.
+ *
+ * **When to use**
+ *
+ * In a `*.definition.ts` file. `machine(definition, body)` then writes its handlers.
+ *
+ * **Details**
+ *
+ * `states` is an ordered list of leaf names and single-key compounds (`{ ON: ["PLAYING",
+ * "PAUSED"] }`). Each memory field starts from one source: `Flow.input`, `Flow.initial`, or
+ * absence for an optional key. Inert: it starts no actor, work, timer or storage access, and runs
+ * no default; `operations` runs once, with the internal events' tokens.
+ *
+ * **Gotchas**
+ *
+ * - An invalid declaration throws one FlowError listing every violation found, in declaration
+ *   order, each with its path.
+ */
+export const definition = door<
+  // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
+  <
+    const States extends StateTree,
+    const Ev extends Readonly<Record<string, EventFields>>,
+    // RETURN_TYPE: the exported Definition keeps every literal type for S, E and O.
+    const In extends Readonly<Record<string, EventFields>> = Record<never, never>,
+    M extends MemoryConfig = Record<never, never>,
+    O extends Readonly<Record<string, Bound<"write" | "read", unknown, Values, Values, Id>>> =
+      Record<never, never>,
+    Cx extends ContextConfig = Record<never, never>,
+    const Id extends string = string,
+    const Sch extends ScheduleDecls = Record<never, never>,
+  >(
+    config: DefinitionConfig<States, Ev, In, M, O, Cx, Id, Sch> & DefinitionCheck<States, Id>,
+  ) => Definition<States, Ev, In, M, O, Cx, Id, Sch>
+>("definition", (config: ErasedConfig) => {
+  const keys = Predicate.isObject(config) ? Object.keys(config) : [];
+
+  refuse(inDeclarationOrder(keys, configFindings(config)));
+
+  const owner = Symbol(config.id);
+  const origin = { owner, provider: config.id };
+  const internal = config.internalEvents ?? {};
+  const context = config.context ?? {};
+  const memory = config.memory ?? {};
+  const schedules = config.schedules ?? {};
+  const E = tokensOf(config.id, owner, { ...config.events, ...internal });
+  const declare = config.operations;
+
+  const none: Readonly<Record<string, Bound>> = {};
+
+  const called =
+    declare === undefined
+      ? Result.succeed(none)
+      : Result.try({
+          try: () => declare({ E: pick(E, Object.keys(internal)) }),
+          // FLOW_STATE_ALLOW_UNKNOWN: what an author's callback threw, kept whole as the cause.
+          catch: (cause: unknown) => cause,
+        });
+
+  if (Result.isFailure(called))
+    return raise(
+      flowErrorOf(
+        [
+          {
+            code: "Defect",
+            path: ["operations"],
+            summary: "the operations callback threw",
+            help: "Fix the operations callback; what it threw is this error's cause.",
+          },
+        ],
+        called.failure,
+      ),
+    );
+
+  const malformed = operationsFindings(called.success);
+  const operations = malformed.length === 0 ? called.success : none;
+  const tree = treeOf(config.states);
+
+  refuse(
+    inDeclarationOrder(keys, [
+      ...malformed,
+      ...definitionFindings(
+        {
+          id: config.id,
+          events: config.events,
+          internalEvents: internal,
+          memory,
+          context,
+          schedules,
+        },
+        tree.findings,
+        operations,
+        keys,
+      ),
+      ...Object.entries(context).flatMap(([name, slot]) =>
+        Result.match(slotReadsOf(name, slot), { onFailure: (f) => f, onSuccess: () => [] }),
+      ),
+    ]),
+  );
+
+  const handles = Object.fromEntries(
+    Object.entries(operations).map(([name, bound]) => [
+      name,
+      bound.kind === "write"
+        ? writeHandle(name, internalsOf<BoundInternals>("bound", bound).textOfKey, owner)
+        : readHandle(name, owner),
+    ]),
+  );
+
+  const leaves = tree.nodes.filter((n) => n.children.length === 0).map((n) => n.path);
+
+  const envelopes = Object.entries(config.events).map(([tag, fields]) =>
+    Schema.Struct({ ...fieldsOf(fields), _tag: Schema.Literal(tag) }),
+  );
+
+  const inputs = Object.fromEntries(
+    Object.entries(memory).flatMap(([name, raw]) => {
+      const field = unwrapPrivate(raw);
+
+      return isInput(field) ? [[name, field.schema]] : [];
+    }),
+  );
+
+  const declaration = frozen({
+    states: config.states,
+    events: config.events,
+    internalEvents: internal,
+    memory,
+    context,
+    operations,
+    schedules,
+  } satisfies Declaration);
+
+  const { S, tokens, histories } = tokenTree(tree.nodes, tree.top, origin);
+
+  const face = {
+    id: config.id,
+    persist: config.persist ?? false,
+    M: Object.fromEntries(
+      Object.entries(memory).flatMap(([name, field]) =>
+        isPrivate(field)
+          ? []
+          : [
+              [
+                name,
+                made("memory", owner, {}, {
+                  path: name,
+                  reader: {
+                    ...origin,
+                    schema: schemaOfField(field),
+                    read: { kind: "memory", field: name },
+                  },
+                } satisfies TokenInternals),
+              ],
+            ],
+      ),
+    ),
+    state: made("stateName", owner, { schema: Schema.Literals(leaves) }, {
+      path: "",
+      reader: { ...origin, schema: Schema.Literals(leaves), read: { kind: "stateName" } },
+    } satisfies TokenInternals),
+    S,
+    E,
+    O: handles,
+    Event: Schema.Union(envelopes),
+    State: Schema.Literals(leaves),
+    Input: Schema.Struct(inputs),
+    Memory: Schema.Struct(
+      Object.fromEntries(Object.entries(memory).map(([k, f]) => [k, schemaOfField(f)])),
+    ),
+    Snapshot: Schema.Struct({
+      state: Schema.Literals(leaves),
+      memory: Schema.Struct(
+        Object.fromEntries(
+          Object.entries(memory).flatMap(([k, f]) => (isPrivate(f) ? [] : [[k, schemaOfField(f)]])),
+        ),
+      ),
+    }),
+  };
+
+  return made("definition", owner, face, {
+    declaration,
+    tree: { nodes: tree.nodes, top: tree.top },
+    tokens,
+    histories,
+  } satisfies DefinitionInternals);
+});
+
+/**
+ * What every definition has, whatever its literal types: what `machine` and the Runtime read.
+ */
+export type AnyDefinition = Branded<"definition"> & {
+  readonly [Declared]: Declaration;
+  readonly id: string;
+  readonly persist: boolean;
+  readonly S: Values;
+  readonly E: Values;
+  readonly O: Values;
+};
+
+/**
+ * A compiled machine: its definition; its Compiled, which holds the body's callbacks, is kept for
+ * the core off its face.
+ */
+export type Machine<D extends AnyDefinition = AnyDefinition> = Branded<"machine"> & {
+  readonly definition: D;
+};
+
+/**
+ * A shared actor's name: its machine and either the literal name of a machine with no input, or
+ * the value that carries a machine's input fields.
+ */
+export type ActorRef<D extends AnyDefinition = AnyDefinition> = Branded<"ref"> & {
+  readonly machine: Machine<D>;
+  // FLOW_STATE_ALLOW_UNKNOWN: a value ref's value is the caller's, checked at the boundary that uses it.
+  readonly value: unknown;
+  readonly context: Readonly<Record<string, ActorRef>>;
+};

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `HashSet` API](https://www.effect.website/docs/v4/api/effect/HashSet). Examples assume `import { HashSet } from "effect"`.
 
+`HashSet` provides immutable hash sets for membership, insertion, removal, combination, and traversal of unique values.
+
 ## API index
 
 1. [HashSet.HashSet](#hashsethashset)

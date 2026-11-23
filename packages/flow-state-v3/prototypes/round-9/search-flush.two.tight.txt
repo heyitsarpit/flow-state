@@ -1,0 +1,23 @@
+{
+ "search": "flush.two.tight",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  13,
+  99,
+  653,
+  3910
+ ],
+ "states": 16206,
+ "edges": 44691,
+ "steps": 428599,
+ "depthCompleted": 4,
+ "classes": {},
+ "ms": 40001,
+ "peakRssMb": 198,
+ "unpinned": [],
+ "lanesAhead": 7,
+ "lanesAheadWitness": "NoteBad Go ack KILL => A [\"charge|{}\"]"
+}
+
+WATCH peak 189 MB, 40.1 s, exit 0, killed no

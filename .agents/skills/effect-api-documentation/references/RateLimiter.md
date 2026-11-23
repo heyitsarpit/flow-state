@@ -3,6 +3,8 @@
 **Unstable API.** Import this module from `effect/unstable/persistence/RateLimiter`.
 The [official v4 API reference](https://www.effect.website/docs/v4/api/effect/unstable/persistence/RateLimiter) is useful for orientation, but the local pinned source is authoritative when it differs. The local checkout currently identifies the package as `effect@4.0.0-beta.98`.
 
+`RateLimiter` controls admission to effectful work with fixed-window or token-bucket policies, either failing or delaying callers when capacity is exhausted.
+
 ## API index
 
 1. [makeWithRateLimiter](#makewithratelimiter)

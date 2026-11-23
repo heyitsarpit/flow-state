@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Context` API](https://www.effect.website/docs/v4/api/effect/Context). Examples import modules as needed.
 
+`Context` is the typed environment map used to define service keys and retrieve the capabilities an Effect program requires.
+
 ## API index
 
 ### Type-level concepts
@@ -401,3 +403,7 @@ const services = Context.empty().pipe(
     context.pipe(Context.add(Port, 8080), Context.add(Host, "localhost")))
 )
 ```
+
+### Changes since 4.0.5
+
+- `makeUnsafe(map, options?: { maxDepth?: number })` ([Context.d.ts:577](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Context.d.ts:577)); `pick` keeps `maxDepth` (4.1.0).

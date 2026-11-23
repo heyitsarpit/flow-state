@@ -1,0 +1,1121 @@
+phase P5
+title Features
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** the features that follow the preview, each with its Spec written first: streams, the entity store,
+    multi-tab and sessions, lazy features, the host adapters, inspection, the rest of Stories, the CLI's outputs for
+    people, and the React and Next.js bindings.
+
+    **Starts when:** every P4 Task is done except @task.V3.T92 and @task.V3.T56, which stay open in P4 until the
+    trust-boundaries consult (the user, 2026-11-19, Amendment); P4's audit runs when they close. This card and its Tasks
+    are rewritten with skill:to-epic and skill:to-task when the phase starts; until then they hold only the order, the
+    Plan links and the blockers.
+
+    **Order:** @task.V3.T98, @task.V3.T114, @task.V3.T106, @task.V3.T25, @task.V3.T24, @task.V3.T48, @task.V3.T115,
+    @task.V3.T28, @task.V3.T27, @task.V3.T49, @task.V3.T29, @task.V3.T30, @task.V3.T116, @task.V3.T108, @task.V3.T31:
+    the fixture catalog's steps 11 to 18 (T108, split from T30, waits on its proposal), with T31 last since it ends on
+    the user's acceptance (re-plan section 8, the user, 2026-11-18). T98 (construction trust, kept in P9 because wk has
+    no move) comes first: every feature builds on constructed values. Streams come before the entity store, and lazy
+    features (T48) before server data (T115); re-planned by the breakdown review, the orchestrator, 2026-11-20. A
+    `blocked_by` link is a real dependency only; where several Tasks are ready, take the earliest in this order.
+
+    **Verified by:** per feature, Story tests, run rules and compile-time tests written from its Spec, with a planted
+    fault for each new rule; skill:check-runtime where users touch it; skill:check-task per Task.
+
+    **One iteration:** the next ready Task: its feature Spec, its requirements as failing checks, the code, an
+    independent skill:check-task.
+
+    **Exit criteria:** every Task is done; each feature's Requirements hold on production; the suite's coverage record
+    (the one @task.V3.T67 starts) is updated and an audit by a lead that did not build the suite has passed; the
+    completion audit names each Plan outcome these Tasks satisfy and finds it delivered; the user has accepted the
+    CLI's outputs.
+
+    **False pass:** a feature that passes tests whose fakes stand in for its boundary.
+
+    **Caught by:** skill:check-runtime on the real interface.
+
+    **Gates:** `nub run faults`, which rejects the dead core and the named faults in
+    code:packages/flow-state-v3/tests/faults.ts; `nub run verify`.
+
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
+
+    **Stops:**
+
+    - the user's acceptance of the CLI's outputs (@task.V3.T31);
+    - public entry-point names, new concepts or a large public API change.
+
+    **User's read:** each feature Spec; small public API calls.
+
+    **Draws from:**
+
+    - skill:playbook-specify when a feature's contract is missing; skill:to-spec and skill:to-design;
+    - skill:policy-verification and skill:policy-testing; skill:execute-task and skill:check-task;
+    - skill:check-runtime; skill:review; skill:interview for the CLI outputs round.
+
+    The earlier text of each Task, written for the conformance suite, is in `wiki/tasks/V3/` at commit `6b9fe478`.
+comment 2026-11-20T13:02:20Z
+    Breakdown review (orchestrator, 2026-11-20, R48): T98 stays in P9 (wk has no move) and is first in this Order; new
+    Tasks T114, T115 and T116; T25 before T24; catalog steps 11 and 12 swapped (streams, then the entity store).
+comment 2026-11-21T18:31:25Z
+    [proposed] Order after the algorithm designs (@proposal.algo-resolutions section 6): T132, T114, T106, T25, T125,
+    T48, T115, T126, then the existing order.
+tasks
+    T25
+        title       Streams
+        status      draft
+        priority    high
+
+        blocked_by  [@task.V3.T21, @task.V3.T92, @task.V3.T56, @task.V3.T98]
+        satisfies   [@plan.Operations.O1, @plan.Operations.O4, @plan.Persistence.O4, @plan.Runtime.O6]
+        description
+            Write the streams Spec, then build streams on production with a real EventSource path. Adds `Fake.stream` on
+            `Fake.server`; a Story shows `UnplacedStream`.
+
+            Stream sessions use @task.V3.T21's release-within-the-bound rule and `ReleaseOverdue`, not a second copy.
+
+            **Read first:** @plan.Operations.O4.
+        acceptance
+            - The streams Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
+              that uses a stream.
+            - Fixtures first (@convention.fixtures): step 11 of @convention.fixture-catalog: `sync`, `transfers`,
+              `player`, `home`, `kanban`, `chat`, `draft` gain the features, scenarios and sources of their rows; each
+              scenario red before the build, and the step's cells marked used at the close.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (@convention.fixture-catalog), each with a usual and a stress Story.
+        comment     2026-11-17T16:26:53Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. Streams: feed delivery per item, latest partition writes, catch-up with
+            N items.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): feeds restoring their baseline or bookmark (@plan.Persistence.O4) and
+            stream sessions released within the bound with ReleaseOverdue (@plan.Runtime.O6); links added.
+            See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:11Z
+            Breakdown review (orchestrator, 2026-11-20, R48): ordered before T24 (T24's listen(stream) reads this Task's
+            state); blocked_by adds T92, T56 and T98.
+        comment     2026-11-21T18:31:24Z
+            [proposed] Streams and bookmarks have no algorithm design; this Task runs skill:to-design before its Spec
+            (@proposal.algo-resolutions section 4).
+        comment     2026-11-23T04:21:27Z
+            [decided: agent orchestrator 2026-11-23] Owns subscribe.each placements only (@plan.Operations.O6,
+            @plan.Machines activities); .each needs @task.V3.T110. Plain O.x.subscribe placements stay with
+            @task.V3.T123 (its acceptance builds placements; corrected the same day). Why: production has no subscribe
+            or stream yet. Reverse: move to T21 once streams exist.
+    T24
+        title       Entity store
+        status      draft
+        priority    high
+
+        blocked_by  [@task.V3.T21, @T25, @task.V3.T92, @task.V3.T56, @task.V3.T98]
+        satisfies   [
+                    @plan.EntityDomains.O1,
+                    @plan.EntityDomains.O2,
+                    @plan.EntityDomains.O3,
+                    @plan.EntityDomains.O5,
+                    @plan.Persistence.O6
+                    ]
+        description
+            Write the entities Spec, then build the entity store on production from @plan.EntityDomains.
+
+            **Read first:** @plan.EntityDomains.O1, @plan.EntityDomains.O2.
+        acceptance
+            - The entities Spec's Requirements hold on production, shown by Story tests and run rules, with a fixture
+              that uses an entity domain.
+            - Exposes the per-field version comparator @task.V3.T115's merge table reads (a value, not shared state).
+            - Fixtures first (@convention.fixtures): step 12of @convention.fixture-catalog: `transfers`, `kanban`,
+              `chat` gain the features, scenarios and sources of their rows; each scenario red before the build, and the
+              step's cells marked used at the close.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (@convention.fixture-catalog), each with a usual and a stress Story.
+        comment     2026-11-17T16:26:53Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. Entity store: repair cost against records and active answers, record
+            queue depth as a scale series.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): @plan.Persistence.O6's basedOn per record and predicted keys, both
+            unbuilt; the satisfies link is added. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:10Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T25 (its listen(stream) reads T25's
+            state), T92, T56 and T98. Not applied: splitting this Task into confirmed records and the prediction
+            overlay; the lead's state inventory at P5's own R48 review decides.
+        comment     2026-11-21T18:31:17Z
+            Split by state per @proposal.spec-handover (Task changes): @task.V3.T125 confirmed records, @task.V3.T126
+            claims. [proposed] This Task stays as their close-out. Map: @proposal.algo-resolutions section 6.
+    T27
+        title       Multi-tab
+        status      draft
+        priority    medium
+        parent      [@T139]
+        blocked_by  [@T28, @task.V3.T112]
+        satisfies   [@plan.Persistence.O7]
+        description
+            Build scope ownership across tabs: the real host Web Lock (@spec.Host.R7), `pageshow`, and two-tab Stories.
+            The tab world (`openTab`, `closeTab`), death and the fake `navigator.locks` are @task.V3.T112's.
+
+            **Read first:** @plan.Persistence.O7, @plan.Runtime.O7; @spec.Host.R7, @spec.Host.I11, @spec.Host.I12 (open
+            @spec.Host.Q3; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `onHidden` in `platform/browser.ts` is kept and `pageshow` is added (Host companion,
+            section 4).
+        acceptance
+            - @spec.Host.R7 holds on production, shown by Stories with two tabs.
+            - Fixtures first (@convention.fixtures): step 14 of @convention.fixture-catalog: `pay`, `session`, `draft`
+              gain the features, scenarios and sources of their rows; each scenario red before the build, and the step's
+              cells marked used at the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host.R7,
+              @spec.Host.I11, @spec.Host.I12; the Invariants its tests check after every step are @spec.Host.I11 and
+              @spec.Host.I12 (tests T1, T2, T7–T9).
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (@convention.fixture-catalog), each with a usual and a stress Story.
+        comment     2026-11-17T16:26:54Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. Multi-tab: ownership handoff and write contention across two real tabs
+            (with P8's browser suite).
+        comment     2026-11-20T04:04:06Z
+            Moved from @task.V3.T58 (orchestrator, 2026-11-20, small amendment for the user's read): Safari D4, the Web
+            Lock released on bfcache (packages/flow-state-v3/prototypes/safari/RESULTS.md), is lock ownership, so it is
+            checked here, not by T58's adapter.
+        comment     2026-11-21T19:26:59Z
+            Contradiction resolved: description builds the real Web Lock (@spec.Host.R7), pageshow and two-tab Stories;
+            the tab world (`openTab`, `closeTab`), death and locks fake are @task.V3.T112's, now a blocker.
+    T48
+        title       Lazy features
+        status      draft
+        priority    medium
+
+        parent      [@T138]
+        blocked_by  [@task.V3.T109, @task.V3.T92, @task.V3.T56, @task.V3.T98]
+        satisfies   [
+                    @plan.LazyFeatures.O1,
+                    @plan.LazyFeatures.O2,
+                    @plan.LazyFeatures.O3,
+                    @plan.LazyFeatures.O4,
+                    @plan.LazyFeatures.O5,
+                    @plan.Persistence.O4,
+                    @plan.Runtime.O5
+                    ]
+        description
+            Write the lazy-features Spec, then build lazy app entries on production from @plan.LazyFeatures.
+
+            **Read first:** @plan.LazyFeatures.O1; @spec.Records.R9, @spec.Records.R13, @spec.Records.R17,
+            @spec.Records.I14, @spec.Records.I16 (code:wiki/specs/v3/Records.md); @spec.Changes.R26, @spec.Changes.I14
+            (open @spec.Changes.Q7; code:wiki/specs/v3/Changes.md).
+
+            **Build-time choice (adoption of a lazy fragment, @spec.Changes.Q7):** adoption is a fact `reconcile` reads
+            that no `Turn` writes. A: a tenth `Change`, `Adopt { address }`, through `apply` row C1 to C7, whose
+            reconcile can only return `Start`; one applier stays the only writer (Changes I4). B: adoption rides the
+            next `Turn` of the host as a pending flag. B adds a stored flag and a follow-up, which the Spec removed from
+            instances (its question 1); A keeps the round rule. Prefer A unless the builder finds a fact a `Change`
+            cannot carry. Test: a Story that adopts a fragment while its host is idle; under B nothing starts until the
+            host's next event, under A the copy starts at adoption and publishes once.
+
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `Dormant` and `Waits` are new (Records companion). A lazy fragment's adoption has no
+            design yet (Changes Q7, H4: it needs a tenth `Change`).
+        acceptance
+            - The lazy-features Spec's Requirements hold on production, shown by Story tests.
+            - Exposes an entry's adoption state as the value @task.V3.T115 transfers and merges.
+            - Fixtures first (@convention.fixtures): step 15 of @convention.fixture-catalog: `session`, `wizard`,
+              `kanban` gain the features, scenarios and sources of their rows; each scenario red before the build, and
+              the step's cells marked used at the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records.R9,
+              @spec.Records.R13, @spec.Records.R17, @spec.Records.I14, @spec.Records.I16, @spec.Changes.R26,
+              @spec.Changes.I14; the Invariants its tests check after every step are @spec.Records.I3,
+              @spec.Records.I11, @spec.Records.I14, @spec.Records.I16, @spec.Records.I19 (tests T1–T3, T9, T10, T13,
+              T15) and @spec.Changes.I14 (tests T11).
+        comment     2026-11-15T21:43:20Z
+            Fixture source (the user, 2026-11-16): build the fixture-catalogue shapes this feature unlocks
+            (@convention.fixture-catalog), each with a usual and a stress Story.
+        comment     2026-11-17T16:26:54Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. Lazy features: time to first use of a lazy entry, chunk bytes, a turn
+            that activates a feature.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): capture and restore never load lazy code (@plan.Persistence.O4) and
+            silent baselines at lazy adoption (@plan.Runtime.O5); links wait on a wk fix.
+            See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:11Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T92, T56 and T98; reads T56's
+            unverifiable-now outcome for dormant records; supplies the adoption state to T115 as a value.
+        comment     2026-11-23T04:02:14Z
+            Routed from slice T21's requirements and @task.V3.T124 (orchestrator, 2026-11-23): an entry already in
+            memory wins over a saved one at adoption (Operations Entry store, Install cell); its Story needs a lazy
+            entry adopted after the boot. Correction (10:48): this is this Task's adoption cell, not T124's; T124 ruled
+            it adoption, since install runs only at boot before any actor can hold an entry. T124 does not build it.
+    T28
+        title       Host adapters: IndexedDB and in-memory
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T58]
+        satisfies   [@plan.Persistence.O1, @plan.Persistence.O3, @plan.Inspection.O2, @plan.Persistence.O6]
+        description
+            Complete `layerIndexedDb` from @task.V3.T58's minimal adapter (which already meets Safari's D1 to D3 in
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`; D4 is @task.V3.T27's): the `database` option, the
+            rest of @plan.Persistence.O1 and @plan.Persistence.O3. Extract the Story's in-memory store as `layerMemory`,
+            the production in-memory store, which `Fake.storage` then wraps with its hold, refuse and release controls.
+            `layerMemory` and the `Store` port are this Task's contract with @task.V3.T112. It also owns the session
+            boot queue (routed from @task.V3.T20): sends before `ready` are queued and delivered in order; @task.V3.T115
+            reads `ready`.
+
+            **Read first:** @plan.Persistence.O1, @task.V3.T58, @plan.Package.O1, and
+            `packages/flow-state-v3/prototypes/safari/RESULTS.md`; @spec.Records.R20, @spec.Records.I3, @spec.Records.I5
+            (code:wiki/specs/v3/Records.md); @spec.Operations.R1, @spec.Operations.I16
+            (code:wiki/specs/v3/Operations.md); @spec.Host.R5, @spec.Host.R6, @spec.Host.I8, @spec.Host.I9 (row
+            `platform/memory.ts`; code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** the in-memory store inside code:packages/flow-state-v3/src/host/testing/fake.ts#makeStore,
+            once @task.V3.T112 rewires the fake to wrap `platform/memory.ts` (Host companion, section 4). Do not delete
+            it before its replacement lands and the suite passes.
+        acceptance
+            - Both adapters pass the store contract test of @task.V3.T58, the IndexedDB one in real Chrome and Safari,
+              which meets Safari's D1 to D3 (D4 is @task.V3.T27's).
+            - The session boot-queue catalog item holds: sends before ready are queued and delivered in order.
+            - Fixtures first (@convention.fixtures): step 13 of @convention.fixture-catalog: `pay`, `draft` gain the
+              features, scenarios and sources of their rows; each scenario red before the build, and the step's cells
+              marked used at the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records.R20,
+              @spec.Records.I3, @spec.Records.I5, @spec.Operations.R1, @spec.Operations.I16, @spec.Host.R5,
+              @spec.Host.R6, @spec.Host.I8, @spec.Host.I9; the Invariants its tests check after every step are
+              @spec.Records.I3 and @spec.Records.I5 (tests T1–T3, T5), @spec.Operations.I16 (tests T4, T5),
+              @spec.Host.I8 to @spec.Host.I11, @spec.Host.I19, @spec.Host.I20 (tests T1, T2, T4, T5, T7–T9).
+        comment     2026-11-17T16:26:54Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. Host adapters: IndexedDB write latency and flush on hide in real
+            browsers; each persist row names its store.
+        comment     2026-11-18T05:36:53Z
+            Routed from @task.V3.T20 (2026-11-18): session's boot-queue catalog item; nothing can be sent before ready
+            today, so it waits for the host adapters.
+        comment     2026-11-18T19:39:02Z
+            Owes (proposed, P3 close fix round): strict UTF-8 and byte arrays callers cannot mutate
+            (@plan.Inspection.O2); a direct test that the adapter waits for the acknowledgement, no silent downgrade on
+            transient storage failure, Attempt ids never reused across Runtimes (@plan.Persistence.O6).
+            See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:10Z
+            Breakdown review (orchestrator, 2026-11-20, R48): description and acceptance cite Safari D1 to D3 only (D4
+            moved to T27); layerMemory and the Store port are its contract with T112. It keeps the session boot queue
+            (sends before ready queued, in order; briefly moved to T115 and returned); T115 reads ready.
+    T49
+        title       Inspection and the flow-state/inspect route
+        status      draft
+        priority    medium
+
+        blocked_by  [@task.V3.T21, @T24, @T25, @T27, @T48]
+        satisfies   [
+                    @plan.Inspection.O1,
+                    @plan.Inspection.O3,
+                    @plan.Inspection.O4,
+                    @plan.Inspection.O5,
+                    @plan.Inspection.O6,
+                    @plan.Inspection.O2
+                    ]
+        description
+            Write the inspection Spec, then build the rest of @plan.Inspection: `inspect(app)`, `trace.export` and
+            `trace.import`, and export the `flow-state/inspect` route through the map @task.V3.T23 added. P2 built its
+            first slice: the runtime cut; the text trace is @task.V3.T65's.
+
+            **Read first:** @plan.Inspection.O1, @plan.Inspection.O4, @plan.Inspection.O6, @plan.Machines.O2,
+            @plan.Machines.O5, @convention.view-commands, code:packages/flow-state-v3/src/host/inspect.ts,
+            `packages/flow-state-v3/src/host/trace.ts` (@task.V3.T65 builds it); @spec.Host.R2, @spec.Host.I6 (row
+            `host/inspect.ts`; code:wiki/specs/v3/Host.md); @spec.Operations.R8,
+            @spec.Operations.I11 (code:wiki/specs/v3/Operations.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `host/inspect.ts` changes in place (the version, `releasing` with ages).
+        acceptance
+            - The inspection Spec's Requirements hold on production, and the route is exported.
+            - The Model lists props and emits Schemas and fragment emits; the event kinds add `emit`, and schedule
+              events show arm, fire, restart, pause, resume and disarm (@plan.Inspection.O1,
+              @plan.Inspection.O4, @plan.Inspection.O6).
+            - Fixtures first (@convention.fixtures): step 16 of @convention.fixture-catalog: `pay`, `transfers`,
+              `sign-in`, `home`, `chat` gain the features, scenarios and sources of their rows; each scenario red before
+              the build, and the step's cells marked used at the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host.R2,
+              @spec.Host.I6, @spec.Operations.R8, @spec.Operations.I11; the Invariants its tests check after every step
+              are @spec.Host.I2, @spec.Host.I3, @spec.Host.I6 (tests T1, T6, T8), @spec.Operations.I4,
+              @spec.Operations.I11, @spec.Operations.I22 (tests T1, T2, T4, T5).
+        comment     2026-11-15T18:27:26Z
+            Routed from T65's review: the rest of @plan.Inspection.O4's Trace (header fields, checkpoints inside the
+            Trace, a Runtime-wide sequence) and one render taking a model or a trace.
+        comment     2026-11-18T19:39:04Z
+            Owes (proposed, P3 close fix round): trace artifacts and Model bytes through the one codec, and codec
+            failures as FlowError CodecMalformed or CodecSchemaMismatch (@plan.Inspection.O2; link waits on a wk fix).
+            See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:02:12Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T24, T25, T27 and T48.
+        comment     2026-11-21T18:31:25Z
+            [proposed] Redaction and digests have no algorithm design; this Task runs skill:to-design before its Spec
+            and reuses project with Flow.private dropped (@proposal.algo-resolutions section 4).
+        comment     2026-11-22T12:44:17Z
+            Routed (orchestrator) from T143's close review: src/host/inspect.ts re-exports rebuilt (reruns a body
+            outside the machine door) beside InternalsId, compiledOf and dataView; this Task exports the
+            flow-state/inspect route, so move test and bench reach off it first. (First routed to T23 by mistake.)
+    T29
+        title       The rest of Story and Fake, and `story describe`
+        status      draft
+        priority    medium
+        blocked_by  [@T49, @task.V3.T23, @task.V3.T69, @task.V3.T70]
+        satisfies   [
+                    @plan.CommandLine.O1,
+                    @plan.CommandLine.O2,
+                    @plan.CommandLine.O4,
+                    @plan.EntityDomains.O4,
+                    @plan.Testing.O1,
+                    @plan.Testing.O2,
+                    @plan.Testing.O3,
+                    @plan.Testing.O4
+                    ]
+        description
+            Extend the first slice (@task.V3.T63 to @task.V3.T70) that Flow's own tests run on: frames, `together`,
+            StoryFrame rendering, `domainPropertyOptions`, `story describe`, `--coverage`, `--trace-output` and `trace
+            --at` (@plan.CommandLine.O2); and export `flow-state/testing` through the map @task.V3.T23 added. Moved out
+            (breakdown review, the orchestrator, 2026-11-20): `Story.machine` to @task.V3.T76, `Story.fragment` to
+            @task.V3.T109, the Fake world items to @task.V3.T112, FlowError's evidence field to @task.V3.T100, the run
+            verdict (`PropertyTestFailed`, end-of-run cleanup, `UnusedWireRule`) and the CLI exit table, `story run`'s
+            exit code for a rejected run included, to @task.V3.T114. Tab steps move to @task.V3.T112; hydration to
+            @task.V3.T115, `StoryPlayer` and `definePresentation` to @task.V3.T108. It is blocked by @task.V3.T49
+            because `trace --at` and `--trace-output` call T49's `Trace` value.
+
+            `Story.machine` and its `props(values)` step land first in @task.V3.T76; this Task extends them.
+
+            **Read first:** @plan.Testing.O1, @plan.Testing.O2, @plan.Pending.D5 to @plan.Pending.D10 (the names the
+            first slice added), @spec.Stories, @plan.Machines.O5, @plan.Machines.O7, @convention.where-a-value-lives,
+            @task.V3.T63, @task.V3.T69, @task.V3.T70; @spec.Host.R9, @spec.Host.R13, @spec.Host.I22,
+            @spec.Host.I23 (code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; the run verdict and CLI exit table belong to @task.V3.T114.
+        acceptance
+            - Every outcome this Task satisfies holds on production, and the `flow-state/testing` route is exported.
+            - `advance({ next })` skips paused timers (`NoDeadline` when every match is paused); `advance(d)` and
+              `advance({ to })` never fire a paused timer (@plan.Testing.O2).
+            - Fixtures first (@convention.fixtures): step 17 of @convention.fixture-catalog: every fixture run with no
+              new feature, as the step says; each scenario red before the build, and the step's cells marked used at
+              the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host.R9,
+              @spec.Host.R13, @spec.Host.I22, @spec.Host.I23; the Invariants its tests check after every step are
+              @spec.Host.I17, @spec.Host.I22, @spec.Host.I23.
+        comment     2026-11-16T06:19:55Z
+            Routed items: (1) Export Trace, TraceEvent and TraceRecord with StoryRun; the trace's page stands in for the
+            Plan's tab (the user's name). (2) A usage error prints help on stdout, against @plan.CommandLine.O3; the
+            rejected-run path has no test. (3) Generated runs draw an answer only for an endpoint's first call per step;
+            mixes are checked on the generator's tally; a turn limit counts as a breach, not Inconclusive; quiet horizon
+            is 2 minutes, not 60 s. (4) Pair sweep takes phases from the app's own report; places.ts matches actor keys
+            by prefix; some rule tests are one-sided; Stories I7's crossing-batch test. (5) Stories T5 names a reason
+            Advance that R6 and the runner lack (proposed). (6) tools/stress/select.test.ts claims no default file runs
+            stress material, yet tests/cli/cli.test.ts and tests/stories/story.test.ts each run a stress Story once.
+        comment     2026-11-16T13:52:45Z
+            Routed from the Plan-examples review: Stories R12 limits cut reads to read(ref) and friends, while Testing
+            O4 and the Plan examples read a machine Story's checkpoints[name].memory and .schedules; widen R12 for
+            Story.machine when building it.
+        comment     2026-11-16T15:05:02Z
+            Decided by the orchestrator (user-delegated, 2026-11-16): add Story.app([setupA, setupB], { fixtures }) so a
+            failing app mix prints as pasteable Story code.
+        comment     2026-11-17T16:26:54Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. Server rendering where it is built: dehydrate with N actors and settled
+            reads, payload bytes, merge-on-hydrate time.
+        comment     2026-11-18T03:09:18Z
+            Routed from @task.V3.T83 (2026-11-18): the identity grace test (Actors R6) needs a Story step that advances
+            a local actor's grace on TestClock; it stays skipped until then.
+        comment     2026-11-18T10:48:49Z
+            Routed from @task.V3.T81 (2026-11-18): null and non-object payloads can't enter step samples, because a
+            refused send fails a Story; a Story word for an expected refusal would let generated runs carry them.
+        comment     2026-11-18T19:14:16Z
+            Routed from P3's suite audit (medium; harness, each verified): a reload variant that skips drops the
+            breaches it recorded first (tests/rules/sweep.ts:166); skipBound counts window positions instead of checking
+            skips fall inside them (sweep.ts:143); fake servers ignore idempotency keys (shop.ts:51, sign-in auth.ts,
+            player speaker.ts), so a dropped key passes; quieting ignores machine timers (generate.ts:347), so long
+            timers end runs 'quiet'; disposeRuntime discards its Exit (run.ts:504). Missed: no planted fault targets the
+            harness itself for these.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): FlowError's evidence field (@plan.Diagnostics.O1; link waits on a wk
+            fix); review items A18 (finding 13), A22, A23, A31, A44, A45, A46, A59, A105, test-tooling and Fake
+            leftovers. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-18T20:40:33Z
+            Routed (P3 compaction, 2026-11-19): a Fake.server control call overwrites an earlier one; decide queue or
+            refuse, test-first.
+        comment     2026-11-19T19:10:43Z
+            Routed (orchestrator, 2026-11-20): @plan.Pending.D7 is partly built (Fake.call and Fake.control exist, no
+            Fake.http transport binding); finish it here, then D7 merges into Testing.plan.
+        comment     2026-11-20T13:02:09Z
+            Breakdown review (orchestrator, 2026-11-20, R48): routed items above that name Story.machine (T76),
+            Story.fragment (T109), the Fake world (T112), FlowError's evidence field (T100), the run verdict (T114) or
+            hydration (T115) go with them; the 2026-11-18T19:14 harness items moved to T97.
+        comment     2026-11-21T19:26:59Z
+            Contradiction resolved: story run's exit code for a rejected run moved to @task.V3.T114 (CLI exit table,
+            @spec.Host.R13) and tab steps to @task.V3.T112 (not T27), per @spec.Host.
+        comment     2026-11-21T22:34:33Z
+            [decided: agent requirements lead 2026-11-22] No outcome change. The "wrong subject kind for a Story
+            constructor" test covers `runRules` being required on all three constructors; `tests/rules/sweep.ts` run
+            rules are unaffected (@proposal.external-rules). Why: the rename touches no outcome. Reverse: none.
+
+    T31
+        title       CLI outputs designed for people
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T22, @T29, @T49, @T106]
+        satisfies   [@plan.CommandLine.O1]
+        description
+            Design the CLI's outputs for people: source locations, a trace that reads like a story, a graph grouped by
+            state, and messages from the issue catalog. Mocks first, then the user's one acceptance round.
+
+            **Read first:** @plan.CommandLine.O3, skill:interview; @spec.Types.R4, @spec.Types.R5
+            (code:wiki/specs/v3/Types.md); @spec.Host.R13 (code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `flow trace` printing the verdict is @task.V3.T114's, and the CLI's `Loading` row is
+            Types' (companion, section 5).
+
+            Stops: the user's acceptance of the outputs.
+        acceptance
+            The user has accepted each output, and each has a test that states it by hand.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types.R4,
+              @spec.Types.R5, @spec.Host.R13; the Invariants its tests check after every step are @spec.Types.I6,
+              @spec.Types.I9 (tests T4, T6, T8, T9) and @spec.Host.I22.
+        comment     2026-11-15T14:33:25Z
+            People outputs are @plan.CommandLine.O1; O3's JSON and exit codes are @task.V3.T22's.
+        comment     2026-11-20T13:02:15Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T22, T49 and T106 (people outputs read
+            their state).
+    T30
+        title       React and Next.js bindings
+        status      draft
+        priority    high
+        parent      [@T139]
+
+        blocked_by  [@task.V3.T58, @task.V3.T76, @task.V3.T77, @task.V3.T98, @task.V3.T111]
+        satisfies   [
+                    @plan.React.O1,
+                    @plan.React.O2,
+                    @plan.React.O3,
+                    @plan.React.O4,
+                    @plan.React.O5,
+                    @plan.ServerRendering.O4
+                    ]
+        description
+            Build the React side @task.V3.T111's binding leaves open, from @plan.React: channels, the hydrate overlay,
+            emit delivery in React (`useOnEmit`, @spec.Host.R3), props and eligibility, with the first server render
+            (@plan.ServerRendering.O4). Publication and the binding itself (Provider, hooks, attach, grace) are
+            @task.V3.T111's (@spec.Host). `StoryPlayer` and `definePresentation` moved to @task.V3.T108; server data
+            (dehydrate, hydrate, the merge table, the Story `hydrate` step) to @task.V3.T115; the Next.js host proofs
+            to @task.V3.T116.
+
+            **Read first:** @plan.React.O1, @plan.React.O2, @plan.React.O3, @plan.ServerRendering.O4, @plan.Machines.O2,
+            @convention.view-commands, @convention.controlled-values; @spec.Host.R2, @spec.Host.R3, @spec.Host.I3,
+            @spec.Host.I4 (code:wiki/specs/v3/Host.md); @spec.Changes.R19,
+            @spec.Changes.R20 (code:wiki/specs/v3/Changes.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `src/host/emits.ts` is new (Host companion, section 4).
+        acceptance
+            - The binding's Requirements hold, shown in real Chrome and Safari; the first server render
+              matches (@plan.ServerRendering.O4).
+            - `useActor(machine, { input, props })` shows this render's props before attach and queues a changed value
+              from a layout effect, in FIFO order with sends; a `props` option on `useActorByRef` is a type error.
+            - `useOnEmit` delivers an actor's emits after the commit of the first render at or after their turn, in
+              order, never from a discarded render; a fragment's emits come under its instance name and an .each
+              copy's key.
+            - Server rendering delivers no emit.
+            - Fixtures first (@convention.fixtures): step 18 of @convention.fixture-catalog: `pay`, `sign-in`,
+              `session`, `command-palette`, `number-input`, `search`, `kanban`, `chat` gain the features, scenarios and
+              sources of their rows; each scenario red before the build, and the step's cells marked used at the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host.R2,
+              @spec.Host.R3, @spec.Host.R15, @spec.Host.I3, @spec.Host.I4, @spec.Host.I24, @spec.Changes.R19,
+              @spec.Changes.R20; the Invariants its tests check after every step are @spec.Host.I2 to @spec.Host.I4,
+              @spec.Host.I6, @spec.Host.I24 (tests T1, T6, T8), @spec.Changes.I5, @spec.Changes.I14, @spec.Changes.I16.
+        comment     2026-11-17T16:26:53Z
+            Bench owed with this feature (T87's bench review, 2026-11-17): declare its benches in the concern tool T87
+            builds and record them at the close. React: selector evaluations and re-renders per turn, subscriber fan-out
+            at 1, 100 and 10k useView on one actor; frame time is P8's.
+        comment     2026-11-18T19:39:03Z
+            Owes (proposed, P3 close fix round): SSR payloads through the one codec (@plan.Inspection.O2) and silent
+            baselines at hydration (@plan.Runtime.O5); links wait on a wk fix. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-19T21:28:06Z
+            Presentation is blocked on a proposal (the user, 2026-11-20): the StoryPlayer and definePresentation part of
+            this Task cannot proceed until @proposal.react-instrumentation-bippy (bippy instrumentation, overlay
+            features, controls, themes) is accepted or rejected. The React and Next.js bindings may proceed.
+        comment     2026-11-19T21:32:16Z
+            Split (the user, 2026-11-20): StoryPlayer and definePresentation moved to @task.V3.T108, which waits on the
+            bippy proposal; this Task is the bindings and the Story hydrate path only, and the presentation block noted
+            above no longer applies here.
+        comment     2026-11-20T13:02:10Z
+            Breakdown review (orchestrator, 2026-11-20, R48): split by state: this Task keeps the React binding
+            (Provider, hooks, attach, grace, props and emits delivery, eligibility; React O1 to O5, ServerRendering O4's
+            first render); server data went to T115 and the Next.js host proofs to T116; blocked_by adds T98.
+        comment     2026-11-21T18:46:49Z
+            Per @review.spec-cohesion-r2 question 15 (UH PD2): @task.V3.T111 builds the whole binding, and this Task
+            becomes channels and the hydrate overlay. [answered: user 2026-11-22] Emit delivery in React follows
+            @proposal.algo-host 6.3.
+        comment     2026-11-21T19:27:00Z
+            Contradiction resolved: description builds channels, the hydrate overlay, emit delivery in React, props and
+            eligibility; publication and the binding are @task.V3.T111's, per @spec.Host. blocked_by T111 added
+            2026-11-22 (crossing value: the binding this Task extends; R48 breakdown review, P4 comment).
+    T106
+        title       Rules with `.rules(build)`: invariants, turns and terminals, judged by Story tooling, with coverage
+        status      draft
+        priority    high
+        parent      [@T137]
+        blocked_by  [@task.V3.T109, @task.V3.T110, @task.V3.T98, @T114, @task.V3.T113, @task.V3.T22]
+        satisfies   [
+                    @plan.Rules.O1,
+                    @plan.Rules.O2,
+                    @plan.Rules.O3,
+                    @plan.Rules.O4,
+                    @plan.Rules.O5,
+                    @plan.Rules.O6,
+                    @plan.Rules.O7,
+                    @plan.Rules.O8
+                    ]
+        description
+            Build @plan.Rules as @proposal.external-rules settles it (the user, 2026-11-22): a chained `.rules(build)`
+            on the value `machine()`, `trait()` and `subroutine()` return gives it typed tokens
+            (`OrderMachine.rules.PaidHasReceipt`); rules are optional, and only Story tooling judges them (Stories,
+            generated runs, sweeps, `propertyTest`), never a Runtime. `flow check` proves terminals, so does Story
+            start, and rule coverage reports what no run exercised and every value with no rules. Terminals,
+            `RuleSubjectUnreachable`, `RulesBypassed` and the unknown-key refusal extend @task.V3.T22's `flow check`
+            analyzer, and a break is one more `Broken` in @task.V3.T114's run verdict.
+
+            **Why now:** an app's guarantees are hand-written checks in single Stories today (NUMBER-12's bounds
+            filter), which the generator and sweeps never judge. The earlier `rules`-in-the-body design, the Runtime
+            `rules` option and `RuleBroken` evidence are superseded by the user's 2026-11-22 decision; only Plan Q1
+            is open.
+
+            **Read first:** @plan.Rules (every outcome; its goal lists what was not adopted and why), @plan.Testing
+            (Stories, the generator, sweeps), @plan.Machines.O1 (fragments, tokens, `S.X.is`),
+            code:packages/flow-state-v3/tests/rules/rules.ts (Flow's run rules; `checked` is deleted by @task.V3.T114),
+            code:packages/flow-state-v3/tests/number-input/number-input.stress.test.ts (NUMBER-12);
+            @proposal.external-rules (the design; its API, refusals and Story cases), @spec.Types.R9, @spec.Types.I12,
+            @spec.Types.I13, @spec.Types.Q19 (code:wiki/specs/v3/Types.md); @spec.Host.R8, @spec.Host.R11,
+            @spec.Host.R12, @spec.Host.I14, @spec.Host.I15, @spec.Host.I25 (code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** the `checked` helper and the `breaches`/`breachesOf` names in
+            code:packages/flow-state-v3/tests/rules/rules.ts (Host companion: rules return `Broken`; shared with
+            @task.V3.T114, which the Spec makes the owner of the verdict and judge). Do not delete it before its
+            replacement lands and the suite passes.
+
+            **Risk:** the type surface: `Machine<D, N>` reads `N` from the keys of the builder's result alone (no body
+            capture, @spec.Types.Q19), the trait and subroutine forms and an app's tokens for placed fragments are
+            unspiked on the real package, and a body written apart from its `machine` call, typed by `Flow.BodyTokens`,
+            must still compile (@plan.Rules.O3); write the type tests first. Rules read private memory, which the public
+            snapshot hides, so `verdictOf` reads the run's internal incarnation records. Rules over `operations` depend
+            on when a row turns busy (@plan.Rules.Q1). @plan.Rules.O7 needs traits and subroutines (@task.V3.T109) and
+            the raise (@task.V3.T110, whose `hostEvents` the rules builder's `E` includes); its `Story.fragment` part
+            lands with @task.V3.T109.
+
+            **Approach:** amend the existing rule sections of @spec.Types (@spec.Types.R9, RuleTyping) and @spec.Host
+            (@spec.Host.R8, @spec.Host.R12, @spec.Host.I25) where building shows them wrong (no new Spec), then write
+            the requirements as failing checks: type tests (@plan.Rules.V1), then the construction refusals
+            (`RulesEmpty`, `RuleNameTwice`, `InvalidName`, `RulesWrongSubject`, an unknown key), the terminal proof and
+            the rule sets that @task.V3.T114's `storyCompiled` calls (T114 builds `storyCompiled`, `RulesDiffer` and
+            `RuleThrew`), the rules handed to @task.V3.T114's `verdictOf`, rule coverage, `flow check` (terminals,
+            `RuleSubjectUnreachable`, `RulesBypassed`) and the lint rules `no-bare-export` and `rules-argument`. No
+            Runtime switch, `enabled` flag or `RuleBroken` evidence is built. Rename the run rules' `breaches` and
+            `breachesOf` to `broken` and `brokenOf` in the same change. Measure the suite with rules on and off before
+            setting a budget.
+
+            **Build-time choice (rules across copies and the static proofs):** @spec.Types and @spec.Host cover the rule
+            sections; @plan.Rules fixes the behaviour, these four mechanisms are the builder's to choose and test.
+
+            1. Judging a fragment rule per placement and `.each` copy. A: `verdictOf` walks each published copy by
+               address (@spec.Changes instances) over the run's evidence and calls the rule with that copy's before and
+               after. B: the core records, per turn, the addresses whose fragment state changed, and `verdictOf` visits
+               only those. A is simpler and matches "judged on each copy separately"; B is O(changed copies), which
+               @spec.Host.R10's per-step cost rule may require. Test: a 150-copy fan-out Story with rules on; if A's
+               cost per step grows with copies past the bench budget, take B. Both must skip a copy's entry, reset
+               and exit.
+            2. The terminal proof in `flow check`. A: a pass over `Compiled` that, per listed terminal, collects every
+               handler that may fire there (ancestors, subroutine exits, `onContext`, schedules, late endings) and
+               reports each edge out as `TerminalLeft`. B: reuse @task.V3.T22's reachability graph and ask whether an
+               edge leaves the terminal's subtree. A names the handler directly (the Plan's error text needs it); B
+               shares one graph with `RuleSubjectUnreachable`. Test: the planted edges of @plan.Rules.V5 (a schedule, a
+               late ending, an ancestor handler, a subroutine exit) each give exactly one `TerminalLeft` under both; a
+               branch whose state-token guard excludes the terminal gives none (not an error).
+            3. `RuleSubjectUnreachable`: computed from the same graph as 2, over-approximating guards as passable, so it
+               is never false. If 2 picks A, build the reachable-state set once in `Compiled`'s derived fields
+               (@spec.Types `DerivedFields`) and read it here.
+            4. Rule coverage counting. A: the run counts, per rule token and placement, the judgments whose subject held
+               (state `in` and event `on`), summing copies (@plan.Rules.O5). B: count every judgment. A is the Plan's
+               "exercised"; B inflates coverage with vacuous passes. Take A; test with a rule whose `in` state is never
+               reached: it must list as unseen with that reason.
+
+            May change: `packages/flow-state-v3/src/` (a new `rules.ts`), `src/host/testing/` (the rule sets and
+            terminal proof `storyCompiled` calls; `storyCompiled` itself is @task.V3.T114's), `tests/`, `fixtures/`, the
+            lint rules; @plan.Rules only through @plan.Pending, when the build shows it wrong.
+        acceptance
+            - The rule sections of @spec.Types and @spec.Host (@spec.Types.R9, RuleTyping, @spec.Host.R8,
+              @spec.Host.R12, @spec.Host.I25) amended, each change logged in `wiki/specs/specs.log`; no new Spec.
+            - @plan.Rules.V1 to @plan.Rules.V7 pass (V6: nothing judges outside a Story); V8 passes for host Stories and
+              for `Story.fragment` (built by @task.V3.T109).
+            - Rule cost on the suite is measured with rules on and off and recorded in a comment on this Task.
+            - `nub run check`, the suite and stress pass.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Types.R9,
+              @spec.Types.I12, @spec.Types.I13, @spec.Types.Q19, @spec.Host.R8, @spec.Host.R11, @spec.Host.R12,
+              @spec.Host.I14, @spec.Host.I15, @spec.Host.I25; the Invariants its tests check after every step are
+              @spec.Types.I12, @spec.Types.I13 (tests T1, T4, T9), @spec.Host.I14, @spec.Host.I15, @spec.Host.I25 (tests
+              T1, T2, T8).
+            - Refusals and checks of @proposal.external-rules each have a test: `RuleNameTwice`, `InvalidName`,
+              `RulesEmpty`, `RulesWrongSubject`, the unknown-key refusal by construction and `flow check`,
+              `RulesBypassed`, and the lint rules `no-bare-export` and `rules-argument`.
+        comment     2026-11-20T10:16:39Z
+            Rewritten from scratch on @plan.Rules (the user, 2026-11-20); the earlier draft and its comments are in git
+            history before this change.
+        comment     2026-11-20T10:29:26Z
+            Three reviews applied to @plan.Rules (the user, 2026-11-20): lane changes judged by invariants,
+            `TerminalLeft`, private fields redacted, and expectBroken, coverage and fragment-copy rules defined.
+        comment     2026-11-20T13:02:13Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T98, T113, T22 and T114; its V8 no longer
+            waits on T29, and Story.fragment is T109's.
+        comment     2026-11-21T19:27:00Z
+            Contradiction resolved: the Spec puts the judge and verdict with @task.V3.T114 (@spec.Host.R8 to
+            @spec.Host.R14); rules are handed to T114's judge (Approach), and Read first says `checked` is deleted
+            by T114.
+        comment     2026-11-21T22:33:47Z
+            Rewritten as the build of @proposal.external-rules [decided: user 2026-11-22]: `.rules(build)`, Story-only
+            judging, no Runtime switch or `RuleBroken`. Supersedes the `rules` block in `machine()` and the setup
+            `rules` option. Why: see @plan.Rules O6. Reverse: the earlier description (git history).
+    T108
+        title       Story presentation: StoryPlayer and definePresentation
+        status      draft
+        priority    high
+        blocked_by  [@T30, @T29, @T49]
+        satisfies   [@plan.Testing.O9]
+        description
+            Build Story presentation from @plan.Testing.O9: `StoryPlayer` and `definePresentation` over the React
+            bindings @task.V3.T30 builds.
+
+            **Why now:** split from @task.V3.T30 (the user, 2026-11-20) so the bindings can proceed while presentation
+            waits on its proposal.
+
+            **Read first:** @plan.Testing.O9, @plan.Testing.O4 (`StoryFrame`), the React instrumentation design (cited
+            in this Task's comments), code:wiki/plans/flow/references/checkout/app/presentation.ts.
+
+            **Risk:** this Task cannot proceed until the bippy proposal is accepted or rejected (the user, 2026-11-20).
+            Its acceptance is rewritten from the outcome: accepted adds the overlay features, controls and themes;
+            rejected leaves @plan.Testing.O9 as written.
+        acceptance
+            - The bippy proposal is accepted or rejected by the user, and this acceptance is rewritten from the outcome
+              before any code.
+            - `StoryPlayer` plays, steps and scrubs a recorded run without executing again; playback starts no Flow
+              work; scenes reject unknown checkpoints (@plan.Testing.O9, @plan.Testing.V9), shown in real Chrome
+              and Safari.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
+        comment     2026-11-20T13:02:14Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T29 and T49.
+        comment     2026-11-21T18:31:24Z
+            [proposed] Story frames and playback have no algorithm design; this Task runs skill:to-design before its
+            Spec (@proposal.algo-resolutions section 4).
+        comment     2026-11-21T19:40:56Z
+            Source moved out of the description: @proposal.react-instrumentation-bippy (the instrumentation design).
+
+    T114
+        title       Run verdict: what fails a run
+        status      draft
+        priority    medium
+        parent      [@T137]
+
+        blocked_by  [@task.V3.T69, @task.V3.T70]
+        satisfies   [@plan.Testing.O6, @plan.Testing.O8]
+        description
+            Build what fails a run: the verdict (`verdictOf`) and its judge, `propertyTest` with `PropertyTestFailed`,
+            end-of-run cleanup with evidence, `UnusedWireRule`, and the CLI exit table (`story run`'s exit code for a
+            rejected run, from @task.V3.T29), per @spec.Host.R8 to @spec.Host.R14.
+
+            **Why now:** carved from @task.V3.T29 in the breakdown review (the orchestrator, 2026-11-20): these three
+            are the run's verdict, one state of its own, and @task.V3.T106's rule judging reads it, so it need not wait
+            for the rest of Story and Fake.
+
+            **Read first:** @plan.Testing.O6, @plan.Testing.O8, @spec.Stories, @task.V3.T63, @task.V3.T69, @task.V3.T70;
+            @spec.Host.R8 to @spec.Host.R14, @spec.Host.I13 to @spec.Host.I17, @spec.Host.I21 to
+            @spec.Host.I23 (code:wiki/specs/v3/Host.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/tests/rules/rules.ts#checked (deleted: rules return `Broken`),
+            code:packages/flow-state-v3/src/host/testing/steps.ts#StoryFailed (renamed `StoryScriptFault`),
+            code:packages/flow-state-v3/src/host/testing/generate.ts#propertyTest (runs every seed) and the exit table
+            of code:packages/flow-state-v3/src/host/cli/main.ts (Host companion, section 4). Do not delete it before its
+            replacement lands and the suite passes.
+
+            Machine rules ride the values a run holds (`.rules(build)`, @plan.Rules.O6), not `Compiled.rules`.
+            `verdictOf` judges them once over the run's evidence after the run, through `storyCompiled`, with no live
+            judge, no per-Runtime `last` map and no `RuleBroken` evidence; it reads the run's internal incarnation
+            records, since rules read private memory. Host R8 becomes "a Story that breaks a rule fails, however it was
+            run" (a plain Runtime test judges nothing). Read @proposal.external-rules section 2. This Task builds
+            `storyCompiled` (@spec.Host.I25: every Story route starts through it; two values of one id with different
+            rules are refused as `RulesDiffer`; each ruled value's terminals are proved at Story start) and `RuleThrew`
+            (I21); @task.V3.T106 supplies the rule sets and the terminal proof it calls.
+
+            May change: `src/host/testing/`, `tests/`, `fixtures/`. Evidence: this Task's comments.
+
+            False pass: a run that passes with a leaked resource or an unused wiring rule → caught by a Story that leaks
+            each and a planted fault that skips the cleanup check.
+        acceptance
+            - `PropertyTestFailed` is the verdict of a failed property run, with its evidence (@plan.Testing.O6), shown
+              by a Story test.
+            - End-of-run cleanup is checked and reported with evidence (@plan.Testing.O8); `UnusedWireRule` is reported
+              for a wiring rule no step used.
+            - No route skips the verdict, an expected break is matched, and the CLI's exit is a function of the verdict
+              (@spec.Host.R8, @spec.Host.R11, @spec.Host.R13), each shown by a Story test.
+            - `storyCompiled` refuses `RulesDiffer` and proves terminals at Story start, and a throwing rule is
+              `RuleThrew` (@spec.Host.I25, @spec.Host.I21), each shown by a Story test.
+            - Each new rule has a planted fault that `nub run faults --only` catches.
+            - `nub run check` and the suite pass.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Host.R8 to
+              @spec.Host.R14, @spec.Host.I13 to @spec.Host.I17, @spec.Host.I21 to @spec.Host.I23; the Invariants its
+              tests check after every step are @spec.Host.I13 to @spec.Host.I18, @spec.Host.I21 to @spec.Host.I23 (tests
+              T1–T3, T5, T8).
+        comment     2026-11-20T13:02:08Z
+            Breakdown review (orchestrator, 2026-11-20, R48): new Task carved from T29: Testing O6 (PropertyTestFailed),
+            O8 (end-of-run cleanup and evidence) and UnusedWireRule, the run's verdict. T106 is blocked by it, so its V8
+            no longer waits on T29.
+        comment     2026-11-21T18:31:23Z
+            [answered: user 2026-11-22] An Expect matches every break that fits it; each Expect needs one match, and
+            each break of an expected rule needs one Expect; a bare rule keeps the decided at-least-once meaning
+            (@proposal.algo-resolutions 1.6).
+        comment     2026-11-21T19:27:01Z
+            Contradiction resolved: the Spec gives this Task the verdict, judge, propertyTest and CLI exit table
+            (@spec.Host.R8 to @spec.Host.R14); description and acceptance name them, taking story run's exit code
+            from @task.V3.T29.
+        comment     2026-11-21T22:33:52Z
+            [decided: agent requirements lead 2026-11-22] The judge reads the rules the run's values carry, after the
+            run, not `Compiled.rules` or a live driver judge (@proposal.external-rules). Why: the user's Story-only
+            judging. Reverse: a driver judge with `last`.
+        comment     2026-11-22T10:59:34Z
+            Superseded routing (2026-11-22): this Task does not hold the list of casts in `src/` (Types I4, T7):
+            `host/snapshot.ts#project`, `asOutside`, the exact list of crossings and `project-second-cast` are
+            @task.V3.T111's (the orchestrator's ruling on @task.V3.T142's re-review); `verdictOf` is only a reader of
+            `project(incarnation)`. The ratchet `MOST` in `tests/surface/derivation.test.ts` stands until T111
+            builds it.
+    T115
+        title       Server data: dehydrate, hydrate and the merge table
+        status      draft
+        priority    high
+        parent      [@T138]
+
+        blocked_by  [@T24, @task.V3.T98, @T48]
+        satisfies   [
+                    @plan.ServerRendering.O1,
+                    @plan.ServerRendering.O2,
+                    @plan.ServerRendering.O3,
+                    @plan.ServerRendering.O5,
+                    @plan.ServerRendering.O6,
+                    @plan.Testing.O7,
+                    @plan.Inspection.O2,
+                    @plan.Runtime.O5
+                    ]
+        description
+            Build server data: `dehydrate`, `hydrate` and the one merge table that decides what the client keeps.
+
+            **Why now:** split from @task.V3.T30 in the breakdown review (the orchestrator, 2026-11-20) by state: the
+            React binding's attach state and the transferred server data are separate. The merge table is one state
+            (actors, resources, entity fields and lazy entries), so one Task owns all its rows.
+
+            **Read first:** @plan.ServerRendering, @task.V3.T24 (supplies the per-field version comparator),
+            @task.V3.T48 (supplies the adoption state), both as values, and @task.V3.T28 (`ready`); @spec.Records.R9,
+            @spec.Records.R17, @spec.Records.R18, @spec.Records.I19 (code:wiki/specs/v3/Records.md);
+            @spec.Operations.R12, @spec.Operations.I24, @spec.Operations.Q13 (code:wiki/specs/v3/Operations.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; `Source.Hydrate` and the precedence table are new (Records companion, hole H4: the
+            merge is not designed).
+
+            **Background:** the outcomes this Task satisfies are @plan.ServerRendering.O1, @plan.ServerRendering.O2,
+            @plan.ServerRendering.O3, @plan.ServerRendering.O5, @plan.ServerRendering.O6, @plan.Testing.O7,
+            @plan.Inspection.O2 and @plan.Runtime.O5.
+
+            **Approach:** the merge table has one row each for actors, resources, entity fields and lazy entries; the
+            Story `hydrate` step runs it. It reads `ready` from @task.V3.T28, which owns the session boot queue.
+
+            May change: `src/`, `fixtures/`, `tests/`. Evidence: this Task's comments.
+
+            False pass: a merge tested with an empty client → caught by Stories that hydrate over client work in
+            each row.
+        acceptance
+            - Dehydrate, bounded settling, confirmed-data transfer, merging and request isolation hold
+              (@plan.ServerRendering.O1, @plan.ServerRendering.O2, @plan.ServerRendering.O3, @plan.ServerRendering.O5,
+              @plan.ServerRendering.O6), shown by Story tests through the `hydrate` step (@plan.Testing.O7).
+            - The merge table has a row for actors, resources, entity fields and lazy entries, each shown by a Story
+              that hydrates over client work; a paused timer transfers its `left` unchanged; the shape digest leaves out
+              props and emits.
+            - Payloads go through the one codec (@plan.Inspection.O2) and hydration sets silent
+              baselines (@plan.Runtime.O5).
+            - Fixtures first (@convention.fixtures): the hydrate rows of @convention.fixture-catalog gain their
+              scenarios; each red before the build, and those cells marked used at the close.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records.R9,
+              @spec.Records.R17, @spec.Records.R18, @spec.Records.I19, @spec.Operations.R12, @spec.Operations.I24; the
+              Invariants its tests check after every step are @spec.Records.I14, @spec.Records.I19 (tests T10),
+              @spec.Operations.I24 (tests T4).
+        comment     2026-11-20T13:02:09Z
+            Breakdown review (orchestrator, 2026-11-20, R48): split from T30 by state: one merge table for actors,
+            resources, entity fields and lazy entries. T24 supplies the per-field version comparator and T48 the
+            adoption state, as values.
+        comment     2026-11-20T13:12:04Z
+            Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T48 (P5 Order puts T48 first); the session boot
+            queue went back to T28 (superseding the item above).
+        comment     2026-11-21T18:31:24Z
+            [proposed] Hydrate's merge has no algorithm design (@proposal.algo-records H4, @proposal.algo-operations
+            H5); this Task runs skill:to-design before its Spec (@proposal.algo-resolutions section 4).
+    T116
+        title       Next.js host proofs
+        status      draft
+        priority    medium
+        blocked_by  [@T30, @T115]
+        satisfies   [@plan.ServerRendering.O7]
+        description
+            Prove streaming and navigation work on real Next.js hosts: request render and hydrate without mismatch,
+            React 18 and 19.
+
+            **Why now:** split from @task.V3.T30 in the breakdown review (the orchestrator, 2026-11-20): the host proofs
+            are checks of the binding and the server data, with no state of their own, and run after both.
+
+            **Read first:** @plan.ServerRendering.O7, @task.V3.T30, @task.V3.T115.
+
+            May change: `fixtures/`, `tests/`, the Next.js host proof folder. Evidence: this Task's comments.
+
+            False pass: a host proof on a fake page → caught by a run on a real Next.js host.
+        acceptance
+            - Request render and hydrate run without a mismatch on a Next.js host, on React 18 and 19, with streaming
+              and navigation (@plan.ServerRendering.O7).
+            - Each proof runs on the real host, and a fault planted in the hydrate path is caught there.
+            - Correctness: no v3 Spec covers this yet; when its Spec exists, the Epic's Correctness item applies in full
+              (fixture app, Story plus the Story of the wrong ending, two-sided type pins, a planted fault per
+              new rule).
+        comment     2026-11-20T13:02:09Z
+            Breakdown review (orchestrator, 2026-11-20, R48): new Task split from T30: the Next.js host proofs
+            (ServerRendering O7, React 18 and 19), after T30 and T115.
+
+    T125
+        title       Entity store: confirmed records
+        status      draft
+        priority    medium
+        parent      [@T24]
+
+        blocked_by  [@task.V3.T122, @task.V3.T92]
+        description
+            Build the entity store's confirmed records: what confirmed data a machine's persistence saves, and its
+            reference rows.
+
+            **Why now:** the first half of @task.V3.T24, split by state (@spec.Records.R18).
+
+            **Read first:** @spec.Records `algorithm` (Reference table, Data layer records); @spec.Records.R9,
+            @spec.Records.R15, @spec.Records.R18, @spec.Records.I8, @spec.Records.I10 (code:wiki/specs/v3/Records.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; the entity record is new code (Records companion, hole H12: its reference rows
+            are thin).
+
+            **Risk:** the entity record's reference rows are thin (companion `Records.md`, open hole H12); this Task
+            runs skill:to-design first.
+        acceptance
+            - The entity record's reference table is total, shown by the type and by a mutation test over its alphabet.
+            - Each new rule has a planted fault that `nub run faults` catches.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records.R9,
+              @spec.Records.R15, @spec.Records.R18, @spec.Records.I8, @spec.Records.I10; the Invariants its tests check
+              after every step are @spec.Records.I8, @spec.Records.I10, @spec.Records.I16, @spec.Records.I18,
+              @spec.Records.I19 (tests T7, T9, T10, T15).
+    T126
+        title       Entity store: claims
+        status      draft
+        priority    medium
+        parent      [@T24]
+
+        blocked_by  [@T125, @task.V3.T121]
+        description
+            Build the entity store's claims: unconfirmed fields held by an Attempt, living in the lane head.
+
+            **Why now:** the second half of @task.V3.T24 (@spec.Records.R18).
+
+            **Read first:** @spec.Records `algorithm` (Data layer records); @spec.Records.R16, @spec.Records.R18,
+            @spec.Records.I6, @spec.Records.I7, @spec.Records.I11 (code:wiki/specs/v3/Records.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** none; claims in the lane head are new code (Records companion, hole H8).
+
+            **Risk:** the order of Attempts on one entity record across identities is not saved (companion `Records.md`,
+            open hole H8); this Task runs skill:to-design first.
+        acceptance
+            - A claim whose head is gone never leaves a field unconfirmed, shown by a reload sequence test.
+            - Each new rule has a planted fault that `nub run faults` catches.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover @spec.Records.R16,
+              @spec.Records.R18, @spec.Records.I6, @spec.Records.I7, @spec.Records.I11; the Invariants its tests check
+              after every step are @spec.Records.I5 to @spec.Records.I7, @spec.Records.I11, @spec.Records.I19 (tests
+              T1–T6, T13, T15).
+    T132
+        title       Construction trust: intake
+        status      draft
+        priority    high
+        parent      [@T137]
+
+        blocked_by  [@task.V3.T131]
+        description
+            Build `intake`: one Schema per door, returning every finding of an argument at once.
+
+            **Why now:** the second half of @task.V3.T98, first in P5.
+
+            **Read first:** @spec.Operations `algorithm` (Construction trust), R10 and Q16; @spec.Operations.R10,
+            @spec.Operations.R11, @spec.Operations.I19, @spec.Operations.I23 (code:wiki/specs/v3/Operations.md);
+            @spec.Types.R11, @spec.Types.R13, @spec.Types.I4, @spec.Types.I5 (code:wiki/specs/v3/Types.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** code:packages/flow-state-v3/src/core/boundary.ts#admitted (rewritten as `intake`'s lift) and
+            `contract.ts#trusted` (deleted; Types and Operations companions, fit tables). Do not delete it before its
+            replacement lands and the suite passes.
+        acceptance
+            - `intake` returns `Result<..., NonEmptyReadonlyArray<Finding>>` and never throws for a user value.
+            - A read of a user object's property that throws is one `Defect` finding at its path.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations.R10, @spec.Operations.R11, @spec.Operations.I19, @spec.Operations.I23, @spec.Types.R11,
+              @spec.Types.R13, @spec.Types.I4, @spec.Types.I5; the Invariants its tests check after every step are
+              @spec.Operations.I19, @spec.Operations.I23 (tests T4–T6), @spec.Types.I4, @spec.Types.I5, @spec.Types.I7,
+              @spec.Types.I14 (tests T4, T7–T9).
+    T137
+        title       Slice: Intake and rules
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T138
+        title       Slice: Lazy features and hydrate
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.
+
+    T139
+        title       Slice: The lock and channels
+        status      draft
+        priority    high
+        description
+            Execution slice: its children run together through one requirements phase, requirements review, build and
+            build review.
+        acceptance
+            - Every child accepted, and the seams between the children checked by the slice review.

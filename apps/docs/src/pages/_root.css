@@ -1,15 +1,1002 @@
+@import "@fontsource-variable/source-serif-4/opsz.css";
+@import "@fontsource-variable/source-serif-4/opsz-italic.css";
+@import "@fontsource-variable/geist-mono/wght.css";
+
+/* Fallback faces sized to the web font's metrics, so text does not jump when it swaps in. */
+
+@font-face {
+  font-family: "Source Serif 4 Variable Fallback";
+  src: local("Georgia");
+  size-adjust: 107.45%;
+  ascent-override: 96.42%;
+  descent-override: 31.18%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Geist Fallback";
+  src: local("Arial");
+  size-adjust: 104.76%;
+  ascent-override: 95.94%;
+  descent-override: 28.16%;
+  line-gap-override: 0%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tokens: paper (light) and blackboard (dark)                        */
+/* ------------------------------------------------------------------ */
+
 :root {
-  --fs-rule: color-mix(in oklch, var(--vocs-color-border) 72%, transparent);
+  --fs-paper: light-dark(hsl(72 18% 93%), oklch(0.255 0.022 165));
+  --fs-paper-deep: light-dark(hsl(72 16% 89.5%), oklch(0.225 0.02 165));
+  --fs-ink: light-dark(hsl(150 10% 17%), oklch(0.93 0.012 100));
+  --fs-ink-soft: light-dark(hsl(150 8% 30%), oklch(0.84 0.012 100));
+  --fs-ink-muted: light-dark(hsl(150 6% 44%), oklch(0.7 0.015 120));
+  --fs-ink-faint: light-dark(hsl(150 6% 58%), oklch(0.56 0.02 140));
+  --fs-mark: light-dark(oklch(0.47 0.13 252), oklch(0.89 0.12 95));
+  --fs-mark-wash: light-dark(oklch(0.47 0.13 252 / 9%), oklch(0.89 0.12 95 / 12%));
+  --fs-grid-minor: light-dark(oklch(0.62 0.07 165 / 4.5%), oklch(0.95 0.01 100 / 3.5%));
+  --fs-grid-major: light-dark(oklch(0.55 0.08 165 / 8%), oklch(0.95 0.01 100 / 6.5%));
+  --fs-cell: 24px;
+
+  --fs-serif: "Source Serif 4 Variable", "Source Serif 4 Variable Fallback", Georgia, serif;
+  --fs-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --fs-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --vocs-font-family: var(--fs-sans);
+  --vocs-font-family-mono: var(--fs-mono);
+  --vocs-color-accent: var(--fs-mark);
+
+  --vocs-background-color-primary: var(--fs-paper);
+  --vocs-background-color-surface: var(--fs-paper);
+  --vocs-background-color-surfaceMuted: var(--fs-paper-deep);
+  --vocs-background-color-surfaceTint: var(--fs-paper-deep);
+  --vocs-background-color-code-block: var(--fs-paper-deep);
+  --vocs-background-color-inline-code: transparent;
+  --vocs-background-color-blockquote: transparent;
+
+  --vocs-text-color-primary: var(--fs-ink-soft);
+  --vocs-text-color-secondary: var(--fs-ink-muted);
+  --vocs-text-color-muted: var(--fs-ink-faint);
+  --vocs-text-color-heading: var(--fs-ink);
+  --vocs-text-color-link: var(--fs-ink);
+  --vocs-text-color-link-hover: var(--fs-mark);
+
+  --vocs-border-color-primary: transparent;
+  --vocs-border-color-secondary: transparent;
+
+  --vocs-text-h1: 3rem;
+  --vocs-text-h2: 1.75rem;
+  --vocs-text-h3: 1.25rem;
+  --vocs-text-h4: 1.0625rem;
+  --vocs-text-td: 0.9375rem;
+  --vocs-text-th: 0.75rem;
+  --vocs-leading-p: 1.65em;
+  --vocs-leading-li: 1.65em;
+
+  --vocs-spacing-content: calc(50rem + (var(--vocs-spacing-content-px) * 2));
+  --vocs-spacing-sidebar: 240px;
+  --vocs-spacing-outline: 240px;
 }
 
-.Vocs_H1 {
-  letter-spacing: 0;
+@media (width >= 1080px) {
+  :root {
+    --vocs-spacing-content-px: 2.5rem;
+  }
 }
 
-.Vocs_Table {
-  font-size: 0.92rem;
+/* ------------------------------------------------------------------ */
+/* Rendering                                                          */
+/* ------------------------------------------------------------------ */
+
+:root {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  font-synthesis: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.Vocs_Code {
-  border-radius: 4px;
+:is(code, kbd, samp, pre) {
+  font-family: var(--fs-mono);
+  font-variant-ligatures: none;
+  font-size-adjust: ex-height 0.53;
+}
+
+[data-v-content] :is(h1, h2, h3, h4) {
+  text-wrap: balance;
+}
+
+[data-v-content] :is(p, li, blockquote, figcaption) {
+  text-wrap: pretty;
+  hanging-punctuation: first;
+}
+
+[data-v-content] :is(table, .fs-machine-log) {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* The sheet: one fixed grid behind every fixed panel                 */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --fs-sheet:
+    linear-gradient(var(--fs-grid-major) 1px, transparent 1px) 0 0 / calc(var(--fs-cell) * 5) calc(var(--fs-cell) * 5),
+    linear-gradient(90deg, var(--fs-grid-major) 1px, transparent 1px) 0 0 / calc(var(--fs-cell) * 5)
+      calc(var(--fs-cell) * 5),
+    linear-gradient(var(--fs-grid-minor) 1px, transparent 1px) 0 0 / var(--fs-cell) var(--fs-cell),
+    linear-gradient(90deg, var(--fs-grid-minor) 1px, transparent 1px) 0 0 / var(--fs-cell) var(--fs-cell),
+    var(--fs-paper);
+  --fs-backdrop: var(--fs-sheet);
+  font-size: 17px;
+}
+
+[data-fs-grid="figures"],
+[data-fs-grid="off"],
+:root[data-vocs-theme="light"],
+:root:not([data-vocs-theme="dark"]) {
+  --fs-backdrop: var(--fs-paper);
+}
+
+:root[data-vocs-theme="dark"]:not([data-fs-grid="figures"], [data-fs-grid="off"]) {
+  --fs-backdrop: var(--fs-sheet);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-vocs-theme="light"], [data-fs-grid="figures"], [data-fs-grid="off"]) {
+    --fs-backdrop: var(--fs-sheet);
+  }
+}
+
+:root {
+  background: var(--fs-paper);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--fs-backdrop);
+}
+
+body,
+[data-v-gutter-left],
+[data-v-gutter-right] {
+  background: transparent;
+}
+
+[data-v-sidebar-footer-content],
+[data-v-outline-mobile] {
+  border: 0;
+  border-radius: 0;
+  background: var(--fs-backdrop);
+  background-attachment: fixed;
+}
+
+body {
+  color: var(--fs-ink-soft);
+}
+
+[data-v-gutter-top],
+[data-v-gutter-logo] {
+  --fs-band-x: 0px;
+  background: var(--fs-backdrop);
+  background-position: calc(-1 * var(--fs-band-x)) 0;
+}
+
+@media (width >= 1080px) {
+  [data-v-sidebar] > [data-v-gutter-top] {
+    --fs-band-x: var(--vocs-spacing-gutter);
+  }
+}
+
+[data-v-surface-bg],
+[data-v-sidebar-curtain],
+[data-v-sidebar-footer-curtain] {
+  display: none;
+}
+
+[data-v-gutter-top] {
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Scrollbars: a pencil line on the paper                             */
+/* ------------------------------------------------------------------ */
+
+:where(*:not([class*="scrollbar-none"])) {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  :where(*:not([class*="scrollbar-none"])) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  [data-fs-scrolling] {
+    scrollbar-color: var(--fs-ink-faint) transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-fs-scrolling]::-webkit-scrollbar-thumb {
+  background: var(--fs-ink-faint);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Icons                                                              */
+/* ------------------------------------------------------------------ */
+
+/* Icons: our own drawn set (/icons/drawn). Vocs draws Lucide; we hide it and draw ours in place. */
+
+[data-v-gutter-top] button[aria-haspopup="dialog"] > div:first-child > svg,
+button[aria-label="Search"] > svg,
+[role="dialog"] div:has(> input[aria-controls="search-results"]) > svg,
+button[aria-label="Open menu"] > svg,
+[aria-label="Light theme"] svg,
+[aria-label="Dark theme"] svg,
+[aria-label="System theme"] svg,
+[data-v-outline-nav] > div:first-child > svg,
+[data-v-outline-mobile] button:not([class*="ml-auto"]) svg,
+[data-v-outline-mobile] button[class*="ml-auto"] > svg,
+[data-v-copy-for-ai] svg,
+pre.shiki > button[aria-label="Copy code"]:not([data-copied="true"]) svg,
+pre.shiki > button[aria-label="Copy code"][data-copied="true"] svg,
+[data-v-pagination] > :first-child > span:first-child > svg,
+[data-v-pagination] > :last-child > span:first-child > svg {
+  display: none;
+}
+
+[data-v-gutter-top] button[aria-haspopup="dialog"] > div:first-child::before,
+button[aria-label="Search"]::before,
+[role="dialog"] div:has(> input[aria-controls="search-results"])::before,
+button[aria-label="Open menu"]::before,
+[aria-label="Light theme"]::before,
+[aria-label="Dark theme"]::before,
+[aria-label="System theme"]::before,
+[data-v-outline-nav] > div:first-child::before,
+[data-v-outline-mobile] button:not([class*="ml-auto"])::before,
+[data-v-outline-mobile] button[class*="ml-auto"]::before,
+[data-v-copy-for-ai]::before,
+pre.shiki > button[aria-label="Copy code"]:not([data-copied="true"])::before,
+pre.shiki > button[aria-label="Copy code"][data-copied="true"]::before,
+[data-v-pagination] > :first-child > span:first-child::before,
+[data-v-pagination] > :last-child > span:first-child::after,
+[data-v-ask-ai-container] > button > div:first-child::before {
+  content: "";
+  display: inline-flex;
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
+  background: currentColor;
+  mask: var(--fs-icon) center / contain no-repeat;
+}
+
+[data-v-gutter-top] button[aria-haspopup="dialog"] > div:first-child::before {
+  --fs-icon: url("/icons/drawn/search.svg");
+}
+
+button[aria-label="Search"]::before {
+  --fs-icon: url("/icons/drawn/search.svg");
+}
+
+[role="dialog"] div:has(> input[aria-controls="search-results"])::before {
+  --fs-icon: url("/icons/drawn/search.svg");
+}
+
+button[aria-label="Open menu"]::before {
+  --fs-icon: url("/icons/drawn/menu.svg");
+}
+
+[aria-label="Light theme"]::before {
+  --fs-icon: url("/icons/drawn/light.svg");
+}
+
+[aria-label="Dark theme"]::before {
+  --fs-icon: url("/icons/drawn/dark.svg");
+}
+
+[aria-label="System theme"]::before {
+  --fs-icon: url("/icons/drawn/system.svg");
+}
+
+[data-v-outline-nav] > div:first-child::before {
+  --fs-icon: url("/icons/drawn/contents.svg");
+}
+
+[data-v-outline-mobile] button:not([class*="ml-auto"])::before {
+  --fs-icon: url("/icons/drawn/contents.svg");
+}
+
+[data-v-outline-mobile] button[class*="ml-auto"]::before {
+  --fs-icon: url("/icons/drawn/top.svg");
+}
+
+[data-v-copy-for-ai]::before {
+  --fs-icon: url("/icons/drawn/copy.svg");
+}
+
+pre.shiki > button[aria-label="Copy code"]:not([data-copied="true"])::before {
+  --fs-icon: url("/icons/drawn/copy.svg");
+}
+
+pre.shiki > button[aria-label="Copy code"][data-copied="true"]::before {
+  --fs-icon: url("/icons/drawn/copied.svg");
+}
+
+[data-v-pagination] > :first-child > span:first-child::before {
+  --fs-icon: url("/icons/drawn/prev.svg");
+}
+
+[data-v-pagination] > :last-child > span:first-child::after {
+  --fs-icon: url("/icons/drawn/next.svg");
+}
+
+[data-v-ask-ai-container] > button > div:first-child::before {
+  --fs-icon: url("/icons/drawn/ask.svg");
+}
+
+
+/* Theme toggle and other round Vocs chrome: square it off */
+
+[role="radiogroup"][aria-label="Theme selection"],
+[role="radiogroup"][aria-label="Theme selection"] * {
+  border-radius: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+[role="radiogroup"][aria-label="Theme selection"] [aria-checked="true"] {
+  color: var(--fs-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/* Search dialog (⌘K): smaller type, square sheet                     */
+/* ------------------------------------------------------------------ */
+
+[role="dialog"]:has(input[aria-controls="search-results"]) {
+  font-size: 0.875rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--fs-paper);
+  box-shadow: 0 18px 50px -12px oklch(0 0 0 / 25%);
+}
+
+[role="dialog"]:has(input[aria-controls="search-results"]) * {
+  border-color: transparent;
+  border-radius: 0;
+}
+
+[role="dialog"] input[aria-controls="search-results"] {
+  font-size: 0.9375rem;
+}
+
+[role="dialog"]:has(input[aria-controls="search-results"]) [class*="text-sm"] {
+  font-size: 0.8125rem;
+}
+
+[role="dialog"]:has(input[aria-controls="search-results"]) kbd {
+  font-family: var(--fs-mono);
+  background: var(--fs-paper-deep);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ask AI: bottom right, flat. Vocs marks these !important inside a   */
+/* layer, so the override must sit in the first layer to win.         */
+/* ------------------------------------------------------------------ */
+
+@layer vocs_theme {
+  [data-v-ask-ai-container] {
+    left: auto !important;
+    right: 1.25rem !important;
+    bottom: 1rem !important;
+    translate: none !important;
+    transform: none !important;
+  }
+
+  [data-v-ask-ai-container] > button {
+    width: 15rem !important;
+    height: 2.25rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--fs-paper-deep) !important;
+    backdrop-filter: none !important;
+    font-size: 0.8125rem !important;
+  }
+
+  [data-v-ask-ai-container] > button * {
+    border-radius: 0 !important;
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Top bar: plain words                                               */
+/* ------------------------------------------------------------------ */
+
+[data-v-gutter-top] nav a {
+  font-size: 0.875rem;
+  color: var(--fs-ink-muted);
+}
+
+[data-v-gutter-top] nav a[data-v-active="true"] {
+  color: var(--fs-ink);
+  border: 0;
+  box-shadow: none;
+}
+
+[data-v-gutter-top] nav a::after {
+  display: none;
+}
+
+[data-v-logo-text] {
+  font-family: var(--fs-serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--fs-ink);
+}
+
+
+@media (width >= 1080px) {
+  [data-v-sidebar] > [data-v-gutter-top] [data-v-gutter-top-left] {
+    margin-left: calc(var(--vocs-spacing-content-px) - 1.75rem);
+  }
+}
+
+[data-v-gutter-top] button[aria-haspopup="dialog"] {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding-inline: 0;
+  color: var(--fs-ink-faint);
+}
+
+[data-v-gutter-top] button[aria-haspopup="dialog"] div div {
+  background: transparent;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sidebar: a table of contents, with a dot for "you are here"        */
+/* ------------------------------------------------------------------ */
+
+nav[data-v-sidebar] {
+  font-size: 0.875rem;
+}
+
+[data-v-sidebar-section-header] {
+  height: auto;
+  margin-top: 1.75rem;
+  margin-bottom: 0.375rem;
+  font-family: var(--fs-serif);
+  font-size: 0.9375rem;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--fs-ink);
+  background: transparent;
+}
+
+[data-v-sidebar-item] {
+  position: relative;
+  padding-block: 0.25rem;
+  background: transparent;
+  color: var(--fs-ink-muted);
+  border-radius: 0;
+}
+
+[data-v-sidebar-item]:hover {
+  background: transparent;
+  color: var(--fs-ink);
+}
+
+[data-v-sidebar-item][data-active="true"],
+[data-v-sidebar-item][data-active="true"] * {
+  background: transparent;
+  color: var(--fs-ink);
+  font-weight: 500;
+}
+
+[data-v-sidebar-item][data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: -0.875rem;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  translate: 0 -50%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Outline (scrollspy): same voice as the sidebar                     */
+/* ------------------------------------------------------------------ */
+
+[data-v-outline]:not([data-v-outline-mobile]) {
+  padding-left: var(--vocs-spacing-sidebar-px);
+  padding-right: calc(var(--vocs-spacing-gutter) - var(--vocs-spacing-sidebar) + var(--vocs-spacing-sidebar-px));
+}
+
+[data-v-outline-nav] {
+  font-size: 0.8125rem;
+  border: 0;
+}
+
+[data-v-outline-items] {
+  border: 0;
+}
+
+[data-v-outline-indicator] {
+  width: 2px;
+  border-radius: 0;
+  background: var(--fs-ink);
+}
+
+[data-v-outline-item] a {
+  color: var(--fs-ink-faint);
+}
+
+[data-v-outline-item] a[data-active="true"],
+[data-v-outline-item][data-active="true"] a {
+  color: var(--fs-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/* The paper: typography carries the hierarchy                        */
+/* ------------------------------------------------------------------ */
+
+[data-v-content] {
+  counter-reset: fs-h2;
+  font-size: 1rem;
+  color: var(--fs-ink-soft);
+  font-feature-settings:
+    "ss01" 1,
+    "cv11" 1;
+}
+
+[data-v-content] :is(h1, h2, h3, h4) {
+  font-family: var(--fs-serif);
+  color: var(--fs-ink);
+  letter-spacing: -0.012em;
+  font-weight: 500;
+  border: 0;
+}
+
+[data-v-content] h1 {
+  font-size: var(--vocs-text-h1);
+  line-height: 1.05;
+  font-weight: 450;
+  letter-spacing: -0.022em;
+}
+
+[data-v-content] h2 {
+  counter-increment: fs-h2;
+  counter-reset: fs-h3;
+  margin-top: 3.5rem;
+  font-size: var(--vocs-text-h2);
+  line-height: 1.15;
+}
+
+[data-v-content] h3 {
+  counter-increment: fs-h3;
+  margin-top: 2.25rem;
+  font-size: var(--vocs-text-h3);
+  line-height: 1.25;
+}
+
+[data-v-content] h4 {
+  margin-top: 1.75rem;
+  font-size: var(--vocs-text-h4);
+  font-style: italic;
+}
+
+[data-v-content] h2::before {
+  content: counter(fs-h2) "\2003";
+  color: var(--fs-ink-faint);
+  font-weight: 400;
+  font-variant-numeric: oldstyle-nums;
+}
+
+[data-v-content] h3::before {
+  content: counter(fs-h2) "." counter(fs-h3) "\2002";
+  color: var(--fs-ink-faint);
+  font-weight: 400;
+  font-variant-numeric: oldstyle-nums;
+}
+
+[data-v-content] .heading-anchor {
+  margin-left: 0.4em;
+  color: var(--fs-ink-faint);
+  opacity: 0;
+  text-decoration: none;
+}
+
+[data-v-content] .heading-anchor svg {
+  display: none;
+}
+
+[data-v-content] .heading-anchor::after {
+  content: "\00a7";
+  font-weight: 400;
+}
+
+[data-v-content] :is(h2, h3, h4):hover .heading-anchor {
+  opacity: 1;
+}
+
+[data-v-content] p,
+[data-v-content] li {
+  line-height: var(--vocs-leading-p);
+}
+
+[data-v-content] a[data-v-link]:not(.heading-anchor) {
+  color: var(--fs-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--fs-ink-faint);
+  text-underline-offset: 0.18em;
+}
+
+[data-v-content] a[data-v-link]:not(.heading-anchor):hover {
+  color: var(--fs-mark);
+  text-decoration-color: currentColor;
+}
+
+[data-v-content] :not(pre) > code {
+  padding: 0;
+  font-size: 0.875em;
+  color: var(--fs-ink);
+  background: transparent;
+  border: 0;
+}
+
+[data-v-content] strong {
+  color: var(--fs-ink);
+  font-weight: 600;
+}
+
+[data-v-content] ul > li::marker {
+  color: var(--fs-ink-faint);
+}
+
+[data-v-content] blockquote {
+  padding-left: 1.5rem;
+  border: 0;
+  font-family: var(--fs-serif);
+  font-size: 1.0625rem;
+  font-style: italic;
+  color: var(--fs-ink);
+  background: transparent;
+}
+
+/* Code: a sheet of paper laid on the grid */
+
+[data-v-code-container],
+[data-v-content] pre.shiki {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+[data-v-content] pre.shiki {
+  background: var(--fs-paper-deep) !important;
+  font-size: 0.84rem;
+}
+
+[data-v-content] pre.shiki > button[aria-label="Copy code"] {
+  opacity: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0;
+  background: transparent;
+  color: var(--fs-ink-faint);
+  transition: opacity 120ms ease;
+}
+
+[data-v-content] pre.shiki:hover > button[aria-label="Copy code"],
+[data-v-content] pre.shiki > button[aria-label="Copy code"]:focus-visible,
+[data-v-content] pre.shiki > button[aria-label="Copy code"][data-copied="true"] {
+  opacity: 1;
+}
+
+[data-v-content] pre.shiki > button[aria-label="Copy code"]:hover {
+  color: var(--fs-ink);
+}
+
+[data-v-code-title] {
+  border: 0;
+  background: var(--fs-paper-deep);
+  color: var(--fs-ink-muted);
+  font-family: var(--fs-mono);
+  font-size: 0.75rem;
+}
+
+/* Tables: no rules; small-caps heads and air */
+
+[data-v-table-wrapper] {
+  margin-inline: 0;
+  padding-inline: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+[data-v-content] table {
+  border: 0;
+  border-collapse: collapse;
+  background: transparent;
+}
+
+[data-v-content] :is(th, td, tr, thead, tbody) {
+  border: 0;
+  background: transparent;
+}
+
+[data-v-content] th {
+  padding: 0 1.25rem 0.5rem 0;
+  font-size: var(--vocs-text-th);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fs-ink-faint);
+  text-align: left;
+}
+
+[data-v-content] td {
+  padding: 0.5rem 1.25rem 0.5rem 0;
+  vertical-align: baseline;
+}
+
+[data-v-content] td:first-child {
+  color: var(--fs-ink);
+  white-space: nowrap;
+}
+
+/* Footer of a page: no rule, just space */
+
+[data-v-content-footer] > div {
+  border: 0;
+}
+
+[data-v-pagination] a {
+  border: 0;
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Landing-page pieces                                                */
+/* ------------------------------------------------------------------ */
+
+.fs-kicker {
+  margin-bottom: 0.5rem;
+  font-family: var(--fs-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fs-ink-faint);
+}
+
+[data-v-content] .fs-kicker + h1 {
+  margin-top: 0;
+}
+
+[data-v-content] > .fs-lede {
+  margin-top: 1.25rem;
+}
+
+.fs-lede {
+  font-family: var(--fs-serif);
+  font-size: 1.375rem;
+  line-height: 1.45;
+  color: var(--fs-ink);
+}
+
+.fs-abstract {
+  padding-inline: 2.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.fs-abstract > p {
+  margin: 0;
+}
+
+.fs-abstract > :first-child::before {
+  content: "Abstract.";
+  margin-right: 0.5em;
+  font-family: var(--fs-serif);
+  font-weight: 600;
+  color: var(--fs-ink);
+}
+
+.fs-figure {
+  position: relative;
+  margin-block: 2.5rem;
+  padding-block: var(--fs-cell);
+}
+
+[data-fs-grid="figures"] .fs-figure,
+:root:not([data-vocs-theme="dark"], [data-fs-grid="off"]) .fs-figure {
+  background: var(--fs-sheet);
+}
+
+:root[data-fs-grid="off"] .fs-figure {
+  background: var(--fs-paper-deep);
+}
+
+.fs-figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.fs-figure figcaption {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--fs-ink-muted);
+}
+
+.fs-figure figcaption b {
+  font-family: var(--fs-serif);
+  font-weight: 600;
+  color: var(--fs-ink);
+}
+
+.fs-machine-node rect {
+  fill: var(--fs-paper-deep);
+  transition: fill 160ms ease;
+}
+
+.fs-machine-node text {
+  font-family: var(--fs-serif);
+  font-size: 15px;
+  fill: var(--fs-ink-muted);
+  transition: fill 160ms ease;
+}
+
+.fs-machine-node[data-active="true"] rect {
+  fill: var(--fs-ink);
+}
+
+.fs-machine-node[data-active="true"] text {
+  fill: var(--fs-paper);
+}
+
+.fs-machine-edge path {
+  fill: none;
+  stroke: var(--fs-ink-faint);
+  stroke-width: 1;
+}
+
+.fs-machine-edge text {
+  font-family: var(--fs-mono);
+  font-size: 11px;
+  fill: var(--fs-ink-faint);
+}
+
+.fs-machine-edge[data-live="true"] path {
+  stroke: var(--fs-mark);
+  stroke-width: 1.5;
+}
+
+.fs-machine-edge[data-live="true"] text {
+  fill: var(--fs-mark);
+}
+
+.fs-machine-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin-top: 1rem;
+  font-family: var(--fs-mono);
+  font-size: 0.8125rem;
+}
+
+.fs-machine-events button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fs-mark);
+  cursor: pointer;
+}
+
+.fs-machine-events button:disabled {
+  color: var(--fs-ink-faint);
+  cursor: default;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.fs-machine-events button:not(:disabled):hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.fs-machine-log {
+  margin-top: 0.75rem;
+  font-family: var(--fs-mono);
+  font-size: 0.75rem;
+  color: var(--fs-ink-faint);
+}
+
+/* Theme lab: a line of plain words pinned to the corner */
+
+.fs-lab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 3.75rem;
+  z-index: 50;
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--fs-mono);
+  font-size: 0.6875rem;
+  color: var(--fs-ink-faint);
+  background: var(--fs-paper);
+}
+
+.fs-lab button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fs-ink-muted);
+  cursor: pointer;
+}
+
+.fs-lab button[aria-pressed="true"] {
+  color: var(--fs-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.fs-lab b {
+  display: inline-block;
+  width: 3.75em;
+  font-weight: 400;
+  color: var(--fs-ink-faint);
+}
+
+.fs-lab span + span::before {
+  content: " \00b7 ";
+}
+
+@media (width < 748px) {
+  :root {
+    --vocs-text-h1: 2.25rem;
+    font-size: 16px;
+  }
+
+  .fs-abstract {
+    padding-inline: 0;
+  }
+
+  .fs-figure {
+    margin-inline: 0;
+  }
 }

@@ -1,0 +1,67 @@
+{
+ "search": "payFixed",
+ "verdict": "failed",
+ "perDepth": [
+  1,
+  2,
+  10,
+  28,
+  83,
+  196,
+  530,
+  1535,
+  4389
+ ],
+ "states": 6774,
+ "edges": 23043,
+ "steps": 540138,
+ "depthCompleted": 8,
+ "classes": {
+  "charged-unaccounted:CARD": {
+   "count": 10,
+   "witness": "PayRequested Leave ack pay.ok refuse Start"
+  },
+  "charged-unaccounted:PAID": {
+   "count": 10,
+   "witness": "PayRequested Leave ack pay.ok refuse Start PayRequested"
+  },
+  "two-keys-one-intent:PAID": {
+   "count": 10,
+   "witness": "PayRequested Leave ack pay.ok refuse Start PayRequested"
+  },
+  "charged-unaccounted:LEFT": {
+   "count": 7,
+   "witness": "PayRequested Leave ack pay.ok refuse Start Leave"
+  },
+  "two-keys-one-intent:LEFT": {
+   "count": 2,
+   "witness": "PayRequested Leave ack pay.ok refuse Start PayRequested Leave"
+  },
+  "told-not-charged:CARD": {
+   "count": 2,
+   "witness": "PayRequested Leave ack pay.ok refuse Start PayRequested reload"
+  },
+  "charged-unaccounted:PAYING": {
+   "count": 2,
+   "witness": "PayRequested Leave ack pay.ok refuse Start2 PayRequested hang"
+  },
+  "placed-and-voided:LEFT": {
+   "count": 1,
+   "witness": "PayRequested ack pay.ok ack place.ok Start PayRequested Leave"
+  }
+ },
+ "ms": 31938,
+ "peakRssMb": 216,
+ "unpinned": [
+  "charged-unaccounted:CARD via PayRequested Leave ack pay.ok refuse Start",
+  "charged-unaccounted:PAID via PayRequested Leave ack pay.ok refuse Start PayRequested",
+  "two-keys-one-intent:PAID via PayRequested Leave ack pay.ok refuse Start PayRequested",
+  "charged-unaccounted:LEFT via PayRequested Leave ack pay.ok refuse Start Leave",
+  "two-keys-one-intent:LEFT via PayRequested Leave ack pay.ok refuse Start PayRequested Leave",
+  "told-not-charged:CARD via PayRequested Leave ack pay.ok refuse Start PayRequested reload",
+  "charged-unaccounted:PAYING via PayRequested Leave ack pay.ok refuse Start2 PayRequested hang",
+  "placed-and-voided:LEFT via PayRequested ack pay.ok ack place.ok Start PayRequested Leave"
+ ]
+}
+
+WATCH peak 206 MB, 32.0 s, exit 1, killed no

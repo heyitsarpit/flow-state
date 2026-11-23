@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `FiberSet` API](https://www.effect.website/docs/v4/api/effect/FiberSet). Examples assume `import { Effect, FiberSet } from "effect"`.
 
+`FiberSet` tracks a group of fibers so an owner can add work and await or interrupt the whole group as one lifecycle unit.
+
 ## API index
 
 1. [FiberSet.FiberSet](#fibersetfiberset)

@@ -1,0 +1,23 @@
+{
+ "search": "frag",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  3,
+  5,
+  22,
+  100,
+  434,
+  1801,
+  7696
+ ],
+ "states": 43087,
+ "edges": 101945,
+ "steps": 1789872,
+ "depthCompleted": 7,
+ "classes": {},
+ "ms": 50001,
+ "peakRssMb": 241
+}
+
+WATCH peak 230 MB, 50.1 s, exit 0, killed no

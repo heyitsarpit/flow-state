@@ -1,0 +1,148 @@
+runtime: /Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/round-2/adapter.ts
+bun 1.4.2
+PASS  PAY-01                                               6.5 ms
+PASS  PAY-02                                               0.9 ms
+PASS  PAY-03                                               1.4 ms
+PASS  PAY-04                                               1.1 ms
+PASS  PAY-05                                               0.7 ms
+PASS  PAY-06/interruptible                                 0.6 ms
+PASS  PAY-06/uninterruptible                               0.4 ms
+PASS  PAY-07/leaveMidCharge                                0.7 ms
+PASS  PAY-07/late-in-a-new-PAYING                          0.7 ms
+PASS  PAY-07/late-may-not-leave                            1.0 ms
+PASS  PAY-08/reloadDuringCharge                            1.0 ms
+PASS  PAY-08/reload-while-reconciling                      2.6 ms
+PASS  PAY-09/ack-not-stored                                0.5 ms
+PASS  PAY-09/ack-stored-confirmation-lost                  0.3 ms
+PASS  PAY-10/refuse                                        0.3 ms
+PASS  PAY-10/hang                                          0.3 ms
+PASS  PAY-11/guard                                         0.6 ms
+PASS  PAY-11/refused-after-members                         0.2 ms
+PASS  PAY-11/module                                        0.3 ms
+PASS  PAY-12/defect                                        0.3 ms
+PASS  PAY-12/sync                                          0.3 ms
+PASS  PAY-12/cancel-on-wire                                0.4 ms
+PASS  PAY-12/duplicate                                     0.3 ms
+PASS  PAY-12/shuffle                                       46.5 ms
+PASS  PAY-13/hung-commit                                   0.7 ms
+PASS  PAY-13/waiting-flushed                               0.3 ms
+PASS  PAY-13/waiting-flush-lost                            0.2 ms
+PASS  PAY-14                                               0.8 ms
+PASS  PAY-15/press-pay-while-held                          0.3 ms
+PASS  PAY-15/cancel-idle                                   0.1 ms
+PASS  PAY-15/cancel-on-wire                                0.2 ms
+PASS  PAY-15/busy-then-new-write                           0.4 ms
+PASS  PAY-15/reload-holds-exactly-once                     0.3 ms
+PASS  PAY-15/dispose-held                                  0.3 ms
+PASS  PAY-15/dead-activation-timer                         0.4 ms
+PASS  PAY-15/retry-budget                                  2.1 ms
+PASS  PAY-16/restore-keeps-mayHaveApplied                  0.5 ms
+PASS  PAY-16/timeout-per-send                              0.5 ms
+PASS  PAY-16/resend-refused-capture                        0.6 ms
+PASS  PAY-16/rejected-is-delivered                         0.2 ms
+PASS  PAY-16/retry-count-persists                          0.4 ms
+PASS  PAY-16/settled-during-disposal-parked                0.3 ms
+PASS  PAY-16/stale-send-fenced                             0.4 ms
+PASS  PAY-16/dispose-waiting-resend                        0.5 ms
+PASS  PAY-16/parked-success-is-delivered                   0.4 ms
+PASS  PAY-16/disposal-ends-with-the-last-fiber             0.3 ms
+PASS  PAY-16/schedule-reads-after-memory                   0.3 ms
+PASS  PAY-16/cancelled-does-not-stick                      0.5 ms
+PASS  PAY-16/read-defect-issue                             0.3 ms
+PASS  PAY-16/superseded-read                               0.3 ms
+PASS  PAY-17/hook-throws-on-sent                           0.2 ms
+PASS  PAY-17/hook-throws-on-timer                          0.3 ms
+PASS  PAY-17/hook-throws-on-acked                          0.2 ms
+PASS  PAY-17/hook-throws-on-turn                           0.2 ms
+PASS  PAY-17/core-throw-is-fatal                           0.3 ms
+PASS  PAY-18                                               0.3 ms
+PASS  PAY-19/void-answers-first                            0.4 ms
+PASS  PAY-19/place-answers-first                           0.3 ms
+PASS  ORDER-01                                             0.3 ms
+PASS  ORDER-02                                             17.6 ms
+PASS  ORDER-03                                             0.2 ms
+PASS  ORDER-04/subscriber-ping-pong                        0.8 ms
+PASS  ORDER-04/follow-up-chain                             0.4 ms
+PASS  ORDER-04/a-legitimate-hour-of-polling                15.5 ms
+PASS  ORDER-05                                             1.2 ms
+PASS  DRV-01                                               231.2 ms
+PASS  DRV-02                                               0.2 ms
+PASS  DRV-03/throw-at-settlement                           0.4 ms
+PASS  DRV-03/a-disabled-store-frees-its-queue              0.3 ms
+PASS  DRV-03/a-disabled-store-blocks-nothing               0.2 ms
+PASS  DRV-04                                               0.1 ms
+PASS  LIKE-01                                              0.8 ms
+PASS  LIKE-02                                              0.6 ms
+PASS  LIKE-03                                              0.4 ms
+PASS  LIKE-04                                              0.4 ms
+PASS  LIKE-05                                              0.3 ms
+PASS  LIKE-06                                              0.4 ms
+PASS  STORE-01                                             0.3 ms
+PASS  STORE-02                                             0.2 ms
+PASS  STORE-03                                             0.3 ms
+PASS  STORE-04/Rejected                                    0.2 ms
+PASS  STORE-04/Overloaded                                  2.6 ms
+PASS  STORE-04/Superseded                                  0.3 ms
+PASS  STORE-04/Superseded-head                             0.3 ms
+PASS  STORE-04/Cancelled                                   0.2 ms
+PASS  STORE-04/Restored                                    0.2 ms
+PASS  STORE-04/Restored-W                                  0.4 ms
+PASS  STORE-04/StorageRefused                              1.2 ms
+PASS  STORE-04/Disposed                                    0.2 ms
+PASS  STORE-04/NothingToResend                             0.2 ms
+PASS  STORE-05/retry-success-clears                        0.4 ms
+PASS  STORE-05/failed-retry-does-not                       0.3 ms
+PASS  STORE-05/a-read-does-not                             0.2 ms
+PASS  STORE-05/a-later-failure-does-not                    0.3 ms
+PASS  STORE-05/an-unresolved-mark-outlives-another-success 0.2 ms
+PASS  STORE-11/a-resend-waits-for-its-repair               0.2 ms
+PASS  STORE-11/cancel-a-waiting-resend                     0.2 ms
+PASS  STORE-11/stillunknown-keeps-its-place                0.3 ms
+PASS  STORE-06                                             16.8 ms
+PASS  STORE-07/released-entry-leaves-at-the-bound          0.6 ms
+PASS  STORE-07/a-live-hold-outranks-the-bound              0.3 ms
+PASS  STORE-07/a-late-repair-is-fenced                     0.3 ms
+PASS  STORE-08                                             0.2 ms
+PASS  STORE-09                                             0.4 ms
+PASS  STORE-10                                             0.4 ms
+PASS  CART-01                                              0.8 ms
+PASS  CART-02/five-taps                                    0.4 ms
+PASS  CART-02/lines-independent                            0.2 ms
+PASS  CART-02/at-most-nine                                 0.4 ms
+PASS  CART-02/remove-asked                                 0.2 ms
+PASS  CART-02/page-and-header                              0.3 ms
+PASS  CART-02/repriced-under-pending                       0.3 ms
+PASS  CART-02/coupon                                       0.3 ms
+PASS  REFUND-01/three-refunds                              0.6 ms
+PASS  REFUND-01/unsure-holds-the-charge                    0.5 ms
+PASS  REFUND-01/reload-mid-refund                          0.3 ms
+PASS  REFUND-01/sixty-five                                 15.9 ms
+PASS  LIB-01                                               0.3 ms
+PASS  LIB-02                                               0.4 ms
+PASS  LIB-03                                               0.2 ms
+
+UNTESTED     103 ids with no scenario in rounds <= 2
+  owed by this round (14): cell:lane.retry.Idle cell:lane.retry.InFlight cell:lane.idle.InFlight cell:lane.idle.Held cell:lane.restore.Idle cell:lane.runtimeDisposal.Idle D7 D25 D26 D28 D29 D31 D41 D42
+  not in this round's scope (89): rule:1 rule:2 rule:3 rule:4 rule:5 rule:6 rule:7 rule:8 rule:9 rule:10 rule:11 rule:13 rule:20 rule:23 rule:26 rule:33 rule:34 rule:36 rule:37 rule:39 rule:40 rule:41 rule:42 rule:43 rule:44 rule:45 rule:47 rule:48 rule:49 rule:50 rule:51 rule:52 rule:53 rule:54 rule:55 rule:56 rule:57 rule:58 rule:59 rule:60 rule:61 rule:62 rule:63 rule:64 rule:65 rule:66 rule:67 rule:68 rule:69 rule:70 rule:71 rule:72 cell:lane.dispose.Idle cell:lane.dispose.InFlight cell:lane.dispose.Held cell:lane.rebind.InFlight cell:lane.rebind.Held cell:lane.ssrHydration.Idle T1 T2 T3 T4 T5 T6 T7 T8 T9 D9 D10 D11 D12 D13 D14 D15 D16 D17 D18 D19 D20 D21 D22 D24 D32 D33 D34 D36 D37 D38 D44
+  cells hit though no scenario cites them (3): lane.idle.InFlight lane.retry.Idle lane.retry.InFlight
+
+CITATIONS (D33)  74/78 proven by a killing mutant
+  near, stays UNTESTED (6): F1 F2 L4 cell:lane.interrupt.InFlight cell:lane.runtimeDisposal.InFlight cell:notsent.Rejected
+  bad sec ids (0): 
+
+OLD-RULE
+  PAY-06 cites rule:25: changed to D8, also cites it: ok
+  LIKE-01 cites rule:29: changed to D3, also cites it: ok
+  LIKE-01 cites rule:31: changed to D3, also cites it: ok
+  STORE-01 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-02 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-11 cites rule:30: changed to D3,D12, also cites it: ok
+  STORE-09 cites rule:30: changed to D3,D12, also cites it: ok
+  CART-02 cites rule:29: changed to D3, also cites it: ok
+  REFUND-01 cites rule:30: changed to D3,D12, also cites it: ok
+
+PINNED       PAY-07:P2+P3 PAY-15:P4 PAY-19:P1
+NO-DECISION  LIB-03 DRV-04 STREAM-21 CACHE-01 CTX-01 HOSTILE-02 BROWSER-02 BROWSER-03 BROWSER-04
+THIN         PAY-12 PAY-13 SEARCH-PAY SEARCH-LIKE LIB-01 LIB-02 LIB-03 DRV-04 HOST-01
+
+SUMMARY  120/120 scenario cases pass; unlogged expectation changes: none; catalog disagreements: none

@@ -1,0 +1,747 @@
+log specs
+
+note 2026-11-15T15:58:02Z
+    Spec changes are logged here from now on, one note each, leading with the Spec changed (the user, 2026-11-15).
+    The old spec-log.md is deleted; its entries are in git history before this commit.
+
+note 2026-11-15T16:59:47Z
+    Stories R4, R6, R12, Q1 revised building T63: evidence is the Runtime's records, no page per ending; R6 keeps
+    evidence to the 10,000th turn, found after the task that ran it; the Advance limit moved to Q1, unbuilt. R12 names
+    records.stored and batches, and inspection's lane contract, state and lifecycle.
+
+note 2026-11-15T17:59:19Z
+    Stories R3, R10, R12, R13: reload({ reattach: false }) (Pending D10), a step index on each call and the cut's calls,
+    for T64's rules; disposeRuntime keeps the Story's uses (R13's "disposed" is disposeActor). Reverse: drop them.
+
+note 2026-11-15T18:07:07Z
+    Stories R16, I20, I21, T14 added for the trace (Inspection O4's first slice): run.trace with a run-wide sequence
+    stamped by the run's sink, and render(trace, "text"); R4 lists trace. Reverse: drop them.
+
+note 2026-11-15T18:43:48Z
+    @spec.Stories: page renamed tab (the user picked the name), shaped { name, open } as @plan.Testing and
+    @plan.Inspection name it, with a reload the tab's next open counted from 1 (the orchestrator's call). R16 and Q1
+    list control, verdict and cleanup as the trace kinds still cut. Reverse: rename back.
+
+note 2026-11-15T18:55:41Z
+    @spec.Stories: I7 restored to @plan.Testing.O2's bound, as the orchestrator ruled; the run judges it in the driver's
+    step loop through an admit hook, since a sink cannot stop a step. T14 cites this Spec's R10, R11. Reverse: reword
+    I7.
+
+note 2026-11-15T18:55:41Z
+    @spec.Stories: R13 gains reload({ heldWrites: "land" }) (@plan.Pending.D11, the orchestrator's call): held writes
+    land unheard at the reload instant; default abort. Reverse: drop the option.
+
+note 2026-11-15T19:39:52Z
+    @spec.Stories: a held write aborts at its tab's reload and leaves the held list (the orchestrator's ruling on the
+    Plan's aborted on close); R11, R13, I13, I14 and T9 say so. R14's seed is the tab name and open count. Reverse:
+    abort on release.
+
+note 2026-11-16T00:18:08Z
+    @spec.WriteLanes I3, I15, I16: a crash before a save rolls back to the last landed capture (@spec.WriteAhead.I21)
+    and forgets the unsaved delivery, release or failure; the Attempt restores unknown (@spec.WriteAhead.I17). Found by
+    T70's generated runs. Reverse: each item's note.
+
+note 2026-11-16T00:32:57Z
+    @spec.Stories: R17, I22 and T15 add the network words Fake.network.offline() and online() (@plan.Pending.D12, the
+    orchestrator's call): offline, every call is lost at request; wire words wait. Reverse: drop R17.
+
+note 2026-11-16T01:45:10Z
+    @spec.Stories: R6 and T5 now keep the evidence before the batch holding the 10,001st turn, as I7 decided; they
+    promised 10,000 turns always (P2 close-out review). Reverse: with I7's reverse.
+
+note 2026-11-16T02:20:12Z
+    WriteLanes realization: a step returns its evidence built from acts, not the acts (T54); one Out type for the host.
+    Reverse: return acts and map in the driver.
+
+note 2026-11-16T02:22:45Z
+    WriteAhead I20 kept as written (T54, X-8): no row is Queued or Retrying at a step's end but an unknown Restored,
+    which the owed record holds, so isSaved loses no ending; run rule WriteAhead I20 checks the premise.
+
+note 2026-11-16T03:30:00Z
+    @spec.WriteLanes Q5 ruled (T18): under cancel a commit closes its key's Kept rows letGo, then meets its cell; R6,
+    `algorithm` and the realization say how the policies are built. @spec.Restore R3: queues are unsaved, a stated
+    limit. Reverse: restore Q5 and decline Rejected under cancel.
+
+note 2026-11-16T04:10:00Z
+    @spec.Restore R3: the unsaved-queue limit is withdrawn; lane records save W and owed displaced Attempts, ended
+    Restored at the boot. Why: @plan.Operations.O3 and @plan.Persistence.O4 promise NotSent Restored per queued commit
+    (T18 review B1, the coordinator's ruling). Reverse: none; the Plans decide.
+
+note 2026-11-16T08:18:20Z
+    Actors R23, I36, I43, I44: the disposal writes every change within its bound, not one batch at its start; ends made
+    at the bound stay unwritten (reload hears unknown Restored). Why: one try lost a call's own ending settled within
+    the bound. Life and admit are built (R4, model, realization). Reverse: one batch at the start (@task.V3.T55).
+
+note 2026-11-16T09:10:27Z
+    WriteAhead realization: lane and incarnation setters note every change; a head put on the wire is the one move not
+    noted, and a refused batch goes again within 5 s. Why: missed saves left Held heads in flight on disk and stranded
+    refused records. Reverse: explicit saves per move (@task.V3.T19).
+
+note 2026-11-16T09:10:28Z
+    Actors R23: an earlier disposal batch refused after a later one was issued reports nothing; only the disposal's own
+    write reports StorageFailure. Why: ending on it cuts the later write that carries its records, losing endings.
+    Reverse: report every refused disposal batch (@task.V3.T19).
+
+note 2026-11-16T09:25:58Z
+    WriteAhead realization: an identity whose actor record cannot encode withholds all its records and awaited tickets
+    until a step's end where it encodes. Why: its lane and owed writes went alone, so a reload heard endings the
+    restored state never committed (I11). Reverse: write lanes and owed records alone (@task.V3.T19).
+
+note 2026-11-16T09:25:58Z
+    Actors realization: the host decides by the life only through admit and isDisposed; inspection names it through
+    lifecycleOf, which decides nothing. Why: the cut reports the life's name, and the old wording forbade that read.
+    Reverse: drop lifecycle from the runtime cut (@task.V3.T19).
+
+note 2026-11-16T09:49:38Z
+    WriteAhead I23: an identity withheld whole because its record cannot encode lands later, while other identities of
+    the same step go now. Why: no record of one identity depends on another's, and one bad memory must not stop every
+    send. Reverse: skip the whole step's capture while any identity cannot encode (@task.V3.T19).
+
+note 2026-11-16T09:49:38Z
+    Actors I35, I38, I43 and WriteAhead R12: only the disposal's own write, refused or unanswered at the bound, reports
+    StorageFailure, as R23 says; WriteAhead R10 and I21 name the head put on the wire as the one change not written.
+    Why: the old text contradicted R23 and the realization. Reverse: restore the old text (@task.V3.T19).
+
+note 2026-11-16T10:30:03Z
+    Turn R14: armOn's implicit self applies only when no level up to the root writes a handler. Case: Seek at root,
+    PLAYING's tick armOn Seek; old reading ran the implicit self and lost the root's pos update, new runs it and
+    restarts the tick. Why: keeps the author's handler. Reverse: node-local implicit self (T17).
+
+note 2026-11-16T10:30:03Z
+    Turn R4 states history as X's last active direct child (Machines O2), not its leaf; R14 adds the fixed-delay range
+    refusal (DelayOutOfRange); Compile R12 reserves history (S.X.history) and dots in state names. Why: built in T17.
+    Reverse: drop the sentences.
+
+note 2026-11-16T11:14:10Z
+    Turn R4: a history target whose move exits X reads the child it exits (SCXML); traces from ON.MEDIA.PAUSED: before
+    ON.IDLE, now ON.MEDIA.PLAYING. Turn R14: at creation a refused delay is an InvalidTurn issue and the rest arm (was:
+    all dropped). Reverse: drop the sentences (T17).
+
+note 2026-11-16T11:14:10Z
+    Compile R9: endings map to declared internal events (UnknownEvent) and keys lie inside the input (KeyOutsideInput)
+    at construction. Why: T17 close review. Reverse: drop them.
+
+note 2026-11-16T11:47:48Z
+    Actors R5: a singleton's literal name may not start with ~, the prefix local actors (createActor) are named by;
+    algorithm: Create admits as Ensure. Why: a local actor never shares a shared identity. Reverse: give ActorId a kind.
+
+note 2026-11-16T12:02:21Z
+    Turn R24: a memory whose fields are all unchanged keeps its object (I30's reading), a state-only move included; only
+    a changed container is copied. Why: R24's 'containers are copied' let a copy pass. Reverse: restore the old R24
+    sentence.
+
+note 2026-11-16T13:09:50Z
+    Merged the user's UI-primitives decisions (props, emits, paused and keyed schedules, fan-out, R5 delays) into Turn,
+    Actors, Compile, StaticCli, WriteAhead, Restore and Codec; new Turn R27-R30, I37-I39, T25-T27. Source:
+    `ui-primitives-merge-guide` (deleted; last at commit 3a84b878). Reverse: git revert this commit.
+
+note 2026-11-16T13:52:46Z
+    Compile R1 and R4 follow the UI-primitives examples review: the machine callback receives { S, E, O, emits }, and
+    onProps is a machine-body field (root only), not a definition field. Reverse: git revert this commit.
+
+note 2026-11-16T14:16:23Z
+    Codec I7 wins over record.ts: no lane record has mayHaveApplied; an acknowledged head never invoked ends unknown
+    Restored (Restore R3). Records are canonical text, read strictly. Reverse: git revert T20's Spec commit.
+
+note 2026-11-16T14:16:24Z
+    Restore: Owing adds lane records holding a queue or displaced Attempts; a non-canonical or wrong-format record is
+    quarantined and reported each boot, unread; a forget over an unanswered disposal write fails.
+
+note 2026-11-16T14:16:24Z
+    WriteAhead: I21 excepts an identity withheld while its record cannot encode; it is reported UnencodableValue once
+    and its tickets' silence starts with their batch; a lane gone Idle owing a displaced ending keeps a head-less
+    record.
+
+note 2026-11-16T14:24:40Z
+    Restore R5, R10 after T20's adversary pass: a quarantined record's bytes stay until the identity writes that record
+    again; a forget by a Runtime that never booted or failed its load fails, with no I/O.
+
+note 2026-11-16T14:57:40Z
+    Stories R11 adds Fake.storage.refuseLoad() and put(key, text), with raw keys: put stands for records Flow's key
+    builder never makes (foreign, corrupt, other formats). Reverse: drop the two words.
+
+note 2026-11-16T15:15:28Z
+    Actors R9, R13; WriteAhead R4: an actor record saves each slot's last-seen value and a return waves only when a
+    selection differs from it; a capped context update waits instead of being dropped. Why: T9 second review. Reverse:
+    drop seen.
+
+note 2026-11-16T15:22:55Z
+    Compile R5; Diagnostics R7: a throwing callback's issue and a failing services Layer report Defect, not
+    CallbackDefect or ServiceFailed, which are outside the closed list; the slot or cause names what failed. Why:
+    orchestrator ruling (T81). Reverse: add both codes to @plan.Diagnostics.O2 with the user.
+
+note 2026-11-16T19:51:55Z
+    Codec R4, R5, I7; WriteAhead R13, R14, realization: no send waits on a record that may not encode (lane records
+    sized at their largest, owed rows in parts, an unsavable value as unknown { Restored }, refused tickets). Why:
+    T20's convergence, @plan.Pending.D23 and @plan.Pending.D24. Reverse: restore these texts from commit `47c900b8`.
+
+note 2026-11-16T23:25:25Z
+    @spec.Actors R9, R18: a start from a record publishes current context once; its owed wave re-runs reactions only;
+    slots are saved apart, an unencodable one unknown and waving. Why: Turn I9, withheld records. Reverse: e1b9f1ab.
+
+note 2026-11-16T23:25:25Z
+    @spec.Stories R3: a Story's ensure and dispose pass the Runtime's admission and a refusal rejects the run with its
+    FlowError. Why: Story words skipped R5, R18, R20. Reverse: restore R3 from e1b9f1ab.
+
+note 2026-11-16T23:54:10Z
+    @spec.Actors R9, R18; @spec.Restore R2: undefined and Options are saved as last-seen values, unknown is kept for
+    values that cannot encode and slots never selected, and a reload or a return waves only on a difference. Why: a
+    reload invented an onContext event. Reverse: 2878d90d.
+
+note 2026-11-16T23:54:24Z
+    @spec.Actors R18: a provider a consumer starts binds the overrides its own ref gave, not its entry's defaults. Why:
+    a later ensure of that ref was refused ConflictingActorRef. Reverse: drop the clause.
+
+note 2026-11-17T01:14:30Z
+    @spec.Actors R9, R18, R19; @spec.Turn R22; @spec.Restore R2: a slot's selection passes once through its declared
+    Schema's JSON form (proposed, @plan.Pending.D20) and records save baseline inputs, so no value kind is unknown and
+    a kept baseline survives a reload. Why: T9 convergence (two reviews, one class). Reverse: 4850ba6d's parent.
+
+note 2026-11-17T01:14:30Z
+    @spec.Actors R5, R18: a conflict anywhere in an ensure's provider graph is refused, and a record saves its whole
+    provider graph so a provider started again binds as before. @spec.Restore R5: format 2, format 1 by its step. Why:
+    T9 fix-round review. Reverse: 4850ba6d's parent.
+
+note 2026-11-17T02:22:30Z
+    @spec.Actors R18, Codec R4, Restore R5: a value past a bound is saved unknown, never a selector defect; baselines
+    share one memory copy and never cost a record its memory; format 3. Why: T9 convergence review. Reverse: 19ba4076's
+    parent.
+
+note 2026-11-17T04:34:17Z
+    @spec.Codec R1, R4, R5, I2, I7, T1; @spec.WriteAhead R4, T13: the codec has no size bounds; only malformed values
+    fail. Owed rows are one record; a commit is checked by its input's canonical form. Why: @plan.Pending.D23 (the
+    user). Reverse: restore these texts from 59574431.
+
+note 2026-11-17T04:34:18Z
+    @spec.Actors R18: a slot value or baseline is always saved, so nothing is saved unknown; a selection with no
+    canonical form is its selector's defect, and -0 reads 0 live and after a reload. Why: D23 removed the bounds that
+    made values unsaveable. Reverse: restore R18 from 59574431.
+
+note 2026-11-17T05:22:42Z
+    @spec.Codec R1, T1: the codec's walk, writer and re-encode check keep their own stacks, and parsing uses the host
+    parser (iterative on V8 and JavaScriptCore, a million levels on Node and Bun), failing as json, never thrown;
+    too-deep Equal falls back to canonical text. Why: T9 review, depth crash. Reverse: 2f55bc01's codec.ts.
+
+note 2026-11-17T05:22:42Z
+    @spec.Codec R4, @spec.WriteAhead R9: a record fails only on a malformation in its actor's own state, its identity
+    then withheld whole; records carry the current format. Why: T9 review wording. Reverse: d2ab6f9b.
+
+note 2026-11-17T16:30:00Z
+    @spec.Codec R1, R4, T1 (@plan.Pending.D27): no depth bound; Flow.maxDepth is gone and D26's limit lifted. Why:
+    every value path holds at 100,000 deep (tests/session/deep.test.ts, tests/restore/deep-inputs.test.ts). Reverse:
+    restore R1's limit from 5cb2824c.
+
+note 2026-11-17T16:30:01Z
+    @spec.Codec R6: values compare by an iterative structural comparator, the same object first, memory field by field;
+    a walker keeps each object's canonical text, and a selection is walked again only for a new selector result.
+    Why: the bench (T9 comment); Effect's Equal and equivalence throw past ~1,500 levels. Reverse: Schema equivalence.
+
+note 2026-11-17T17:40:00Z
+    @spec.Codec R6 (@plan.Pending.D29): memory, selections, payloads and commit inputs are deep-frozen at admission when
+    the Host sets freezeValues (Story and test hosts on, the browser off); a mutating update is its turn's Defect.
+    Why: the text memo and reference-first equality rest on it. Reverse: drop freezeValues (8509e570).
+
+note 2026-11-17T19:30:00Z
+    @spec.Codec R4, R6: comparison is a structural comparator over every Schema value kind, not the walkers; names
+    pass the boundary; a selection with no form is its selector's defect (Actors R18). Why: T9 boundary review.
+    Reverse: 1d8fd436's wording.
+
+note 2026-11-17T19:30:01Z
+    @spec.Turn R24 (@plan.Pending.D29): admitted values are immutable; dev and test hosts deep-freeze them, Maps, Sets,
+    Dates and class instances included, so a write throws as its turn's Defect. Why: the text memo keys on them.
+    Reverse: drop the paragraph (1d8fd436).
+
+note 2026-11-17T20:40:00Z
+    @spec.Turn R24: a Map, Set or Date the app froze itself is trusted as immutable and not wrapped; a mutable one
+    in memory is still guarded. Why: the user's Q20 B (a frozen object takes no new methods; Immer freezes them this
+    way in dev). Reverse: refuse an app-frozen Map, Set or Date at admission as the turn's Defect (Q20 A).
+
+note 2026-11-17T22:00:00Z
+    @spec.Actors R25 accepted (the user, Q21 A): a step's defect ends the life Stopped, a final row; snapshots read
+    stopped, calls refuse RuntimeDisposed, ready and dispose fail with the defect, nothing more is written. Why: a
+    host flag beside Life broke I42 (T79 review). Reverse: drop the row and rethrow the defect (7b104f91).
+
+note 2026-11-17T22:30:00Z
+    @spec.WriteAhead R10, R12, R13, I20, I21, I23, Records, realization (@plan.Pending.D30): steps mark keys, one
+    Capture encodes them per batch, a key stays marked until landed; a ticket whose record stops encoding first ends
+    NotSent StorageRefused. Why: the user's Q13 A; bytes identical on 152 Stories. Reverse: 9c46f647's text.
+
+note 2026-11-17T22:30:01Z
+    @spec.Actors algorithm (R25): Boot while Stopped drops, as "Stopped drops every input but the public calls"
+    said (the code rejected it); disposeActor is refused RuntimeDisposed; dispose() drops; refusals name the stop;
+    Capture runs while Open and Disposing. Why: T79's review. Reverse: 9c46f647's table.
+
+note 2026-11-17T23:00:00Z
+    @spec.Actors R13, R14, R16, I20, I22, I23, T10, Q2, Q4 (@plan.Pending.D24): no mailbox cap, no
+    AdmissionOverloaded; the loop guard is `RuntimeDefaults.loopGuard` (5,000, built with the send action), the drain
+    a fairness yield, `drainYield` (100), both from the T84 bench. Why: the user's D24. Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:01Z
+    @spec.WriteLanes R7, R13, Q3, I8, T3, algorithm, realization (@plan.Pending.D24): serialize queues any number
+    of commits and NotSent has no Overloaded tag. Why: the user's D24; no ending is lost past the old 64.
+    Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:02Z
+    @spec.WriteAhead R11, I13, Q2, T9 (@plan.Pending.D24): a scope has no record count or size bound; storage
+    quota ends as a refusal. R10, R12, I12, Q3, T5 and the realization cite `RuntimeDefaults` (D25). Why: the
+    user's D24 and D25. Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:03Z
+    @spec.Compile R12, @spec.Reads R3, I4, Q2 (@plan.Pending.D24): names and keys have no length, depth or shape
+    bound; InvalidKey stays for a key with no canonical form. Why: the user's D24. Reverse: eb7cbaa1's text.
+
+note 2026-11-17T23:00:04Z
+    @spec.Actors R8, R22, R23, I35, I43, T16, T25, @spec.Turn R14 (@plan.Pending.D25): the grace, the disposal
+    bound and the timer limit are cited by name (`RuntimeDefaults`, `TIMER_LIMIT_MS`), each defined once in
+    `src/core/defaults.ts`. Why: the user's D25. Reverse: eb7cbaa1's literals.
+
+note 2026-11-17T23:00:05Z
+    @spec.Diagnostics R11, I11, T7 (@plan.Pending.D24): SlowWork, dev only, timed by the host's `workClock` against
+    `RuntimeDefaults.slowWorkBudget` (16 ms); production and test hosts time nothing. Decision (agent: the T84
+    lead): a runtime test, not a Story, since a Story cannot hold real time deterministically. Reverse: drop R11.
+
+note 2026-11-18T05:07:17Z
+    @spec.Stories R11 adds Fake.storage.refuseHeld(): the oldest held write fails StoreRefused, landing nothing. Why:
+    one batch is out at a time, so the pair sweep could not refuse the write an Acknowledging head waits on
+    (@task.V3.T20). Reverse: drop the word; the sweep's Acknowledging × storage refusal cell then cannot fire.
+
+note 2026-11-18T06:13:25Z
+    @spec.Restore R5: one check at the decode boundary: a record is read only when the identity its content names is
+    one a ref could give and its key is that identity's key for its kind; it replaces the per-kind name checks (T20
+    convergence). Reverse: the clause from 5a06cfd3.
+
+note 2026-11-18T06:39:57Z
+    @spec.Restore R5: the boundary check now covers every trusted field: declared machine for every kind, a lane key's
+    operation and key text (read and named back, headless too), an owed row's operation and lane (T20). Reverse: the
+    clause from 7ff63975.
+
+note 2026-11-18T08:06:19Z
+    @spec.Stories R18, I23, T16 added: a reload forks from a saved world (forkReloads) and gives the run a replay gives,
+    so the reload sweep no longer replays each position's prefix (T90). Reverse: drop R18 and turn FLOW_REPLAY_SWEEP's
+    replay form back on as the sweep.
+
+note 2026-11-18T10:19:52Z
+    @spec.Actors R14 reworded: the payload is narrowed to its declared fields after the type-side check, not decoded
+    whole; a whole decode made the palette stress run seven times slower (over 104 s against 14 s) (T81). Reverse:
+    decode the type side whole.
+
+note 2026-11-18T10:47:11Z
+    @spec.Compile R12: ~path and ~flow join the reserved state names, since a child state of either name overwrote its
+    parent token's own field (T81 close review). Reverse: drop them from the list.
+
+note 2026-11-18T18:54:56Z
+    @spec.Actors.R25: an admit-hook throw now also goes back to its caller as a FlowError Defect; dispose still fails
+    with it. Why: Story turn limits rely on the rethrow (@task.V3.T94). Reverse: drop the rethrow in the driver's run.
+
+note 2026-11-19T02:39:04Z
+    @spec.Actors R16 over R20: a send to an actor being disposed drops NoRecord whether or not the removal is
+    acknowledged (the Runtime's copy of the record goes at once). R13, I20: the guard is built and counts onContext
+    turns' sends; R16: drops name their sender (T96). Reverse: restore R20's sentence.
+
+note 2026-11-19T03:22:47Z
+    @spec.Actors R13: one guard count per admitted event, shared by every consumer its context update reaches; onContext
+    events are never counted or refused, their turns' sends count; a joined waiting update follows the higher count; the
+    refusal names the admitted event (T96 close review). Reverse: restore the earlier R13 text.
+
+note 2026-11-19T04:24:26Z
+    @spec.Actors R26, R27 added, proposed: unsettledWrites and runPromise had no requirement, so their failing checks
+    had no rule to cite (T99 requirements). Reverse: delete R26 and R27 and their coverage entries.
+
+note 2026-11-19T05:10:19Z
+    @spec.Actors R20, R22, R26, I45, composition flow, proposed (T99 requirements review): disposeActor drops mail and
+    quarantine; boots report UnboundLane; terminal evidence consumers first, calls interrupted before services release;
+    bound as @plan.Runtime.O6 says. Reverse: delete those paragraphs; I45 back to "incarnation".
+
+note 2026-11-19T05:45:55Z
+    @spec.Actors R24: IdentityExhausted dropped, unreachable (per-open counters, seeded ids; @plan.Runtime.C2 still
+    names it, for @plan.Pending). The Life table gains Run and Closed (T99 build). Reverse: restore R24's last
+    sentence and drop the two rows.
+
+note 2026-11-19T06:06:40Z
+    Actors R23: the stated limit on a cleanup lost in a call's own deadline race removed; the gap is an it.fails owned
+    by T100 (the Epic's no-limits rule). Reverse: restore the sentence.
+
+note 2026-11-19T07:14:20Z
+    Actors R23, R27: Q7 and Q8 written as the user decided; R23 widens a cleanup to any fiber the close interrupts,
+    bounds each close stage by the disposal bound, keeps forget's failure, and adds the ref quarantine lifted by
+    disposeActor (proposed: the lift). Reverse: restore the prior R23 and R27 text.
+
+note 2026-11-19T09:53:44Z
+    Actors R20 (proposed): an identity's mailbox belongs to its lineage, which disposeActor and forget end; replaces
+    the drop-mail clause. Mail stays keyed by identity with one drop at the lineage's end. Reverse: restore the clause.
+
+note 2026-11-19T09:53:44Z
+    Actors R22 (proposed): the host closes its Owner tree once, work (calls, store writes, reads, runPromise) before
+    services by Scope order; replaces 'interrupts every call, then releases services'. Reverse: restore the prior text.
+
+note 2026-11-19T09:53:44Z
+    Actors R23 (proposed): a failed cleanup is any non-interrupt reason; whoever ends work hears it; one bound on the
+    whole close, later causes to Host.report; a cancelled read quarantines at its end, also over a live new incarnation;
+    unheard quarantines reach dispose. Reverse: restore the prior R23.
+
+note 2026-11-19T09:53:44Z
+    Actors R27 (proposed): an aborted signal interrupts the Effect, never the wait, so the rejection keeps every
+    cleanup failure; a signal aborted before the call runs nothing. Reverse: restore the prior R27 sentence.
+
+note 2026-11-19T09:53:45Z
+    Actors algorithm (proposed): CleanupFailed replaces Closed, one per judged failure, running in Open, Disposing and
+    Disposed. Reverse: restore Closed (Disposed only, with a count).
+
+note 2026-11-19T09:53:45Z
+    Actors composition (proposed): the Owner tree replaces the one Scope with a FiberMap; I47 (one judge per task) and
+    I48 (every failed cleanup reaches its closer's report and one Issue) added. Reverse: drop I47, I48, restore the
+    text.
+
+note 2026-11-19T11:42:04Z
+    @spec.Actors R23: dispose rejects CleanupFailed whose Cause holds CleanupOverdue, not CleanupOverdue itself, as the
+    code and tests do. Reverse: reject CleanupOverdue alone.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: the close waits two bounds (core's, then the Owner tree's from the core's end), not one; one
+    shared deadline would make every cleanup after a hung call overdue. Reverse: one deadline from the dispose call.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: an Issue CleanupFailed only in lives that record it (Open, Disposing, Disposed); elsewhere the
+    failure goes through the Runtime's report alone. Tested in cleanups.test.ts (Stopped). Reverse: admit CleanupFailed
+    in more lives.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23: each Cause reported exactly once beyond ensures; a ref keeps reported and unreported Causes apart
+    (proposed, the T99 lead). Reverse: merge them, which reports a heard Cause again.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R27: the abort sentences beyond Q7 A marked proposed (the T99 lead); Q7 A's text restored as decided.
+    Reverse: fold them into the decision once the user confirms.
+
+note 2026-11-19T11:42:05Z
+    @spec.Actors R23, I48, @spec.Diagnostics R8: typed cleanup failures inside app error handling follow Effect's rules;
+    dying cleanups always reported. [decided: user 2026-11-19] Q11 A. Pinned per combinator in cleanups.test.ts.
+
+note 2026-11-19T11:42:06Z
+    @spec.Actors I47, I48: now cited by everyTaskAccounted's breaches and by cleanups.test.ts cells; the rule counts an
+    Owner's own Scope as its task 'scope'. Reverse: cite R23 only.
+
+note 2026-11-19T13:01:30Z
+    @spec.Stories R8, R9, R12, R17, I11: each fake server names its lost error (`lost`); `read(ref)` is typed by the
+    definition; evidence is selected by token. Source: @task.V3.T103 C1 to C3. Reverse: the Fake.Lost mapping and erased
+    read.
+
+note 2026-11-19T18:54:20Z
+    Core Specs now state context slots per the accepted proposal: Flow.context, C.slot.change, one provider per slot
+    (Compile R19, I18, T13). Source: @task.V3.T107. Reverse: restore Provider.select and the reaction select.
+
+note 2026-11-19T19:07:44Z
+    Flow.initial takes a constant only (the user, 2026-11-20): Compile R5, R6, R8, I6, I8 drop computed initials; built
+    by @task.V3.T105. Reverse: restore the computed start.
+
+note 2026-11-19T19:39:58Z
+    @spec.Diagnostics R2: details are the keys Flow writes (reason, contract, first, refused, slot), each typed, so a
+    misspelt key fails to compile; decode drops an unknown key and refuses a wrong value. Source: @task.V3.T104.
+    Reverse: the open string-keyed record.
+
+note 2026-11-19T23:47:55Z
+    @spec.Compile: R19 and I18 built and no longer proposed; R19 names the identity check, the not-a-token and no-spec
+    refusals and the data view's reads; R16 lists slot reads and reaction slots (@task.V3.T107). Reverse: restore the
+    proposed text.
+
+note 2026-11-19T23:47:56Z
+    @spec.Turn.R22: a slot with no value when its baseline is set has none, and its first value is a change; when judges
+    two values only; reactions are top level, the state-scoped experiment rejected (@task.V3.T107). Why: the unread
+    badge's first message after a refused start must open. Reverse: silent first value.
+
+note 2026-11-19T23:47:56Z
+    @spec.Restore.R5, R2; @spec.Codec.R6: format 4 saves a reaction's baseline as its slot's value where it differs from
+    last-seen; format 3's step reads the frame's value of the reaction's slot (@task.V3.T107). Reverse: restore format 3
+    frames.
+
+note 2026-11-20T00:08:06Z
+    @spec.Actors: R9's wave follows a reaction's saved baseline, not the slot's last-seen value; R18 re-reads a slot
+    whose last select failed. @spec.Compile.R19: the type error tells ids apart, construction identities (@task.V3.T107
+    close review). Reverse: restore the wording.
+
+note 2026-11-20T00:54:25Z
+    @spec.Actors.R28, I49 (proposed): identities handled together go in incarnation start order, a stored fact
+    (@task.V3.T105, from @task.V3.T102's close review: reversing it changed BlockedByDependents and context-update
+    turn order, and no rule said so). Reverse: drop R28 and I49.
+
+note 2026-11-20T01:35:18Z
+    @spec.Actors.R28: a disposal ends next the oldest identity whose consumers have ended; the FIFO consumersFirst broke
+    it (Pay before the older shopper). Both orders end every identity, suite green both ways (@task.V3.T105); code
+    fixed, source now Runtime O6. Reverse: restore the FIFO queue and the peers clause.
+
+note 2026-11-20T01:37:57Z
+    @spec.Actors.R1: scope and persistence go together or not at all, as the type says; an untyped scope alone is
+    now refused at persistence, since nothing else reads scope (@task.V3.T105 ruling 3). Reverse: make scope optional
+    alone again and drop the setup check.
+
+note 2026-11-20T01:52:42Z
+    @spec.Compile.R5, R6: computed Flow.initial removed (user ban); creation is total and trusts the input its entry
+    checked, so a fresh start is never refused: the refused-start snapshot branch, its test and fault retired (T56
+    re-adds one if migration needs it; @task.V3.T105). Reverse: restore Source.Computed and create's Result.
+
+note 2026-11-20T02:50:40Z
+    @spec.Actors.I49 (proposed): scoped to R28's sites; a disposal ends the oldest identity whose consumers ended, not
+    oldest first (@task.V3.T105 close review). Reverse: restore the one-order wording.
+
+note 2026-11-20T02:50:40Z
+    @spec.Restore.R5, @spec.Stories.R12: the refused fresh start is gone, since creation is total (@task.V3.T105 close
+    review). Reverse: restore the no-snapshot bullet and Stories' StoryFailed clause.
+
+note 2026-11-20T03:08:04Z
+    @spec.Turn.R22: a first good value after a failed select is judged by when(current, undefined, { memory }); no when
+    still fires (user, Q1 A; @task.V3.T107). The skipped when made up an ending. Reverse: skip when for a first value.
+
+note 2026-11-20T06:35:38Z
+    @spec.Restore.R10, @spec.Actors.R22, R23: forget runs after the work closes, before the services (the Store)
+    release; asked later, or after an overdue work close, it fails StorageFailure with no I/O; its wait is outside the
+    bound (@task.V3.T58: forget after release deleted nothing). Reverse: forget after release.
+
+note 2026-11-20T06:35:38Z
+    @spec.Actors.I4: matches revised R3: no actor starts before the whole services Layer, the Store in it, is acquired
+    and storage read and validated (@task.V3.T58 close review). Reverse: 'no app service before load'.
+
+note 2026-11-20T10:30:00Z
+    @spec.Turn.R17: a restored series continues at its saved attempt (@plan.Pending.D40, user-accepted); a saved hold
+    whose reasons are false resumes from left; a schedule the record lacks starts only if entry arms it; a host step
+    past 2^31 - 1 ms commits its firing, then ends the schedule with one issue (@task.V3.T57, B1, B3, B5, B7).
+
+note 2026-11-20T10:30:00Z
+    @spec.Turn.R15, R27, I31: keyed timers due together fire in key code-unit order (one order with R30); a context
+    change re-checks restartOn and paused at once; I31 keeps a refused creation delay's issue (the new incarnation
+    inherits none). @task.V3.T57; reverse each by restoring the earlier text.
+
+note 2026-11-20T10:30:00Z
+    @spec.WriteAhead.R4: timers save armedAt, attempt and pausedBy, and idle `{ name, key? }` markers so a restore
+    tells an ended timer from an added one; restartOn baselines are not saved, since restore sets them silently
+    (@task.V3.T57, format 5). Reverse: drop the idle markers and restart-at-entry on restore.
+
+note 2026-11-20T10:52:09Z
+    @spec.Turn: R14 says disarm wins over a changed restartOn selection in the same turn (T57 close review: re-arming
+    made up a firing, a submit that clears a search query fired the debounce). Reverse: drop the sentence and the rebase
+    in settle.
+
+note 2026-11-20T13:30:00Z
+    @spec.Turn: R14 disarm wins over entry and key armings (user's ruling); R19 first defect is the issue, a throwing
+    reason keeps the last reasons; R25 a check's issue clears only if it ran clean; R27 reasons run for idle timers.
+    @task.V3.T57 convergence, lead's calls by the schedule table; reverse each by dropping its sentence and rows.
+
+note 2026-11-20T13:58:23Z
+    @spec.Turn R14: an arming decided after commit (keys, restartOn) commits with an issue on its own key; only an
+    arming inside the turn refuses it. Code already did this; now written (T57). Reverse: drop the sentence.
+
+note 2026-11-20T13:58:24Z
+    @spec.Turn R19, I38: a key appearing on a lane change runs schedule for that key only; an idle timer keeps its last
+    pause reasons (B1). Reverse: drop both clauses.
+
+note 2026-11-20T13:58:24Z
+    @spec.Turn R25: schedule issue sources carry the key; a check issue clears per key, a firing clears only its key's
+    firing issues (B2). Reverse: drop the keyed source.
+
+note 2026-11-20T14:17:28Z
+    @spec.WriteAhead R4: an idle timer's record keeps pausedBy when its last reasons were true, so a reason that throws
+    after a restore keeps them (Turn R19, T57). Reverse: drop the clause and the saved field.
+
+note 2026-11-21T19:04:19Z
+    Six v3 Specs written from the algorithm round: Schedules, Changes, Records, Operations, Types, Host (wiki/specs/v3/,
+    each with a companion .md); best-guess guidance before coding.
+
+note 2026-11-21T19:27:12Z
+    @spec.Changes companion: tree.ts chainOf and leafOf are deleted, as @spec.Types (DerivedFields) says; moveOf and
+    historyAfter stay. Schedules: the per-schedule saved value is ScheduleShape (was Shape, a name Records uses for
+    every saved map). Host: host/judge.ts is module-local, apart from owners.ts#judge. Reverse: restore the old lines.
+
+note 2026-11-21T19:39:20Z
+    B1: props reach a schedule as Context, never Turn; @spec.Changes R20 owns it, @spec.Schedules' Turn row and
+    props note now say so. Why: the review found two occasions for one input. Reverse: props back in the Turn row.
+
+note 2026-11-21T19:39:21Z
+    B2: a saved schedule is keyed by state path, then name (@spec.Records PositionShape, ScheduleMap; an instance by
+    name); runtime map stays by scope id. Owner Records. Why: two active states may share a name. Reverse: by name.
+
+note 2026-11-21T19:39:21Z
+    B3: the stored-issue field is Incarnation.outcomes and its source StoredSource (@spec.Operations owns it);
+    Schedules' plant and pin use both; Changes' outcomes map holds StoredSource. Reverse: back to issues/StoredIssue.
+
+note 2026-11-21T19:39:22Z
+    B4: one owner each. Refetch event and fragment address: @spec.Host Q6. Alarm kind order: @spec.Changes Q9
+    (it owns tick). Published<D>/Turn<D> faces: Host; Types' EvidenceOf<D> is what they carry. Others now point there.
+
+note 2026-11-21T19:39:22Z
+    B5: the input gate is a proposed, bench-gated cache with one home, @spec.Schedules Q1; @spec.Changes row C5 passes
+    every scope that hears the occasion. Why: a C5 coder would build what Schedules leaves out. Reverse: gate in C5.
+
+note 2026-11-21T19:39:22Z
+    B6: @spec.Operations Q6 answered by R10's user decision of 2026-11-21 (registered symbols, no WeakMap); Q16
+    no longer waits on Q6. Q13 and Q19 read as closed pointers.
+
+note 2026-11-21T19:39:23Z
+    B7: the compiled Schedule record decide and wake read is spelled in @spec.Types (BodyCapture, In Compiled):
+    the code's fields plus codecs, paused renamed reasons. Why: Schedules read facts no Spec defined. Reverse: drop it.
+
+note 2026-11-21T19:39:23Z
+    Leftovers: seriesId and Out file cites fixed; old-design section numbers replaced; @spec.Changes has proven_by (new
+    T15 for R22) and alarmsMatch as the one alarm check; Host I17/I21-I24, Records I14/I19, Operations I20/I22 tested.
+
+note 2026-11-21T19:43:01Z
+    User's calls left proposed, each now with its reasoning beside it: resetOn Schema (@spec.Changes Q3), hidden page
+    (Q4), rule enabled and terminals (@spec.Types Q5, Q6), persist-off and an unread field (@spec.Records R8, reference
+    table), emit timing (@spec.Host R3). Nothing decided for the user.
+
+note 2026-11-21T19:47:45Z
+    Companion holes closed or homed: Schedules R10 (no now in checks), R14 (failures saved), Q5 atoms in T1, Operations
+    Q14 (CleanupFailed not an issue) decided by agent; Host Q12 and Records Q6 split agent-decided internal rules from
+    the user's calls. Others point at a Spec item or a Task's build-time choice.
+
+note 2026-11-21T19:48:35Z
+    Review minors: M3 (ScheduleIssueSource), M4 (issue source is { name, key, at }), M6, M8, M9 (only catalog issue:true
+    reports are issues), M10 (judge is Host's), M12, M13 (walk row W0), M14 (model counts marked history) fixed.
+
+note 2026-11-21T20:12:36Z
+    Types: Q1-Q8, Q10, Q11 answered A by the user (2026-11-22); Q18 follows. Rule has no enabled; terminals proved only.
+
+note 2026-11-21T20:12:37Z
+    Changes: Q3 (resetOn Schema), Q4 (hidden page not a core input), Q5 (Published carries incarnation) answered A by
+    the user.
+
+note 2026-11-21T20:12:37Z
+    Schedules: Q2 closed by Changes Q4; Q3 answered A, the Plan @plan.Machines.O5 edited to the declared form.
+
+note 2026-11-21T20:12:38Z
+    Host: questions 2, 3, 5, 6, 8, 9, 12 answered A by the user (2026-11-22); 1, 4, 7, 10, 11, 13 stay agent-decided.
+
+note 2026-11-21T20:12:38Z
+    Operations: Q1-Q5, Q7, Q8 answered A by the user (2026-11-22); Plans O2 edited for Q2 and Q3.
+
+note 2026-11-21T20:12:38Z
+    Records: companion items 1, 6, 9, 10, 13, 14 answered A by the user (2026-11-22); Compiled.saved closed with Types
+    Q8.
+
+note 2026-11-21T20:59:48Z
+    Types: twin list gains `RestartOnMissing`; declared names follow the name rules; a schedule key codec decodes
+    exactly, since a lenient decode merges two saved timers into one key text. Found by T120's requirements.
+
+note 2026-11-21T21:22:24Z
+    Types G3: deny codes stay inline in guards, not declared on the definition (the user, 2026-11-22).
+
+note 2026-11-21T21:23:43Z
+    Schedules.spec and Types.spec: the user's 2026-11-22 decision voids the body Flow.keyed form (see @task.V3.T120).
+
+note 2026-11-21T21:26:21Z
+    Types: compiled Schedule drops its codecs (read by name from Compiled.schedules); G8 erased. Declared schedules
+    leave no generic to carry.
+
+note 2026-11-21T21:26:22Z
+    Schedules: ScheduleReads is not generic (the core is erased; the typed face is the declaration's lookup).
+
+note 2026-11-21T22:41:22Z
+    Types: rules attach by chained .rules(build) (R9, RuleTyping); Q2, Q17, I12, I13 edited; Q3, Q5, Q6, Q19 text, R2,
+    I2, G3 superseded; no body capture, CHECKS gains RulesEmpty, RulesWrongSubject, RulesDiffer (stage story),
+    RulesBypassed (the user, 2026-11-22; @proposal.external-rules).
+
+note 2026-11-21T22:41:22Z
+    Host: machine rules judged only by verdictOf over finished evidence via storyCompiled; live judge, last map,
+    RuleBroken, Runtime rules switch cut; R8, R12, RuleSources superseded; Story option runRules; Q13 added (the user,
+    2026-11-22).
+
+note 2026-11-21T22:41:23Z
+    Changes and Operations: pointers to the machine-rule fold in verdictOf and to no body capture; no rule changed (the
+    user, 2026-11-22).
+
+note 2026-11-21T22:48:48Z
+    Correction to the two notes of 2026-11-21T22:41:22Z: RulesDiffer, RulesBypassed, the runRules name and Host Q13 were
+    agent calls, not the user's; the user's were declared schedules, external rules, Story-only judging, terminals at
+    Story start (the specs lead).
+
+note 2026-11-21T23:12:21Z
+    Types: schedules examples carry the declaration; G3 dropped in Q16 and Types.md; Q3, Q19, BodyCapture old text kept
+    as superseded; T8 both refusals; UnknownField row; RuleTokens, RuleName provided; RulesBypassed warning only; lint
+    and I-tags re-tagged agent with Why, Reverse (the specs lead).
+
+note 2026-11-21T23:12:21Z
+    Host: runRules in defineConfig; storyCompiled and RulesDiffer re-tagged agent, terminals at Story start stays the
+    user's; I21 old wording kept; I25, I26 proposed; the judge folds by actor and copy and skips a copy's entry, reset,
+    exit; ruleCoverage exported from flow-state/testing (the specs lead).
+
+note 2026-11-21T23:12:22Z
+    Operations, Changes, Types.md: schedule example declares schedules; Changes R12 cites Machines O3; Types.md H9
+    marked superseded with an agent tag (the specs lead).
+
+note 2026-11-21T23:24:22Z
+    Types: `ScheduleUndeclared` is a construction and `flow check` finding, not a type error, and R8 checks the body
+    by type only where a key is required, as Q19 (option C) gives every unknown body key; slice T89's reconcile.
+
+note 2026-11-22T01:16:32Z
+    Operations, construction trust: a made function gets its own branded function prototype; a Map, Set or Date on a
+    public value gets a frozen prototype that refuses writes; the core's walkers sit under the internals symbol. Found
+    by slice T89's build.
+
+note 2026-11-22T01:16:33Z
+    Types, placement: one schedule placed in a state and in a state below it is refused DuplicateName, as the runtime
+    keeps one timer per name. Found by slice T89's build.
+
+note 2026-11-22T01:49:33Z
+    Operations: a made function takes a second branded prototype that is a function; deep freezing reaches what a face's
+    Maps and Sets hold; a machine's Compiled sits under its internals key, read by compiledOf; slice T89's build and fix
+    round.
+
+note 2026-11-22T03:29:48Z
+    Types Q20: renaming the declaration's pausedBy and key to the body's paused and keys is deferred by the user
+    (2026-11-22), option B noted.
+
+note 2026-11-22T05:41:03Z
+    Schedules R2: the first clean read after a throw is a silent baseline only when the throw left none; after a
+    baseline it compares with the last clean value (ThrowingRead (3); the rows of @task.V3.T118 pin it).
+
+note 2026-11-22T05:41:03Z
+    Schedules R8: a send that writes a restartOn input restarts another timer through the turn it commits (A2); R8 now
+    says so. Types Placement: no state and its descendant place one name (@task.V3.T118).
+
+note 2026-11-22T05:41:04Z
+    Records R12, step 5 to 6: deleted the line mapping a format-5 baseline and refused marker; SavedTimer never held
+    either, so the step writes no selection and no Refused (@task.V3.T118).
+
+note 2026-11-22T07:49:31Z
+    Schedules R11: an operation's outcome whose own arm has a bad delay commits, its start Refused with its issue and
+    tried on every occasion (the user's answer B); events and firings still refuse their turn (@task.V3.T118).
+
+note 2026-11-22T07:49:32Z
+    Schedules: SavedForm says Tracked and its encode and decode sit beside the Schema, not derived; the host stepper is
+    keyed by series id; T5's oracle is the ledger; Q1 closed, no gate (@task.V3.T118).
+
+note 2026-11-22T07:49:33Z
+    Records R12: step 5 to 6 reads the definition to file each saved timer under its state; the saved timer is spelled
+    SavedTimer in code, lint refusing Shape (@task.V3.T118).
+
+note 2026-11-22T08:20:33Z
+    Turn R14: a fixed Duration input is read as Effect reads it, a NaN part as zero; Flow's NaN-part guards are removed
+    (the user, 2026-11-22, credits only following Effect's Duration). The raw non-finite refusal is the range check, so
+    a raw NaN number and a computed NaN delay still refuse (@task.V3.T118).
+
+note 2026-11-22T08:26:13Z
+    Schedules R11: an actor's send and an onContext reaction also commit when their own arm's delay is bad, as an
+    outcome does (the orchestrator's ruling R3, 2026-11-22). R5: a resting record shows the issues of the entries its
+    wake keeps (@task.V3.T118).
+
+note 2026-11-22T10:22:41Z
+    [deferred: agent orchestrator 2026-11-22] @spec.Types G1, exporting Reads: outside-body callbacks name per-part
+    derived types (@task.V3.T113). Reopen if: the Changes Tasks settle View, or the wrappers prove a source of wrong
+    types.
+
+note 2026-11-22T11:00:21Z
+    Types Q19 reversed by the user (2026-11-22, Q5 A): the body's type is captured and checked exactly
+    (`@proposal.body-key-typos`); construction's strict decode stays as the runtime backstop. Built by T144. Types R2
+    and Q19 rewritten to say so; Types.md's payBody gap now says inline.
+
+note 2026-11-22T23:01:37Z
+    Records: built by @task.V3.T92 (format 6, full decode). Deviations and silences are tagged decisions in that Task's
+    comments (2026-11-23): HeldAtStart gone, rows keep their input, keyless Unencodable declines read, kept keys never
+    written, brands at the admission boundary, no pin or bench row yet.
+
+note 2026-11-23T06:55:52Z
+    Operations deviations from T121's build (orchestrator, 2026-11-23): an unhandled ending closes as heard; a restored
+    kept row carries no refusal. Recorded on @task.V3.T121; Spec text unchanged.
+
+note 2026-11-23T07:41:58Z
+    Operations deviations, T122's fix round: read changes are `read.set(key, value)` and `read.update(key, f)`, with
+    InvalidUpdate (@plan.Pending D41; first `resource.write`, still in T121's and T122's notes); Written applies an
+    update to data asked before the commit, else Invalidate; a throwing `writes` is InvalidWrite. Spec text unchanged.

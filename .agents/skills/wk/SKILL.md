@@ -1,0 +1,318 @@
+---
+name: wk
+description: >-
+  Use the wk CLI (the Workflow command line tool) to find work, inspect blockers, create and
+  update Plans, Tasks, Specs and Markdown records, tag decisions, deferrals and questions, link
+  records, and validate changes and commit messages.
+metadata:
+  kind: procedure
+---
+
+# wk CLI
+
+The `wk` command line tool reads and writes the project's Plans, Epics, Tasks, Specs and
+Markdown records, links them together, and validates the result. Other skills decide what belongs
+in those records; this one covers the commands and the file syntax.
+
+## First step
+
+Run from the project root, or add `--root DIR`:
+
+```sh
+wk --help
+```
+
+Use command help for unfamiliar options. If project setup is authorized and records are missing,
+run `wk init` to create the directories. Initialization does not create work
+records.
+
+## Commands or direct edits
+
+Use commands for creation, short edits, whole-field replacements (`--text FIELD=TEXT` or
+`--file FIELD=PATH`), notes and comments, opening a phase, queries, and
+links, and add `--json` when a program will read the output. Edit the files directly for what the
+commands cannot do well: structural changes, surgical prose edits in any field, Plan objects, and
+edits within a Spec body. `wk edit --help` lists which fields `--file` can replace. Read what
+is there before replacing it, and keep IDs, nesting, and unrelated work intact. For the grammar,
+read [the syntax starter](syntax.md) or a valid existing record, and never invent schema fields.
+
+## Core CLI workflow
+
+### 1. Find and inspect work
+
+```sh
+wk list task --ready
+wk list task --status=in_progress
+wk next --epic Example
+wk show @task.Example.T1 --why
+wk show @epic.Example --tree
+```
+
+`next` reports the highest-priority ready Task; it does not reserve it or change its assignee.
+An in-progress Task is shown first (`In progress: ...`). With nothing ready it says why: the task
+count by status, how many are blocked by an unresolved blocker, and which Epics are not active (a
+draft Epic's Tasks are never ready). An unknown `--epic` or `--status` is an error, not an empty
+result. Graph readiness requires an open Task, an active Epic, and satisfied blockers.
+`show` prints a record readably: a Task's line `@task.EPIC.T1 [status priority] title (phase)`, its
+file, set fields (assignee, labels, ...), description, acceptance and comments; an Epic's
+description, loop and last three notes (`--notes N` or `--notes all` for more); a Plan's goal and objects (`show @plan.ID`); a phase's card,
+comments and Tasks. `list task` prints each Task with its phase and ends with `Total: N tasks.`;
+`--blocked` adds each Task's unresolved blockers; `--ready` with nothing ready says why, as
+`next` does. An unknown `--epic`, `--phase` or `--status` is an error.
+Use `--why` to explain readiness and `--tree` to inspect hierarchy. Do not combine them.
+Find Specs with `wk list spec`.
+`wk status` is the home view: each Epic with its in-progress Tasks first, its loop skill and
+last three notes; warnings; a count of agent decisions (`decided: agent` tags, and older
+`Decision (agent, <date>):` leads); open questions; accepted proposals not yet merged; ready
+Tasks; and counts of dangling links and orphans. `wk status --decisions` prints one line per agent
+decision (address, judge, date, the start of its text; `wk show ADDRESS` prints it whole); `--by user`
+or `--by all` widens it to the user's decisions, and `--since DATE` (inclusive) and `--about REF` filter
+it. Its `--json` list is `decisions`.
+Text listings (`check`, `lint`, `list`, `refs`, `status --decisions`, `show --items`) stop at 50 rows and
+end with `… and N more (--limit N or --all)`; pass `--limit N` or `--all`. `--json` is complete unless
+`--limit` is given, then `total` sits beside the cut list.
+`wk agenda [--since DATE]` is what needs a judge, grouped by record: every `[open]` item with its
+recommendation, every Markdown record at `proposed`, and agent decisions since DATE (default 7 days).
+Run it instead of collecting these by hand; `--json` for programs.
+`wk brief @task.EPIC.T1` prints what a lead needs for one Task, in order: the Task as `show`
+prints it; its phase card; every Spec or Plan item it links, in full; the Epic's `## Constraints`
+bullets whose scope (after the last `;` in the bullet's final parenthesis: `whole run`, `P4`,
+`P3 to P10`) covers the Task's phase, plus any whose scope can't be read; the notes that link
+the Task or those items; and the Markdown records it links, with the questions and decisions
+tagged about the Task. `--json` for programs; `--check` exits 1 when a linked record is missing.
+
+### Links and backlinks
+
+Prose may link records with `@plan.ID[.O1]`, `@epic.ID`, `@task.EPIC.T1` and `@spec.ID[.R1]`, files
+with `code:PATH` or `code:PATH#TEXT`, and skills with `skill:NAME` or `skill:NAME#heading`
+(resolved through the `skills` array in `wiki/config.json`: ordered skill-library roots, the first
+holding `NAME/SKILL.md` wins; a root that is not a directory fails `wk check`). `wk check` fails on a
+link that resolves to nothing. Code spans and fences are not links. There is no rename command:
+to rename a record, change every link to it (find them with `wk refs`), then check.
+
+```sh
+wk refs @task.Example.T1        # every link to it, once each, at the line it is written on
+wk refs @phase.Example.P1       # links to any Task of the phase
+wk refs @epic.Example           # links to the Epic and to any of its Tasks
+wk refs @spec.Example --links   # a Spec's typed relationships by default; --links lists all
+wk refs code:src/turn.ts#admit
+wk refs skill:policy-testing
+wk refs --dangling              # links to nothing; exits 1 when any
+wk refs --orphans               # objects nothing links to; a report only
+```
+
+### Markdown records and tags
+
+Every `.md` file under `wiki/` is read: its links resolve as in any record, and a file with
+frontmatter is a Markdown record with a kind, a name and a status, linked as `@<kind>.<name>`.
+Kinds and their status lists are declared in `wiki/config.json`. Decisions, deferrals and questions
+are inline tags such as `[decided: user 2026-11-20]`. skill:policy-records says what they mean;
+[the syntax starter](syntax.md) shows them.
+
+```sh
+wk show @proposal.rules                # frontmatter, status steps, tags, commits, backlinks
+wk show @proposal.rules --items        # one row per tagged item
+wk show @proposal.rules#two-rule-kinds # one item: its tag, text, history and backlinks
+wk list proposal --status accepted --since 2026-11-15
+wk list question --open
+wk list defer
+wk edit @proposal.rules --status merged --into @plan.Rules
+wk edit @spec.Old --status superseded --into @proposal.spec-handover   # Plan, Task or Spec: writes superseded_by
+wk show @plan.Road --items             # tagged items in a Plan, Epic, phase, Task or Spec prose field
+wk edit @task.Road.T1#retry --tag decided --by user   # the same --tag, on an item inside that record
+wk edit @proposal.rules#two-rule-kinds --tag decided --by user
+wk edit @revisit.flow#bulk-starts --tag deferred --by user --reopen-if "a real app needs it"
+wk edit @proposal.rules#names --tag open --recommend A
+wk edit @proposal.rules#names --tag answered --by user --answer A
+wk edit @proposal.rules#retry --tag decided --by "agent builder" --why "a POST can charge twice" \
+  --reverse "retry every request"
+wk link @proposal.rules @proposal.rules-cohesion --type supersedes
+wk check --commit .git/COMMIT_EDITMSG  # area from the list; every Refs: link resolves
+wk migrate docs --kind proposal --dry-run wiki/proposals  # convert older Markdown and lead-ins
+```
+
+- A tag needs a heading or bold lead term on its line, except in `.log` and `.task` prose, where
+  the note or comment is the item (one tag per note). In the same file, link an item as `@#slug`.
+  Prose fields of `.plan`, `.task` and `.spec` files read the same way (`@plan.ID#slug`,
+  `@plan.ID.O1#slug`, `@task.EPIC.T1#slug`, `@spec.NAME#slug`: the owner's address and the slug,
+  unique within the owner); a tag with no lead there is a `TAG_NO_ITEM` lint finding.
+  `wk show OWNER --items` lists them and `wk edit OWNER#slug --tag` changes one, touching only its lines.
+- One home per decision: write a decision once, in the tagged item. To log it, `wk log add V3
+  --decision @proposal.rules#retry` writes a pointer from the item's own tag; a note that tags
+  `decided` or `accepted` and links an item that has one is `DUPLICATE_DECISION`.
+- A Task may wait on a question: `--set blocked_by=[@proposal.rules#names]`, or `wk link @task.EPIC.T1
+  @proposal.rules#names --type blocked-by` (`unlink` removes it). It is not ready while the
+  item is `open` and is ready once `answered`, `decided`, `accepted`, `rejected` or `dropped`.
+- `wk lint` reads across records: `STATUS_DRIFT` (a `proposed` record a Task, Plan or Spec says was
+  built, merged or accepted, or another record supersedes), `QUESTION_MAYBE_ANSWERED` (an `[open]`
+  item a newer record links by slug) and seams. A record lists `- **Offers** \`Name\`: ...` and
+  `- **Needs** \`Name\` from @kind.name: ...`; `SEAM_UNMATCHED` is a Needs with no matching Offers,
+  `SEAM_UNUSED` (info) an Offers nothing needs.
+- Tag dates are your local date. A Task may be `superseded` (closed for readiness); so may a Plan or
+  Spec, whose `open_by` evidence stays allowed. `--status superseded --into @REPLACEMENT` on a Plan,
+  Task or Spec writes `superseded_by @REPLACEMENT` after its status; the replacement is any record, a
+  Markdown record or one of its items, and one record can replace many. `wk show` prints it as
+  `Superseded by:` and, on the replacement, `Supersedes:`; `wk refs` lists it both ways. Another
+  status removes the link. `wk link --type supersedes` is still for Markdown records.
+- `--tag` writes labels on their own line at the end of the item's paragraph, replaces a label
+  that is already there, and drops labels the new verb does not use. It refuses to retag a
+  `decided: user` item unless `--by user` (`EDIT_USER_DECISION`).
+- `wk migrate docs` converts what it can read, formats the files it changed, and reports every
+  line it left alone with file and line; a second run changes nothing. Run `--dry-run` first, one
+  `--kind` per run.
+- Item history comes from git, so commit before reading it. `wk lint` warns when an item tagged
+  `decided: user` was reworded since the commit that set its tag (`USER_DECISION_REWORDED`), and
+  when a `**Status (…):**` line is left in a record body (`STATUS_IN_BODY`).
+
+### 2. Create records
+
+Create only the records needed for the assigned work. A Task needs an existing Epic and phase.
+Replace example IDs and paths. Prepare `goal.md`, `acceptance.md`, and `spec-body.txt` as inputs.
+The Spec body file contains body sections, without the metadata header.
+
+```sh
+wk create plan --id Example --set title="Example work" --file goal=goal.md
+wk create epic --id Example --set title="Example work" --set status=draft
+wk create phase --epic Example --id P1 --set title="Delivery"
+wk create task --epic Example --phase P1 --id T1 \
+  --set title="Deliver the slice" --set status=draft --set priority=medium \
+  --file acceptance=acceptance.md
+wk create task --epic Example --phase P1 --id T2 \
+  --set title="Follow-up slice" --set status=draft --set priority=low \
+  --file acceptance=acceptance.md
+wk create spec --id Example --path src/example.spec \
+  --set status=proposed --set basis="Agreed requirements" --set location=src/example \
+  --file body=spec-body.txt
+```
+
+These examples leave work proposed or draft. Creation does not grant approval to execute.
+
+Add this Outcome inside `wiki/plans/Example.plan` for the relationship example below.
+If an `outcomes` section exists, add O1 there rather than creating another section.
+
+```text
+outcomes
+    O1 The example completes.
+```
+
+### 3. Update fields and record progress
+
+When execution is authorized, activate the Epic and open the Task, or every draft Task of a phase,
+before starting work:
+
+```sh
+wk edit @epic.Example --set status=active
+wk edit @task.Example.T1 --set status=open
+wk open @phase.Example.P1        # every draft Task of P1 becomes open; reports how many
+wk show @task.Example.T1 --why
+```
+
+`wk open` is refused unless the Epic is `active`: a draft Epic waits for the user's approval.
+
+Proceed only when the Task is ready. The following commands illustrate progress updates;
+run each when the corresponding change has occurred.
+
+```sh
+wk edit @task.Example.T1 --set priority=high
+wk edit @task.Example.T1 --set status=in_progress --set assignee=worker-a
+wk edit @task.Example.T1 --set labels=[backend, recovery]
+wk edit @task.Example.T1 --now --text comment="Gates pass; see @task.Example.T2."
+wk edit @task.Example.T1 --set status=done
+```
+
+Inspect the current record before updating it. Setting status and assignee does not lock the Task:
+another worker can claim it between your read and your write. Mark done only after the work's
+required gates pass. A comment needs a time, `--now` (the current UTC time) or
+`--set comment=TIMESTAMP` (never earlier than the comment before it, at most 5 minutes ahead), and
+a body, `--text comment=TEXT` or `--file comment=PATH`.
+
+List fields (`labels`, `blocked_by`, `derives_from`, `parent`, `satisfies`) take one syntax in
+`create` and `edit`: repeated `--set labels=a --set labels=b`, `--set labels=[a, b]` or
+`--set labels=a,b`; the value replaces the entire list. A Task's relationships can be edited this
+way (`--set blocked_by=[@T2, @T3]`) or with `wk link`. Items have no spaces. An empty value
+is refused: `--clear FIELD` empties a list or removes an optional field (assignee, defer_until,
+description, acceptance, deleted_at, deletion_reason). Repeat other fields only when command
+help permits it.
+
+`--text FIELD=TEXT` gives a text field inline; `--file FIELD=PATH` reads it from a file. Either
+replaces a whole supported field; paths resolve from the working directory.
+Use `--file FIELD=-` with a quoted heredoc for stdin. Only one field can read stdin per command.
+Only check diagnostics your edit introduces refuse it; each names the flags of the field it
+comes from (`(--set blocked_by)`, `(--set note, --text note)`), or a real line of a file on disk.
+Diagnostics the repository already had are a warning on stderr and do not block. Refusals go to
+stderr; with `--json`, results and usage errors are JSON on stdout. Do not weaken acceptance or
+remove detail to work around a refused edit.
+
+### Epic loop and phase notes
+
+An Epic can carry its loop: `skill` (`LIBRARY@REVISION`) and the text sections `run`,
+`instructions`, `cadence` and `stops`. Its dated `note TIMESTAMP` entries live in
+`wiki/tasks/<EPIC>/log.task`, headed `log <EPIC>`; an Epic file that still holds notes keeps
+receiving them there, and notes in both files fail `wk check`. A dangling link in the log is a
+warning, not an error, and log links count as references. A phase can carry a
+`description` and dated `comment` entries. Notes are append-only: their timestamps never decrease
+and a note has a body. Prepare `loop-run.md` first.
+
+```sh
+wk edit @epic.Example --set skill=workflow@abc1234 --file run=loop-run.md
+wk edit @epic.Example --now --text note="Paused: the user asked for a review."
+wk edit @epic.Example --set note=2026-11-09T04:00:00Z --file note=note.md
+wk edit @phase.Example.P1 --file description=card.md
+wk edit @phase.Example.P1 --now --text comment="Opened after @task.Example.T0 landed."
+```
+
+A note or comment needs a time (`--now` or `--set note|comment=TIMESTAMP`) and a body (`--text`
+or `--file`); it is always appended, a note to `log.task` (created when the Epic file has none).
+An edit refuses a new note whose link resolves to nothing. The `skill` pin names the library, the folder name of a root
+in `wiki/config.json`'s `skills` (`workflow` for `.../suites/workflow`), and a commit of its
+git repository; `wk check` refuses a pin that resolves to nothing or a revision that is not
+a commit, and warns when the library is outside git or git cannot run.
+Missing Epic fields are inserted in order. Field order, note order and empty notes are checked.
+
+### 4. Connect records
+
+Both endpoints must exist. Here, T2 waits for T1; T1 delivers O1; the Spec traces to T1.
+
+```sh
+wk link @task.Example.T2 @task.Example.T1 --type blocked-by
+wk link @task.Example.T1 @plan.Example.O1 --type satisfies
+wk link @spec.Example @task.Example.T1 --type spec-trace
+```
+
+Use `parent` for Task grouping and `derives-from` for supported provenance. `supersedes` joins two
+Markdown records and is written into the newer one's frontmatter.
+Grouping and file order do not create blockers. `satisfies` targets Plan Outcomes.
+Use `wk unlink` with the same arguments to remove a relationship.
+Each call accepts one source-target pair; grouped-reference shorthand is not accepted.
+
+### 5. Validate changed files
+
+After a coherent batch of writes, format each changed artifact, then validate the repository:
+
+```sh
+wk format wiki/tasks/Example/P1.task --write
+wk check
+```
+
+Replace the example path; repeat formatting for each changed artifact. Review the diff. Preserve
+formatter-produced continuation whitespace. Keep notes, tables, and resources in supported text
+blocks. For read-only work, use `wk check` or `wk format PATH --check`. Skip write-mode
+formatting. Validation checks artifact and graph integrity and resolves every link, not completion or
+execution readiness.
+
+## Recovery and transfer
+
+- After moving a Spec or changing its ID directly, run `wk check`.
+- If invalid records block queries, inspect diagnostics and source files, and repair only the files
+your assignment lets you change.
+- After a refused write, inspect files before retrying; do not assume the edit persisted.
+  If a valid field edit remains refused, edit the field directly, then format and check.
+- Use `wk export --output backup.json` for an artifact export.
+  Preview import with `wk import --dry-run < backup.json` before applying it.
+  Preview cleanup and reference migration with `--dry-run` too.
+
+## What to return
+
+Return the records you changed, the commands you ran, and the `wk check` result. Stop when
+the assigned record work is done and validates. If validation fails only on records outside your
+write scope, return those diagnostics and stop with validation marked blocked.

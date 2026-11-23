@@ -1,0 +1,879 @@
+plan Machines
+title   Machines: definitions, fragments, states, turns, guards, schedules, activities and reactions
+status  proposed
+goal
+    An author declares an actor's states and events once. Each accepted event produces one consistent result; guards,
+    views and tests agree about what the actor can do.
+
+    **Why now:** everything that runs or reads an actor depends on one meaning for its states and events, so the
+    declaration and the turn algorithm are fixed once, here.
+
+    **Read first:** @spec.Compile and @spec.Turn, the Specs built from this Plan.
+outcomes
+    O1  Definitions, fragments and machines
+        Declaring a definition or machine starts nothing, and an invalid declaration throws one FlowError listing every
+        violation found.
+
+        definition(config) and machine(definition, callback) return synchronously and start no actors, work, timers or
+        storage. machine() is the compile: its output is plain data plus named closures, booted by the Runtime in the
+        same process (@plan.Runtime.O1).
+
+        Invalid construction throws one FlowError containing all discovered violations in declaration then rule order,
+        with offending field paths. The callback runs exactly once with { S, E, O, emits } (states, events, operations
+        and emit tokens) and returns static machine configuration; `onContext` and `onProps` sit in its root.
+
+        A definition requires id, states and events, and may declare `internalEvents`, memory, traits, operations,
+        context, `props`, `emits` and persist. persist defaults to false; persist: true on the definition makes the
+        machine's shared actors persisted (@plan.Persistence.O2). states is an ordered list of leaf names, single-key
+        compounds containing child lists, or { NAME: Sub } placing a subroutine; a node that carries traits is wrapped
+        as Flow.state(children | {} | Sub, { traits }). events and optional `internalEvents` are records from event
+        names to Schema field records; {} means no payload.
+
+        A payload may instead be a Schema.Struct with checks; a payload failing its check is refused at admission,
+        before guards run.
+
+        An internal event may be marked Flow.uncertain(fields); every unknown: target of an operation is such an event
+        or Flow.ignore (@plan.Operations.O3), otherwise UnknownNotUncertain at construction.
+
+        Memory is a record of Schema fields; a field's start is written on the field. Flow.input(s) is supplied by the
+        creator, and the definition's Input type is exactly these fields; Flow.initial(s, value) is a constant start,
+        and only a constant: a start computed from other fields would store a value they already determine, so derive it
+        where it is read instead (the user, 2026-11-20; @task.V3.T105); Flow.private(s) is seen only by its owner.
+
+        Every field starts from exactly one source: Flow.input, Flow.initial, or absence for an optional key; a field
+        with none is a type error, and Flow.input and Flow.initial never share a field. A field has one default, the
+        same at creation and restore; two different defaults, or a Schema default beside Flow.initial, are TwoDefaults,
+        found from the Schema's structure.
+
+        `props` is a record of Schema fields that the outside world sets and the machine only reads. Every prop has a
+        value before any use, its Schema's default; how the Schema declares it is the author's choice. Props are never
+        persisted or transferred, and only local actors take them (`useActor`, `createActor`, `Story.machine`); a shared
+        actor's outside configuration is context or input. `emits` is a record from emit names to Schema field records;
+        {} means no payload.
+
+        A default is pure: a default whose Effect is not a succeeded value (a clock read, a fresh id per call) is a
+        construction error, ImpureDefault (proposed name, the runner's), found by reading the Schema without running it;
+        a time or an id comes from an event or the Runtime's mint. Flow is outermost: a Schema modifier over a Flow
+        marker is a type error.
+
+        Creation is pure and runs once per incarnation: it checks a present input by the Input Schema's type side, with
+        no transforming decode, copies the input fields, applies constant initials, and reads no clock or randomness,
+        because it also runs in render (@plan.React.O2). It never runs on restore, adoption or hydration.
+
+        Input fields are ordinary memory afterwards. A machine's input fields are read-only (writing one is a type
+        error), since they name the actor (@plan.Runtime.O3); on a value-named machine they are required, default-free
+        and string-encoded, else IdentityFieldOptional (proposed name).
+
+        A fragment's input fields stay writable. At restore a field the record lacks takes its default or initial, an
+        optional key stays absent, and an input field with no default refuses the record (RestoreMissingInput); record
+        versions, resets and dropped fields are @plan.Persistence.O5.
+
+        Optional context declares each slot whole with Flow.context (@plan.Machines.O7); context binding is
+        @plan.Runtime.O5. operations is ({ E }) => ({ name: contract.outcomes({ ... }) | contract }): each server
+        interaction is declared once by name with its endings mapped onto this definition's events (@plan.Operations.O1
+        to O3); one write operation per write contract per actor, counting every fragment placement in its tree
+        (SharedContract, proposed name, otherwise).
+
+        The definition exports O, the operations' handles; a commit's or lookup's select is typed at its transition.
+        Machine configuration mirrors the declared state tree exactly: root and compounds require a default direct-child
+        token and states; leaves have neither.
+
+        Nodes may declare on, activities and schedules, and fill each placed fragment in one block (traits under
+        traits.name where placed, a subroutine on its state); only the root may declare `onContext` and `onProps`
+        (`onContext` inside a state node is an experiment in @task.V3.T107, kept only if it adds no bugs). A
+        definition's handler(path, h) and guard(path?, g) type shared code as if written at path (the root
+        when omitted).
+
+        Fragments. trait(declaration, body) is something the actor has; subroutine(declaration, body) is a state the
+        actor goes into.
+
+        A fragment declares id, events, `hostEvents` (raised only by its direct host), `internalEvents` (from its own
+        schedules or operation endings), guards (Flow.Guard), callbacks (Flow.Callback), exits (Flow.Exit, subroutines
+        only), memory, emits, child traits, operations and, for a subroutine, states and default; ports are required
+        unless wrapped in Flow.optional (an optional guard allows, an optional callback ignores). Its body holds on,
+        schedules, activities, its children's fillings and `whenAbandoned` (notified when an incarnation ends other than
+        by its own exit or a freeze).
+
+        Each fragment carries an inferred summary (per event: callbacks notified, exits taken, emits, totality;
+        whenAbandoned's callbacks; its and its children's write operations and their Effect requirements), part of its
+        type; hosts are checked against summaries, never bodies. Fragments may not declare context, `onContext`,
+        `props`, `onProps`, send or persist; a fragment is configured by input and host events.
+
+        Placement:
+
+        - the root's traits, a node's Flow.state traits, or a subroutine state;
+        - T.resumable() freezes instead of dropping when its node is left;
+        - T.each({ of, max, by? }) places one copy per key of a host memory field.
+
+        A `resetOn` filling returns a reset value compared by Equal.equals; null or undefined means the trait is not
+        placed (becoming absent ends the incarnation and runs whenAbandoned, becoming present starts one), and the
+        filling's parts receive key, the present reset value (the copy key under .each).
+
+        A raise into a trait placed with .each reaches every copy live at turn start, in key order. A copy with no
+        handler on its active path is skipped with `Unhandled` evidence; a copy whose guards deny refuses the whole
+        turn; with no live copies the raise does nothing and is recorded. Keys past `max` are dropped with `listRepair`
+        evidence, never refused.
+
+        ```ts
+        // A fan-out raise: one Cancel reaches every upload copy.
+        // user-defined: Upload, Editor, EditorMachine, Attach, Cancel, CancelAll, ref, cancelled, attachments, uploads
+        // existing: definition, machine, trait, .each({ of, by, max }), Flow.input, Flow.initial, target, raise
+        // NEW: a raise into an .each instance reaches every live copy
+        import { Schema } from "effect"
+        import { definition, Flow, machine, trait } from "flow-state"
+
+        const Upload = trait(
+          {
+            id: "Upload",
+            events: { Cancel: {} },
+            memory: {
+              ref: Flow.input(Schema.String),                // filled from the copy's item
+              cancelled: Flow.initial(Schema.Boolean, false),
+            },
+          },
+          // no guard: see below
+          () => ({ on: { Cancel: { target: "self", updateMemory: () => ({ cancelled: true }) } } }),
+        )
+
+        const Editor = definition({
+          id: "Desk/Editor",
+          states: ["EDITING"],
+          events: { Attach: { ref: Schema.String }, CancelAll: {} }, // the view mints a ref per picked File; the File
+          memory: {                                                  // itself stays outside Flow
+            attachments: Flow.initial(Schema.Array(Schema.Struct({ ref: Schema.String })), []), // the host's list
+          },
+          traits: { uploads: Upload.each({ of: "attachments", by: "ref", max: 10 }) }, // one copy per ref
+        })
+
+        export const EditorMachine = machine(Editor, ({ S, E }) => ({
+          default: S.EDITING,
+          on: {
+            Attach: {
+              updateMemory: ({ event, memory }) => ({ attachments: [...memory.attachments, { ref: event.ref }] }),
+            },
+            CancelAll: { raise: [E.uploads.Cancel] }, // a token, as for any raise; every live copy, in key order
+          },
+        }))
+        // A copy with no handler on its active path is skipped (Unhandled evidence); a copy whose guards deny refuses
+        // the whole CancelAll, so a fan-out handler leaves its guards off; with no copies the raise does nothing and
+        // is recorded. An 11th ref is dropped with listRepair evidence, never refused.
+        ```
+
+        Trait instance names, operation names, state names, memory keys, prop names and emit names share one namespace;
+        a collision rejects; key and item are reserved memory names in a trait placed with .each.
+
+        A fragment's operations map onto its own `internalEvents`. A fragment may own a write that maps anything only if
+        every placement from the actor's root to it is a root trait, an .each copy or a .resumable() trait, any of which
+        may carry `resetOn`, with no subroutine on the path; there a `resetOn` must return a string, null or undefined.
+
+        Elsewhere it may own reads, streams and bare writes. Acting members (commit, lookup, subscribe, retry, cancel,
+        cancelAll, refetch) are typed only in the declaring fragment; outside it Fragment.O offers only its write
+        operations' reads (get in views; get, idle and retryable in a host's guards and updateMemory).
+
+        A key-less O.x.cancel listed in `whenAbandoned` releases that operation's lanes of the ending incarnation on
+        leave (@plan.Operations.O7).
+
+        Unknown fields, wrong kinds, empty compounds, duplicate siblings, overlapping public and internal event names,
+        _tag payload/input/memory fields, self-selecting context and invalid operation handles reject. State names is
+        and child, top-level root, and the names self and __proto__ (ReservedStateName) are reserved.
+
+        State paths and names have no length cap (D24). Authored names and ids are nonempty, contain no C0 controls, DEL
+        or lone surrogates, and retain exact spelling: no Unicode normalization or locale comparison.
+
+        Construction errors also include unfilled required ports, a raise into a fragment the turn's state change exits,
+        two state changers or overlapping keys that state-token pruning cannot separate, an acting fragment member used
+        outside its fragment, and a mapped write or `resetOn` outside the fragment write scope above; the full finding
+        list is @plan.CommandLine.O5.
+
+        The machine cannot add states, events or operations. Foreign tokens, undeclared handler events, foreign producer
+        events, non-public send events and duplicate schedule names reject. Targets, operations, outcome events and
+        send/write targets are static; callbacks compute values only. Starting a write is static: only by listing a
+        commit in actions.
+
+        Definition literals, payloads, context, operation names and state paths infer without assertions, explicit
+        generics or wrappers; a misspelt name (a state, event, field, operation, schedule, reason or rule) is a type
+        error, while an unknown structural key (`gaurd`) is refused at construction and by `flow check`, never by types
+        (@spec.Types.Q19). Definitions expose Event, State, Input, Memory and Snapshot Schemas.
+
+        Event decodes only public _tag envelopes; State accepts complete leaf paths. E.X(payload) validates on every
+        call and throws InvalidEvent on mismatch; payload-free constructors take no argument. Persisted-value
+        eligibility is @plan.Persistence.O2.
+    O2  States and transitions
+        Exactly one leaf is active. Substates share the actor's memory, context and lifetime; reaching a leaf with no
+        handlers does not complete or dispose the actor. S.OPEN.EDITING names that state; token.is(snapshot or state)
+        includes descendants and narrows types.
+
+        A state token may be an element of a guard array; it passes when the pre-turn state is at or below it, and flow
+        check reads it structurally. token.child(snapshot) returns its active direct child's name, otherwise undefined.
+        S.root.child(snapshot) returns the active top-level state. S.X.history targets X's last active child, or its
+        default, and S.X.history.child(s) reads it; history restores control only, and data comes back only through
+        placement or .resumable().
+
+        on maps an event name to a token, { target?, guard?, updateMemory?, actions?, raise?, notify?, emit? }, or an
+        ordered array of transitions. target is this machine's token or "self"; an omitted target means "self". The
+        active leaf's handler is tried first, then ancestors up to the root.
+
+        At each level, the first passing or unguarded alternative wins; all declining falls through to the next
+        ancestor. With no enabled transition, nothing changes and no work starts. A child's refusal inside a selected
+        alternative never falls through (@O3).
+
+        `emit: [emits.X(payload)]` tells the actor's listeners something once. Any accepted transition emits: a send, a
+        firing, an ending, an `onContext` or `onProps` event. Entry, exit and a refused turn never do. A copy that ends
+        in the same turn still delivers. Each emit is recorded as `emit` evidence (@plan.Inspection.O4). Delivery is
+        @plan.React.O3; emits are never stored, persisted, transferred or replayed.
+
+        Two emits, from different needs; the view hears them with `useOnEmit` (@plan.React.O3). A command that depends
+        on the cause (`code:wiki/conventions/view-commands.md`):
+
+        ```ts
+        // The DOM sends Open, Escape and OutsideClick (@plan.React.O3 shows the view).
+        // user-defined: Menu, MenuMachine, CLOSED, OPEN, Open, Escape, OutsideClick, Focus, target
+        // existing: definition, machine, target   // NEW: emits (definition), emits (callback), emit, emits.Focus(...)
+        import { Schema } from "effect"
+        import { definition, machine } from "flow-state"
+
+        const Menu = definition({
+          id: "Ui/Menu",
+          states: ["CLOSED", "OPEN"],
+          events: { Open: {}, Escape: {}, OutsideClick: {} },
+          emits: { Focus: { target: Schema.Literals(["trigger", "first"]) } },
+        })
+
+        export const MenuMachine = machine(Menu, ({ S, emits }) => ({
+          default: S.CLOSED,
+          states: {
+            CLOSED: { on: { Open: { target: S.OPEN, emit: [emits.Focus({ target: "first" })] } } },
+            OPEN: {
+              on: {
+                Escape: { target: S.CLOSED, emit: [emits.Focus({ target: "trigger" })] }, // focus returns
+                OutsideClick: S.CLOSED, // closes with no emit: focus stays where the user clicked
+              },
+            },
+          },
+        }))
+        ```
+
+        A controlled value: the parent owns it, the machine proposes. The emit carries the intent `Change { by }`, not a
+        value computed from `props.value`, so a hold-repeat that outruns the parent's render loses no
+        step (`code:wiki/conventions/controlled-values.md`):
+
+        ```ts
+        // The parent's React state is `value` and its fetched stock is `max` (@plan.React.O2 shows the parent).
+        // user-defined: Stepper, StepperMachine, IDLE, Press, by, value, max, Change, AtMax
+        // existing: definition, machine, guard, deny   // NEW: props, emits, emit, emits.Change.from, props in guards
+        // Every prop needs a Schema default (PropWithoutDefault otherwise); withDecodingDefaultKey is effect's.
+        import { Effect, Schema } from "effect"
+        import { definition, deny, machine } from "flow-state"
+
+        const Stepper = definition({
+          id: "Ui/Stepper",
+          states: ["IDLE"],
+          events: { Press: { by: Schema.Number } },
+          props: {
+            value: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))), // the parent's value
+            max: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(10))),
+          },
+          emits: { Change: { by: Schema.Number } },
+        })
+
+        export const StepperMachine = machine(Stepper, ({ S, emits }) => ({
+          default: S.IDLE,
+          on: {
+            Press: {
+              guard: ({ event, props }) => props.value + event.by <= props.max || deny("AtMax"), // guards read props
+              emit: [emits.Change.from(({ event }) => ({ by: event.by }))], // the intent; a denied Press emits nothing
+            },
+          },
+        }))
+        ```
+
+        "self" changes no state, restarts no work and keeps the activation, including at the root. An explicit target
+        re-enters itself if active, as a new activation, even when it names the handler's own state, so a call the old
+        activation owns ends late (@plan.Operations.O3); targeting an active ancestor re-enters it and its descendants
+        through its defaults.
+
+        For a handler at H targeting T, the unchanged boundary is H when T is a strict descendant of H; otherwise it is
+        the nearest proper ancestor of T that also contains H. Active states below that boundary exit deepest first; the
+        path to T and its defaults enters outermost first.
+
+        Work at and above that boundary survives unchanged. Parents' activities start before children's and stop after
+        them. Defaults reach a leaf in one publication with no intermediate work or snapshot.
+
+        A subroutine state is entered at its default, or is a leaf. It is left by an exit, or abandoned by a transition
+        that exits it; host events fall through to its ancestors as usual, and an ancestor's "self" does not abandon it.
+        Exits are targets only fragments take; an exit filling must leave the subroutine's state, and every exit is
+        filled. A callback never moves the host out of the fragment's placement node.
+    O3  Turns
+        Each accepted event, with everything it raises, notifies, exits, resets and leaves, compiles into one turn that
+        the runtime and check() run by the same algorithm.
+
+        Input ordering and atomic actor/store publication are @plan.Runtime.O4. The turn algorithm is normative for the
+        runtime and for check(): admit, select the source, select the parts, seed and compute, validate, commit. One
+        transition and everything it raises, notifies, exits, resets and leaves compile into one turn.
+
+        Admit (runtime only): a pending reset from the last commit runs first as its own follow-up turn; otherwise the
+        next event. A call's ending is mapped here through its operation's outcomes, its lane cell applied, and its
+        owner tested against the pre-turn snapshot (@plan.Operations.O3); a timer of a dead activation is discarded;
+        firings with the same deadline are separate turns. A props update is its own turn: it changes only props, then
+        runs `onProps` (@O7).
+
+        Select the source: from the active leaf, or for a late ending the ancestor its owner test names, try
+        alternatives in order, state-token elements first.
+
+        When no state from the routed one up to the root writes a handler for an event, the deepest active state whose
+        schedule lists it in `armOn` or `disarmOn` handles it with an implicit unguarded { target: "self" }; a written
+        handler at any level is selected first. If every alternative declines, continue at the next ancestor; after the
+        root the event is Denied (a handler existed) or Unhandled, and nothing of the turn's own changes, though an
+        ending admitted at step one keeps its lane effects, counts as delivered and re-checks `keys` and `paused` (@O6).
+
+        Select the parts: walk raises, the child transitions they select, the notifies and fillings these reach, and
+        exits, depth first in written order; every selected alternative fixes its target. Before the walk `resetOn` runs
+        and changed traits get a new incarnation, or end if absent. If an addressed child has no handler or all its
+        alternatives decline, the part refuses the whole turn. A raise into a trait placed with .each is the one
+        exception (@O1).
+
+        After the walk each .each field's final list decides membership, and `whenAbandoned` runs for every incarnation
+        the turn ends, fused into the leaving turn. Validate: list repair (never refuses), one state changer among the
+        parts, disjoint memory keys, the after memory, a valid action batch, then each write member's lane cell in
+        action order and the turn's releases.
+
+        Commit: exits deepest first and entries outermost first, publish the after memory, cancel or freeze ended
+        incarnations' schedules, arm schedules, re-evaluate `resetOn` into pending resets, queue adoption deliveries of
+        started incarnations, publish once.
+
+        Two memory views. Before, the pre-turn snapshot, is read by every guard, every payload mapper (raise, notify,
+        emit, exits, whenAbandoned) and every `updateMemory`. Every reader of memory receives props from the
+        same snapshot.
+
+        After, the memory the turn publishes (new incarnations' initial memory, then every patch in expansion order,
+        after list repair), is read by work that only starts or times things: commit and lookup selects, member key
+        selects, schedule functions, keys, `restartOn`, `paused`, placement selects and when, and optimistic (captured
+        at start). `resetOn` and input fillers read the before-walk memory (the pre-turn memory with the source's patch
+        and earlier resets).
+
+        Lane reads (operations, get, idle, retryable) in guards, selects and `updateMemory` see the pre-turn lanes with
+        the turn's own ending admitted; keys, when, placement selects and published rows see the lanes with this turn's
+        members applied. Each Partial<Memory> patch shallow-merges once. Only accepted transitions change memory.
+        Updates, action parameters and send mappers receive now, one Runtime Clock epoch millisecond value shared
+        throughout the turn; guards receive no time.
+
+        One invalid action, a failing after-memory select or an invalid duration (@O5) rejects the whole turn like a
+        pre-commit defect: prior state and memory stay, no action runs, and one issue-only snapshot names the code;
+        check() reports it as Denied with code InvalidTurn.
+
+        A value that cannot be encoded never rejects a turn (@plan.Operations.O3). After publication, exited work
+        releases, entered work starts, then finite actions start or join, invoked after the turn. Unhandled or denied
+        events publish nothing of their own, change no revision and start no work; an ending admitted in that turn
+        publishes its lane-only change; denials may be observed in evidence without a revision.
+
+        A pre-commit callback defect preserves prior state, memory, context and store truth, starts no work and
+        publishes one issue-only snapshot naming the callback and path. It is not retried for that input. This includes
+        guards, updates, selects, keys, send and emit payloads, schedules, `restartOn`, `paused`, placement selects and
+        when predicates.
+
+        A post-commit mapper, placeholder, optimistic-data or write callback defect publishes one issue, enqueues no
+        event and applies no partial write batch; it neither rolls back the committed state nor retries that occurrence.
+        Write semantics are @plan.Operations.O5.
+
+        Outside callers can send only valid public event envelopes; invalid payloads or internal events fail with
+        InvalidEvent before a turn exists. The same snapshot, event, Clock and seeded test randomness produce the same
+        result without consulting host wall time.
+    O4  Guards, deny and check
+        Guards decide from the pre-turn snapshot and start no work, so views can trust check.
+
+        A guard receives { event, state, memory, props, context, schedules, operations } from the pre-turn snapshot and
+        returns true or deny(code, context?). code is a literal string; context is optional JSON-safe explanatory data.
+        deny returns plain data matching Flow.Denial, so a denial may be stored in memory and a guard may return a
+        stored one. false is a type error; any invalid return is a guard defect.
+
+        Guards read only these captured inputs and start no work, so views can trust check. A guard slot may hold an
+        array; all must pass. An operation's idle(k?) (a partial key passes only when every lane it matches is Idle) and
+        retryable(k?, { times }) are guards (@plan.Operations.O3); O.x.get(operations, k) reads a row.
+
+        A host reads a fragment's write lanes with Fragment.O.x.get, idle and retryable; every `updateMemory` receives
+        operations (pre-turn lanes, get only); inside a fragment operations is its own rows.
+
+        check(snapshot, event) runs the turn's selection, parts and validation without updating memory, admitting
+        events, publishing, recording evidence, minting, joining queues, predicting, marking releases or starting work.
+        It returns { _tag: "Allowed" } if a transition would run; { _tag: "Denied", reasons } if handlers exist but all
+        decline, or the turn would be rejected (code InvalidTurn); or { _tag: "Unhandled" } if none exists.
+
+        Denied reasons contain { code, context } for each declined alternative, deepest level then authored order; a
+        declined state-token element reads { code: "NotInState", context: { state } }.
+
+        A decline from another subject path is a verdict, like Rejected. Verdicts compare by Equal.equals. An old
+        snapshot answers from its own captured values.
+
+        A defective guard makes check throw GuardDefect without publishing an issue. Internal or foreign events are type
+        errors and fail untyped calls with InvalidEvent.
+    O5  Schedules
+        A schedule fires an event on a declared timing, started and stopped by the events the machine lists.
+
+        **Declared form.** [decided: user 2026-11-22] The definition declares each schedule: `schedules: { name: { key?,
+        pausedBy?, restartOn? } }`, where `key` is a field record, `pausedBy` lists the reason names and `restartOn` is
+        the Schema of the value it selects. It replaces `Flow.keyed` and the body-declared `key`, `paused` and
+        `restartOn` names. Why: one declaration types every callback and the snapshot, so a misspelt name does not
+        compile. Reverse: keep `Flow.keyed({ keys, ... })` and names declared in the body. See @spec.Schedules
+        (Q3, R16).
+
+        A node or fragment body places it: schedules: { name: { schedule, send, armOn?, disarmOn?, keys?, restartOn?,
+        paused? } }, checked against the declaration; `keys` on an unkeyed schedule is refused, in types and at
+        construction, so every function of a keyed schedule types its `key`. schedule is a Duration.Input, an Effect
+        Schedule, or ({ key?, memory, props, context, now }) => either, reading the after memory of its arming turn with
+        that turn's now. Every function of a keyed schedule (`schedule`, `paused`, `restartOn`, `send`) receives `key`,
+        which is identity only.
+
+        A fixed duration outside 0 to 2^31 - 1 ms, a negative one included, is a construction error (DelayOutOfRange). A
+        computed finite zero or negative delay counts as zero: due at once, fired once on the next turn, never in the
+        arming turn. A computed NaN, infinite or over 2^31 - 1 ms delay rejects the arming turn with the pre-commit
+        defect behavior of @O3. send is this definition's payload-free event or E.X.from(metadata); metadata contains
+        name, attempt (firings since arming, starting at 1), `armedAt`, `dueAt`, `firedAt`, output and, for a keyed
+        schedule, key. Times use Runtime Clock milliseconds; Duration output is undefined. Armed schedules expose `{
+        dueAt }` while running and `{ left }` while paused, never both, and `pausedBy` beside `left`; `left` is
+        milliseconds on the Runtime Clock (@O8). An event mapped by an operation is never a schedule's send.
+
+        A schedule with neither `armOn` nor `restartOn` starts on entry. `armOn` and `disarmOn` list event tokens,
+        `armOn` also `Flow.entry`. armOn: [...] starts it on each accepted listed event, raised ones included, accepted
+        anywhere on the active path, restarting it if running; with Flow.entry in the list it also starts on entry (its
+        owner's state entered, trait created or reset, never a thaw), otherwise it is idle on entry. disarmOn: [events]
+        stops it on each accepted listed event; stopping an idle schedule does nothing.
+
+        Exit stops any schedule. An event in both lists is a construction error; only `armOn: [Flow.entry]` may sit
+        beside `restartOn`, and any other `armOn` with `restartOn` is a construction error; a turn that does both arms
+        once, from step one. Every temporal construct is delayed: it never counts the turn that arms it. Descendant
+        changes and "self" preserve deadlines, except that an event the schedule lists in `armOn` restarts it. Each
+        arming has an id: a firing from an earlier arming, or from an activation that ended before handling, is
+        never delivered.
+
+        A Duration fires once; a Schedule fires each step until complete. Equal deadlines enqueue by actor admission
+        order, then outermost state, then declaration order, each a separate turn. An overdue step fires once, never in
+        a burst; the next delay starts at actual firing.
+
+        restartOn({ key?, memory, props, context }) establishes a silent baseline from the activating turn's after
+        memory and leaves the schedule idle on entry unless `armOn` lists Flow.entry. After each committed turn, a
+        changed selection under Equal.equals restarts only that schedule from its first step at commit time; equal
+        values do nothing. A Duration returns to idle after firing, allowing debounce behavior. Restarting drops any
+        time left.
+
+        An idle sign-out: the server's policy gives the delay, the page reports activity and video playback.
+
+        ```ts
+        // user-defined: Session, SessionMachine, ACTIVE, ENDED, idleMs, Activity, VideoPlaying, VideoStopped, SignOut,
+        //   TimedOut, idle
+        // existing: definition, machine, schedules, schedule, send, armOn, disarmOn, Flow.entry, Flow.input
+        // NEW: event tokens in armOn and disarmOn (the build takes E.X.tag strings until @task.V3.T57)
+        import { Schema } from "effect"
+        import { definition, Flow, machine } from "flow-state"
+
+        const Session = definition({
+          id: "App/Session",
+          states: ["ACTIVE", "ENDED"],
+          events: { Activity: {}, VideoPlaying: {}, VideoStopped: {}, SignOut: {} },
+          internalEvents: { TimedOut: {} },
+          memory: { idleMs: Flow.input(Schema.Number) }, // from the server's session policy, at creation
+          schedules: { idle: {} },                       // declared on the definition; the body places it
+        })
+
+        export const SessionMachine = machine(Session, ({ S, E }) => ({
+          default: S.ACTIVE,
+          states: {
+            ACTIVE: {
+              schedules: {
+                idle: {
+                  schedule: ({ memory }) => memory.idleMs,              // computed: a negative value counts as zero
+                  send: E.TimedOut,                                      // a payload-free event
+                  armOn: [Flow.entry, E.Activity, E.VideoStopped],      // on entry; restarts on each listed event
+                  disarmOn: [E.VideoPlaying],                            // stops it; an event in both lists is an error
+                },
+              },
+              on: { TimedOut: S.ENDED, SignOut: S.ENDED },             // exit stops the schedule
+            },
+            ENDED: {},
+          },
+        }))
+
+        // The host feeds it from the page (user-defined: policy, video):
+        const session = runtime.createActor(SessionMachine, { input: { idleMs: policy.idleMs } })
+        window.addEventListener("pointerdown", () => session.send({ _tag: "Activity" }))
+        video.addEventListener("play", () => session.send({ _tag: "VideoPlaying" }))
+        video.addEventListener("pause", () => session.send({ _tag: "VideoStopped" }))
+        ```
+
+        A fixed delay such as `schedule: "5 seconds"` is checked at construction, so `"-5 seconds"` is a DelayOutOfRange
+        error. The O7 carousel combines `armOn: [Flow.entry]` with `restartOn` and pauses on hover.
+
+        Hover or press state that only holds a clock is a `paused` reason, not a stored stamp; short-lived state itself
+        follows `code:wiki/conventions/interaction-state.md`.
+
+        `paused: { Reason: ({ key?, memory, props, context, operations }) => boolean }` has one callback per reason the
+        definition declares in **`pausedBy`** [decided: user 2026-11-22] (see @task.V3.T120); any true pauses the timer;
+        `paused` is always a record, never a bare function. The snapshot shows `pausedBy`, the active reason names in
+        declaration order, beside `left`; reason names are a literal union, so `pausedBy` is typed. A turn runs keys,
+        then `restartOn`, then `paused`, after each committed turn. Every lane change, including a denied or unhandled
+        ending's admission, re-checks `keys` and `paused`. True holds the time left of the current delay (`left =
+        dueAt - now`, at least 0); false resumes from it (`dueAt = now + left`). Paused time never counts toward a
+        delay; an unused actor, a frozen trait and a closed page still count. Arming or restarting while paused holds
+        the full delay. A pause right after a firing holds the next step's full delay. A multi-step Schedule pauses
+        inside its current delay, and its `attempt` does not advance. `disarmOn`, exit or a key leaving removes a paused
+        timer; nothing fires later.
+
+        A schedule whose definition declares a `key` is **keyed** [decided: user 2026-11-22] (see @task.V3.T120): its
+        `keys` return key records from the after memory and after lanes (inside a fragment its own rows; under .each
+        that copy's lanes): one timer per key, armed when the key appears, cancelled when it leaves, firing once with
+        key; a repeated key keeps its first position with `listRepair` evidence; `restartOn` is evaluated per key, ({
+        key, memory, props, context }) => value; `armOn` on a keyed schedule is a construction error.
+
+        Per-key timers persist by key with `dueAt` or `left`, and on restore the restored memory's keys win.
+
+        A shared toaster: app code shows and updates toasts, the pointer pauses them, and a narrow screen shows one. Its
+        limit is context, not a prop, because a shared actor has no owner (@plan.Runtime.O3).
+
+        ```ts
+        // user-defined: Screen, ScreenMachine, Narrowed, narrow, Toaster, ToasterMachine, READY, toasts, hovered,
+        //   maxVisible, Show, Update, Dismiss, PointerEnter, PointerLeave, Expired, expire, lengths, Hovered, Hidden
+        // existing: definition, machine, context, schedules, keys, restartOn, send: E.X.from
+        // NEW: schedules declared on the definition (key, pausedBy, restartOn Schema), paused with named reasons,
+        //   pausedBy in the snapshot, Flow.context(X.M.field), M tokens
+        import { Schema } from "effect"
+        import { definition, Flow, machine } from "flow-state"
+
+        const Screen = definition({
+          id: "App/Screen",
+          states: ["READY"],
+          events: { Narrowed: { narrow: Schema.Boolean } },
+          memory: { narrow: Flow.initial(Schema.Boolean, false) },
+        })
+        export const ScreenMachine = machine(Screen, ({ S }) => ({
+          default: S.READY,
+          on: { Narrowed: { updateMemory: ({ event }) => ({ narrow: event.narrow }) } },
+        }))
+
+        const Toast = { id: Schema.String, kind: Schema.Literals(["info", "error"]), title: Schema.String }
+        const lengths = { info: "4 seconds", error: "10 seconds" } as const
+
+        const Toaster = definition({
+          id: "App/Toaster",
+          states: ["READY"],
+          events: {
+            Show: Toast,
+            Update: { id: Schema.String, title: Schema.String },
+            Dismiss: { id: Schema.String },
+            PointerEnter: {},
+            PointerLeave: {},
+          },
+          internalEvents: { Expired: { id: Schema.String } },
+          schedules: {
+            expire: {
+              key: { id: Schema.String },
+              pausedBy: ["Hovered", "Hidden"],
+              restartOn: Schema.NullOr(Schema.String),
+            },
+          },
+          memory: {
+            toasts: Flow.initial(Schema.Array(Schema.Struct(Toast)), []),
+            hovered: Flow.initial(Schema.Boolean, false),
+          },
+          context: {
+            maxVisible: Flow.context(Schema.Number, {
+              reads: { narrow: Screen.M.narrow },
+              select: ({ narrow }) => (narrow ? 1 : 3),
+            }),
+          },
+        })
+
+        export const ToasterMachine = machine(Toaster, ({ S, E }) => ({
+          default: S.READY,
+          states: {
+            READY: {
+              schedules: {
+                expire: {
+                  keys: ({ memory }) => memory.toasts.map((t) => ({ id: t.id })), // one timer per toast
+                  schedule: ({ key, memory }) => lengths[memory.toasts.find((t) => t.id === key.id)?.kind ?? "info"],
+                  // an Update
+                  restartOn: ({ key, memory }) => memory.toasts.find((t) => t.id === key.id)?.title ?? null,
+                  paused: {
+                    Hovered: ({ memory }) => memory.hovered,
+                    Hidden: ({ key, memory, context }) =>
+                      memory.toasts.findIndex((t) => t.id === key.id) >= context.maxVisible,
+                  },
+                  send: E.Expired.from(({ key }) => ({ id: key.id })),
+                },
+              },
+            },
+          },
+          on: {
+            Show: {
+              updateMemory: ({ event, memory }) =>
+                ({ toasts: [...memory.toasts, { id: event.id, kind: event.kind, title: event.title }] }),
+            },
+            Update: {
+              updateMemory: ({ event, memory }) =>
+                ({ toasts: memory.toasts.map((t) => (t.id === event.id ? { ...t, title: event.title } : t)) }),
+            },
+            Dismiss: {
+              updateMemory: ({ event, memory }) => ({ toasts: memory.toasts.filter((t) => t.id !== event.id) }),
+            },
+            Expired: {
+              updateMemory: ({ event, memory }) => ({ toasts: memory.toasts.filter((t) => t.id !== event.id) }),
+            },
+            PointerEnter: { updateMemory: () => ({ hovered: true }) },
+            PointerLeave: { updateMemory: () => ({ hovered: false }) },
+          },
+        }))
+
+        // The sources (user-defined: toaster, screen, narrowQuery): app code after a failed save, and the browser.
+        toaster.send({ _tag: "Show", id: crypto.randomUUID(), kind: "error", title: "Couldn't save" })
+        const narrowQuery = matchMedia("(max-width: 600px)")
+        screen.send({ _tag: "Narrowed", narrow: narrowQuery.matches })
+        narrowQuery.addEventListener("change", (e) => screen.send({ _tag: "Narrowed", narrow: e.matches }))
+        // The list element: onPointerEnter sends { _tag: "PointerEnter" }, onPointerLeave { _tag: "PointerLeave" }.
+
+        // snapshot.schedules.expire with maxVisible 1, toasts a (info) and b (error) shown at 0, read at 3000:
+        // [{ key: { id: "a" }, dueAt: 4000 }, { key: { id: "b" }, left: 10000, pausedBy: ["Hidden"] }]
+        // b was Hidden from its arming, so it holds its full 10 seconds; when a expires, b resumes: dueAt 14000.
+        ```
+
+        Schedules fire only while their actor is used (@plan.Runtime.O3). A deadline that comes due while nothing uses
+        the actor waits, and only the latest arming waits (re-arming, disarming or exiting removes a waiting deadline).
+
+        On restore, resume, a return after an end, or a use returning to an actor whose schedules waited, a Duration
+        preserves its deadline and fires once if overdue, waiting deadlines in deadline order; a paused timer keeps its
+        `left`. A multi-step Schedule continues at its saved attempt, with its next delay from that step (a paused one
+        first finishes its `left`); a finished series stays finished. The host steps a Schedule and hands the core the
+        next delay as data. A resumable trait's schedules keep `dueAt` or `left` while frozen and fire once on return if
+        overdue. Restored `restartOn` baselines are silent, and `keys` and `paused` are re-evaluated silently on
+        restore, hydration and return. Hydration activation is @plan.ServerRendering.O5; deterministic time
+        is @plan.Testing.O2.
+    O6  Activities and outcomes in machines
+        Operation activities are placed in states and traits, and their work is kept, replaced or released as the
+        machine changes state.
+
+        activities is a list of placements: O.x.subscribe(select, { when? }) or O.x.subscribe.each(select, { when? })
+        (one session per distinct key of the selected inputs, repaired like .each keys), declared in a state (a
+        subroutine's states included) or a trait body and placed for that activation or incarnation. select and when
+        read the after memory and after lanes; when may hold state tokens.
+
+        Lane shapes and the placement's placeholder option are @plan.Operations.O6, streams @plan.Operations.O4. After
+        each turn, an unchanged operation and key keep existing work; a changed key releases old work exactly once and
+        starts new work; when false releases only that placement. A freeze releases a trait's placements and a thaw
+        places them again.
+
+        A live operation is placed in one state or trait incarnation at a time unless state tokens in when make
+        placements exclusive (DuplicatePlacement); one operation uses one verb (VerbMismatch). A stream placement is one
+        session per (actor incarnation, placement path, operation, key). Release failure reports once without blocking
+        the transition.
+
+        Endings map to events on the declarer, never at the call site: each operation's outcomes name the events
+        (@plan.Operations.O2, @plan.Operations.O3, @plan.Operations.O4). Mapped events run in later ordinary turns.
+        value fires only for a changed confirmed value under Equal.equals, never for predictions or optimistic values.
+
+        Lane-only changes publish captured lanes without running handlers, guards, updates, actions, schedule functions,
+        `restartOn`, `onContext` or `onProps`, except that every lane change re-checks `keys` and `paused` (@O5); a
+        defect there publishes one issue and keeps the previous values, and the lane change still publishes. Finite work
+        starts only from an accepted transition's actions; operation action semantics are @plan.Operations.O2 and
+        @plan.Operations.O3 and sending is @plan.Runtime.O4.
+
+        A commit, lookup or retry is owned by the activation of the state its transition names ("self": the handler's
+        own state). At admission its ending is current, routed from the active leaf, if that activation is alive;
+        otherwise late, routed from the owner's nearest surviving strict ancestor; an adopted ending and every unknown {
+        Restored } are current from the active leaf.
+
+        In a late turn an alternative may not exit a state that owns other pending work, or an active subroutine
+        (LateMayNotLeave): pending work is every call owned by an activation it exits, an InFlight head and every queued
+        commit, behind a Held head too, whatever the transition cancels; a Held head is not.
+
+        A late handler gives work up in an alternative that stays put, with `cancelAll` or a keyed cancel. flow check
+        errors on a late handler with no alternative that stays put at the owner state or its ancestors; a late ending
+        landing while the owner is not re-entered, at an ancestor whose alternatives all leave, is denied at run time,
+        an accepted risk (the runner's ruling).
+
+        Lateness is not transitive, and only the host's own operations count. Every late event that can occur is handled
+        at a strict ancestor of its owner.
+    O7  Context reactions
+        A change in context or props can raise an event into an actor, and a reaction never changes state directly.
+
+        A slot is declared whole on the definition, never in the machine or the reaction (@task.V3.T107,
+        @proposal.context-slots). Pass-through: Flow.context(Cart.M.items); the slot's Schema is the field's and its
+        provider is the token's definition. Derived: Flow.context(Schema, { reads: { name: X.M.field, ... }, select: ({
+        name }) => ... }); reads is a named object and select must return the Schema's type. A read names a provider's
+        public memory field (M token), a state token (boolean) or X.state; a Flow.private field has no M token, so
+        reading one fails to compile. A slot has exactly one provider: every read comes from one definition, a type
+        error and an InvalidConfiguration at ["context", slot, "reads", key] for casts and plain JavaScript; values from
+        two machines need two slots. A turn that changes none of a slot's reads skips the slot: no select,
+        no comparison.
+
+        Machine-level onContext: [C.slot.change({ when?, event })] observes a slot's changes; C is a callback token per
+        slot. when(current, previous, { memory }) is typed by the slot and reads current memory. The slot's value is a
+        silent baseline at admission, restore, adoption and hydration. Only context waves recompute it; memory-only
+        changes do not trigger it. Context propagation is @plan.Runtime.O5. Equal values under Equal.equals are silent.
+
+        .change turns a value change into an event and nothing more: guards, targets, memory updates and actions stay in
+        that event's ordinary `on` handler, so every input enters the machine as a named event.
+
+        A changed value becomes the baseline even if when declines. With no when, or when true, event (bare or
+        E.X.from(current)) enqueues after the context turn, in reaction declaration order; `onContext` events queue in
+        the actor's one FIFO mailbox with user sends, call endings and timer firings (@plan.Runtime.O4).
+
+        ```ts
+        // user-defined: Badge, Cart, items, coupon, count, bumps, Bumped, SHOWN
+        // NEW: Flow.context, M tokens (one per public memory field), C.slot.change
+        context: {
+          items: Flow.context(Cart.M.items),
+          count: Flow.context(Schema.Number, {
+            reads: { lines: Cart.M.items, coupon: Cart.M.coupon },
+            select: ({ lines, coupon }) => (coupon === "" ? lines.length : lines.length + 1),
+          }),
+          session: Flow.context(AuthSession.S.SIGNED_IN), // boolean; Flow.context(Pay.state) is the state's name
+        }
+        onContext: [
+          C.count.change({
+            when: (current, previous) => previous === undefined || current > previous,
+            event: E.Bumped,
+          }),
+        ]
+        ```
+
+        An actor returning after an end within a Runtime gets one wave if a provider's selection differs from the one it
+        ended with; a reload's baselines are silent. A select, when or mapper defect publishes one issue, keeps the
+        previous baseline and emits nothing; the next wave may try again. Reactions never change state directly.
+
+        Machine-level onProps: [{ select, when?, event }] keeps the select shape, with select({ props, memory }); it is
+        not changed by @task.V3.T107. A props update is its own turn that changes only props; onProps then runs, so a
+        reaction can repair memory against shrinking props. Its baseline is silent at admission; equal selections under
+        Equal.equals are silent; defects behave as for onContext; its events queue in the one FIFO mailbox. Props reuse
+        context's delivery; only the source differs: the owner at the call site, never saved.
+
+        The parent component owns `count`, so it is a prop; the machine owns `index`, so it is memory. When the parent
+        shrinks the list, `onProps` repairs memory by sending an event, never by writing
+        it (`code:wiki/conventions/where-a-value-lives.md`):
+
+        ```tsx
+        // The parent renders slides it fetched, so `count` is the parent's; the pointer gives `hovered`.
+        // user-defined: Carousel, CarouselMachine, SHOWING, count, index, hovered, Next, Prev, PointerEnter,
+        //   PointerLeave, Shrunk, last, autoplay, Hovered, AtEnd, AtStart
+        // existing: definition, machine, Flow.initial, guard, deny, updateMemory, schedules, armOn, Flow.entry,
+        //   restartOn, E.X.from, C.slot.change
+        // NEW: props, onProps (machine root only), props in guards, paused with named reasons,
+        //   armOn: [Flow.entry] beside restartOn
+        import { Effect, Schema } from "effect"
+        import { definition, deny, Flow, machine } from "flow-state"
+        import { useActor, useView } from "flow-state/react"
+
+        const Carousel = definition({
+          id: "Ui/Carousel",
+          states: ["SHOWING"],
+          events: { Next: {}, Prev: {}, PointerEnter: {}, PointerLeave: {} },
+          internalEvents: { Shrunk: { last: Schema.Number } },
+          memory: { index: Flow.initial(Schema.Number, 0), hovered: Flow.initial(Schema.Boolean, false) },
+          props: { count: Schema.Number.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))) }, // default 0
+          schedules: { autoplay: { pausedBy: ["Hovered"], restartOn: Schema.Number } },
+        })
+
+        export const CarouselMachine = machine(Carousel, ({ S, E }) => ({
+          default: S.SHOWING,
+          onProps: [                                                // the root only, like onContext
+            {
+              select: ({ props }) => props.count,                   // silent baseline at admission
+              when: (now, before) => now < before,                  // only a shrink repairs
+              event: E.Shrunk.from((now) => ({ last: Math.max(now - 1, 0) })),
+            },
+          ],
+          states: {
+            SHOWING: {
+              schedules: {
+                autoplay: {
+                  schedule: "5 seconds",                            // fixed: checked at construction
+                  send: E.Next,                                     // denied on the last slide, so autoplay stops
+                  armOn: [Flow.entry],                              // the only armOn allowed beside restartOn
+                  restartOn: ({ memory }) => memory.index,          // any slide change starts the 5 seconds over
+                  paused: { Hovered: ({ memory }) => memory.hovered }, // holds the time left while hovered
+                },
+              },
+            },
+          },
+          on: {
+            Next: {
+              guard: ({ memory, props }) => memory.index < props.count - 1 || deny("AtEnd"),
+              updateMemory: ({ memory }) => ({ index: memory.index + 1 }),
+            },
+            Prev: {
+              guard: ({ memory }) => memory.index > 0 || deny("AtStart"),
+              updateMemory: ({ memory }) => ({ index: memory.index - 1 }),
+            },
+            Shrunk: { updateMemory: ({ event, memory }) => ({ index: Math.min(memory.index, event.last) }) },
+            PointerEnter: { updateMemory: () => ({ hovered: true }) },
+            PointerLeave: { updateMemory: () => ({ hovered: false }) },
+          },
+        }))
+
+        // The view (user-defined: Slides, slides): a local actor, so it takes props.
+        function Slides({ slides }: { slides: ReadonlyArray<string> }) {
+          const carousel = useActor(CarouselMachine, { props: { count: slides.length } })
+          const index = useView(carousel, (s) => s.memory.index)
+          return (
+            <section
+              onPointerEnter={() => carousel.send({ _tag: "PointerEnter" })}
+              onPointerLeave={() => carousel.send({ _tag: "PointerLeave" })}
+            >
+              <img src={slides[index]} alt="" />
+              <button onClick={() => carousel.send({ _tag: "Next" })}>Next</button>
+            </section>
+          )
+        }
+        ```
+    O8  The snapshot
+        A snapshot is deeply frozen plain data showing state, memory, props, context, issues, lifecycle, schedules
+        and operations.
+
+        A snapshot exposes state (complete leaf path), memory (decoded value; fragment slices under their instance
+        names, undefined while inactive and present while frozen, .each copies as a keyed list in key order, each with
+        key), props (current values), context (selected slots), issues (Diagnostic values), lifecycle (active, disposing
+        or disposed; a persisted identity's record that does not decode reads quarantined, @plan.Runtime.O3), schedules
+        (armed schedules with `{ dueAt }` or `{ left }`, never both, and `pausedBy` beside `left`; keyed schedules as
+        keyed lists) and operations (the operations' rows, @plan.Operations.O6; s.operations.<instance>.<name> for a
+        fragment, a keyed list of copies under .each, each write row listing the lanes of that copy's path).
+
+        Every list of several things is a keyed list in key order, each entry with key; an entry that does not exist is
+        absent, never a default. Outside snapshot and view types omit Flow.private fields; Stories and Inspection still
+        see them. It has no input, methods or public revision.
+
+        ```ts
+        // The O7 carousel, created at 0 with props { count: 3 }, after a Next at 1000: index changed, so autoplay
+        // restarted. Props sit beside memory, never inside it.
+        { state: "SHOWING", memory: { index: 1, hovered: false }, props: { count: 3 }, context: {}, issues: [],
+          lifecycle: "active", schedules: { autoplay: { dueAt: 6000 } }, operations: {} }
+        // A PointerEnter at 2800 pauses it: { autoplay: { left: 3200, pausedBy: ["Hovered"] } }, never both forms.
+        ```
+
+        Diagnostic values are @plan.Diagnostics.O1. Snapshots are deeply frozen plain data. A Runtime step publishes the
+        bound lane rows it changes as a new snapshot; reading an old snapshot never consults live lanes.
+
+        Unchanged parts retain identity across publications; Flow-owned containers are copied, while opaque application
+        values retain identity. A later success or release clears its own source's issue, never another source's issue;
+        a new actor incarnation inherits none. Disposal is @plan.Runtime.O6.
+verification
+    V1  Type tests prove inference and reject undeclared or foreign members, invalid guards,
+        unfilled required ports, writes to machine input fields and fragment acting members used outside their fragment.
+    V2  Tests prove construction rejects invalid declarations in order without starting work,
+        including TwoDefaults, ImpureDefault, ReservedStateName and UnknownNotUncertain.
+    V3  Stories prove self, re-entry as a new activation, descendant survival, parent/child work
+        order, subroutine exits and abandonment, and history.
+    V4  Tests prove the turn algorithm: before and after memory reads, atomic batches, fixed now,
+        no-ops, refusal by a child and callback defect behavior, props in every memory reader, emit sources and an emit
+        mapper's pre-commit defect, a props-only turn, and the .each fan-out raise (skip, deny, no copies).
+    V5  Tests prove check agrees with handling and uses captured snapshots without effects.
+    V6  Stories prove schedule order, armOn and disarmOn, keyed schedules, cancellation, debounce,
+        overdue firing, waiting while unused and restore behavior, armOn tokens, `armOn: [Flow.entry]` beside restartOn,
+        per-key durations, paused (hold, resume, keyed, overdue, multi-step, lane-only resume, restore re-evaluation)
+        and a computed negative delay.
+    V7  Stories prove placement retention, release, the owner test, late turns and passive lane
+        publication.
+    V8  Stories prove reaction baselines, context triggers, event order and defect recovery, onProps baselines and
+        memory repair.
+    V9  Tests prove frozen captured snapshots, stable identities and source-specific issue clearing, props and
+        `{ left }` in frozen snapshots.
+questions
+    Q1  Deferred to build time
+        Internal identity encoding and construction validation machinery. Warning presentation. Schedule stepping
+        implementation and inspection status fields. Issue indexing and diagnostic rendering details. Type-spike sizing
+        and compiler performance measurements. Reflection behavior for proxies, getters, symbols and sparse arrays.

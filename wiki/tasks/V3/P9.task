@@ -1,0 +1,207 @@
+phase P9
+title Hardening and budgets
+description
+    **Class:** verifiable.
+
+    **Kind:** performance.
+
+    **Goal:** the budgets met on their named devices, and every finding from every round given a disposition.
+
+    **Starts when:** P8's completion audit passes and the user has set the targets.
+
+    **Verified by:**
+
+    - P8's benchmark and real-browser suites;
+    - skill:check-benchmark on baseline and final numbers;
+    - a test-harness-only review by an agent with no prior reading;
+    - the final review.
+
+    **One iteration:** one finding group or one budget: one isolated change, measured against the accepted baseline,
+    kept only if the checked comparison shows a gain with the tests green.
+
+    **Exit criteria:**
+
+    - budgets met on their devices;
+    - every finding has a disposition;
+    - quota and disk durability measured on a real phone by the user;
+    - `nub run verify` and `nub run faults` pass.
+
+    **False pass:** closing findings as dropped to finish.
+
+    **Caught by:** the completion audit checking each drop's reason against the Specs.
+
+    **Gates:** P8's slowed builds; `nub run faults`.
+
+    **Failure limit:** none (the user, 2026-11-22): a repeated root cause is recorded on the slice's Tasks and the run
+    goes on (@epic.V3, Limits).
+
+    **Stops:** the real-phone run, which holds only that item.
+
+    **User's read:** each finding's disposition.
+
+    **Draws from:**
+
+    - skill:playbook-performance;
+    - skill:hillclimb;
+    - skill:check-benchmark.
+tasks
+    T36
+        title       Budgets met on named devices
+        status      draft
+        priority    medium
+        blocked_by  [@task.V3.T35]
+        description
+            Meet each budget on its named device that an agent can reach, one budget at a time against P8's baseline.
+            The phone rows named in @task.V3.T35's targets are @task.V3.T38's.
+
+            **Why now:** the budgets are the P9 goal; P8's baselines and the user's targets are what they are
+            measured against.
+
+            **Read first:** @task.V3.T35, skill:playbook-performance, skill:hillclimb, skill:check-benchmark.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a speedup that skips work → caught by skill:check-benchmark.
+            - **Gates:** P8's slowed builds.
+        acceptance
+            Every agent-reachable budget met on its device in a checked comparison; the phone rows are @task.V3.T38's.
+        comment     2026-11-20T13:02:17Z
+            Breakdown review (orchestrator, 2026-11-20, R48): covers the agent-reachable budgets only; T38 owns the
+            phone rows named in T35's targets.
+    T37
+        title       Every finding given a disposition
+        status      draft
+        priority    medium
+        blocked_by  [@T36, @T38, @T98]
+        description
+            Sweep every finding from every round, Epic note and revisit.md into fixed, deferred with a reason, or
+            dropped with a reason checked against the Specs.
+
+            **Why now:** the P9 exit needs every finding to have a disposition before the release.
+
+            **Read first:** @revisit.revisit, @revisit.open-items, code:wiki/tasks/V3/epic.task.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** drops to finish → caught by the completion audit.
+            - **Gates:** `nub run verify`.
+            - **User's read:** each disposition.
+        acceptance
+            Every finding has a disposition; `nub run verify` passes.
+        comment     2026-11-20T13:02:16Z
+            Breakdown review (orchestrator, 2026-11-20, R48): blocked_by adds T98 (kept in P9, now first in P5), T36
+            and T38.
+    T38
+        title       Quota and disk durability on a real phone
+        status      draft
+        priority    low
+        description
+            Prepare the real-phone script for quota and disk durability, and read the results the user runs. It owns the
+            phone rows named in @task.V3.T35's targets.
+
+            **Why now:** an agent here reaches only browsers and a simulator, and a WebDriver session keeps no website
+            data, so quota and durability were never measured on a real store.
+
+            **Read first:** code:packages/flow-state-v3/prototypes/safari/RESULTS.md (item 0 and the open quota and
+            durability items), @task.V3.T36.
+
+            - **Evidence:** this Task's comments.
+            - **False pass:** a simulator standing in for the phone → caught by the user's own run.
+            - **Stops:** the user's run.
+            - **User's read:** the results.
+        acceptance
+            The user's real-phone results are recorded and meet the budgets.
+        comment     2026-11-20T13:02:19Z
+            Breakdown review (orchestrator, 2026-11-20, R48): owns the phone rows named in T35's targets; T36 covers the
+            agent-reachable budgets only.
+
+    T98
+        title       Raw-throw class: one general solution for construction trust and public refusals
+        status      draft
+        priority    high
+        blocked_by  [@task.V3.T131, @task.V3.T132]
+        satisfies   [@plan.Diagnostics.O1, @plan.Runtime.O1]
+        description
+            One general solution for the raw-throw class: no public path of Flow, built or handed out, throws anything
+            but a FlowError on any argument, and construction trusts only what it made.
+
+            **Why now:** parked, not now (the user, 2026-11-19): the class reached its third instance (T81's failure
+            limit, T94's sweep, T94's review) and was blocking core work; the user chose to leave the known instances in
+            as inverted tests and solve the class once, later, with a general design instead of case by case. This Task
+            holds everything the class owes so the core phases can proceed. Split in the breakdown review (the
+            orchestrator, 2026-11-20): this Task is construction trust, and it starts P5 (every feature builds on
+            constructed values); the error vocabulary (a closed `details.reason`, one name for a store refusal) went
+            to @task.V3.T100.
+
+            **Read first:** @task.V3.T81 (its full approach and requirements 1 to 19, in its comments), @task.V3.T94
+            (its review of 2026-11-18 and the decisions in its comments), @convention.boundaries; @spec.Operations.R10,
+            @spec.Operations.I19 (code:wiki/specs/v3/Operations.md); @spec.Types.R13,
+            @spec.Types.I4 (code:wiki/specs/v3/Types.md).
+
+            The linked Spec is pre-coding analysis: follow it as best-guess guidance for how to build, not a strict
+            contract; it should help a lot. Where building shows it wrong, fix the Spec and log the change
+            in `wiki/specs/specs.log`.
+
+            **Supersedes:** see @task.V3.T131 (doors) and @task.V3.T132 (`intake`), which carry the code list; this Task
+            closes them.
+
+            **Risk:** the known instances stay red as `it.fails` tests titled by Diagnostics R1; any later Task that
+            adds a public function inherits the gap until this lands. Run convergence here (threshold already passed):
+            every known instance red first, then one redesign from scratch for the whole class, with T81's and T94's
+            approaches as prior art only.
+
+            Owes, from T81: definitions, machines and tokens recognised by the `Symbol.for("flow-state/Made")` mark on
+            one shared frozen prototype plus the owner compare (@spec.Operations.R10), not by `~` marks; builders that
+            capture their arguments unread; one complete Schema decode per entry through `walkerOf`; its planted faults
+            `token-by-shape`, `builder-reads-early`, `decode-not-walker`. From T94's review: inert data that hands out
+            callable functions (a bound contract's `textOfKey`, an operation's `make`) — taken off the public types or
+            wrapped, with the surface walk entering inert data; the testing route walked too (`defineConfig(null)`);
+            `run()`'s lost catch-all; the `no-mark-probe` lint missing bracket reads.
+
+            May change: `src/`, `tests/`, `fixtures/`, `tools/lint-bomb/FLOW-STATE.md`, @spec.Types and @spec.Operations
+            with `specs.log` notes. Evidence: this Task's comments.
+        acceptance
+            - Every inverted test of the class (titled by Diagnostics R1) is green and no longer inverted.
+            - The surface test walks the root and testing routes and enters inert data: no reachable function is
+              unwrapped or unregistered.
+            - No `~owner`, `~flow` or `HandleId` remains in `src/`; a Flow-made value is recognised only by its
+              `flow-state/Made` mark and the owner compare (@spec.Operations.R10).
+            - No builder reads its arguments: each called with an all-traps-throw Proxy returns a value.
+            - `nub run check`, the suite and stress pass; `nub run faults --only` catches this Task's planted faults.
+            - Correctness: a corresponding fixture app exists that uses the feature (a whole app written the way a user
+              would write it; see @convention.fixture-catalog for the apps and how to build them); a Story tests that
+              fixture's feature, plus the Spec's Story of the wrong ending; a test runs the Story; type tests show the
+              feature is typed fully and correctly, the way a user would expect (two-sided pins, no annotations needed
+              in user code); each new rule has a planted fault that `nub run faults` catches. See the existing tests
+              (`packages/flow-state-v3/tests/`, `fixtures/`) for how things are done now. Tests cover
+              @spec.Operations.R10, @spec.Operations.I19, @spec.Types.R13, @spec.Types.I4; the Invariants its tests
+              check after every step are @spec.Operations.I19 (tests T5, T6), @spec.Types.I4 (tests T7, T9).
+        comment     2026-11-18T19:14:16Z
+            Routed from P3's close-out, owed by the class but not named above: the ~token probes (machine.ts:121,
+            events.ts:96, config.ts:93); E.X(undefined) and E.X(new Date()) (T81, 11:21Z); operation-checks.ts:72 reads
+            an inherited key such as constructor; the testing route's raw throws in Story.app, generate, samplesOf,
+            pairSweep, forkReloads (T94 review). Error attribution is decided per module: one store refusal has five
+            names (StorageFailure, StorageSilent, StorageRefused, StoreRefused, forgetFailed), two reasonOf
+            (record-format.ts:19, boundary.ts:452), and details.reason is free text against Diagnostics O1's closed
+            reasons; design it once here.
+        comment     2026-11-18T19:39:06Z
+            Owes (proposed, P3 close fix round): closed details.reason values (@plan.Diagnostics.O1); construction runs
+            nothing and call sites supply no wiring (@plan.Runtime.O1); review item A13, refusal text built twice;
+            faults for the Compile gaps in code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
+        comment     2026-11-20T13:01:58Z
+            Breakdown review (orchestrator, 2026-11-20, R48): split: construction trust stays here (identity checks,
+            builders capture, decode whole), and the error vocabulary moved to T100. Kept in P9 because wk has no move;
+            set first in P5's Order, blocked_by T109, T110, T76, T77, and it blocks T24, T25, T48, T106, T30, T115
+            and T37.
+        comment     2026-11-20T13:12:06Z
+            Breakdown fix (orchestrator, 2026-11-20): blocked_by adds T100 (its refusals use T100's
+            closed details.reason).
+        comment     2026-11-21T18:31:18Z
+            Split per @review.spec-cohesion-r2 question 15: @task.V3.T131 doors (P4, before T113 and T109),
+            @task.V3.T132 intake (first in P5). [proposed] This Task stays as their close-out, and its blockers T109,
+            T110, T76, T77 and T100 are dropped, as that review's line 198 asks.
+        comment     2026-11-21T19:07:50Z
+            Spec check: Owes says Flow-made values are checked by `WeakSet` identity and no `~owner` remains; the user
+            decided (2026-11-21) a `Symbol.for("flow-state/Made")` mark on one shared frozen prototype plus the owner
+            compare (@spec.Operations.R10). Scope unchanged; reword when the Task closes.
+        comment     2026-11-21T19:27:01Z
+            Contradiction resolved: Owes and acceptance now use the user's Symbol.for("flow-state/Made") mark plus the
+            owner compare (@spec.Operations.R10), not WeakSet; Diagnostics and Compile cites re-pointed.

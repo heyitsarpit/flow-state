@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Option` API](https://www.effect.website/docs/v4/api/effect/Option). Examples assume `import { Option } from "effect"`; the `Result` conversion examples also use `Result` from `effect`.
 
+`Option` represents a value that may be present or absent without using `null` or `undefined` in the domain flow.
+
 ## API index
 
 1. [Option.match](#optionmatch)

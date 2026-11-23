@@ -1,0 +1,606 @@
+phase P2
+title Test system
+description
+    **Class:** not readily verifiable.
+
+    **Kind:** verification-suite.
+
+    **Goal:** Flow's own tests run on Flow's own test tooling (Story, Fake, the runtime cut, the trace, the CLI); the
+    hand cases are ported onto it and the bridge is deleted. Decided by the user on 2026-11-15. The tools' API is
+    @plan.Testing as set out in @proposal.test-tooling-reuse; the strategy and evidence are in @proposal.test-system,
+    except the parts the reuse proposal supersedes.
+
+    **Guides:** the reference apps' stories, tests and fakes show the intended shape; the Plan wins where they differ.
+    New fixtures come from @convention.fixture-catalog (shapes S01 to S29, usual and stress) and the ui-sdk waves
+    (@task.V3.T71, @task.V3.T72, @task.V3.T73); each feature Task builds the shapes its feature unlocks (the user,
+    2026-11-16). Known stale there: `ensure` or `useActorByRef` with input, `signal` in contexts, no `services:`,
+    persistence `version`, CLI strings, `Fake.fetch` (now `Fake.http`), `drop({ times })` (later, @task.V3.T29),
+    `Fake.storage.write.hold({ match })` (now `Fake.storage` with `hold`), and any line saying fixtures shadow setup
+    services (they replace them). Link: code:wiki/plans/flow/references/checkout/features/Pay/pay.story.ts,
+    code:wiki/plans/flow/references/checkout/features/Pay/pay.test.ts,
+    code:wiki/plans/flow/references/checkout/features/Cart/cart.story.ts,
+    code:wiki/plans/flow/references/checkout/features/Refunds/refunds.story.ts,
+    code:wiki/plans/flow/references/checkout/testing/stripe.fake.ts,
+    code:wiki/plans/flow/references/checkout/testing/checkout.property.test.ts,
+    code:wiki/plans/flow/references/checkout/adapters/server.ts,
+    code:wiki/plans/flow/references/checkout/flow.config.ts,
+    code:wiki/plans/flow/references/dispatch-desk/testing/desk.fake.ts,
+    code:wiki/plans/flow/references/dispatch-desk/testing/desk.property.test.ts,
+    code:wiki/plans/flow/references/dispatch-desk/tools/inspection.ts,
+    code:wiki/plans/flow/references/dispatch-desk/flow.config.ts, and each app's `features/*/*.story.ts` and
+    `*.test.ts`. Not guides: `*.contracts.ts`, setup and persistence files, `tools/cli.ts`, `tools/diagnostics.ts`, the
+    READMEs, `REVIEW.md`, `REWRITE-PLAN.md` and `typecheck/standin/`.
+
+    **Folder structure** (`packages/flow-state-v3/`; the Task that builds each part in brackets):
+
+    ```text
+    src/core/                  pure core, unchanged
+    src/host/runtime.ts        runtimeSetup keeps its config under an internal key so a Story boots it [T63]
+    src/host/inspect.ts        inspect(runtime), the runtime cut [T63]; inspect(app) [T49]
+    src/host/trace.ts          run.trace, render(trace, "text") [T65]
+    src/host/cli/main.ts       main(argv), called by the flow bin [T69]
+    src/host/store.ts          Store as a port [T58]
+    src/host/testing/          flow-state/testing, exported by T29; Flow's tests use it by path until then
+      story.ts                 Story.app chained, Story.Step [T63]
+      run.ts                   the one runner: TestClock, Effect's scheduler, a page per reload [T63]
+      fake.ts                  Fake.server, Fake.call, Fake.control, Fake.world, Fake.Lost, Fake.storage [T63]
+      config.ts                defineConfig, first slice [T69]
+      index.ts
+      page.ts                  deleted [T67]; the src/host/testing.ts seam moves in here, unexported [T67]
+    fixtures/<name>/           contracts.ts (port, operations), machine.ts (machine, app, setup, refs),
+                               server.ts (Fake.server, port fake Layer), stories.ts;
+                               optional <port>-http.ts (production adapter) and <port>.contract.ts
+    tests/<spec area>/         Story tests by Spec area; tests/stories (the tooling's own) [T63]
+    tests/rules/               run rules and the reload sweep [T64]
+    tests/types/               compile-time tests [T68]
+    tests/cli/                 CLI tests over flow.config.ts [T69]
+    tests/generated/           propertyTest runs [T70]
+    tests/faults.ts            planted faults
+    bench/run.ts               times run() over the long Stories [T66]
+    flow.config.ts             lists Flow's own fixtures, the same file an app keeps [T69]
+    ```
+
+    **Starts when:** now, ahead of every remaining core slice. P3 starts only after this phase's completion audit.
+
+    **Order:** @task.V3.T62, @task.V3.T63, @task.V3.T64, @task.V3.T65, @task.V3.T66, @task.V3.T67, @task.V3.T68,
+    @task.V3.T69, @task.V3.T71, @task.V3.T70, @task.V3.T75. Where several are ready, take the earliest in this order.
+
+    **Verified by:**
+
+    - the suite: the Story tests under `packages/flow-state-v3/tests/`, with the run rules and the reload sweep, run by
+      `vp test`; the builder runs it, and a lead that did not build it audits it (skill:policy-testing#audit-a-suite);
+    - its mutants: `nub run faults` plants a dead core and each named fault of
+      code:packages/flow-state-v3/tests/faults.ts in a scratch copy, one at a time;
+    - its coverage record: written by @task.V3.T67 and proposed as a verification entry of @plan.Runtime, which is a
+      Plan edit and so the user's yes; until then it is a comment on this phase;
+    - skill:check-task per Task; `nub run check` and `nub run lint:rules` at zero.
+
+    **One iteration:** the next ready Task: write its checks and see them fail, build, run the suite and `nub run
+    faults`, then an independent skill:check-task. Findings are gathered by root cause before the next Task.
+
+    **Exit criteria:**
+
+    - every Task is done, and `tests/bridge/` is deleted, so one test style is left;
+    - everything under "Prove" in skill:policy-verification holds at the final revision: the suite runs end to end, the
+      dead core and every named fault are caught, and the audit has passed;
+    - the coverage record exists.
+
+    **False pass:** a harness made of the product hiding the product's bugs; a ported test that asserts less than the
+    case it replaces.
+
+    **Caught by:** the fault run and the dead core; the pure core tests beside the core
+    (code:packages/flow-state-v3/src/core/cells.test.ts); the case-by-case comparison in @task.V3.T67.
+
+    **Gates:**
+
+    - `nub run faults`, which rejects the dead core and every named fault
+      in code:packages/flow-state-v3/tests/faults.ts;
+    - `nub run lint:rules`, which rejects the planted violations in code:tools/flow-state-lint/imports.test.ts and the
+      per-rule tests such as code:tools/flow-state-lint/rules/bans.test.ts;
+    - `nub run check`.
+
+    **Failure limit:** 2.
+
+    **Stops:**
+
+    - a Pay Story that cannot pass across a reload (@task.V3.T63);
+    - public entry-point names: `Story`, `Fake` and `propertyTest` follow @plan.Testing and stay unexported in this
+      phase; exporting any of them, or naming the CLI's commands beyond the Plan's (@task.V3.T69), is the user's.
+
+    **User's read:** the agent decisions in section 12 of the proposal; the Story and Fake API as built; each case the
+    port drops, with its reason.
+
+    **Draws from:**
+
+    - skill:policy-verification (prove a suite; the coverage record);
+    - skill:policy-testing (the requirements as failing checks first; audit a suite);
+    - skill:execute-task and skill:check-task per Task; skill:review at each Task's close;
+    - skill:policy-convergence at the threshold; skill:diagnose when a test fails unexplained;
+    - the project's `effect-api-documentation` skill for every Effect API.
+comment 2026-11-16T02:04:13Z
+    Audit PASS at eff65a6b (2026-11-16): no P2 Task satisfies a Plan outcome whole; first slices of Testing O1 to O4 and
+    O6 and Inspection O1 and O4 are delivered, the rest stays with @task.V3.T29 and @task.V3.T49. For the user: `nub run
+    verify` no longer runs stress files. Coverage record (proposed as a verification entry of @plan.Runtime, the user's
+    yes pending; its counts are superseded by code:wiki/tasks/V3/P3-coverage.md) and the close-out findings are in git
+    at 3a84b878. Excluded from it: real browsers and storage (P4), reads (@task.V3.T21), the rest of Story and
+    Fake (@task.V3.T29).
+comment 2026-11-16T02:04:15Z
+    Deferrals from the close-out audit, each handed an owner (unverified at compaction; D5 may be stale, since
+    tools/faults/run.ts now excuses by the `mayStayGreen` file patterns): D1 every `it.fails` passes on any failure, so
+    pin the observed wrong value as each bug is fixed (@task.V3.T17, @task.V3.T19, @task.V3.T20, @task.V3.T57); D2
+    generated runs draw an answer only for an endpoint's first call and mixes are checked on the generator's tally
+    (@task.V3.T29); D3 the pair sweep's phases come from the app's own lanes() and unreachable cells rest on hand-set
+    flags (@task.V3.T19, @task.V3.T29); D4 disposal must interrupt in-flight reads (@task.V3.T21); D5 the dead-core
+    excuse matches any title starting with a rule id (@task.V3.T22); D6 `config.ts` promises two Stories with one id
+    fail the command, untested (@task.V3.T22); D7 rule harness: places.ts matches actor keys by prefix, one-sided rule
+    tests for Turn I9, I14 and WriteLanes I6 (@task.V3.T29). Agent calls that narrow a user decision, for the user's
+    read: NUMBER-10 commits on release, the stress profile's first-call draws and answer mappings, WriteLanes I3, I15,
+    I16 forgetting unsaved endings across a crash, and the new words `heldWrites land`, `tab`, `lose()`,
+    `Fake.network.offline()`, the 8 by 7 pair grid, DRIVE, WriteAhead I23, inspect lanes contract and
+    state, `lastCommit.seq`.
+tasks
+    T62
+        title       Package layout and import rules
+        status      done
+        priority    high
+        description
+            Fix the package's folders and what may import what, enforced by lint, before the tooling is built.
+        acceptance
+            - Lint encodes the package's top folders and what may import what between them: the core (everything in
+              `src/` outside `src/host/`), the host, `fixtures/`, `tests/` and `bench/`. It does not encode the shape
+              inside a folder. This Task moves no file: each folder is created by the Task that fills it (@task.V3.T63
+              the test tooling and the first fixture folder, @task.V3.T64 `tests/rules/`, @task.V3.T66 `bench/`,
+              @task.V3.T67 the other fixture folders, @task.V3.T68 `tests/types/`).
+            - Lint refuses, for `.ts` and `.tsx` files: anything in `src/` outside `src/host/`, except `src/index.ts`,
+              importing from `src/host/`; `src/` importing a fixture, test or bench; a fixture importing from `src/`
+              anything but `src/index.ts` and `src/host/testing/index.ts`; a test or bench importing from `src/`
+              anything but those two, `src/host/inspect.ts` and `src/host/trace.ts`.
+            - Each rule has a planted violation it refuses and a permitted import it allows.
+            - `nub run check`, `nub run lint:rules` and `vp test` pass.
+    T63
+        title       A Story drives the real Runtime over fakes
+        status      done
+        priority    high
+        blocked_by  [@T62]
+        description
+            Build `Story`, `Fake` and the run in `src/host/testing/`, with a runtime cut in `src/host/inspect.ts`,
+            proven on a transfers fixture and one Pay Story.
+        acceptance
+            - `Story.app(setup, { id, fixtures, world })` takes the app's real `runtimeSetup`, chains steps (ensure,
+              detach, send, world, advance, reload, checkpoint, `dispose(ref, { how })` with `how: "forget"` for forget,
+              disposeRuntime), and is inert data until `run()`, the only boundary. Every chained Story exposes its
+              `Story.Step` array, and a run accepts a step array, which the reload sweep and generated Stories use.
+              Checkpoint names are typed: reading an unknown one is a type error.
+            - Fixtures cover every service the app's contracts list; a missing one is a type error (no `Layer<any>`).
+            - `Fake.server(name, { truth, initial, endpoints, controls })` holds run-scoped, Schema'd truth that lasts
+              across reloads; `Fake.call` endpoints return `{ truth, exit }` typed by their Schemas, `Fake.control`
+              changes truth, and `Fake.Lost` reaches the port's own error through the port fake, a plain `Layer.effect`
+              of the app's service. Wire words live on the endpoint: `hold({ at })`, `release` and `drop({ at })`. There
+              is no `answer` word and no cast. The fake store has `hold`, `refuse` and `release` (`Fake.storage`).
+            - A checkpoint holds the time, `inspect(runtime)` (the public runtime cut, @plan.Inspection.O1), what each
+              fake received and its truth, and the store; tests read them only through the Plan's reads: `read(ref)`,
+              `read(server)` (truth), `read(endpoint)` (the calls it received, with status; @plan.Pending.D8),
+              `records`, `inspection`, `now`, and `run.evidence` for endings.
+            - A dead page's released call or write never completes its waiter: evidence, store records and `inspection`
+              are equal before and after the release (the handler may run and truth change, @spec.Stories.R13).
+              `disposeRuntime` runs the public Runtime's dispose.
+            - Every step word and every wire and storage word has a test. A Story run twice gives equal evidence. A run
+              arms no host timer. A dead page writes nothing after a reload.
+            - The test tooling's Spec (@spec.Stories, skill:to-spec) states the shape above, from @plan.Testing and the
+              reuse proposal, as its Requirements and Invariants; the tooling's tests cite it.
+            - The transfers fixture is one folder (contracts, machine, server, stories) with Story tests; its stories
+              include one long run of about 100 steps, which @task.V3.T66 times.
+            - The tooling is the public `flow-state/testing` and `flow-state/inspect` design, not exported in P2
+              (@task.V3.T29 exports testing, @task.V3.T49 inspect); Flow's tests reach it by its path in the package.
+            - One Pay Story passes: a `confirm` whose response is never answered (held at response, never released),
+              time past the commit's deadline, a reload; the payment reads unknown and the shop handled exactly
+              one `confirm`.
+            - `nub run faults` over the new tests: a dead core fails every one.
+            - An idiomatic-Effect review by a second Opus agent, using `effect-api-documentation`, leaves no finding
+              open without a reason.
+            - `vp test`, `nub run check` and `nub run lint:rules` pass.
+
+            1. Chain (@spec.Stories.R1, @spec.Stories.R2, @spec.Stories.R3, @spec.Stories.I1 to @spec.Stories.I3):
+               `tests/stories/story.test.ts`: `Story.app(transfersSetup, { id, fixtures })` chains every step word; a
+               fixture Layer counting builds is 0 after two branches from one prefix and 1 per page after `run()`; the
+               prefix's `steps` are unchanged; `run({ steps: s.steps })` equals `s.run()`; `@ts-expect-error` on reading
+               an unknown checkpoint, a duplicate and a widened name.
+            2. Fixtures cover the contracts (R7, I19): `@ts-expect-error` on a Story with no fixture for `BankApi` and
+               on two fixtures of it; `runtimeSetup` has no `Layer<any>` (grep) and a setup without its services Layer
+               is a type error; the setup's own services Layer, counting builds, stays at 0 in a run.
+            3. Fake server (R8 to R11, I8, I9, I12, I13): `tests/stories/fake.test.ts`: a `Bank.limit` control makes the
+               next transfer Declined; `read(Bank)` shows truth after each; the bank contract over `Fake.world`, outside
+               a Story; `@ts-expect-error` on an Exit of other types, an unknown endpoint or control, a wrong control
+               input, an `answer` word; no cast in fixtures or tests (grep). `tests/stories/wire.test.ts`: hold at
+               request then release runs the handler once at the release (truth changes then); hold at response runs it
+               at once; drop at request leaves truth and ends unknown via the port's NoResponse; drop at response
+               changes truth once and ends unknown; each status in `read(Bank.transfer)`.
+               `tests/stories/storage.test.ts`: `Fake.storage.hold` keeps every call out until release (WriteAhead R13);
+               `refuse` ends NotSent StorageRefused with no call; batches logged.
+            4. Cut (R12, I15, I16): a checkpoint's `now`, `inspection` (lane `state` InFlight then none),
+               `read(account)`, `read(Bank)`, `read(Bank.transfer)` and `records` equal values derived from the steps;
+               reading twice is equal.
+            5. Dead page (R13, I10, I14): `tests/stories/reload.test.ts`: a write held across a reload, then released,
+               is aborted; a call held at request across a reload, then released, is handled once; either release leaves
+               `run.evidence`, `records` and `inspection` equal to the checkpoint before it (planted fault: the release
+               completes the waiter); `disposeRuntime` ends `inspection`'s lifecycle Disposed and a call on the wire
+               unknown Disposed at 5 s (Actors I35).
+            6. Every word, reproducible, timer-free, dead page silent (R3 to R6, R14, I4 to I7, I17, I18):
+               `steps.test.ts` has one case per step word (ensure, detach, send, dispose, dispose forget,
+               disposeRuntime, world, advance, reload, checkpoint); `fake.test.ts` script faults reject StoryFailed
+               (release with nothing held, unused hold, drop, storage hold and refuse, a throwing handler, a fixture
+               that fails to build, a send after disposeRuntime); every fixture Story run twice gives equal evidence,
+               checkpoints and end with no host timer called; a settle that never ends rejects StoryTurnLimit Settle.
+            7. Spec: @spec.Stories states this shape; every tooling test title cites its rule.
+            8. Transfers folder: `fixtures/transfers/{contracts,machine,server,stories}.ts` with a `bank.contract.ts`;
+               `long` has 90 to 110 steps and one idempotency key per transfer (WriteLanes I6).
+            9. Not exported (R15): no public route re-exports `src/host/testing` or `inspect` (grep); tests reach them
+               by path.
+            10. Pay (Restore R3, I6): `tests/pay/pay.test.ts`: confirm held at response, never released, 61 s, reload:
+                row uncertain and not pending, lane Held, endings unknown TimedOut then unknown Restored,
+                `read(Shop.confirm)` one call held at response; still one 10 s later.
+            11. Dead core: `nub run faults` fails every new test on the dead core; the tooling faults in
+                `tests/faults.ts` are rewritten for the new code (dead-page answer, aborted write fails its waiter, step
+                left unsettled).
+            12. Idiomatic-Effect review by a second Opus agent; findings closed or reasoned.
+            13. `vp test`, `nub run check`, `nub run lint:rules` at zero.
+
+            Decision (agent): `inspect(runtime)` lanes keep `operation` (the definition's name, as addresses use it) and
+            add `contract` and `state`; the Shape's `operation: "Bank/transfer"` is read as the contract id. Reverse:
+            rename. Decision (agent): `Fake.call` takes `failure` always (`Schema.Never` for none), so no default needs
+            a cast. Decision (agent): a server is an Effect of `FakeWorld` with each endpoint's words and each control's
+            word as its properties; an endpoint named like an Effect member would shadow it (doc Gotcha). Reverse: a
+            separate key. Decision (agent): Pay's setup is real: `fixtures/pay/shop-http.ts` is a minimal production
+            adapter (200 or NoResponse) so its setup has a services Layer; a Story never builds it (story test). Outside
+            the May change list. Decision (agent): static checks (types, not exported) sit inside tests that also read
+            the core, so the dead core fails each; the bank contract test checks the fake alone and stays green on a
+            dead core by design. Finding: the `refused-turn-reported` core fault is missed by the suite; it is not a
+            tooling rule and predates this Task (no deleted test exercised a refused turn). Left for T64's run rules.
+    T64
+        title       Rules checked on every run, and a reload at every step
+        status      done
+        priority    high
+        blocked_by  [@T63]
+        description
+            Write the run rules and the reload sweep in `tests/rules/`.
+        acceptance
+            - A rule is a function from a finished run to its breaches, named by its Spec id, reading only the public
+              reads (`run.checkpoints`, `inspection`, `read(endpoint)`, `records`, `run.evidence`), never a fake's
+              internals. One helper applies every rule to a run, and every Story test calls it. The rules are a plain
+              list that `propertyTest` (@task.V3.T70) receives through its `properties` option, since `src/` may not
+              import `tests/`.
+            - The rules, each as its Spec words it: per Attempt and per incarnation an ending is delivered at most once,
+              with I15's written exceptions (a refused re-send capture's second `unknown StorageRefused`, `unknown
+              Restored` once again after each reload, a refused turn's redelivery) (WriteLanes I15, I16); every
+              delivered ending is exactly one of success, failure, notSent and unknown, an Attempt that ever ended
+              unknown never delivers a definite failure, and a never-sent Attempt ends only NotSent or unknown Restored
+              at a boot (WriteLanes I3); every request of one Attempt carries one idempotency key and one input
+              (WriteLanes I6); each turn publishes at most once and an accepted transition exactly once (Turn I9); a
+              refused turn publishes one issue-only snapshot and no Turn report (Turn I14); after Runtime disposal
+              starts no commit or read is invoked (Actors I30).
+            - Each rule has a named planted fault in `tests/faults.ts` that turns it red (none exists today for
+              WriteLanes I3, I15, I16, Turn I9 or Actors I30).
+            - The reload sweep runs every fixture story's `Story.Step` array with a reload inserted at each position
+              (`run({ steps })`) and applies the rules. A variant fails only for a rule breach, never for a script
+              reason; script faults a reload can cause (a release with nothing held, an unused hold) are skipped and
+              counted. A second variant inserts `reload({ reattach: false })` (@plan.Pending.D10), so a boot that fails
+              to wake owed identities shows.
+            - `nub run faults` catches every named fault, the 23 there today included.
+        comment     2026-11-15T18:15:39Z
+            Turn I14 (a refusal publishes no issue-only snapshot) and Turn I9 (serve.ts publishes only on change) were
+            kept as `it.fails` with the runtime as the wrong side, routed to @task.V3.T17 (done). Trap: the sweep
+            asserted no skip count, so a dead core passed it with most rows skipped (since bounded: T70 G1).
+    T65
+        title       A run prints as a text trace
+        status      done
+        priority    medium
+        blocked_by  [@T63]
+        description
+            Write `src/host/trace.ts`: `run.trace` holds a finished run's trace as data, and `render(trace, "text")`
+            prints it, showing each step, what it caused and each checkpoint; `trace.export` and `trace.import` stay
+            with @task.V3.T49.
+        acceptance
+            - For one transfers Story with a lost answer and a reload, a test states by hand what the trace must show,
+              in order: each step, each request with whether it landed, each ending with its channel and reason, each
+              store write and each checkpoint.
+            - Two runs of one Story print the same trace. Each trace event carries a run-wide sequence number, stamped
+              by the host's evidence sink (the core stays unchanged); T65 owns it.
+            - A text snapshot of that trace is kept as a change detector only.
+        comment     2026-11-15T18:26:53Z
+            Delivered @plan.Inspection.O4's first slice. WriteAhead R5 kept as `it.fails` with the runtime wrong (a
+            restored head that turns Held is never re-saved), routed to @task.V3.T20 (done). Trace header, checkpoints
+            and a Runtime-global sequence went to @task.V3.T49.
+    T66
+        title       The bench times the long stories
+        status      done
+        priority    medium
+        blocked_by  [@T63]
+        description
+            Write `bench/run.ts`: it runs each fixture's long story through `run()` a fixed number of times and prints
+            the median and p99 time per run, and per turn from the turn evidence `attachInspector` records.
+        acceptance
+            - `bun packages/flow-state-v3/bench/run.ts` prints its numbers for the transfers long story.
+            - A test shows the benched Story does the same turns as a tested run of it: equal turn evidence, in order,
+              from both runs.
+            - Nothing gates on a timing.
+        comment     2026-11-15T18:35:20Z
+            Routed to @task.V3.T35: the per-turn label includes inspector and trace work.
+    T67
+        title       The hand cases run as Story tests and the bridge is gone
+        status      done
+        priority    high
+        blocked_by  [@T63, @T64]
+        description
+            Port the 81 cases under `tests/bridge/cases/` to Story tests by Spec area, and delete the bridge.
+        acceptance
+            - Every bridge case has a Story test asserting the same values; a case dropped is listed with its reason.
+            - `tests/bridge/` and `fixtures/part.ts` are deleted, and lint's bridge exemption with them (also in
+              `tools/flow-state-lint/imports.test.ts` and `tools/lint-bomb/FLOW-STATE.md`).
+            - `src/host/testing/page.ts` is deleted: `src/host/lanes.test.ts` and `ledger.test.ts` run on Stories or
+              TestClock, so no second hand clock is left.
+            - The three known bugs that still have a reproduction are inverted tests, each titled by the rule it breaks:
+              TURN-01 (`turn/refusal.test.ts`), PAY-15 (`actors/runtime-disposal.test.ts`), PAY-22
+              (`write-lanes/lane-anchors.test.ts`). The two shrunk `PART-…` cases of Appendix A no longer exist;
+              @task.V3.T54 reproduces them with generated Stories.
+            - `src/host/testing.ts` moves into `src/host/testing/`, unexported, once the bridge no longer imports it.
+            - Each fixture has a usual and a long story.
+            - `nub run faults`: every named fault caught, and a dead core fails every test that is not inverted.
+            - The suite's coverage record (Covers, Suite, Rerun, Mutants, Audit, Matched at, Scope, as
+              skill:policy-verification gives them) is a comment on this phase, proposed to the user as a verification
+              entry of @plan.Runtime. The audit it names runs at the phase's close, after @task.V3.T70.
+        comment     2026-11-15T20:17:29Z
+            Review compared all 216 old assertions: no value lost beyond the listed drops (list in git at 3a84b878).
+            Three rule bugs were kept as `it.fails`.
+    T68
+        title       Compile-time tests for the type promises production keeps
+        status      done
+        priority    medium
+        blocked_by  [@T62]
+        description
+            Write `tests/types/`: one `@ts-expect-error` test for each "is a type error" promise in the Plans and
+            @spec.Compile that production has built.
+        acceptance
+            - Each promise production has built has a test, and `nub run check` fails when its directive is unused.
+            - The promises production has not built are listed in this Task's comments with their owner Task.
+
+            Built, to test here (each a check whose unused directive fails `nub run check`):
+
+            1. a memory field with no source (@plan.Machines.O1, @spec.Compile.R5);
+            2. a Schema modifier over a Flow marker (@plan.Machines.O1);
+            3. a field Schema that needs services (@plan.Persistence.O2, "incompatible Schemas");
+            4. to 8. a machine adding to its definition (@plan.Machines.O1, @spec.Compile.R14, @spec.Compile.T11): a
+               state body, a handler event, a state token, an event token and an operation the definition lacks;
+            9. a guard returning false (@plan.Machines.O4, @spec.Compile.T6).
+
+            Built, tested elsewhere: a foreign state token as target (code:packages/flow-state-v3/src/machine.test.ts);
+            a setup missing a service (@plan.Runtime.O2, @plan.Runtime.V2) and @task.V3.T63's missing fixture, duplicate
+            fixture, duplicate, widened and unknown checkpoint names and undeclared Story
+            event (code:packages/flow-state-v3/tests/stories/story.test.ts).
+
+            Unbuilt, by owner:
+
+            - @task.V3.T17: writing an input field (@plan.Machines.O1, @spec.Compile.R7); an internal or foreign event
+              given to check (@plan.Machines.O4).
+            - @task.V3.T9: an internal or foreign event sent to a handle (@plan.Machines.O4); a non-public send event
+              (@plan.Machines.O1); a runtime string as a singleton's name; a ref of the wrong form or given input
+              (@plan.Runtime.O3, @plan.Runtime.V4).
+            - @task.V3.T57: a foreign event as a schedule's send (@plan.Machines.O1; it compiles today); unfilled ports,
+              an acting fragment member outside its fragment, a fragment target leaving its placement
+              (@spec.Compile.R11, @spec.Compile.T6).
+            - @task.V3.T21: a contract's services not covering its function's R; a key value missing a
+              field (@plan.Operations.O1).
+            - @task.V3.T19: persistence without a scope (@plan.Persistence.O1). @task.V3.T58: no `Store`
+              provided (same).
+            - @task.V3.T24: optimistic or `setData` on a domain operation (@plan.Operations.O5); Entity.patch with an
+              extra field, Entity.delta without its version (@plan.EntityDomains.O1).
+            - @task.V3.T48: a lazy entry's wrong id, non-machine result, wrong context provider, missing
+              service (@plan.LazyFeatures.O1).
+            - @task.V3.T30: dehydrate over a persistent setup (@plan.ServerRendering.O1); a scene naming no checkpoint,
+              a fragment-alone Story played (@plan.Testing.O9).
+            - @task.V3.T29: the wrong subject kind for a Story constructor, and Story.machine input and
+              context (@plan.Testing.O1).
+
+            Rejected: @plan.FlowState.D3 ("likely mistakes become type errors") is a principle, not one promise.
+
+            Unbuilt, added for @task.V3.T21 (@plan.Operations.V1): an `unknown:` record without `otherwise`, and
+            key-less members of keyed operations. Also routed to T21: commit `select` and key values are typed as plain
+            records (`Values`), which breaks @plan.Operations.O1. Totals: 49 promises; 13 tested here, 8 tested
+            elsewhere, 28 unbuilt (T21 now 4).
+
+            Pinned for @task.V3.T57: `tests/types/schedule-send.test.ts` holds an `it.fails` (Compile T11). machine()
+            should refuse a schedule `send` carrying another definition's event token, but it is accepted. It compiles
+            because `ScheduleConfig.send` takes `EventToken | Ending`.
+        comment     2026-11-15T20:44:35Z
+            The unbuilt @plan.Operations.V1 forms and the select and key routing are owned by @task.V3.T21; the foreign
+            send token (Compile T11) was an `it.fails`, since converted
+            to code:packages/flow-state-v3/tests/types/schedule-send.test-d.ts.
+    T69
+        title       flow story and flow trace
+        status      done
+        priority    medium
+        blocked_by  [@T65]
+        description
+            Build `flow story list`, `flow story run` and `flow trace <story>`, thin over the run and the trace printer.
+        acceptance
+            - `flow trace <story>` prints exactly what `render(run.trace, "text")` of @task.V3.T65 returns, and `flow
+              story run` prints its checkpoints; a test compares them over the package's fixtures.
+            - `flow story list` names every Story the fixtures export, and an unknown Story exits non-zero with
+              its name.
+            - Nothing is exported from a public route by this Task.
+
+            - R1 (acceptance 1; @plan.CommandLine.O2 trace; @task.V3.T65): for every Story the fixtures export,
+              `main(["trace", id])` over `flow.config.ts` writes to stdout exactly `render(run.trace, "text")` of a
+              direct `story.run()`, nothing to stderr, exit 0.
+            - R2 (acceptance 1; @plan.CommandLine.O2 "the same checkpoints"): `story run <id>` prints one line per
+              checkpoint step in step order, with that step's trace sequence and each actor's state from the direct
+              run's cut; exit 0.
+            - R3 (acceptance 2; @plan.CommandLine.O1, @plan.CommandLine.O6): `story list` names each Story in the
+              fixtures' `stories` records once, with its app id, and nothing else.
+            - R4 (acceptance 2; @plan.CommandLine.O1 "unknown operands fail", O3 exit 2): `story run` and `trace` of an
+              unknown id exit 2 with the id on stderr and nothing on stdout; a malformed command exits 2.
+            - R5 (acceptance 3): `src/index.ts` and `src/host/testing/index.ts` export no `main`; `package.json` gains
+              no `exports` or `bin`.
+            - R6 (Task risk): tests may import `src/host/cli/main.ts` and no other `src/host/cli/` file, planted
+              in `tools/flow-state-lint/imports.test.ts`.
+        comment     2026-11-15T21:32:51Z
+            [decided: agent builder 2026-11-15] The CLI uses `effect/cli` through `Command.runWith`; `main(argv)`
+            returns its exit code as a value so the bin and tests share one path; Stories are found by a brand on
+            `Story`; one output channel, Console. Why: prior art in Effect and the Plan's O6 ("branded Stories").
+            Reverse: a hand-written argv parser. Traps: CLI tests stay green under the dead core (both sides run the
+            same core), so `tools/faults/run.ts` excuses `tests/cli/` (its `mayStayGreen`) and the CLI's own faults
+            catch it; `effect/cli`, `Stdio` and `Path` are unstable in effect 4.0.5, so the CLI files turn off
+            `unstableApiUsage` with a reason. Routed (unverified at compaction): usage help on stdout where
+            @plan.CommandLine.O3 asks one document on stderr, and O6 config checks, to @task.V3.T22 and @task.V3.T29.
+    T70
+        title       Generated Stories
+        status      done
+        priority    high
+        blocked_by  [@T64, @T67]
+        description
+            Build `propertyTest` in `src/host/testing/`: it generates `Story.Step` arrays from a fixture's step samples,
+            each `Fake.server`'s controls and the wire words on its open calls, runs them with `run({ steps })`, applies
+            the run rules, shrinks a failure by removing steps and prints it as a chained `Story.app(...)` expression.
+        acceptance
+            - The same seed gives the same Stories.
+            - A planted fault is found from a seed and shrunk to under ten steps, and the failure prints as a Story to
+              paste into a fixture.
+            - Nothing generated is stored, except each fixture's stress Story below, which is saved as ordinary
+              fixture code.
+            - It runs over every fixture in `tests/generated/`.
+            - Two profiles, from the usual and stress sections of `fixture-catalogue` (full text: git show
+              3a84b878:wiki/plans/flow/references/proposals/2026-11-11-fixture-catalogue.md): usual (realistic think
+              times, a healthy server, at most 5% domain failures) and stress (bursts, faults drawn on every call and
+              storage write, reloads, an offline span); a test names its profile, as in `propertyTest(fixture, {
+              profile: "stress" })`.
+            - A pair sweep: for each fixture, every reachable pair of a write's lifecycle phase and a fault (reload, a
+              lost answer, a refused storage write, disposal, and the rest of the catalogue's grid) is driven once with
+              the usual profile until a write reaches that phase, then given that fault, with the run rules applied;
+              unreachable pairs are counted and named. The pair sweep is the deterministic floor of the test gate;
+              random stress seeds add breadth, with a fixed seed list in the gate and more outside it.
+            - Every fixture has a stress Story: a stress run from a fixed seed, printed as a chained `Story.app(...)`
+              and saved in the fixture, so the bench and the reload sweep use it like any hand-written Story.
+
+            - R1 (acceptance 1): two `generate` runs of one fixture, profile and seed emit equal step arrays and equal
+              printed text; a different seed emits different steps.
+            - R2 (acceptance 2; false pass): in `tests/generated/`, (a) an edge fault (a port fake that re-sends a lost
+              call under a fresh id) and (b) one named core fault of `tests/faults.ts`, planted, are each falsified from
+              a fixed seed and shrunk to under ten printed steps (Arbitrary shrinks draws, so the count is of the
+              printed Story); the printed text itself is evaluated and re-run, and breaks the same rule.
+            - R3 (acceptance 3; a constraint, not a check): nothing generated is written to a file; the stress Stories
+              are pasted by hand as fixture code.
+            - R4 (acceptance 4): a test lists `fixtures/` and fails on a fixture with no samples.
+            - R5 (acceptance 5; `fixture-catalogue` lines 1064-1097): usual draws think times 80 ms to 20 s, server
+              latency 50 to 800 ms log-uniform with a 2% tail of 2 to 5 s, at most 5% domain failures, no fault, reload
+              or disposal. Stress draws gaps of 0 to 20 ms, bursts, and per request an answer of Ok 35, Fail 10, Lost
+              10, LostButLanded 10, FailButLanded 5, Never 5, slow (1 to 90 s) 10, reordered 10, late 5; per write batch
+              ack 75, refuse 15, hang 5, land unheard 5; exactly one offline span of 5 to 120 s in which every answer is
+              Lost or Never; per step reload 3%, Runtime disposal 1%, actor disposal or forget 1%. Each mix is asserted
+              over generated runs.
+            - R6 (acceptance 6): the pair sweep crosses 8 phases (Acknowledging, Unsent, Withdrawing, Recapturing,
+              Resending, OnWire, Cancelling, Held) with 7 faults (reload, lost answer, storage refusal, actor disposal,
+              forget, release, disposal bound): 56 cells per fixture. A cell is reached only when its fault fires while
+              a write stands in its phase. The drive is `DRIVE`, the usual profile plus lost answers and storage holds
+              and refusals (amendment, coordinator-accepted). Expected unreachable cells are named per fixture from its
+              Specs' lifecycle rules, each with its reason, never from a recorded run.
+            - R7 (acceptance 6): the gate runs the pair sweep and 10 usual and 20 stress seeds per fixture, split into
+              slices across test files, never thinned; `FLOW_SEEDS` adds more outside it. Work still pending at the
+              horizon is inconclusive, counted, and fails the test.
+            - R8 (acceptance 7; T71): each fixture's `stories` holds a stress Story whose steps equal the print of its
+              seed; the reload sweep and the bench pick it up. `strideOf` is dropped: every stress Story, T71's palette
+              and number-input ones included, is swept at every step under a raised test timeout.
+            - R9 (T71): the palette gives a disabled command no shortcut (`shortcutsOf`); its pages and queries are one
+              frame stack; NUMBER-10 commits only on release, as upstream does (the coordinator's ruling).
+            - G1 (T64): the sweep asserts a numeric skip bound per Story, derived from its hold-to-release windows; a
+              dead core breaks it.
+            - G2 (T64): each of the six narrow rules (WriteLanes I3, I6, I15; Turn I9, I14; Restore I1) is widened, with
+              a rule test over a crafted run that the narrow rule passes.
+            - G3 (T67): Turn I30 is a run rule, red on a crafted run that republishes an equal part as a new object.
+            - G4 (T67): every fixture Story also runs under another session seed and shuffled load order, and ends with
+              a reload with every writer attached, under the rules.
+            - G5 (T67): Stories I7 states the bound as built (a crossing batch is rejected whole), with a test.
+            - G6 (T67, T69): `nub run faults` counts over-1 MB output, a timeout or a missing summary as not caught, and
+              plants into the whole package's tests, `src/` included.
+        comment     2026-11-16T01:19:55Z
+            [decided: agent builder 2026-11-15] The pair sweep drives with `DRIVE` (the usual profile plus lost answers
+            and storage holds and refusals), generation and shrinking use Effect's `Arbitrary`, and generated runs keep
+            the Story's own load order and session seeds. Why: Held, Recapturing and Withdrawing open only after a loss
+            or a held write; `effect/testing/FastCheck` is not installed. Reverse: drive with `usual` alone and name
+            those phases unreachable.
+        comment     2026-11-16T01:19:57Z
+            [decided: agent coordinator 2026-11-15] NUMBER-10: a hold that reaches the bound stops repeating (state
+            `HOLD_STOPPED`) and commits only on release, as upstream does; this departs from the proposal's table. Why:
+            matches upstream behaviour. Reverse: commit on the stopping tick.
+        comment     2026-11-16T01:19:58Z
+            [decided: agent builder 2026-11-15] WriteLanes I3, I15 and I16 now say a crash before a delivery or release
+            was saved forgets it (WriteAhead R14), and the rules read "saved" as a landed batch carrying the actor's
+            records. Why: generated runs found the rules too wide across a crash, not runtime bugs. Reverse: the Spec
+            edits' own notes.
+        comment     2026-11-16T01:19:59Z
+            Still open (unverified at compaction, owner @task.V3.T29): only an endpoint's first call in a step gets a
+            drawn answer; Stories I7's crossing batch has Spec text but no test; a batch carries only identities with no
+            batch out, against WriteAhead I23's "every record dirty when it is issued".
+
+    T71
+        title       UI primitives, first wave: command palette and number input fixtures
+        status      done
+        priority    medium
+        description
+            Build the command palette and number input as fixtures, each with ui-sdk's behaviour scenarios ported as
+            Story tests.
+        acceptance
+            - `fixtures/command-palette/` and `fixtures/number-input/` exist in the four-file shape, each with a usual
+              and a stress Story, built with today's public API.
+            - Every core test of ui-sdk's command (25) and number input (12) maps to a Story test asserting the same
+              behaviour, or is listed as dropped with its reason, in one mapping comment on this Task.
+            - The run rules apply to every new Story test, and the reload sweep covers the new Stories.
+            - Each new runtime rule a scenario relies on has a planted fault that `nub run faults` catches; a dead core
+              fails every new test.
+            - The package never imports, reads or names `codebases/`; `nub run check` and `nub run lint:rules` pass.
+
+            - R1 (acceptance 1; Task approach): `fixtures/command-palette/` and `fixtures/number-input/` hold
+              `contracts.ts`, `machine.ts`, `server.ts`, `stories.ts`, import only `src/index.ts` and
+              `src/host/testing/index.ts`, and export `stories` with `usual` and `stress`; `flow.config.ts` lists both.
+            - R2 (acceptance 2; the user: "copy the scenarios from ui-sdk's tests"): each of the 37 upstream cases below
+              has a test in `tests/command-palette/` or `tests/number-input/` titled with its Story id, or a drop
+              reason; the mapping comment says what each asserts and flags any partial port.
+            - R3 (acceptance 3; code:packages/flow-state-v3/tests/rules/played.ts): every new Story test runs through
+              `played`; `tests/rules/sweep.test.ts` sweeps both fixtures' `stories`.
+            - R4 (acceptance 4): each Turn or WriteLanes rule a scenario needs and `tests/faults.ts` lacks gets a fault
+              (expected: Turn R14 armOn restart and exit stop, Turn R2 authored order with Denied reasons); `nub run
+              faults` catches each, and the dead core fails every new test.
+            - R5 (acceptance 5): `grep -ri 'codebases\|ui-sdk'` over the package finds nothing; check and lint:rules
+              at zero.
+            - R6 (brief risk): no prop in an actor's identity; props arrive by a `Configure`-style event, and each
+              wiring line it costs is logged here.
+            - R7 (constraint "test the spec"): expected values come from the upstream case or our Spec; where upstream
+              or the proposal sketch looks wrong, the case and the pinned behaviour are logged here.
+        comment     2026-11-15T22:11:23Z
+            8 of the 37 upstream cases were dropped with reasons (mapping in git at 3a84b878). [decided: agent
+            coordinator 2026-11-15] The palette persists and the number input does not. Why: coordinator's ruling.
+            Reverse: flip the setup's persistence. Also pinned against upstream: the palette keeps one error per
+            command; leaving the field clamps and snaps the typed text ("70" in 1..10 commits 10); commits are
+            `lastCommit { seq, value }`; a hold steps at 400 ms. Routed to @task.V3.T70 and done there (R9):
+            `shortcutsOf` skips disabled commands, one frame stack. Still open: `lastCommit.seq` is a counter of the
+            kind a later `emit` replaces (unverified at compaction).
+
+    T75
+        title       Fast test commands: stress behind a flag, faults in parallel
+        status      done
+        priority    high
+        description
+            Make the test commands fast: a fast suite by default, the stress runs behind a flag, and `nub run faults` in
+            parallel with each fault's target test first.
+        acceptance
+            - Timings before and after are recorded in a Task comment: the fast suite, `nub run test:stress`, and `nub
+              run faults`.
+            - The default package suite excludes the stress runs; `nub run test:stress` runs them unchanged, and a test
+              shows the flag selects exactly the stress files.
+            - `nub run faults` plants faults in parallel, tries each fault's target tests first, and gives the same
+              caught list fault by fault as before; the dead core still runs the full suite, and a missed fault still
+              exits non-zero.
+            - `nub run faults` finishes in under 3 minutes at today's fault count, and the fast suite in under 60
+              seconds, on this machine.
+            - `nub run check` and `nub run lint:rules` pass.
+        comment     2026-11-16T02:03:57Z
+            Timings (acceptance 1): fast suite 18.5 s to 10.5 s, faults 206 s to 25 s, same 52 of 52 caught. Trap: a
+            target load error is NOT JUDGED and falls back to the whole suite.

@@ -1,0 +1,25 @@
+{
+  "extends": "../../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "noUnusedLocals": false,
+    "noImplicitAny": false,
+    "exactOptionalPropertyTypes": false,
+    "noUnusedParameters": false,
+    "plugins": [],
+    "types": ["node"],
+    "paths": {
+      "flow-state": ["./standin/flow-state.ts"],
+      "flow-state/testing": ["./standin/testing.ts"],
+      "vite-plus/test": ["./standin/runner.ts"]
+    }
+  },
+  "include": [
+    "standin/**/*.ts",
+    "checks/**/*.ts",
+    "../dispatch-desk/**/*.ts",
+    "../dispatch-desk/**/*.tsx"
+  ]
+}

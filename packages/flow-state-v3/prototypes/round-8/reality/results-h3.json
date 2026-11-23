@@ -1,0 +1,86 @@
+{
+ "main-persistent": {
+  "kind": "main",
+  "fresh": false,
+  "gapMs": 0,
+  "noWait": false,
+  "cycles": 155,
+  "ok": 148,
+  "wiped": 7,
+  "noSentinelYet": 0,
+  "errors": 0,
+  "childrenSeenAtRestart": 0
+ },
+ "main-persistent-2": {
+  "kind": "main",
+  "fresh": false,
+  "gapMs": 0,
+  "noWait": false,
+  "cycles": 130,
+  "ok": 125,
+  "wiped": 5,
+  "noSentinelYet": 0,
+  "errors": 0,
+  "childrenSeenAtRestart": 0
+ },
+ "tree-persistent": {
+  "kind": "tree",
+  "fresh": false,
+  "gapMs": 0,
+  "noWait": false,
+  "cycles": 71,
+  "ok": 66,
+  "wiped": 5,
+  "noSentinelYet": 0,
+  "errors": 0,
+  "childrenSeenAtRestart": 0
+ },
+ "crash-persistent": {
+  "kind": "crash",
+  "fresh": false,
+  "gapMs": 0,
+  "noWait": false,
+  "cycles": 64,
+  "ok": 62,
+  "wiped": 2,
+  "noSentinelYet": 0,
+  "errors": 0,
+  "childrenSeenAtRestart": 0
+ },
+ "main-fresh": {
+  "kind": "main",
+  "fresh": true,
+  "gapMs": 0,
+  "noWait": false,
+  "cycles": 52,
+  "ok": 52,
+  "wiped": 0,
+  "noSentinelYet": 0,
+  "errors": 0,
+  "childrenSeenAtRestart": 0
+ },
+ "plant-control": {
+  "plant": false,
+  "second": "tree",
+  "cycles": 12,
+  "firstOpenSawSentinel": 12,
+  "wipedAtSecondOpen": 0,
+  "chromeSaidCorruption": 0
+ },
+ "plant-quit": {
+  "plant": true,
+  "second": "quit",
+  "cycles": 12,
+  "firstOpenSawSentinel": 12,
+  "wipedAtSecondOpen": 12,
+  "chromeSaidCorruption": 12
+ },
+ "plant-tree": {
+  "plant": true,
+  "second": "tree",
+  "cycles": 12,
+  "firstOpenSawSentinel": 12,
+  "wipedAtSecondOpen": 12,
+  "chromeSaidCorruption": 12
+ }
+}

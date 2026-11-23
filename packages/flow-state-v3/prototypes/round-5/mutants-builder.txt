@@ -1,0 +1,131 @@
+KILLED   d58-pos-no-tick                      4 cases: REV4-H1/a-read-started-during-a-write-does-not-overwrite-it REV4-H1/the-doubt-outlives-a-failed-repair REV5-H3/no-version-a-read-overlapping-a-confirmed-archive-doubts REV5-H3/an-old-list-does-not-bring-a-removed-record-back
+KILLED   d57-canon-unsorted                   1 cases: REV4-H5/a-reset-value-is-the-value-not-its-key-order
+KILLED   d57-list-bad-not-counted             3 cases: REV4-H4/list-null-repairs-never-refuses REV4-H4/list-five-repairs-never-refuses REV4-H4/list-string-repairs-never-refuses
+SURVIVED d57-valid-leaf-unchecked             0 cases: 
+KILLED   d57-valid-kid-frag-unchecked         1 cases: REV4-H3/kid-frag-is-another-fragment
+KILLED   d57-valid-history-unchecked          1 cases: REV4-H3/history-names-a-removed-node
+KILLED   d57-valid-frozen-unchecked           3 cases: REV4-H3/frozen-of-no-shape REV5-H2/junk-in-frozen-quarantines-at-boot REV5-H2/junk-frozen-timers-quarantine-at-boot
+KILLED   d57-parked-not-sanitised             1 cases: REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane
+KILLED   h3-hold-dropped-on-second-boot       13 cases: REV4-H3/leaf-this-release-removed REV4-H3/kid-frag-this-release-removed REV4-H3/kid-leaf-removed REV4-H3/placement-removed ...
+KILLED   l5-parked-in-lane-order              7 cases: PAY-13/waiting-flushed PAY-16/settled-during-disposal-parked PAY-16/parked-success-is-delivered FRAG-19/unplaced-parked-survives-a-reload ...
+KILLED   h6-exit-still-abandons               4 cases: REAL-01/own-exit-hands-no-draft-back REAL-02/own-exit-no-draft REAL-02/kept-returns-to-the-exact-step-through-a-nested-exit REAL-02/discarded-fills-the-wizards-own-exit-two-own-exits-in-one-turn
+KILLED   h6-exit-skips-descendants            1 cases: REAL-02/own-exit-no-draft
+KILLED   m2-refreeze                          2 cases: REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above SEARCH-ODD-SMALL
+KILLED   m2-thaw-any                          2 cases: REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above SEARCH-ODD-SMALL
+KILLED   m3-frozen-not-reconciled             crash: 
+KILLED   m4-facts-dropped                     1 cases: REV4-M4
+KILLED   m4-loops-unbound                     watchdog rss at 1411 MB
+KILLED   m5-fire-not-redelivered              2 cases: REV4-M5/a-firing-that-throws-once-comes-again REV4-M5/a-firing-that-always-throws-is-final-and-bounded
+KILLED   m7-no-reorder                        1 cases: REV4-M7
+KILLED   d64-thaw-no-check                    2 cases: REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject SEARCH-ODD-SMALL
+KILLED   r53-thaw-no-adoption                 5 cases: REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it REAL-04/r52-the-cut-lookup-comes-before-a-parked-write SEARCH-ODD-SMALL REV5-H5H6/a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind ...
+KILLED   thaw-says-restored                   2 cases: REV4-M3/a-thaw-tells-its-own-hold-nothing-new SEARCH-ODD-SMALL
+KILLED   m1-then-regardless                   1 cases: REV4-M1
+SURVIVED l6-fire-touches                      0 cases: 
+KILLED   d65-tables-keep-prototype            5 cases: REV5-H1/prototype-names-at-the-doors REV5-H1/a-server-tag-named-like-a-prototype-key-is-unmapped REV5-H1/ensure-of-an-unknown-machine SEARCH-ODD-ALL ...
+KILLED   d65-patch-unchecked                  1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-guard-unchecked                  1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-followup-unchecked               1 cases: SEARCH-ODD-ALL
+KILLED   d65-raise-from-unchecked             1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+SURVIVED d65-raise-key-unchecked              0 cases: 
+KILLED   d65-notify-from-unchecked            1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-exit-from-unchecked              2 cases: SEARCH-ODD-SMALL REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-schedule-unchecked               1 cases: REV4-H4/a-schedule-of-no-length-refuses-the-turn
+KILLED   d65-frag-initial-unchecked           1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-mapped-unchecked                 1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-port-guard-unchecked             1 cases: REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn
+KILLED   d65-kids-by-prototype                1 cases: REV5-H1/prototype-names-at-the-doors
+KILLED   d65-records-by-prototype             1 cases: SEARCH-ODD-ALL
+KILLED   d65-predicts-unchecked               2 cases: SEARCH-ODD-SMALL SEARCH-ODD-ALL
+KILLED   d65-send-unchecked                   2 cases: SEARCH-ODD-SMALL REV5-H1/an-event-of-no-shape-is-refused-at-the-door
+KILLED   d65-ensure-unchecked                 1 cases: REV5-H1/ensure-of-an-unknown-machine
+KILLED   d65-saved-unchecked                  1 cases: REV5-H2/a-module-value-of-no-shape-on-disk-does-not-disable-it
+KILLED   h2-frozen-mail-unchecked             1 cases: REV5-H2/junk-in-frozen-quarantines-at-boot
+KILLED   d57-frozen-timers-unchecked          1 cases: REV5-H2/junk-frozen-timers-quarantine-at-boot
+KILLED   h2-orphan-not-dropped                1 cases: REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal
+KILLED   h2-lane-id-unchecked                 2 cases: SEARCH-ODD-SMALL REV5-H2/stored-names-like-prototype-keys
+KILLED   d67-older-applies                    5 cases: SEARCH-ODD-SMALL REV5-H8/an-older-version-drops-whatever-its-kind-no-repair REV5-H8/a-success-older-than-what-we-hold-drops REV5-H8/a-tombstone-has-a-version ...
+KILLED   d67-equal-takes-unconfirmed          2 cases: REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it REV5-H3/an-old-list-does-not-bring-a-removed-record-back
+KILLED   d67-newer-by-position                1 cases: REV5-H8/a-newer-version-applies-whatever-overlaps
+KILLED   d66-frame-as-placed                  2 cases: STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too
+KILLED   d66-read-applies-on-doubt            8 cases: MED-03/stale-read-does-not-overwrite-a-confirmed-write REV4-H1/a-read-started-during-a-write-does-not-overwrite-it REV4-H1/the-doubt-outlives-a-failed-repair REV5-H3/no-version-a-read-overlapping-a-confirmed-archive-doubts ...
+KILLED   d66-success-no-doubt                 7 cases: LIKE-01 STORE-05/retry-success-clears CART-02/repriced-under-pending HIGH-04 ...
+KILLED   d66-success-not-applied              4 cases: STORE-05/retry-success-clears REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean SEARCH-ODD-SMALL
+KILLED   d66-no-unechoed-on-success           1 cases: STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too
+KILLED   d66-remove-not-kept                  2 cases: REV5-H3/a-confirmed-remove-stays-removed REV5-H3/an-old-list-does-not-bring-a-removed-record-back
+KILLED   d66-predicted-no-position            3 cases: REV5-H3/no-version-a-read-overlapping-a-confirmed-archive-doubts REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it
+KILLED   d66-resend-no-doubt                  1 cases: REV5-H3/a-resend-with-nothing-carried-and-no-prediction-doubts
+KILLED   d66-success-clears-doubt             1 cases: LIKE-01
+KILLED   d66-early-read-settles               2 cases: REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it SEARCH-ODD-SMALL
+KILLED   d66-doubt-never-settles              11 cases: LIKE-01 STORE-05/retry-success-clears HIGH-04 REV4-H1/a-read-started-during-a-write-does-not-overwrite-it ...
+KILLED   d66-threw-no-doubt                   2 cases: HIGH-03/confirms-throws-on-a-shape REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark
+KILLED   d66-carried-unchecked                2 cases: REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store SEARCH-ODD-ALL
+KILLED   d66-read-replaces                    2 cases: REV4-L4 REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it
+KILLED   d67-version-shape-unchecked          1 cases: REV5-H8/a-version-of-no-shape-falls-back-with-an-issue
+KILLED   d67-tombstone-forgets                2 cases: REV5-H3/an-old-list-does-not-bring-a-removed-record-back REV5-H8/a-tombstone-has-a-version
+KILLED   d67-version-field-compared           1 cases: STREAM5-LISTEN/a-version-bump-alone-is-an-echo
+KILLED   h4-answer-through-input              188 cases: ORDER-05 DRV-03/throw-at-settlement LIKE-01 LIKE-04 ...
+KILLED   d69-placed-includes-frozen           5 cases: SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place SPIKE-04/a-frozen-partition-survives-a-reload SPIKE-04/one-connection-at-a-time-for-one-key REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects ...
+KILLED   h5-rebind-root-only                  6 cases: REV5-H5H6/a-persisted-rebind-adopts-its-fragments-ending REV5-H5H6/and-its-lost-answer-once-with-no-restored REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life REV5-H5H6/a-disposed-identity-sleeps-through-a-reload ...
+SURVIVED h5-frozen-adopts-at-rebind           0 cases: 
+KILLED   h5-spread-loses-adoption             1 cases: REV5-M1/the-record-goes-once-delivered
+KILLED   r54-restored-also-when-parked        2 cases: REV5-H5H6/and-its-lost-answer-once-with-no-restored REV5-H5H6/a-disposed-identity-sleeps-through-a-reload
+SURVIVED r54-facts-before-reset               0 cases: 
+KILLED   h6-w-dropped-with-parked-hold        1 cases: REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload
+KILLED   m1-boot-writes-away                  2 cases: REV5-M1/a-crash-during-recovery-loses-no-parked-ending REV5-M1/nor-a-w-behind-an-acked-head
+KILLED   m1-never-off-disk                    1 cases: REV5-H3/w-is-off-the-disk-once-it-has-ended
+KILLED   m2-recheck-no-lists                  1 cases: REV5-M2
+KILLED   d73-retired-wakes                    1 cases: REV5-H5H6/a-disposed-identity-sleeps-through-a-reload
+SURVIVED l6-firing-not-saved                  0 cases: 
+KILLED   r51-commit-other-path                1 cases: REV5-S/another-paths-commit-under-serialize-is-rejected
+KILLED   d26-capture-plain-write              9 cases: PAY-04 PAY-05 PAY-16/timeout-per-send PAY-16/resend-refused-capture ...
+KILLED   r15-fill-may-leave                   1 cases: REV5-S/a-late-fillings-target-may-not-leave-the-hosts-work
+KILLED   t1-wipe-unchecked                    1 cases: REV5-SESS/a-clear-and-leave-is-a-wipe-the-reconnect-owes
+KILLED   r70-no-predecessor-wait              3 cases: SPIKE-04/one-connection-at-a-time-for-one-key REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects REV5-SESS/a-close-that-never-finishes-is-overdue
+KILLED   r69-two-in-mail                      1 cases: REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time
+KILLED   t1-member-values-keep-moving         1 cases: REV5-SESS/a-member-stops-what-is-already-in-mail-from-moving
+SURVIVED t1-member-notice-at-tail             0 cases: 
+KILLED   t2-row4-proof-always                 1 cases: REV5-SESS/a-proof-with-nothing-claimed-is-not-believed
+KILLED   t1-healthy-no-reset                  2 cases: REV5-SESS/a-healthy-minute-resets-the-backoff STREAM5-LOSE/a-healthy-minute-clears-flaps
+KILLED   t3-denied-position-kept-missing      1 cases: REV5-SESS/a-value-with-no-position-keeps-the-place
+KILLED   t1-idle-not-armed-on-value           1 cases: REV5-SESS/a-value-re-arms-idle
+SURVIVED m3-release-keeps-end                 0 cases: 
+SURVIVED m3-fence-by-incarnation              0 cases: 
+KILLED   m4-input-read-every-change           54 cases: SPIKE-01/first-open-registers-and-names-a-place SPIKE-01/a-value-and-its-bookmark-are-one-write SPIKE-01/a-denied-value-still-moves-the-bookmark SPIKE-01/a-value-before-any-hello-registers-first ...
+SURVIVED m5-end-drops-queue                   0 cases: 
+KILLED   m7-bookmark-always-filled            1 cases: REV5-SESS/a-member-with-an-empty-field-writes-filled-false
+KILLED   t3-release-lowers-filled             10 cases: SPIKE-03/with-no-session-placed-T3-only SPIKE-04/a-session-belongs-to-its-incarnation-a-reset-is-a-new-slice SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place SPIKE-04/dispose-then-ensure-brings-both-back ...
+KILLED   l4-position-unchecked                1 cases: REV5-SESS/a-position-that-cannot-be-saved-at-registration-ends-it
+SURVIVED l7-lose-keeps-moving                 0 cases: 
+KILLED   d71-no-credit                        2 cases: REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken STREAM5-LOSE/overflow-with-no-reconnect-ends-it
+KILLED   h7-overdue-never                     1 cases: REV5-SESS/a-close-that-never-finishes-is-overdue
+KILLED   s-buffer-lost-at-complete            2 cases: STREAM5-REPAIR/values-buffer-during-a-read-and-flush-after-its-pages STREAM5-LOSE/overflow-with-no-reconnect-ends-it
+KILLED   s-no-settle-at-complete              6 cases: STREAM5-REPAIR/first-open-reads-and-the-record-is-made-at-complete STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does STREAM5-REPAIR/gone-is-one-notice-then-what-is-kept STREAM5-REPAIR/a-drop-discards-the-buffer-and-keeps-the-place ...
+KILLED   s-page-items-move                    1 cases: STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does
+KILLED   s-through-ignored                    1 cases: STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does
+KILLED   s-repeat-next-loops                  1 cases: STREAM5-REPAIR/a-page-that-repeats-ends-it
+KILLED   s-gone-no-notice                     1 cases: STREAM5-REPAIR/gone-is-one-notice-then-what-is-kept
+KILLED   s-churn-no-restart                   1 cases: STREAM5-REPAIR/a-registration-during-a-read-restarts-it-no-second-notice
+KILLED   s-proof-restarts                     1 cases: STREAM5-REPAIR/a-proof-during-a-read-stays
+KILLED   s-abandon-not-sent                   1 cases: STREAM5-REPAIR/a-release-abandons-the-read
+KILLED   s-stalls-not-counted                 1 cases: STREAM5-REPAIR/three-repairs-with-no-move-then-one-lost
+KILLED   s-flap-counts-silent                 1 cases: STREAM5-LOSE/silence-is-not-a-flap
+KILLED   s-flap-never                         1 cases: STREAM5-LOSE/eight-short-connections-flap
+KILLED   s-healthy-keeps-flaps                1 cases: STREAM5-LOSE/a-healthy-minute-clears-flaps
+KILLED   s-while-ignored                      1 cases: STREAM5-LOSE/a-tag-while-refuses-ends-by-that-tag
+KILLED   s-buffer-unbounded                   1 cases: STREAM5-LOSE/overflow-with-no-reconnect-ends-it
+KILLED   s-listen-no-gap                      1 cases: STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier
+KILLED   s-listen-proof-gaps                  1 cases: STREAM5-LISTEN/a-proven-registration-is-no-gap
+KILLED   s-listen-from-lost                   1 cases: STREAM5-LISTEN/from-is-the-sessions-own-last-position
+KILLED   s-latest-no-retract                  1 cases: STREAM5-LATEST/newest-wins-while-a-turn-is-behind
+KILLED   s-latest-heard-ignored               watchdog rss at 1521 MB
+KILLED   s-latest-live-confirms               1 cases: STREAM5-LATEST/live-alone-does-not-confirm-proof-confirms-its-own
+SURVIVED s-latest-down-keeps-confirmed        0 cases: 
+KILLED   s-when-ignored                       1 cases: STREAM5-LOSE/when-places-and-releases-level-triggered
+KILLED   e-frame-patch-creates                1 cases: STREAM5-LISTEN/a-patch-of-a-record-nobody-holds-changes-nothing
+KILLED   e-gap-ignored                        1 cases: STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier
+
+not applied (0):
+
+
+114/126 killed (builder)

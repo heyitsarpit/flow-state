@@ -1,0 +1,126 @@
+diff --git a/wiki/plans/flow/Rules.plan b/wiki/plans/flow/Rules.plan
+index a8f777ba..083f2c79 100644
+--- a/wiki/plans/flow/Rules.plan
++++ b/wiki/plans/flow/Rules.plan
+@@ -29,8 +29,10 @@ outcomes
+           the rule is judged on every accepted turn, including turns that only update memory, and "transition" already
+           means a handler's `target`.
+ 
+-        An entry is a function, or an object `{ check, in?, enabled? }` for an invariant and `{ check, on?, enabled? }`
+-        for a turns rule. `in: S.X` and `on: E.X` name the rule's subject: a rule is exercised only when its subject
++        An invariant is a function or an object `{ check, in?, enabled? }`. A turns rule is a function or `turn({ check,
++        on?, enabled? })`: a turns rule with a subject or `enabled` is wrapped in `turn(...)`, the only shape in which
++        TypeScript can type `check`'s `event` from its `on` (the user, 2026-11-20; a plain `{ on, check }` object leaves
++        `event` as `any`). `in: S.X` and `on: E.X` name the rule's subject: a rule is exercised only when its subject
+         comes up, and a rule without one at every publication or accepted turn. `in` on a compound holds in it and every
+         state below it, as `S.X.is` means. `on: E.X` matches every accepted turn of X, whatever sent it: a user, an
+         `onContext` reaction, a schedule, an operation ending or a host's raise into a fragment.
+@@ -50,7 +52,7 @@ outcomes
+ 
+         ```ts
+         // existing: definition, machine, S, E, snapped (stepping.ts)
+-        // NEW: rules, invariants, turns, in, on, check, enabled, event (in a turns check)
++        // NEW: rules, invariants, turns, turn, in, on, check, enabled, event (in a turns check)
+         // user-defined: StartedWhileHolding, SetLandsInBounds, CommitMovesByOne, CommitDiffersFromStart
+         export const StepperMachine = machine(Stepper, ({ S, E }) => ({
+           default: S.IDLE,
+@@ -61,12 +63,12 @@ outcomes
+               StartedWhileHolding: { in: S.HOLD_REPEAT, check: ({ memory }) => memory.started !== null },
+             },
+             turns: {
+-              SetLandsInBounds: {
++              SetLandsInBounds: turn({
+                 on: E.Set,
+                 enabled: import.meta.env.DEV,              // also runs in dev; tests judge it regardless
+                 check: ({ event, before, after }) =>
+                   after.memory.value === (event.value === null ? null : snapped(before.memory.settings, event.value)),
+-              },
++              }),
+               // Every commit, whichever event made it (Release, Cancel, Blur, Key, WheelDue): no `on`.
+               CommitMovesByOne: ({ before, after }) =>
+                 after.memory.lastCommit.seq === before.memory.lastCommit.seq ||
+@@ -79,7 +81,7 @@ outcomes
+         }))
+ 
+         // context, read by a turns rule, where Begin's guard reads `context.count` itself
+-        CartNotEmptyOnBegin: { on: E.Begin, check: ({ before }) => before.context.count > 0 },
++        CartNotEmptyOnBegin: turn({ on: E.Begin, check: ({ before }) => before.context.count > 0 }),
+         ```
+ 
+         A value range such as "value stays within min and max" is not an invariant of this Stepper: `Configure` may
+@@ -113,11 +115,13 @@ outcomes
+         fragment: a duplicate is a type error, and `machine()` also refuses it at construction for casts and plain
+         JavaScript. Each rule is a typed token, `machine.rules.<Name>` or `fragment.rules.<Name>`.
+ 
+-        Typing the tokens changes `machine()`: today it returns a fixed `Machine<D>`, so it needs the body's type as a
+-        second parameter. A shared body typed through the constraint (a `Parameters<typeof machine<…>>` alias) or a
+-        machine annotated `Machine<typeof X>` loses the tokens; `Machine`'s second parameter defaults so such code still
+-        compiles, and its rules are reached by name only where the type is kept. A type spike showed the duplicate error
+-        and inferred check inputs can coexist; the build repeats it in `tests/types/` against the real `machine()`.
++        Typing the tokens changes `machine()`: today it returns a fixed `Machine<D>`. It becomes `Machine<D, Names>`,
++        carrying the rule names only, never the body's type (the user, 2026-11-20): with names the declarations stay at
++        today's size and `Machine<typeof X>` assertions still hold, where the whole body grew them 6 to 11 times. A
++        shared body typed through the constraint or a machine annotated `Machine<typeof X>` gets the default `Names`, so
++        it still compiles and its rules are reached by name only where the type is kept. The body itself is one `const`
++        type parameter checked by an exact-keys type (the user, 2026-11-20). Type spikes on a copy of the package showed
++        all of this; the build repeats them in `tests/types/` against the real `machine()`.
+     O4  Judging in tests
+         Every Story, generated run, reload sweep and pair sweep judges every rule with no extra call. A broken rule
+         fails the run with the shortest Story that shows it (the generator's shrink), naming the rule, the snapshot
+@@ -263,9 +267,10 @@ outcomes
+         rule coverage alone cannot. The test reporter prints rule coverage (@O5).
+ verification
+     V1  Type tests prove rule tokens, inputs and subjects against the real `machine()`: `machine.rules.<Name>` exists
+-        for each rule and not for others; a duplicate name across kinds is a type error; `event` is typed from `on` and
+-        absent without it; `in` on a turns rule and `on` on an invariant are errors; `context` is readable in turns
+-        rules only; each check's input is inferred; a shared body and a `Machine<typeof X>` annotation still compile.
++        for each rule and not for others; a duplicate name across kinds is a type error; inside `turn(...)`, `event` is
++        typed from `on` and absent without it; `in` on a turns rule and `on` on an invariant are errors; `context` is
++        readable in turns rules only; each check's input is inferred; a shared body and a `Machine<typeof X>` annotation
++        still compile.
+     V2  Stories prove every run judges: a planted broken invariant and a planted broken turns rule each fail a Story,
+         a generated run (with its shortest Story) and the reload sweep; denied and unhandled turns are not judged by
+         turns rules while their lane changes are judged by invariants; a restore is judged by invariants only; several
+diff --git a/wiki/tasks/V3/P4.task b/wiki/tasks/V3/P4.task
+index 8ef8b0cc..d3bcc397 100644
+--- a/wiki/tasks/V3/P4.task
++++ b/wiki/tasks/V3/P4.task
+@@ -5394,6 +5394,10 @@ tasks
+         comment     2026-11-20T08:11:40Z
+             Routed (orchestrator, 2026-11-20): step 2's kanban rows (context, compound states, persist), unowned since
+             T57's split, are this Task's.
++        comment     2026-11-20T13:14:50Z
++            Decisions (the user, 2026-11-20): @task.V3.T98 lands first; fragment lifetimes per
++            @proposal.fragment-lifetimes with resetOn as the subject part
++            and the other recommendations accepted (see @review.advisor-holes, answers 11 to 16).
+ 
+     T110
+         title       Subroutines and whenAbandoned (slice 3d)
+diff --git a/wiki/tasks/V3/P5.task b/wiki/tasks/V3/P5.task
+index 2186262d..59338a02 100644
+--- a/wiki/tasks/V3/P5.task
++++ b/wiki/tasks/V3/P5.task
+@@ -467,6 +467,10 @@ tasks
+             Three reviews applied to @plan.Rules (the user, 2026-11-20): examples made true on the fixtures, lane
+             changes judged by invariants, `TerminalLeft`, private fields redacted, and expectBroken, coverage and
+             fragment-copy rules defined. Blocked on T109 and T110 for the fragment part.
++        comment     2026-11-20T13:14:50Z
++            Decision (the user, 2026-11-20): turns rules with a subject use turn({ on, check }) and Machine carries rule
++            names only (@plan.Rules.O1, O3 edited); @task.V3.T98 lands first. Types
++            per @proposal.body-types.
+     T108
+         title       Story presentation: StoryPlayer and definePresentation
+         status      draft
+diff --git a/wiki/tasks/V3/P9.task b/wiki/tasks/V3/P9.task
+index e30698d2..9edfd997 100644
+--- a/wiki/tasks/V3/P9.task
++++ b/wiki/tasks/V3/P9.task
+@@ -152,3 +152,8 @@ tasks
+             Owes (proposed, P3 close fix round): closed details.reason values (@plan.Diagnostics.O1); construction runs
+             nothing and call sites supply no wiring (@plan.Runtime.O1); review item A13, refusal text built twice;
+             faults for the Compile gaps in code:wiki/tasks/V3/P3-coverage.md. See code:wiki/tasks/V3/P3-routing.md.
++        comment     2026-11-20T13:14:49Z
++            Decision (the user, 2026-11-20, advisor Q4 answer 4): this Task lands before @task.V3.T106 and
++            @task.V3.T109, so turn, .each and .resumable() are born gated, and it gates the testing route too. It sits
++            in P9 today; moving it ahead of P4's T109 is a phase change left for the user's look.
++            Design: @proposal.raw-throws.

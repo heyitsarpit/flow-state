@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `SynchronizedRef` API](https://www.effect.website/docs/v4/api/effect/SynchronizedRef). Examples assume `import { Effect, SynchronizedRef } from "effect"` and an enclosing `Effect.gen`.
 
+`SynchronizedRef` serializes updates to a mutable cell when an update must itself be effectful or depend on the current value.
+
 ## API index
 
 1. [SynchronizedRef.SynchronizedRef](#synchronizedrefsynchronizedref)

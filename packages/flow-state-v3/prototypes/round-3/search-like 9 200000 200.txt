@@ -1,0 +1,16 @@
+{
+ "search": "like 9 200000 200",
+ "verdict": "completed",
+ "perDepth": [
+  1
+ ],
+ "states": 1,
+ "edges": 0,
+ "steps": 0,
+ "depthCompleted": 0,
+ "classes": {},
+ "ms": 2,
+ "peakRssMb": 0
+}
+
+WATCH peak 41 MB, 0.1 s, exit 0, killed no

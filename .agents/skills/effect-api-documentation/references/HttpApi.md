@@ -20,7 +20,7 @@ Source: [Effect v4 `HttpApi` API](https://www.effect.website/docs/v4/api/effect/
 
 ### Additional known APIs (not expanded)
 
-`HttpApi.Constraint`, `HttpApi.Top`, `HttpApi.annotateMerge`, `HttpApi.AdditionalSchemas`
+`HttpApi.Constraint`, `HttpApi.Top`, `HttpApi.annotateMerge`, `HttpApi.AdditionalSchemas`, `RedactedNames`
 
 ### [HttpApi.HttpApi](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/unstable/httpapi/HttpApi.ts:54)
 

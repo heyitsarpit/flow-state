@@ -1,0 +1,85 @@
+runtime: Bun 1.4.2  effect 4.0.5  seeds=4
+== sweep (A..E x scenarios x {none, cancel@k, close@k} x seeds; k = tick of injection, 0 = before the first tick)
+  A success                      classes{-:19 cancelled:46 ok:24 owner-closed:35} violations{cancel:a0=0,a1=1:10 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:4 close:a0=0,a1=1:3 close:a0=1,a1=0:4 close@0:a0=1,a1=0:2}
+  A failure                      classes{-:19 cancelled:46 failed:29 owner-closed:30} violations{cancel:a0=0,a1=1:10 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:4 close:a0=0,a1=1:3 close:a0=1,a1=0:4 close@0:a0=1,a1=0:2}
+  A defect                       classes{-:19 cancelled:46 defect:29 owner-closed:30} violations{cancel:a0=0,a1=1:10 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:4 close:a0=0,a1=1:3 close:a0=1,a1=0:4 close@0:a0=1,a1=0:2}
+  A sync-before-register         classes{-:19 cancelled:1 ok:103 owner-closed:1} violations{cancel:a0=0,a1=1:10 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:4 close:a0=0,a1=1:3 close:a0=1,a1=0:4 close@0:a0=1,a1=0:2}
+  A finalizer-running            classes{-:19 cancelled:48 ok:5 owner-closed:52} violations{cancel:a0=0,a1=1:10 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:4 close:a0=0,a1=1:3 close:a0=1,a1=0:4 close@0:a0=1,a1=0:2}
+  A uninterruptible              classes{-:19 cancelled:48 ok:12 owner-closed:45} violations{cancel:a0=0,a1=1:10 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:4 close:a0=0,a1=1:3 close:a0=1,a1=0:4 close@0:a0=1,a1=0:2}
+  A real:pay-no-signal           classes{-:10 cancelled:7 ok:4 owner-closed:9} violations{cancel:a0=0,a1=1:5 cancel@0:a0=0,a1=1:1 close:a0=0,a1=0:2 close:a0=0,a1=1:2 close:a0=1,a1=0:2 close@0:a0=1,a1=0:1}
+  A real:placeOrder-signal       classes{-:10 cancelled:8 ok:2 owner-closed:10} violations{cancel:a0=0,a1=1:5 cancel@0:a0=0,a1=1:1 close:a0=0,a1=0:2 close:a0=0,a1=1:2 close:a0=1,a1=0:1 close@0:a0=1,a1=0:1}
+  A real:3ds-waits-on-person     classes{cancelled:7 owner-closed:9 unknown:14} violations{close:a0=1,a1=0:4 close@0:a0=1,a1=0:1}
+  A hang+inner-timeout           classes{-:10 cancelled:8 owner-closed:10 unknown:2} violations{cancel:a0=0,a1=1:5 cancel@0:a0=0,a1=1:1 close:a0=0,a1=0:2 close:a0=0,a1=1:2 close:a0=1,a1=0:1 close@0:a0=1,a1=0:1}
+  A hang+outer-timeout           classes{cancelled:7 owner-closed:9 unknown:14} violations{close:a0=1,a1=0:4 close@0:a0=1,a1=0:1}
+  A uninterruptible-hang+inner   classes{-:18 cancelled:7 owner-closed:5} violations{cancel:a0=0,a1=1:5 cancel@0:a0=0,a1=1:2 close:a0=0,a1=0:2 close:a0=0,a1=1:5 close:a0=1,a1=0:1 close@0:a0=0,a1=0:1 close@0:a0=0,a1=1:1 none:a0=0,a1=1:2}
+  A uninterruptible-hang+outer   classes{unknown:30} violations{close:a0=1,a1=0:3 close@0:a0=1,a1=0:1}
+  B success                      classes{cancelled:53 ok:18 owner-closed:53} violations{none}
+  B failure                      classes{cancelled:47 failed:30 owner-closed:47} violations{none}
+  B defect                       classes{cancelled:47 defect:30 owner-closed:47} violations{none}
+  B sync-before-register         classes{ok:124} violations{none}
+  B finalizer-running            classes{cancelled:60 ok:4 owner-closed:60} violations{none}
+  B uninterruptible              classes{cancelled:57 ok:10 owner-closed:57} violations{none}
+  B real:pay-no-signal           classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  B real:placeOrder-signal       classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  B real:3ds-waits-on-person     classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  B hang+inner-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  B hang+outer-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  B uninterruptible-hang+inner   classes{-:30} violations{cancel:a0=0,a1=1:12 cancel@0:a0=0,a1=1:2 close:a0=0,a1=1:12 close@0:a0=0,a1=1:2 none:a0=0,a1=1:2}
+  B uninterruptible-hang+outer   classes{unknown:30} violations{none}
+  C success                      classes{cancelled:60 ok:7 owner-closed:57} violations{none}
+  C failure                      classes{cancelled:58 failed:12 owner-closed:54} violations{none}
+  C defect                       classes{cancelled:58 defect:12 owner-closed:54} violations{none}
+  C sync-before-register         classes{cancelled:14 ok:98 owner-closed:12} violations{none}
+  C finalizer-running            classes{cancelled:60 ok:4 owner-closed:60} violations{none}
+  C uninterruptible              classes{cancelled:60 ok:4 owner-closed:60} violations{none}
+  C real:pay-no-signal           classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  C real:placeOrder-signal       classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  C real:3ds-waits-on-person     classes{cancelled:13 owner-closed:13 unknown:4} violations{none}
+  C hang+inner-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  C hang+outer-timeout           classes{cancelled:13 owner-closed:13 unknown:4} violations{none}
+  C uninterruptible-hang+inner   classes{-:6 cancelled:13 owner-closed:11} violations{cancel@0:a0=0,a1=1:1 close:a0=0,a1=1:1 close@0:a0=0,a1=1:2 none:a0=0,a1=1:2}
+  C uninterruptible-hang+outer   classes{cancelled:6 owner-closed:5 unknown:19} violations{none}
+  D success                      classes{cancelled:53 ok:47 owner-closed:24} violations{none}
+  D failure                      classes{cancelled:47 failed:62 owner-closed:15} violations{none}
+  D defect                       classes{cancelled:47 defect:62 owner-closed:15} violations{none}
+  D sync-before-register         classes{ok:124} violations{none}
+  D finalizer-running            classes{cancelled:60 ok:5 owner-closed:59} violations{none}
+  D uninterruptible              classes{cancelled:57 ok:37 owner-closed:30} violations{none}
+  D real:pay-no-signal           classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  D real:placeOrder-signal       classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  D real:3ds-waits-on-person     classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  D hang+inner-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  D hang+outer-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  D uninterruptible-hang+inner   classes{-:30} violations{cancel:a0=0,a1=1:12 cancel@0:a0=0,a1=1:2 close:a0=0,a1=1:12 close@0:a0=0,a1=1:2 none:a0=0,a1=1:2}
+  D uninterruptible-hang+outer   classes{unknown:30} violations{none}
+  E success                      classes{cancelled:53 ok:47 owner-closed:24} violations{none}
+  E failure                      classes{cancelled:47 failed:62 owner-closed:15} violations{none}
+  E defect                       classes{cancelled:47 defect:62 owner-closed:15} violations{none}
+  E sync-before-register         classes{ok:124} violations{none}
+  E finalizer-running            classes{cancelled:60 ok:5 owner-closed:59} violations{none}
+  E uninterruptible              classes{cancelled:57 ok:37 owner-closed:30} violations{none}
+  E real:pay-no-signal           classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  E real:placeOrder-signal       classes{cancelled:14 ok:2 owner-closed:14} violations{none}
+  E real:3ds-waits-on-person     classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  E hang+inner-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  E hang+outer-timeout           classes{cancelled:14 owner-closed:14 unknown:2} violations{none}
+  E uninterruptible-hang+inner   classes{-:30} violations{cancel:a0=0,a1=1:12 cancel@0:a0=0,a1=1:2 close:a0=0,a1=1:12 close@0:a0=0,a1=1:2 none:a0=0,a1=1:2}
+  E uninterruptible-hang+outer   classes{unknown:30} violations{none}
+SUM A forkIn+onExit              runs=954 wrongCount=220 disposeHung=28 leaked/unfinished=238
+SUM B runFork+addObserver        runs=954 wrongCount=30 disposeHung=60 leaked/unfinished=60
+SUM C forkIn+addObserver         runs=954 wrongCount=6 disposeHung=25 leaked/unfinished=25
+SUM D FiberMap.run+addObserver   runs=954 wrongCount=30 disposeHung=60 leaked/unfinished=60
+SUM E FiberSet.run+addObserver   runs=954 wrongCount=30 disposeHung=60 leaked/unfinished=60
+== mutation sanity (shape C, scenario success): the harness must flag these
+mutation=none
+SUM C forkIn+addObserver         runs=22 wrongCount=0 disposeHung=0 leaked/unfinished=0
+mutation=drop
+SUM C forkIn+addObserver         runs=22 wrongCount=22 disposeHung=0 leaked/unfinished=0
+mutation=double
+SUM C forkIn+addObserver         runs=22 wrongCount=22 disposeHung=0 leaked/unfinished=0
+== cost per invoke, success commit, default scheduler
+TIME A forkIn+onExit              2.06 us/invoke  heap delta 1523 B/invoke (Bun-only, N=5000, unforced GC, completions=5000)
+TIME B runFork+addObserver        0.18 us/invoke  heap delta 0 B/invoke (Bun-only, N=5000, unforced GC, completions=5000)
+TIME C forkIn+addObserver         0.55 us/invoke  heap delta 0 B/invoke (Bun-only, N=5000, unforced GC, completions=5000)
+TIME D FiberMap.run+addObserver   0.34 us/invoke  heap delta 0 B/invoke (Bun-only, N=5000, unforced GC, completions=5000)
+TIME E FiberSet.run+addObserver   0.51 us/invoke  heap delta 642 B/invoke (Bun-only, N=5000, unforced GC, completions=5000)

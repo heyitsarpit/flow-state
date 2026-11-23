@@ -1,0 +1,63 @@
+control: the unmutated code passes every gate (30 s)
+KILLED   edge.poison-holds-lanes              suite: 1: REV8-PINS/D89-poison-lanes-go-ahead-of-the-record
+KILLED   edge.poison-deletes                  suite: 4: REV7-M9/an-ending-with-a-bad-value-is-not-lost REV7-M9/a-skipped-batch-waits-for-an-encodable-state REV7-EDGE/poison-a-hold-is-kept-not-lost REV8-PINS/D89-poison-holds-a-delete-back-so-a-hold-is-kept
+KILLED   edge.hide-first-scope-only           suite: 1: REV8-PINS/D80-a-hide-flushes-every-actor
+KILLED   edge.no-retry-cap                    suite: 1: REV8-PINS/D83-a-retry-is-capped
+KILLED   edge.backoff-overridden              suite: 1: REV8-PINS/D83-a-new-write-does-not-jump-the-backoff
+KILLED   edge.hidden-not-issued               suite: 1: REV8-M2/an-answer-to-a-hidden-page-issues-at-once
+KILLED   edge.hidden-spins                    suite: 1: REV8-M2/a-hidden-page-keeps-its-backoff
+KILLED   edge.silent-for-ticket-too           suite: 3: PAY-10/hang PAY-18 MED-04
+KILLED   edge.failure-issue-every-try         suite: 1: REV7-H1/L2-a-landing-resets-backoff-and-says-once
+KILLED   driver.after-drain-ignores-work      suite: 1: REV8-PINS/D84-batches-go-after-the-drain
+KILLED   driver.fatal-still-counts-mail       suite: 2: REV8-FATAL/a-fatal-with-mail-left-does-not-spin REV8-FATAL/a-fatal-stops-the-fibers
+KILLED   driver.fatal-keeps-fibers            suite: 1: REV8-FATAL/a-fatal-stops-the-fibers
+SURVIVED driver.credit-kept                   nothing: 0: 
+KILLED   durable.head-restores-not-sent       suite: 46: PAY-08/reloadDuringCharge PAY-09/ack-stored-confirmation-lost PAY-13/hung-commit PAY-14 ...
+KILLED   durable.w-restores-unknown           suite: 5: STORE-04/Restored-W REV5-H3/w-is-off-the-disk-once-it-has-ended REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload REV5-M1/nor-a-w-behind-an-acked-head ...
+SURVIVED durable.ticket-not-fenced            nothing: 0: 
+KILLED   durable.owed-record-deleted          suite: 1: REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery
+KILLED   durable.firing-not-saved             suite: 1: REV8-PINS/L6-a-firing-before-its-turn-survives-a-kill
+KILLED   durable.mint-floor-from-meta-only    suite: 1: REV8-PINS/D83-a-lost-meta-does-not-reuse-a-mint
+KILLED   durable.memory-decode-failure-ignored suite: 1: REV8-PINS/D46-memory-that-cannot-decode-is-quarantined
+KILLED   durable.boot-floor-from-meta-only    suite: 3: REV8-M3/a-boot-lost-apart-from-its-records-reaches-no-other-copy REV8-M3/frame-numbers-do-not-repeat-across-a-lost-meta REV8-M3/an-unreadable-meta-repeats-no-boot
+KILLED   durable.actor-boot-unread            suite: 3: REV8-M3/a-boot-lost-apart-from-its-records-reaches-no-other-copy REV8-M3/frame-numbers-do-not-repeat-across-a-lost-meta REV8-M3/an-unreadable-meta-repeats-no-boot
+KILLED   durable.meta-not-now                 gate: 1: GATE-5S  28 failed, 27 expected; unexpected: REV7-H1/a-late-failure-does-not-unsay-an-acknowledgement; failing differently: none; expected but passed: none
+KILLED   durable.deadline-not-now             gate: 1: GATE-5S  30 failed, 27 expected; unexpected: FRAG-10/reload-inside-the-subroutine FRAG-18/a-live-lookup-is-not-persisted SPIKE-02/the-servers-echo-is-proof-no-notice; failing differently: SPIKE-02/a-reload-restores-memory-and-bookmark-together REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-
+
+not applied (0):
+
+
+22/24 killed (builder)
+
+WATCH peak 31 MB, 345.2 s, exit 0, killed no
+control: the unmutated code passes every gate (30 s)
+KILLED   durable.lane-not-now                 suite: 1: REV7-M1/a-success-does-not-come-back-as-a-hold
+KILLED   gate.lane-id-unchecked               suite: 1: REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined
+KILLED   gate.nan-is-null                     suite: 1: REV8-PINS/D65-NaN-is-not-null
+KILLED   gate.map-is-object                   suite: 1: REV8-PINS/D89-a-map-is-poison-not-an-empty-object
+KILLED   gate.schedule-unbounded              suite: 1: REV8-PINS/L10-a-schedule-past-the-bound-is-refused
+KILLED   gate.unknown-closure-allowed         suite: 1: REV8-PINS/D77-a-closure-the-seal-does-not-know-is-an-error
+KILLED   turn.keyless-idle-ignores-quarantine suite: 2: REV8-PINS/D88-a-keyless-idle-sees-a-quarantined-hold REV8-PINS/D88-a-lane-record-whose-id-disagrees-is-quarantined
+SURVIVED turn.refusal-keeps-asks              nothing: 0: 
+KILLED   turn.overlap-allowed                 suite: 1: REV8-PINS/D57-two-raises-writing-one-key-refuse-the-turn
+KILLED   turn.timers-not-reaped               suite: 1: REV8-PINS/rule1-a-left-states-schedule-is-gone
+KILLED   turn.guard-key-refuses               suite: 2: REV8-M9/a-guard-key-that-cannot-encode-denies-that-alternative REV8-M9/a-guard-key-with-no-other-alternative-stays
+KILLED   turn.guard-key-silent                suite: 1: REV8-M9/a-guard-key-that-cannot-encode-denies-that-alternative
+KILLED   turn.lookup-no-ending                suite: 3: REV8-M9/a-lookup-whose-input-cannot-encode-ends-as-a-failure REV8-M9/a-lookup-whose-key-cannot-encode-ends-as-a-failure REV8-M9/a-bad-lookup-replaces-an-open-one
+KILLED   turn.module-value-silent             suite: 1: REV8-M9/a-module-value-that-cannot-encode-is-dropped-and-named
+KILLED   reads.bad-lookup-keeps-old           suite: 1: REV8-M9/a-bad-lookup-replaces-an-open-one
+KILLED   lane.queue-unbounded                 suite: 1: REV8-PINS/D29-a-full-queue-declines
+KILLED   lane.ackout-false                    suite: 7: MED-01/cancel-waits-for-its-ack MED-01/cancel-refused-by-storage MED-01/landed-without-ack-then-reload MED-01/latest-replace-waits-for-its-ack ...
+KILLED   lane.promote-skips-durable           suite: 1: REFUND-01/three-refunds
+KILLED   typed.flip-a-target                  swap: 4: PAY-01 PAY-09/ack-not-stored PAY-11/module PAY-13/waiting-flush-lost
+KILLED   typed.json-not-schema                suite: 1: REV7-EDGE/encoding-happens-off-the-turn
+KILLED   typed.restore-ignores-codec          typed/date-check.ts: 1: FAIL 1970-01-02T00:00:00.000Z NaN 2 []
+KILLED   cli.notsent-off                      cli: 1: no-notsent: a persisted write must map NotSent: expected true, g
+KILLED   cli.unknown-event-off                cli: 1: unknown-event: a handled event nothing declares: expected true, 
+
+not applied (0):
+
+
+22/23 killed (builder)
+
+WATCH peak 31 MB, 317.6 s, exit 0, killed no

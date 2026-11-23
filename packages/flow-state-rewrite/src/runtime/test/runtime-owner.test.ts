@@ -1,0 +1,1677 @@
+// oxlint-disable anti-slop/no-large-production-file -- This suite proves one RuntimeOwner state machine across readiness, shutdown, and finalizer outcomes; splitting its cases would fragment that single owner contract.
+
+import { assert, describe, it } from "@effect/vitest";
+import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Result, type Types } from "effect";
+
+import { app, module } from "../../app/app.js";
+import { definition } from "../../definition/definition.js";
+import { makeRuntimeOwner } from "../runtime-owner.js";
+import { Failure } from "../../diagnostic/diagnostic.js";
+import { machine } from "../../machine/machine.js";
+import { actorRef } from "../actor-ref.js";
+import { prepareActorSnapshot } from "../actor-engine.js";
+import { runtimeOwner, runtimeSetup } from "../runtime.js";
+
+class FirstService extends Context.Service<FirstService, string>()(
+  "RuntimeOwnerTest/FirstService",
+) {}
+
+class SecondService extends Context.Service<SecondService, number>()(
+  "RuntimeOwnerTest/SecondService",
+) {}
+
+type OrderedFirst = { id: "first" };
+
+type OrderedSecond = { id: "second" };
+
+type OrderedThird = { id: "third" };
+
+class OrderedFirstService extends Context.Service<OrderedFirstService, OrderedFirst>()(
+  "RuntimeOwnerTest/OrderedFirstService",
+) {}
+
+class OrderedSecondService extends Context.Service<OrderedSecondService, OrderedSecond>()(
+  "RuntimeOwnerTest/OrderedSecondService",
+) {}
+
+class OrderedThirdService extends Context.Service<OrderedThirdService, OrderedThird>()(
+  "RuntimeOwnerTest/OrderedThirdService",
+) {}
+
+const HandleDefinitionResult = definition({
+  id: "runtime-owner/handle",
+  states: ["ready"],
+  events: { opened: "bare" },
+});
+
+const HandleDefinition = Result.getOrThrow(HandleDefinitionResult);
+
+const HandleMachine = Result.getOrThrow(
+  machine(HandleDefinitionResult, ({ S }) => ({
+    default: S.ready,
+    states: { ready: { on: { opened: { target: S.ready } } } },
+  })),
+);
+
+const HandleApp = app({
+  id: "runtime-owner/handle-app",
+  persistenceVersion: "1",
+  modules: [module({ id: "runtime-owner/handle-module", machines: { handle: HandleMachine } })],
+});
+
+const HandleEvent = Result.getOrThrow(HandleDefinition.E.opened());
+
+const initialHandleSnapshot = () =>
+  Result.getOrThrow(
+    prepareActorSnapshot(HandleMachine, {
+      state: HandleDefinition.S.ready,
+      memory: {},
+      context: {},
+      lifecycle: "prepared",
+      operations: [],
+      timers: [],
+      issues: [],
+      revision: 0,
+      observedStoreRevision: 0,
+    }),
+  );
+
+type Probe = {
+  acquisitions: Array<string>;
+  cleanups: Array<string>;
+  visible: Array<{ first: string; second: number }>;
+};
+
+type TerminalClassification = "defect" | "typed" | "interruption" | "invariant-defect";
+
+const classifyTerminalCause = (cause: Cause.Cause<unknown>) => {
+  if (Cause.hasDies(cause)) return "defect";
+
+  if (Cause.hasFails(cause)) return "typed";
+
+  if (Cause.hasInterruptsOnly(cause)) return "interruption";
+
+  return "invariant-defect";
+};
+
+const assertCauseReason = <Error>(
+  actualReason: Cause.Cause<Error>["reasons"][number],
+  expectedReason: Cause.Cause<Error>["reasons"][number],
+) => {
+  assert.strictEqual(actualReason._tag, expectedReason._tag);
+
+  if (Cause.isFailReason(expectedReason) && Cause.isFailReason(actualReason)) {
+    assert.strictEqual(actualReason.error, expectedReason.error);
+  }
+
+  if (Cause.isDieReason(expectedReason) && Cause.isDieReason(actualReason)) {
+    assert.strictEqual(actualReason.defect, expectedReason.defect);
+  }
+
+  if (Cause.isInterruptReason(expectedReason) && Cause.isInterruptReason(actualReason)) {
+    assert.strictEqual(actualReason.fiberId, expectedReason.fiberId);
+  }
+};
+
+const assertCauseReasons = <Error>(actual: Cause.Cause<Error>, expected: Cause.Cause<Error>) => {
+  assert.strictEqual(actual.reasons.length, expected.reasons.length);
+
+  for (const [index, expectedReason] of expected.reasons.entries()) {
+    const actualReason = actual.reasons[index];
+
+    if (actualReason === undefined) assert.fail(`Missing Cause reason at index ${index}`);
+
+    assertCauseReason(actualReason, expectedReason);
+  }
+};
+
+const makeLayerPlan = (
+  probe: Probe,
+  firstGate: Deferred.Deferred<void>,
+  secondEntered: Deferred.Deferred<void>,
+  secondGate: Deferred.Deferred<void>,
+) =>
+  Layer.effect(
+    SecondService,
+    Effect.acquireRelease(
+      Effect.gen(function* () {
+        probe.acquisitions.push("second");
+        yield* Deferred.succeed(secondEntered, undefined);
+        yield* Deferred.await(secondGate);
+
+        return 2;
+      }),
+      () => Effect.sync(() => probe.cleanups.push("second")),
+      { interruptible: true },
+    ),
+  ).pipe(
+    Layer.provideMerge(
+      Layer.effect(
+        FirstService,
+        Effect.acquireRelease(
+          Effect.gen(function* () {
+            probe.acquisitions.push("first");
+            yield* Deferred.await(firstGate);
+
+            return "first-service";
+          }),
+          () => Effect.sync(() => probe.cleanups.push("first")),
+        ),
+      ),
+    ),
+  );
+
+const provideWithoutFirstService = <A, E>(effect: Effect.Effect<A, E, FirstService>) =>
+  Effect.provideContext(
+    effect,
+    // SAFETY: This negative test deliberately supplies no FirstService while erasing the static requirement so Effect.exit can observe the missing-service defect.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the test must execute an effect whose required service is absent.
+    Context.empty() as Context.Context<FirstService>,
+  );
+
+describe("runtime owner", () => {
+  it.effect("publishes only a complete context and rolls back partial acquisition", () =>
+    Effect.gen(function* () {
+      const successProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
+      const firstGate = yield* Deferred.make<void>();
+      const secondEntered = yield* Deferred.make<void>();
+      const secondGate = yield* Deferred.make<void>();
+
+      const successOwner = makeRuntimeOwner({
+        layer: makeLayerPlan(successProbe, firstGate, secondEntered, secondGate),
+        expose: Effect.gen(function* () {
+          yield* Effect.acquireRelease(Effect.succeed(undefined), () =>
+            Effect.sync(() => successProbe.cleanups.push("exposure")),
+          );
+
+          const exposed = {
+            first: yield* Effect.service(FirstService),
+            second: yield* Effect.service(SecondService),
+          };
+
+          return yield* Effect.sync(() => {
+            successProbe.visible.push(exposed);
+
+            return exposed;
+          });
+        }),
+      });
+
+      type SuccessExposure = { first: string; second: number };
+
+      type SuccessReady = ReturnType<typeof successOwner.ready>;
+
+      type SuccessReadyProof = Types.Equals<SuccessReady, Effect.Effect<SuccessExposure>>;
+
+      const successReadyProof: SuccessReadyProof = true;
+      void successReadyProof;
+
+      const ready = yield* Effect.forkChild(Effect.exit(successOwner.ready()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(firstGate, undefined);
+      yield* Deferred.await(secondEntered);
+
+      assert.deepStrictEqual(successProbe, {
+        acquisitions: ["first", "second"],
+        cleanups: [],
+        visible: [],
+      });
+
+      yield* Deferred.succeed(secondGate, undefined);
+      const readyExit = yield* Fiber.join(ready);
+      assert.ok(Exit.isSuccess(readyExit));
+
+      if (Exit.isSuccess(readyExit)) {
+        assert.deepStrictEqual(readyExit.value, { first: "first-service", second: 2 });
+      }
+
+      assert.deepStrictEqual(successProbe.visible, [{ first: "first-service", second: 2 }]);
+      assert.deepStrictEqual(yield* Effect.exit(successOwner.ready()), readyExit);
+      yield* successOwner.close();
+      assert.deepStrictEqual(successProbe.cleanups, ["exposure", "second", "first"]);
+      yield* successOwner.close();
+      assert.deepStrictEqual(successProbe.cleanups, ["exposure", "second", "first"]);
+
+      const failureProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
+      const failureFirstGate = yield* Deferred.make<void>();
+      const failureSecondEntered = yield* Deferred.make<void>();
+      const failureSecondGate = yield* Deferred.make<void>();
+      yield* Deferred.succeed(failureFirstGate, undefined);
+      yield* Deferred.succeed(failureSecondGate, undefined);
+
+      const failureOwner = makeRuntimeOwner({
+        layer: makeLayerPlan(
+          failureProbe,
+          failureFirstGate,
+          failureSecondEntered,
+          failureSecondGate,
+        ),
+        expose: Effect.fail("exposure-failed" as const),
+      });
+
+      const failureExit = yield* Effect.exit(failureOwner.ready());
+
+      assert.ok(Exit.isFailure(failureExit));
+
+      if (Exit.isFailure(failureExit)) {
+        const typedFailure = failureExit.cause.reasons.find(Cause.isFailReason);
+        assert.strictEqual(typedFailure?.error, "exposure-failed");
+      }
+
+      assert.deepStrictEqual(failureProbe, {
+        acquisitions: ["first", "second"],
+        cleanups: ["second", "first"],
+        visible: [],
+      });
+      assert.deepStrictEqual(yield* Effect.exit(failureOwner.ready()), failureExit);
+
+      const acquisitionFailureProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
+
+      const acquisitionFailureOwner = makeRuntimeOwner({
+        layer: Layer.effect(SecondService, Effect.fail("acquisition-failed" as const)).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              FirstService,
+              Effect.acquireRelease(
+                Effect.sync(() => {
+                  acquisitionFailureProbe.acquisitions.push("first");
+
+                  return "first-service";
+                }),
+                () => Effect.sync(() => acquisitionFailureProbe.cleanups.push("first")),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.fail("exposure-failed" as const),
+      });
+
+      const acquisitionFailureExit = yield* Effect.exit(acquisitionFailureOwner.ready());
+
+      assert.ok(Exit.isFailure(acquisitionFailureExit));
+
+      if (Exit.isFailure(acquisitionFailureExit)) {
+        const typedFailure = acquisitionFailureExit.cause.reasons.find(Cause.isFailReason);
+        assert.strictEqual(typedFailure?.error, "acquisition-failed");
+      }
+
+      assert.deepStrictEqual(acquisitionFailureProbe, {
+        acquisitions: ["first"],
+        cleanups: ["first"],
+        visible: [],
+      });
+
+      const defectProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
+      const defectFirstGate = yield* Deferred.make<void>();
+      const defectSecondEntered = yield* Deferred.make<void>();
+      const defectSecondGate = yield* Deferred.make<void>();
+      yield* Deferred.succeed(defectFirstGate, undefined);
+      yield* Deferred.succeed(defectSecondGate, undefined);
+      const defect = new Error("exposure-defect");
+
+      const defectOwner = makeRuntimeOwner({
+        layer: makeLayerPlan(defectProbe, defectFirstGate, defectSecondEntered, defectSecondGate),
+        // SAFETY: This injected exposure defect proves readiness caches Cause.Die and releases acquired resources.
+        // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the assertions below require defect identity with no typed failure or interruption.
+        expose: Effect.die(defect),
+      });
+
+      const defectExit = yield* Effect.exit(defectOwner.ready());
+      const cachedDefectExit = yield* Effect.exit(defectOwner.ready());
+
+      assert.deepStrictEqual(cachedDefectExit, defectExit);
+      assert.ok(Exit.isFailure(defectExit));
+
+      if (Exit.isFailure(defectExit)) {
+        assert.strictEqual(Cause.hasDies(defectExit.cause), true);
+        const defectReason = defectExit.cause.reasons.find(Cause.isDieReason);
+        assert.ok(defectReason !== undefined);
+        assert.strictEqual(defectReason.defect, defect);
+        assert.strictEqual(defectExit.cause.reasons.length, 1);
+        assert.strictEqual(Cause.hasFails(defectExit.cause), false);
+        assert.strictEqual(Cause.hasInterrupts(defectExit.cause), false);
+      }
+
+      assert.deepStrictEqual(defectProbe, {
+        acquisitions: ["first", "second"],
+        cleanups: ["second", "first"],
+        visible: [],
+      });
+      yield* defectOwner.close();
+      assert.deepStrictEqual(defectProbe.cleanups, ["second", "first"]);
+
+      const interruptionProbe: Probe = { acquisitions: [], cleanups: [], visible: [] };
+      const interruptionFirstGate = yield* Deferred.make<void>();
+      const interruptionSecondEntered = yield* Deferred.make<void>();
+      const interruptionSecondGate = yield* Deferred.make<void>();
+
+      const interruptionOwner = makeRuntimeOwner({
+        layer: makeLayerPlan(
+          interruptionProbe,
+          interruptionFirstGate,
+          interruptionSecondEntered,
+          interruptionSecondGate,
+        ),
+        expose: Effect.succeed({ first: "unreachable", second: 0 }),
+      });
+
+      const interruptionFiber = yield* Effect.forkChild(interruptionOwner.ready(), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(interruptionFirstGate, undefined);
+      yield* Deferred.await(interruptionSecondEntered);
+      yield* Fiber.interrupt(interruptionFiber);
+      const interruptionExit = yield* Fiber.await(interruptionFiber);
+      const cachedInterruptionExit = yield* Effect.exit(interruptionOwner.ready());
+
+      assert.deepStrictEqual(cachedInterruptionExit, interruptionExit);
+      assert.ok(Exit.isFailure(interruptionExit));
+      assert.ok(Exit.hasInterrupts(interruptionExit));
+
+      if (Exit.isFailure(interruptionExit)) {
+        assert.strictEqual(Cause.hasInterruptsOnly(interruptionExit.cause), true);
+        assert.strictEqual(Cause.hasFails(interruptionExit.cause), false);
+        assert.strictEqual(Cause.hasDies(interruptionExit.cause), false);
+      }
+
+      assert.deepStrictEqual(interruptionProbe, {
+        acquisitions: ["first", "second"],
+        cleanups: ["first"],
+        visible: [],
+      });
+      const interruptionCloseExit = yield* Effect.exit(interruptionOwner.close());
+      assert.deepStrictEqual(interruptionCloseExit, interruptionExit);
+      assert.deepStrictEqual(interruptionProbe.cleanups, ["first"]);
+    }),
+  );
+
+  it.effect("passes failed and interrupted readiness Exits into owned Scope finalizers", () =>
+    Effect.gen(function* () {
+      const primaryFailure = { _tag: "bootstrap-failed" } as const;
+      let failedFinalizerExit: Exit.Exit<unknown, unknown> | undefined;
+
+      const failedOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(Effect.succeed("failed-service"), (_value, exit) =>
+            Effect.sync(() => (failedFinalizerExit = exit)),
+          ),
+        ),
+        expose: Effect.fail(primaryFailure),
+      });
+
+      const failedReady = yield* Effect.exit(failedOwner.ready());
+      assert.ok(Exit.isFailure(failedReady));
+      assert.ok(failedFinalizerExit !== undefined);
+
+      assert.deepStrictEqual(failedFinalizerExit, Exit.fail(primaryFailure));
+      const primary = failedReady.cause.reasons[0];
+
+      if (primary === undefined || !Cause.isFailReason(primary))
+        return yield* Effect.die(new Error("bootstrap failure Cause was not retained"));
+      assert.strictEqual(primary.error, primaryFailure);
+
+      let interruptedFinalizerExit: Exit.Exit<unknown, unknown> | undefined;
+
+      const interruptedOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(Effect.succeed("interrupted-service"), (_value, exit) =>
+            Effect.sync(() => (interruptedFinalizerExit = exit)),
+          ),
+        ),
+        expose: Effect.never,
+      });
+
+      const interruptedReady = yield* Effect.forkChild(interruptedOwner.ready(), {
+        startImmediately: true,
+      });
+
+      yield* Effect.yieldNow;
+      yield* Fiber.interrupt(interruptedReady);
+      const interruptedExit = yield* Fiber.await(interruptedReady);
+      assert.ok(Exit.isFailure(interruptedExit));
+      assert.ok(interruptedFinalizerExit !== undefined);
+
+      assert.deepStrictEqual(interruptedFinalizerExit, interruptedExit);
+      assert.strictEqual(Cause.hasInterruptsOnly(interruptedExit.cause), true);
+    }),
+  );
+
+  it.effect("R05 ARCH-007A SEM-027 concurrent ready callers share one terminal acquisition", () =>
+    Effect.gen(function* () {
+      const waiterAcquisitionEntered = yield* Deferred.make<void>();
+      const waiterAcquisitionGate = yield* Deferred.make<void>();
+      let waiterAcquisitions = 0;
+
+      const waiterOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              waiterAcquisitions += 1;
+              yield* Deferred.succeed(waiterAcquisitionEntered, undefined);
+              yield* Deferred.await(waiterAcquisitionGate);
+
+              return "waiter-service";
+            }),
+            () => Effect.void,
+          ),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const leader = yield* Effect.forkChild(Effect.exit(waiterOwner.ready()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(waiterAcquisitionEntered);
+
+      const waiter = yield* Effect.forkChild(Effect.exit(waiterOwner.ready()), {
+        startImmediately: true,
+      });
+
+      yield* Fiber.interrupt(waiter);
+      const waiterExit = yield* Fiber.await(waiter);
+      assert.ok(Exit.isFailure(waiterExit));
+
+      if (Exit.isFailure(waiterExit)) {
+        assert.strictEqual(Cause.hasInterruptsOnly(waiterExit.cause), true);
+        assert.strictEqual(Cause.hasFails(waiterExit.cause), false);
+        assert.strictEqual(Cause.hasDies(waiterExit.cause), false);
+      }
+
+      assert.strictEqual(waiterAcquisitions, 1);
+      yield* Deferred.succeed(waiterAcquisitionGate, undefined);
+      const leaderExit = yield* Fiber.join(leader);
+      assert.ok(Exit.isSuccess(leaderExit));
+      assert.deepStrictEqual(yield* Effect.exit(waiterOwner.ready()), leaderExit);
+      assert.strictEqual(waiterAcquisitions, 1);
+      yield* waiterOwner.close();
+
+      const callerCount = 4;
+      const acquisitionEntered = yield* Deferred.make<void>();
+      const acquisitionGate = yield* Deferred.make<void>();
+      let acquisitions = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              acquisitions += 1;
+              yield* Deferred.succeed(acquisitionEntered, undefined);
+              yield* Deferred.await(acquisitionGate);
+
+              return "shared-service";
+            }),
+            () => Effect.void,
+          ),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const callers = yield* Effect.all(
+        Array.from({ length: callerCount }, () =>
+          Effect.forkChild(Effect.exit(owner.ready()), { startImmediately: true }),
+        ),
+        { concurrency: 1 },
+      );
+
+      yield* Deferred.await(acquisitionEntered);
+      assert.strictEqual(acquisitions, 1);
+      yield* Deferred.succeed(acquisitionGate, undefined);
+
+      const successExits = yield* Effect.all(
+        callers.map((caller) => Fiber.join(caller)),
+        {
+          concurrency: callerCount,
+        },
+      );
+
+      const successExit = successExits[0];
+      assert.ok(successExit !== undefined);
+      assert.ok(Exit.isSuccess(successExit));
+
+      for (const callerExit of successExits.slice(1)) {
+        assert.deepStrictEqual(callerExit, successExit);
+      }
+
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), successExit);
+      assert.strictEqual(acquisitions, 1);
+      yield* owner.close();
+
+      const failureEntered = yield* Deferred.make<void>();
+      const failureGate = yield* Deferred.make<void>();
+      let failureAcquisitions = 0;
+
+      const failureOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.gen(function* () {
+            failureAcquisitions += 1;
+            yield* Deferred.succeed(failureEntered, undefined);
+            yield* Deferred.await(failureGate);
+
+            return yield* Effect.fail("shared-failure" as const);
+          }),
+        ),
+        expose: Effect.succeed("unreachable"),
+      });
+
+      const failureCallers = yield* Effect.all(
+        Array.from({ length: callerCount }, () =>
+          Effect.forkChild(Effect.exit(failureOwner.ready()), { startImmediately: true }),
+        ),
+        { concurrency: 1 },
+      );
+
+      yield* Deferred.await(failureEntered);
+      assert.strictEqual(failureAcquisitions, 1);
+      yield* Deferred.succeed(failureGate, undefined);
+
+      const failureExits = yield* Effect.all(
+        failureCallers.map((caller) => Fiber.join(caller)),
+        { concurrency: callerCount },
+      );
+
+      const failureExit = failureExits[0];
+      assert.ok(failureExit !== undefined);
+      assert.ok(Exit.isFailure(failureExit));
+
+      if (Exit.isFailure(failureExit)) {
+        const typedFailure = failureExit.cause.reasons.find(Cause.isFailReason);
+        assert.strictEqual(typedFailure?.error, "shared-failure");
+      }
+
+      for (const callerExit of failureExits.slice(1)) {
+        assert.deepStrictEqual(callerExit, failureExit);
+      }
+
+      assert.deepStrictEqual(yield* Effect.exit(failureOwner.ready()), failureExit);
+      assert.strictEqual(failureAcquisitions, 1);
+    }),
+  );
+
+  it.effect("acquires layers in declaration order with predecessor services installed", () =>
+    Effect.gen(function* () {
+      const firstService: OrderedFirst = { id: "first" };
+      const secondService: OrderedSecond = { id: "second" };
+      const thirdService: OrderedThird = { id: "third" };
+      const trace: Array<string> = [];
+      const firstGate = yield* Deferred.make<void>();
+      const secondEntered = yield* Deferred.make<void>();
+      const secondGate = yield* Deferred.make<void>();
+      const thirdEntered = yield* Deferred.make<void>();
+      const thirdGate = yield* Deferred.make<void>();
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              trace.push("start3");
+              yield* Deferred.succeed(thirdEntered, undefined);
+              yield* Deferred.await(thirdGate);
+              trace.push("end3");
+
+              return thirdService;
+            }),
+            () => Effect.sync(() => trace.push("release3")),
+          ),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              OrderedSecondService,
+              Effect.acquireRelease(
+                Effect.gen(function* () {
+                  trace.push("start2");
+                  const first = yield* Effect.service(OrderedFirstService);
+                  assert.strictEqual(first, firstService);
+                  yield* Deferred.succeed(secondEntered, undefined);
+                  yield* Deferred.await(secondGate);
+                  trace.push("end2");
+
+                  return secondService;
+                }),
+                () => Effect.sync(() => trace.push("release2")),
+              ),
+            ).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.gen(function* () {
+                      trace.push("start1");
+                      yield* Deferred.await(firstGate);
+                      trace.push("end1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => trace.push("release1")),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.gen(function* () {
+          return {
+            first: yield* Effect.service(OrderedFirstService),
+            second: yield* Effect.service(OrderedSecondService),
+            third: yield* Effect.service(OrderedThirdService),
+          };
+        }),
+      });
+
+      const ready = yield* Effect.forkChild(Effect.exit(owner.ready()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(firstGate, undefined);
+      yield* Deferred.await(secondEntered);
+      assert.deepStrictEqual(trace, ["start1", "end1", "start2"]);
+
+      yield* Deferred.succeed(secondGate, undefined);
+      yield* Deferred.await(thirdEntered);
+      assert.deepStrictEqual(trace, ["start1", "end1", "start2", "end2", "start3"]);
+
+      yield* Deferred.succeed(thirdGate, undefined);
+      const readyExit = yield* Fiber.join(ready);
+      assert.ok(Exit.isSuccess(readyExit));
+      assert.deepStrictEqual(trace, ["start1", "end1", "start2", "end2", "start3", "end3"]);
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), readyExit);
+      yield* owner.close();
+      assert.deepStrictEqual(trace, [
+        "start1",
+        "end1",
+        "start2",
+        "end2",
+        "start3",
+        "end3",
+        "release3",
+        "release2",
+        "release1",
+      ]);
+      yield* owner.close();
+      assert.deepStrictEqual(trace, [
+        "start1",
+        "end1",
+        "start2",
+        "end2",
+        "start3",
+        "end3",
+        "release3",
+        "release2",
+        "release1",
+      ]);
+
+      const typedFailureTrace: Array<string> = [];
+
+      const typedFailureOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.sync(() => {
+            typedFailureTrace.push("start3");
+
+            return thirdService;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(OrderedSecondService, Effect.fail("provider-2-failed" as const)).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      typedFailureTrace.push("start1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => typedFailureTrace.push("release1")),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.succeed(undefined),
+      });
+
+      const typedFailureExit = yield* Effect.exit(typedFailureOwner.ready());
+      assert.ok(Exit.isFailure(typedFailureExit));
+
+      if (Exit.isFailure(typedFailureExit)) {
+        const typedFailure = typedFailureExit.cause.reasons.find(Cause.isFailReason);
+        assert.strictEqual(typedFailure?.error, "provider-2-failed");
+      }
+
+      assert.deepStrictEqual(typedFailureTrace, ["start1", "release1"]);
+      assert.deepStrictEqual(yield* Effect.exit(typedFailureOwner.ready()), typedFailureExit);
+
+      const defectTrace: Array<string> = [];
+      const defect = new Error("provider-2-defect");
+
+      const defectOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.sync(() => {
+            defectTrace.push("start3");
+
+            return thirdService;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            // SAFETY: This layer defect verifies a later acquisition cannot be published and the acquired prefix is released.
+            // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- assertions below require Cause.Die and reject typed failure or interruption.
+            Layer.effect(OrderedSecondService, Effect.die(defect)).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      defectTrace.push("start1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => defectTrace.push("release1")),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.succeed(undefined),
+      });
+
+      const defectExit = yield* Effect.exit(defectOwner.ready());
+      const cachedDefectExit = yield* Effect.exit(defectOwner.ready());
+      assert.deepStrictEqual(cachedDefectExit, defectExit);
+      assert.ok(Exit.isFailure(defectExit));
+
+      if (Exit.isFailure(defectExit)) {
+        assert.strictEqual(Cause.hasDies(defectExit.cause), true);
+        const defectReason = defectExit.cause.reasons.find(Cause.isDieReason);
+        assert.ok(defectReason !== undefined);
+        assert.strictEqual(defectReason.defect, defect);
+        assert.strictEqual(Cause.hasFails(defectExit.cause), false);
+        assert.strictEqual(Cause.hasInterrupts(defectExit.cause), false);
+      }
+
+      assert.deepStrictEqual(defectTrace, ["start1", "release1"]);
+
+      const interruptionTrace: Array<string> = [];
+      const interruptionEntered = yield* Deferred.make<void>();
+      const interruptionGate = yield* Deferred.make<void>();
+
+      const interruptionOwner = makeRuntimeOwner({
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.sync(() => {
+            interruptionTrace.push("start3");
+
+            return thirdService;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              OrderedSecondService,
+              Effect.gen(function* () {
+                interruptionTrace.push("start2");
+                yield* Deferred.succeed(interruptionEntered, undefined);
+                yield* Deferred.await(interruptionGate);
+
+                return secondService;
+              }),
+            ).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      interruptionTrace.push("start1");
+
+                      return firstService;
+                    }),
+                    () => Effect.sync(() => interruptionTrace.push("release1")),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.succeed(undefined),
+      });
+
+      const interruptionFiber = yield* Effect.forkChild(interruptionOwner.ready(), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(interruptionEntered);
+      yield* Fiber.interrupt(interruptionFiber);
+      const interruptionExit = yield* Fiber.await(interruptionFiber);
+      const cachedInterruptionExit = yield* Effect.exit(interruptionOwner.ready());
+      assert.deepStrictEqual(cachedInterruptionExit, interruptionExit);
+      assert.ok(Exit.isFailure(interruptionExit));
+
+      if (Exit.isFailure(interruptionExit)) {
+        assert.strictEqual(Cause.hasInterruptsOnly(interruptionExit.cause), true);
+        assert.strictEqual(Cause.hasFails(interruptionExit.cause), false);
+        assert.strictEqual(Cause.hasDies(interruptionExit.cause), false);
+      }
+
+      assert.deepStrictEqual(interruptionTrace, ["start1", "start2", "release1"]);
+    }),
+  );
+
+  it.effect("disposal wins bootstrap and cleans the acquired prefix once in reverse order", () =>
+    Effect.gen(function* () {
+      const secondAcquisitionGate = yield* Deferred.make<void>();
+      const thirdAcquisitionEntered = yield* Deferred.make<void>();
+      const thirdAcquisitionGate = yield* Deferred.make<void>();
+      const secondCleanupEntered = yield* Deferred.make<void>();
+      const secondCleanupGate = yield* Deferred.make<void>();
+      const firstCleanupEntered = yield* Deferred.make<void>();
+      const firstCleanupGate = yield* Deferred.make<void>();
+      const trace: Array<string> = [];
+      const visible: Array<string> = [];
+      const cleanupDefect = new Error("second-cleanup-defect");
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          OrderedThirdService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              trace.push("acquire:third:start");
+              yield* Deferred.succeed(thirdAcquisitionEntered, undefined);
+              yield* Deferred.await(thirdAcquisitionGate);
+
+              return { id: "third" } as const;
+            }),
+            () => Effect.sync(() => trace.push("release:third")),
+            { interruptible: true },
+          ),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              OrderedSecondService,
+              Effect.acquireRelease(
+                Effect.gen(function* () {
+                  trace.push("acquire:second:start");
+                  yield* Deferred.await(secondAcquisitionGate);
+                  trace.push("acquire:second:end");
+
+                  return { id: "second" } as const;
+                }),
+                () =>
+                  Effect.gen(function* () {
+                    trace.push("release:second:start");
+                    yield* Deferred.succeed(secondCleanupEntered, undefined);
+                    yield* Deferred.await(secondCleanupGate);
+                    trace.push("release:second:end");
+                    // SAFETY: The finalizer defect is the cleanup-failure lane asserted by this disposal test.
+                    // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the test asserts this exact defect remains in the terminal Cause.
+                    yield* Effect.die(cleanupDefect);
+                  }),
+                { interruptible: true },
+              ),
+            ).pipe(
+              Layer.provideMerge(
+                Layer.effect(
+                  OrderedFirstService,
+                  Effect.acquireRelease(
+                    Effect.sync(() => {
+                      trace.push("acquire:first");
+
+                      return { id: "first" } as const;
+                    }),
+                    () =>
+                      Effect.gen(function* () {
+                        trace.push("release:first:start");
+                        yield* Deferred.succeed(firstCleanupEntered, undefined);
+                        yield* Deferred.await(firstCleanupGate);
+                        trace.push("release:first:end");
+                      }),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.sync(() => {
+          visible.push("exposed");
+
+          return "exposed";
+        }),
+      });
+
+      const readyLeader = yield* Effect.forkChild(owner.ready(), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(secondAcquisitionGate, undefined);
+      yield* Deferred.await(thirdAcquisitionEntered);
+
+      const readyWaiter = yield* Effect.forkChild(Effect.exit(owner.ready()), {
+        startImmediately: true,
+      });
+
+      const disposeLeader = yield* Effect.forkChild(Effect.exit(owner.close()), {
+        startImmediately: true,
+      });
+
+      const disposeWaiter = yield* Effect.forkChild(Effect.exit(owner.close()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(thirdAcquisitionGate, undefined);
+      yield* Deferred.succeed(secondCleanupGate, undefined);
+      yield* Deferred.succeed(firstCleanupGate, undefined);
+
+      const readyLeaderExit = yield* Fiber.await(readyLeader);
+      const readyWaiterExit = yield* Fiber.join(readyWaiter);
+      const disposeLeaderExit = yield* Fiber.join(disposeLeader);
+      const disposeWaiterExit = yield* Fiber.join(disposeWaiter);
+
+      assert.deepStrictEqual(readyWaiterExit, readyLeaderExit);
+      assert.ok(Exit.isFailure(readyLeaderExit));
+
+      if (Exit.isFailure(readyLeaderExit)) {
+        assert.strictEqual(Cause.hasInterrupts(readyLeaderExit.cause), true);
+        assert.strictEqual(Cause.hasFails(readyLeaderExit.cause), false);
+        assert.strictEqual(Cause.hasDies(readyLeaderExit.cause), true);
+
+        const cleanupReason = readyLeaderExit.cause.reasons.find(
+          (reason) => Cause.isDieReason(reason) && reason.defect === cleanupDefect,
+        );
+
+        assert.ok(cleanupReason !== undefined);
+      }
+
+      assert.deepStrictEqual(disposeWaiterExit, disposeLeaderExit);
+      assert.ok(Exit.isFailure(disposeLeaderExit));
+
+      if (Exit.isFailure(disposeLeaderExit) && Exit.isFailure(readyLeaderExit)) {
+        assert.deepStrictEqual(disposeLeaderExit.cause, readyLeaderExit.cause);
+      }
+
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), readyLeaderExit);
+      assert.deepStrictEqual(yield* Effect.exit(owner.close()), disposeLeaderExit);
+      assert.deepStrictEqual(trace, [
+        "acquire:first",
+        "acquire:second:start",
+        "acquire:second:end",
+        "acquire:third:start",
+        "release:second:start",
+        "release:second:end",
+        "release:first:start",
+        "release:first:end",
+      ]);
+      assert.deepStrictEqual(visible, []);
+    }),
+  );
+
+  it.effect("caches each terminal readiness Cause lane without retry", () =>
+    Effect.gen(function* () {
+      const thrownDefect = new Error("thrown-defect");
+      const mixedDefect = new Error("mixed-defect");
+      const typedCause = Cause.fail("typed-failure");
+      const interruptCause = Cause.interrupt(17);
+
+      const typedAndInterruptCause = Cause.fromReasons([
+        Cause.makeInterruptReason(17),
+        Cause.makeFailReason("typed-and-interrupted"),
+      ]);
+
+      const mixedCause = Cause.fromReasons([
+        Cause.makeInterruptReason(17),
+        Cause.makeFailReason("mixed-failure"),
+        Cause.makeDieReason(mixedDefect),
+      ]);
+
+      const emptyCause = Cause.empty;
+
+      const cases: Array<{
+        effect: Effect.Effect<never, string>;
+        expectedCause: Cause.Cause<string>;
+        expectedClassification: TerminalClassification;
+      }> = [
+        {
+          effect: Effect.failCause(typedCause),
+          expectedCause: typedCause,
+          expectedClassification: "typed",
+        },
+        {
+          effect: Effect.sync(() => {
+            // SAFETY: This callback throw feeds the terminal-Cause matrix and must remain a defect.
+            // oxlint-disable-next-line anti-slop/no-throw-in-effect-gen, anti-slop/no-expected-failure-as-defect -- the matrix asserts Cause.Die; typed cases use Effect.failCause.
+            throw thrownDefect;
+          }),
+          expectedCause: Cause.die(thrownDefect),
+          expectedClassification: "defect",
+        },
+        {
+          effect: Effect.failCause(interruptCause),
+          expectedCause: interruptCause,
+          expectedClassification: "interruption",
+        },
+        {
+          effect: Effect.failCause(typedAndInterruptCause),
+          expectedCause: typedAndInterruptCause,
+          expectedClassification: "typed",
+        },
+        {
+          effect: Effect.failCause(mixedCause),
+          expectedCause: mixedCause,
+          expectedClassification: "defect",
+        },
+        {
+          effect: Effect.failCause(emptyCause),
+          expectedCause: emptyCause,
+          expectedClassification: "invariant-defect",
+        },
+      ];
+
+      for (const scenario of cases) {
+        let acquisitions = 0;
+
+        const owner = makeRuntimeOwner({
+          layer: Layer.effect(
+            FirstService,
+            Effect.sync(() => {
+              acquisitions += 1;
+
+              return "service";
+            }),
+          ),
+          expose: scenario.effect,
+        });
+
+        const firstExit = yield* Effect.exit(owner.ready());
+        const repeatedExit = yield* Effect.exit(owner.ready());
+        assert.deepStrictEqual(repeatedExit, firstExit);
+        assert.strictEqual(acquisitions, 1);
+        assert.ok(Exit.isFailure(firstExit));
+
+        if (Exit.isFailure(firstExit)) {
+          assert.strictEqual(
+            classifyTerminalCause(firstExit.cause),
+            scenario.expectedClassification,
+          );
+          assert.deepStrictEqual(firstExit.cause, scenario.expectedCause);
+          assertCauseReasons(firstExit.cause, scenario.expectedCause);
+        }
+      }
+    }),
+  );
+
+  it.effect(
+    "appends typed, defect, and interruption cleanup Causes after the primary failure",
+    () =>
+      Effect.gen(function* () {
+        const primaryAcquisitionFailure = { _tag: "primary-acquisition-failure" } as const;
+        const primaryAcquisitionCause = Cause.fail(primaryAcquisitionFailure);
+        const typedCleanupFailure = { _tag: "typed-cleanup-failure" } as const;
+        const typedCleanupCause = Cause.fail(typedCleanupFailure);
+        const cleanupDefect = new Error("cleanup-defect");
+        const cleanupDefectCause = Cause.die(cleanupDefect);
+        const cleanupInterruptionCause = Cause.interrupt(23);
+
+        const cleanupCases = [
+          {
+            cleanup: "success",
+            expectedCause: primaryAcquisitionCause,
+            expectedClassification: "typed",
+          },
+          {
+            cleanup: "defect",
+            expectedCause: Cause.combine(primaryAcquisitionCause, cleanupDefectCause),
+            expectedClassification: "defect",
+          },
+          {
+            cleanup: "typed",
+            expectedCause: Cause.combine(primaryAcquisitionCause, typedCleanupCause),
+            expectedClassification: "typed",
+          },
+          {
+            cleanup: "interruption",
+            expectedCause: Cause.combine(primaryAcquisitionCause, cleanupInterruptionCause),
+            expectedClassification: "typed",
+          },
+        ] as const;
+
+        for (const cleanupCase of cleanupCases) {
+          let acquisitions = 0;
+          let cleanupRuns = 0;
+
+          const acquireService = Effect.sync(() => {
+            acquisitions += 1;
+
+            return "service";
+          });
+
+          const typedCleanupRelease = () => {
+            cleanupRuns += 1;
+
+            return Effect.fail(typedCleanupFailure);
+          };
+
+          const normalCleanupRelease = () =>
+            Effect.gen(function* () {
+              cleanupRuns += 1;
+
+              if (cleanupCase.cleanup === "defect") {
+                // SAFETY: This branch injects a finalizer defect so cleanup Cause composition remains observable.
+                // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- the cleanup matrix asserts the exact combined Cause.
+                yield* Effect.die(cleanupDefect);
+              }
+
+              if (cleanupCase.cleanup === "interruption") {
+                yield* Effect.failCause(cleanupInterruptionCause);
+              }
+            });
+
+          const acquireWithRelease =
+            cleanupCase.cleanup === "typed"
+              ? Effect.acquireRelease(
+                  acquireService,
+                  // @ts-expect-error rc.112 finalizer errors are typed as never, but this fixture proves the runtime Cause is retained.
+                  typedCleanupRelease,
+                )
+              : Effect.acquireRelease(acquireService, normalCleanupRelease);
+
+          const owner = makeRuntimeOwner({
+            layer: Layer.effect(SecondService, Effect.failCause(primaryAcquisitionCause)).pipe(
+              Layer.provideMerge(Layer.effect(FirstService, acquireWithRelease)),
+            ),
+            expose: Effect.succeed(undefined),
+          });
+
+          const firstExit = yield* Effect.exit(owner.ready());
+          const repeatedExit = yield* Effect.exit(owner.ready());
+          assert.deepStrictEqual(repeatedExit, firstExit);
+          assert.strictEqual(acquisitions, 1);
+          assert.strictEqual(cleanupRuns, 1);
+          assert.ok(Exit.isFailure(firstExit));
+
+          if (Exit.isFailure(firstExit)) {
+            assert.strictEqual(
+              classifyTerminalCause(firstExit.cause),
+              cleanupCase.expectedClassification,
+            );
+            assert.deepStrictEqual(firstExit.cause, cleanupCase.expectedCause);
+            assertCauseReasons(firstExit.cause, cleanupCase.expectedCause);
+          }
+        }
+      }),
+  );
+
+  it.effect("constructs an inert owner shell with exact input identities", () =>
+    Effect.gen(function* () {
+      let acquisitions = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.succeed(FirstService, "inert"),
+        expose: Effect.sync(() => {
+          acquisitions += 1;
+
+          return "exposed";
+        }),
+      });
+
+      assert.strictEqual(acquisitions, 0);
+      assert.ok(owner.ready);
+      assert.ok(owner.close);
+      yield* owner.close();
+      assert.strictEqual(acquisitions, 0);
+    }),
+  );
+
+  it.effect("starts one readiness leader for one owner", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let acquisitions = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.gen(function* () {
+            acquisitions += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
+
+            return "ready";
+          }),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const ready = yield* Effect.forkChild(owner.ready());
+      yield* Deferred.await(entered);
+      assert.strictEqual(acquisitions, 1);
+      yield* Deferred.succeed(gate, undefined);
+      assert.strictEqual(yield* Fiber.join(ready), "ready");
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("joins concurrent readiness callers on one terminal", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let acquisitions = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.gen(function* () {
+            acquisitions += 1;
+            yield* Deferred.succeed(entered, undefined);
+            yield* Deferred.await(gate);
+
+            return "shared";
+          }),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const first = yield* Effect.forkChild(owner.ready());
+      yield* Deferred.await(entered);
+      const second = yield* Effect.forkChild(owner.ready());
+      yield* Deferred.succeed(gate, undefined);
+      assert.strictEqual(yield* Fiber.join(first), "shared");
+      assert.strictEqual(yield* Fiber.join(second), "shared");
+      assert.strictEqual(acquisitions, 1);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("caches successful readiness and preserves the assembled context", () =>
+    Effect.gen(function* () {
+      const service = "stable";
+      let acquisitions = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.sync(() => {
+            acquisitions += 1;
+
+            return service;
+          }),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const first = yield* owner.ready();
+      const second = yield* owner.ready();
+      assert.strictEqual(first, service);
+      assert.strictEqual(second, service);
+      assert.strictEqual(acquisitions, 1);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("settles cold readiness waiters when close wins", () =>
+    Effect.gen(function* () {
+      const closeEntered = yield* Deferred.make<void>();
+      const closeGate = yield* Deferred.make<void>();
+      let closeAttempts = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.empty,
+        expose: Effect.succeed("ready" as const),
+        close: Effect.gen(function* () {
+          closeAttempts += 1;
+          yield* Deferred.succeed(closeEntered, undefined);
+          yield* Deferred.await(closeGate);
+          yield* Effect.fail("close-failure" as const);
+        }),
+      });
+
+      const closeFiber = yield* Effect.forkChild(Effect.exit(owner.close()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.await(closeEntered);
+
+      const readyFiber = yield* Effect.forkChild(Effect.exit(owner.ready()), {
+        startImmediately: true,
+      });
+
+      yield* Deferred.succeed(closeGate, undefined);
+
+      const closeExit = yield* Fiber.join(closeFiber);
+      const readyExit = yield* Fiber.join(readyFiber);
+
+      assert.ok(Exit.isFailure(closeExit));
+      assert.ok(Exit.isFailure(readyExit));
+      assert.strictEqual(closeAttempts, 1);
+
+      if (Exit.isFailure(closeExit)) assert.strictEqual(Cause.hasFails(closeExit.cause), true);
+
+      if (Exit.isFailure(readyExit)) assert.strictEqual(Cause.hasDies(readyExit.cause), true);
+
+      assert.deepStrictEqual(yield* Effect.exit(owner.close()), closeExit);
+      assert.deepStrictEqual(yield* Effect.exit(owner.ready()), readyExit);
+    }),
+  );
+
+  it.effect("caches typed readiness failure without retry", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+      const failure = "typed-ready-failure" as const;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.sync(() => {
+            attempts += 1;
+
+            return Effect.fail(failure);
+          }).pipe(Effect.flatten),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const first = yield* Effect.exit(owner.ready());
+      const second = yield* Effect.exit(owner.ready());
+      assert.deepStrictEqual(second, first);
+      assert.strictEqual(attempts, 1);
+      assert.ok(Exit.isFailure(first));
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("retains a readiness defect and cleans the acquired prefix once", () =>
+    Effect.gen(function* () {
+      const cleaned: string[] = [];
+
+      const owner = makeRuntimeOwner({
+        // SAFETY: The acquisition defect is intentional so this proof can observe Cause.Die and acquired-prefix cleanup.
+        // oxlint-disable-next-line anti-slop/no-expected-failure-as-defect -- this test asserts the defect lane and cleanup result.
+        layer: Layer.effect(SecondService, Effect.die("defect")).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              FirstService,
+              Effect.acquireRelease(Effect.succeed("first"), () =>
+                Effect.sync(() => cleaned.push("first")),
+              ),
+            ),
+          ),
+        ),
+        expose: Effect.succeed(undefined),
+      });
+
+      const result = yield* Effect.exit(owner.ready());
+
+      assert.ok(Exit.isFailure(result));
+
+      if (Exit.isFailure(result)) assert.strictEqual(Cause.hasDies(result.cause), true);
+      assert.deepStrictEqual(cleaned, ["first"]);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("caches interrupted readiness and interrupts owned work", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+      const gate = yield* Deferred.make<void>();
+      let cleaned = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              yield* Deferred.succeed(entered, undefined);
+
+              return "acquired";
+            }),
+            () =>
+              Effect.sync(() => {
+                cleaned += 1;
+              }),
+            { interruptible: true },
+          ),
+        ),
+        expose: Effect.gen(function* () {
+          yield* Deferred.await(gate);
+
+          return yield* Effect.service(FirstService);
+        }),
+      });
+
+      const fiber = yield* Effect.forkChild(owner.ready(), { startImmediately: true });
+      yield* Deferred.await(entered);
+      yield* Fiber.interrupt(fiber);
+      const result = yield* Fiber.await(fiber);
+      assert.ok(Exit.isFailure(result));
+      assert.strictEqual(cleaned, 1);
+      const closed = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(closed));
+    }),
+  );
+
+  it.effect("disposes a failed owner without reopening admission", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.sync(() => {
+            attempts += 1;
+
+            return Effect.fail("failed" as const);
+          }).pipe(Effect.flatten),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const failed = yield* Effect.exit(owner.ready());
+      const closed = yield* Effect.exit(owner.close());
+      const repeated = yield* Effect.exit(owner.close());
+      const readyAgain = yield* Effect.exit(owner.ready());
+      assert.ok(Exit.isFailure(failed));
+      assert.ok(Exit.isSuccess(closed));
+      assert.deepStrictEqual(repeated, closed);
+      assert.deepStrictEqual(readyAgain, failed);
+      assert.strictEqual(attempts, 1);
+    }),
+  );
+
+  it.effect("blocks owner disposal while dependent leases remain", () =>
+    Effect.gen(function* () {
+      const blocked = Failure({
+        code: "BlockedByDependents",
+        path: ["owner"],
+        details: {},
+        summary: "dependent lease",
+        help: "release dependent",
+      });
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.empty,
+        expose: Effect.succeed(undefined),
+        close: Effect.fail(blocked),
+      });
+
+      yield* owner.ready();
+      const result = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(result));
+
+      if (Exit.isFailure(result)) assert.strictEqual(Cause.hasFails(result.cause), true);
+    }),
+  );
+
+  it.effect("drains evidence before closing an owner", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.empty,
+        expose: Effect.succeed(undefined),
+        close: Effect.sync(() => order.push("evidence-close")),
+      });
+
+      yield* owner.ready();
+      yield* owner.close();
+      assert.deepStrictEqual(order, ["evidence-close"]);
+    }),
+  );
+
+  it.effect("interrupts owner-scoped fibers through running handles", () =>
+    Effect.gen(function* () {
+      const entered = yield* Deferred.make<void>();
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          FirstService,
+          Effect.acquireRelease(
+            Effect.gen(function* () {
+              yield* Deferred.succeed(entered, undefined);
+              yield* Effect.never;
+
+              return "running";
+            }),
+            () => Effect.sync(() => undefined),
+            { interruptible: true },
+          ),
+        ),
+        expose: Effect.service(FirstService),
+      });
+
+      const ready = yield* Effect.forkChild(owner.ready(), { startImmediately: true });
+      yield* Deferred.await(entered);
+      const closed = yield* Effect.exit(owner.close());
+      assert.ok(Exit.isFailure(closed));
+
+      if (Exit.isFailure(closed)) assert.strictEqual(Cause.hasInterruptsOnly(closed.cause), true);
+      assert.ok(Exit.isFailure(yield* Fiber.await(ready)));
+    }),
+  );
+
+  it.effect("isolates replacement capabilities across owner instances", () =>
+    Effect.gen(function* () {
+      const firstValue = "first";
+      const secondValue = "second";
+
+      const first = makeRuntimeOwner({
+        layer: Layer.succeed(FirstService, firstValue),
+        expose: Effect.service(FirstService),
+      });
+
+      const second = makeRuntimeOwner({
+        layer: Layer.succeed(FirstService, secondValue),
+        expose: Effect.service(FirstService),
+      });
+
+      assert.strictEqual(yield* first.ready(), firstValue);
+      assert.strictEqual(yield* second.ready(), secondValue);
+      assert.notStrictEqual(yield* first.ready(), yield* second.ready());
+      yield* first.close();
+      yield* second.close();
+    }),
+  );
+
+  it.effect("acquires implementation layers in dependency order", () =>
+    Effect.gen(function* () {
+      const order: string[] = [];
+
+      const owner = makeRuntimeOwner({
+        layer: Layer.effect(
+          SecondService,
+          Effect.gen(function* () {
+            order.push(yield* Effect.service(FirstService));
+
+            return 2;
+          }),
+        ).pipe(
+          Layer.provideMerge(
+            Layer.effect(
+              FirstService,
+              Effect.sync(() => {
+                order.push("first");
+
+                return "first";
+              }),
+            ),
+          ),
+        ),
+        expose: Effect.all([Effect.service(FirstService), Effect.service(SecondService)], {
+          concurrency: 1,
+        }),
+      });
+
+      assert.deepStrictEqual(yield* owner.ready(), ["first", 2]);
+      assert.deepStrictEqual(order, ["first", "first"]);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("rejects missing implementation requirements before admission", () =>
+    Effect.gen(function* () {
+      const owner = makeRuntimeOwner({ layer: Layer.empty, expose: Effect.service(FirstService) });
+
+      const result = yield* Effect.exit(provideWithoutFirstService(owner.ready()));
+
+      assert.ok(Exit.isFailure(result));
+
+      if (Exit.isFailure(result)) assert.strictEqual(Cause.hasDies(result.cause), true);
+      yield* owner.close();
+    }),
+  );
+
+  it.effect("settles prepared handles when the owner is disposed", () =>
+    Effect.gen(function* () {
+      const runtime = runtimeSetup({ app: HandleApp }).construct();
+      assert.throws(() => runtimeOwner(runtime).assembly(), /Runtime is not ready/u);
+      yield* runtime.ready();
+      const assembly = runtimeOwner(runtime).assembly();
+      const ref = actorRef(HandleMachine, "disposed-handle");
+      const actor = yield* assembly.createActor({ ref, initial: initialHandleSnapshot() });
+      yield* Effect.provideContext(actor.dispose(), assembly.context);
+      assert.strictEqual(actor.engine.snapshot().lifecycle, "disposed");
+      assert.throws(() => actor.handle.send(HandleEvent), /Actor mailbox admission is closed/u);
+
+      const recreated = yield* Effect.exit(
+        assembly.createActor({ ref, initial: initialHandleSnapshot() }),
+      );
+
+      assert.ok(Exit.isFailure(recreated));
+
+      if (Exit.isFailure(recreated)) {
+        const reason = recreated.cause.reasons.find(Cause.isFailReason);
+        assert.ok(reason !== undefined);
+
+        assert.strictEqual(reason.error.code, "DisposedActorRef");
+      }
+
+      assert.ok(Exit.isSuccess(yield* Effect.exit(runtimeOwner(runtime).close())));
+    }),
+  );
+
+  it.effect("keeps request and Story setup on the same owner contract", () =>
+    Effect.gen(function* () {
+      const request = makeRuntimeOwner({
+        layer: Layer.succeed(FirstService, "request"),
+        expose: Effect.service(FirstService),
+      });
+
+      const story = makeRuntimeOwner({
+        layer: Layer.succeed(FirstService, "story"),
+        expose: Effect.service(FirstService),
+      });
+
+      assert.strictEqual(yield* request.ready(), "request");
+      assert.strictEqual(yield* story.ready(), "story");
+      yield* request.close();
+      yield* story.close();
+    }),
+  );
+});

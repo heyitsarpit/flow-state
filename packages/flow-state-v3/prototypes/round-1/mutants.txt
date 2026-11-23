@@ -1,0 +1,24 @@
+KILLED   drop-fence                     scenarios: PAY-06/interruptible PAY-06/uninterruptible | search: -
+KILLED   retry-mints-new-id             scenarios: PAY-04 PAY-05 PAY-15/retry-budget | search: new id while the lane was pending or uncertain
+KILLED   invoke-before-ack              scenarios: PAY-01 PAY-04 PAY-05 PAY-09/ack-not-stored PAY-09/ack-stored-confirmation-lost PAY-10/refuse PAY-10/hang PAY-13/waiting-flushed PAY-13/waiting-flush-lost | search: request pay before ack
+KILLED   restore-notsent-when-acked     scenarios: PAY-08/reloadDuringCharge PAY-09/ack-stored-confirmation-lost PAY-13/hung-commit PAY-14 | search: NotSent { Restored } for an Attempt that was sent
+KILLED   rule18-off                     scenarios: PAY-05 | search: -
+KILLED   timeout-no-interrupt           scenarios: PAY-06/interruptible | search: -
+KILLED   timeout-never-armed            scenarios: PAY-06/interruptible PAY-06/uninterruptible | search: -
+KILLED   timers-not-restored            scenarios: PAY-08/reload-while-reconciling | search: -
+KILLED   late-treated-as-current        scenarios: PAY-07/late-in-a-new-PAYING PAY-07/late-may-not-leave | search: -
+KILLED   rule15-off                     scenarios: PAY-07/late-may-not-leave | search: -
+KILLED   ending-cell-lost-on-refusal    scenarios: PAY-11/guard | search: -
+KILLED   storage-unbounded              scenarios: PAY-10/hang | search: -
+KILLED   dispose-unbounded              scenarios: PAY-13/hung-commit | search: -
+KILLED   resend-skips-capture           scenarios: PAY-04 PAY-05 | search: -
+KILLED   id-not-from-env                scenarios: PAY-01 PAY-02 PAY-03 PAY-04 PAY-05 PAY-06/interruptible PAY-06/uninterruptible PAY-07/leaveMidCharge PAY-07/late-in-a-new-PAYING PAY-07/late-may-not-leave PAY-08/reloadDuringCharge PAY-08/reload-while-reconciling PAY-09/ack-not-stored PAY-09/ack-stored-confirmation-lost PAY-10/refuse PAY-10/hang PAY-11/guard PAY-11/module PAY-12/defect PAY-12/sync PAY-12/cancel-on-wire PAY-12/duplicate PAY-12/shuffle PAY-13/hung-commit PAY-13/waiting-flushed PAY-13/waiting-flush-lost PAY-14 PAY-15/press-pay-while-held PAY-15/cancel-on-wire PAY-15/busy-then-new-write PAY-15/reload-holds-exactly-once PAY-15/dispose-held PAY-15/dead-activation-timer PAY-15/retry-budget | search: -
+KILLED   reinvoke-settled               scenarios: PAY-03 PAY-04 PAY-05 PAY-10/refuse PAY-10/hang PAY-12/sync PAY-12/cancel-on-wire PAY-12/shuffle PAY-15/press-pay-while-held PAY-15/dispose-held PAY-15/retry-budget | search: -
+KILLED   observer-loses-interrupts      scenarios: PAY-06/interruptible PAY-06/uninterruptible PAY-12/cancel-on-wire PAY-15/cancel-on-wire | search: -
+KILLED   cancelled-reads-interrupted    scenarios: PAY-12/cancel-on-wire | search: -
+KILLED   release-keeps-lane             scenarios: PAY-03 | search: -
+KILLED   unknown-resolves-lane          scenarios: PAY-03 PAY-04 PAY-05 PAY-06/interruptible PAY-08/reloadDuringCharge PAY-08/reload-while-reconciling PAY-09/ack-stored-confirmation-lost PAY-12/cancel-on-wire PAY-14 PAY-15/press-pay-while-held PAY-15/reload-holds-exactly-once PAY-15/dispose-held PAY-15/retry-budget | search: -
+KILLED   double-commit-mints            scenarios: PAY-02 PAY-07/late-in-a-new-PAYING PAY-15/press-pay-while-held | search: -
+KILLED   dead-timer-fires               scenarios: PAY-15/dead-activation-timer | search: -
+
+22/22 killed

@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Pool` API](https://www.effect.website/docs/v4/api/effect/Pool). Examples assume `import { Duration, Effect, Pool } from "effect"`.
 
+`Pool` manages a bounded set of reusable resources, acquiring, leasing, invalidating, and shutting them down under concurrent demand.
+
 ## API index
 
 1. [Pool.make](#poolmake)
@@ -12,7 +14,7 @@ Source: [Effect v4 `Pool` API](https://www.effect.website/docs/v4/api/effect/Poo
 
 ### Additional known APIs (not expanded)
 
-`Pool`, `Config`, `State`, `PoolItem`, `Strategy`, `makeWithStrategy`
+`Pool`, `Config`, `State`, `PoolItem`, `Strategy`, `makeWithStrategy`, `Stats`, `stats`
 
 ### [Pool.make](/Users/arpit/Developer/flow-state/codebases/effect-v4/packages/effect/src/Pool.ts:220)
 
@@ -70,3 +72,7 @@ if (Pool.isPool(candidate)) {
   const pool = candidate;
 }
 ```
+
+### Changes since 4.0.5
+
+- `Pool.get` and `Pool.use` no longer hang in finalizers after idle items expire (4.1.1, #10129); `stats` is unstable.

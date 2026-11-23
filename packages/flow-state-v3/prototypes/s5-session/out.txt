@@ -1,0 +1,82 @@
+== 1. named scenarios: each form against the hand-written expectation, and against form A ==
+- connect-register-every (desk activity shape, no catchUp)
+    A       log=[value:m1 value:m2 value:m3] disc=[] opens=[-] b=(3,true) row=Live msgs=[m1 m2 m3]
+- first-open-with-catchUp: value buffers during the read
+    A       log=[item:m1 item:m2 value:m3] disc=[] opens=[-] b=(3,true) row=Live msgs=[m1 m2 m3]
+    B-queued3 DIFFERS-FROM-A VS-EXPECTED:bAt  log=[item:m1 item:m2 value:m3] disc=[] opens=[-] b=(2,true) row=Live msgs=[m1 m2 m3]
+- drop, backoff, reconnect with proof: no notice
+    A       log=[value:m1 value:m2 value:m3] disc=[] opens=[-,2] b=(3,true) row=Live msgs=[m1 m2 m3]
+- drop, reconnect without proof, no catchUp: one notice
+    A       log=[value:m1 value:m2 missed:Unproven value:m3] disc=[] opens=[-,2] b=(3,true) row=Live msgs=[m1 m2 m3]
+- catch-up repair with buffering after a drop
+    A       log=[value:m1 value:m2 item:m3 item:m4 item:m5 item:m6 value:m9] disc=[] opens=[-,2] b=(9,true) row=Live msgs=[m1 m2 m3 m4 m5 m6 m9]
+    B-queued3 DIFFERS-FROM-A VS-EXPECTED:bAt  log=[value:m1 value:m2 item:m3 item:m4 item:m5 item:m6 value:m9] disc=[] opens=[-,2] b=(6,true) row=Live msgs=[m1 m2 m3 m4 m5 m6 m9]
+- release while waiting (backoff running)
+    A       log=[value:m1] disc=[] opens=[-] b=(1,true) row=- msgs=[m1]
+- Feed.ping keeps a live connection; ping before register does not re-arm; silence ends Silent and reconnects
+    A       log=[] disc=[] opens=[-,-,-] b=(none,false) row=Connecting msgs=[]
+- reload restores the bookmark (two runtimes)
+    A       log=[value:m1 value:m2 value:m3 value:m4] disc=[] opens=[-,3] b=(4,true) row=Live msgs=[m1 m2 m3 m4]
+- clear while placed stays cleared across a drop (fills cleared)
+    A       log=[value:m1 value:m2 clear] disc=[] opens=[-,2] b=(2,false) row=Live msgs=[]
+- clear and release in one turn, then reload: wiped, catchUp re-reads
+    A       log=[value:m1 value:m2 clear item:m1 item:m2] disc=[] opens=[-,-] b=(2,true) row=Live msgs=[m1 m2]
+- same wipe without catchUp: one Unproven notice
+    A       log=[value:m1 value:m2 clear missed:Unproven] disc=[] opens=[-,-] b=(2,false) row=Live msgs=[]
+- clear while NOT placed (after release) is a wipe too
+    A       log=[value:m1 value:m2 clear missed:Unproven] disc=[] opens=[-,-] b=(2,false) row=Live msgs=[]
+- desk activity: reset frame -> restartAt (T2 rows 1/2) then catchUp reads from it
+    A       log=[value:m1 missed:Reset] disc=[] opens=[-] b=(0,true) row=Live msgs=[m1]
+- presence typing: SDK heals itself (down, no reconnect), every, no position
+    A       log=[value:m1 missed:Unproven value:m2 value:m3 value:m4 failure:ChannelFailed] disc=[] opens=[-] b=(4,true) row=Ended msgs=[m1 m2 m3 m4]
+- flapping: 3 registered flaps in a row end Flapping
+    A       log=[missed:Unproven missed:Unproven failure:Flapping] disc=[] opens=[-,-,-] b=(none,false) row=Ended msgs=[]
+
+== 2. 600 seeds x {catchUp off, on} x {no reload, reload}: forms against A (same inputs) ==
+runs per form: 2400
+coverage of form A's runs (of 2400 ): {"missed":988,"discard":102,"reconnect":1943,"release":1611,"ended":0,"repair":1076}
+B-sync: 0 of 2400 differ from A; first differing field {}
+B-queued0: 0 of 2400 differ from A; first differing field {}
+B-queued1: 1 of 2400 differ from A; first differing field {"log":1}
+    shortest example seed152CR
+      A: log=[clear item:m1 item:m2 item:m3 item:m4 item:m5 item:m6 value:m3] disc=[] opens=[-,-,6] b=(3,true) row=Live msgs=[m1 m2 m3 m4 m5 m6]
+      B-queued1: log=[clear item:m1 item:m2 item:m3 item:m4 item:m5 item:m6 missed:Unproven item:m1 item:m2 item:m3 item:m4 item:m5 item:m6 value:m3] disc=[] opens=[-,-,-] b=(3,true) row=Live msgs=[m1 m2 m3 m4 m5 m6]
+B-queued3: 576 of 2400 differ from A; first differing field {"bAt":512,"opens":42,"log":21,"bFilled":1}
+    shortest example seed0C
+      A: log=[item:m1 item:m2 missed:Unproven item:m1 item:m2 item:m3 item:m4 item:m5 item:m6 value:m4] disc=[] opens=[-,-] b=(4,true) row=- msgs=[m1 m2 m3 m4 m5 m6]
+      B-queued3: log=[item:m1 item:m2 missed:Unproven item:m1 item:m2 item:m3 item:m4 item:m5 item:m6 value:m4] disc=[] opens=[-,-] b=(6,true) row=- msgs=[m1 m2 m3 m4 m5 m6]
+B-rand7: 0 of 2400 differ from A; first differing field {}
+invariant flags on unmutated runs: {}
+
+== 3. mutation sanity (injected into A's driver; checked by differential vs B-sync, by golden expectation, by invariants) ==
+none    runs 315: flagged by differential 0, by golden 0 (of 15 named), by invariants 0
+drop    runs 315: flagged by differential 96, by golden 10 (of 15 named), by invariants 70
+double  runs 315: flagged by differential 91, by golden 6 (of 15 named), by invariants 3
+runs where the mutation has something to act on: drop 94, double 88
+
+== 4. reads across the A/B boundary: sites, counts, and reads taken while a delivery was queued or in flight ==
+A: 6248 reads, 42 with a delivery pending; by site (name! = taken with a delivery pending) {"b.filled":1530,"b.at":1537,"b.exists":1512,"field.empty":1669,"b.exists!":19,"field.empty!":19,"b.at!":4}
+B-sync: 6239 reads, 42 with a delivery pending; by site (name! = taken with a delivery pending) {"b.filled":1530,"b.at":1528,"b.exists":1512,"field.empty":1669,"b.exists!":19,"field.empty!":19,"b.at!":4}
+
+== 5. fills on versus off (connect's wipe check removed), A and B-sync ==
+- clear while placed stays cleared across a drop (fills cleared)
+    on : log=[value:m1 value:m2 clear] disc=[] opens=[-,2] b=(2,false) row=Live msgs=[]
+    off: log=[value:m1 value:m2 clear] disc=[] opens=[-,2] b=(2,false) row=Live msgs=[]
+- clear and release in one turn, then reload: wiped, catchUp re-reads
+    on : log=[value:m1 value:m2 clear item:m1 item:m2] disc=[] opens=[-,-] b=(2,true) row=Live msgs=[m1 m2]
+    off: log=[value:m1 value:m2 clear item:m1 item:m2] disc=[] opens=[-,2] b=(2,true) row=Live msgs=[m1 m2]
+- same wipe without catchUp: one Unproven notice
+    on : log=[value:m1 value:m2 clear missed:Unproven] disc=[] opens=[-,-] b=(2,false) row=Live msgs=[]
+    off: log=[value:m1 value:m2 clear missed:Unproven] disc=[] opens=[-,2] b=(2,false) row=Live msgs=[]
+- clear while NOT placed (after release) is a wipe too
+    on : log=[value:m1 value:m2 clear missed:Unproven] disc=[] opens=[-,-] b=(2,false) row=Live msgs=[]
+    off: log=[value:m1 value:m2 clear missed:Unproven] disc=[] opens=[-,2] b=(2,false) row=Live msgs=[]
+
+== 6. cost per delivery (Bun only) ==
+floor (harness: frame event + mailbox event, no session) 0.39 us/delivery
+A 1.20 us/delivery   B-sync 1.35 us/delivery   (N=20000, median of 7, Bun 1.4.2)
+
+== 7. lines (non-blank, non-comment-only) ==
+formA.ts 176  formB.ts 159  shared.ts 103 (harness + the turn)  main.ts 197
+lines mentioning filled/fills/wiped/unplaced/releasing: A 12, B 13, shared turn 9
+bun main.ts  1.32s user 0.12s system 199% cpu 0.719 total

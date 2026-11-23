@@ -1,0 +1,46 @@
+// Copy of the spike that produced seam-output.txt. It ran from the scratchpad against the reviewer's copy of codebases/db at 15d2d2d, whose path is below; it does not run from here.
+// entity-proposal-2 section 8, against TanStack DB's real source (the reviewer's copy of codebases/db at 15d2d2d), through entity-model-2's judge.
+// A sourced entity: every batch is `after`, a statement of the engine. Unknown: a mark outside the judge, ended by the next statement about the key or the lane's end.
+import { createCollection, createTransaction, eq } from "../r9e/tdb/db-src/index.ts";
+import { Store, ABSENT } from "/Users/arpit/Developer/flow-state/packages/flow-state-v3/prototypes/round-9/entity-model-2/store.ts";
+const wait = (ms = 5) => new Promise((r) => setTimeout(r, ms));
+type T = { id: string; title: string; n: number; project: string };
+let driver: any;
+const c = createCollection<T, string>({ id: "tickets", getKey: (r) => r.id, startSync: true, gcTime: 0,
+  sync: { sync: (p: any) => { driver = p; p.begin(); p.write({ type: "insert", value: { id: "t1", title: "first", n: 1, project: "p1" } }); p.commit(); p.markReady(); } } } as any);
+await c.preload?.();
+const st = new Store();
+const unknownMark = new Set<string>();
+let pending = false;
+const session = (label: string, opts: any = {}) => (c as any).subscribeChanges((ms: any[]) => {
+  for (const m of ms) {
+    const row: any = c.get(m.key);
+    pending = row?.$hasPendingWrites ?? false;
+    unknownMark.delete(String(m.key));
+    st.judge({ carries: m.type === "delete" || !row ? { $present: false, title: ABSENT, n: ABSENT, project: ABSENT } : { $present: true, title: row.title, n: row.n, project: row.project }, at: undefined, from: st.tick() }); // from = now: `after`, always
+  }
+}, { includeInitialState: true, ...opts });
+const a = session("A"); const b = session("B"); // one entry placed twice: two sessions of one engine
+const show = (w: string) => { const g: any = c.get("t1"); console.log(w.padEnd(30), "store", JSON.stringify({ title: st.status("title").value === ABSENT ? "-" : st.status("title").value, n: st.status("n").value === ABSENT ? "-" : st.status("n").value, present: st.status("$present").value }), "pending", pending, "mark", unknownMark.has("t1"), "engine", g?.title, g?.n, "doubts", st.doubts.length); };
+await wait(); show("start, two sessions");
+let release!: () => void; let refuse!: (e: unknown) => void;
+const tx = createTransaction({ id: "att-1", autoCommit: false, mutationFn: () => new Promise<void>((x, y) => { release = x; refuse = y; }) });
+tx.mutate(() => c.update("t1", (d: any) => { d.title = "mine"; })); await wait(); show("predicted");
+const p = tx.commit().catch(() => {}); await wait();
+driver.begin(); driver.write({ type: "update", value: { id: "t1", title: "mine", n: 2, project: "p1" } }); driver.commit(); await wait(); show("frame while persisting");
+release(); await p; await wait(); show("settled");
+// T5b: the commit times out. Quiet stream. The mark needs an exit.
+unknownMark.add("t1"); show("commit timed out: unknown");
+console.log("  exit 1, lane ended (give up):"); unknownMark.delete("t1"); show("  released");
+unknownMark.add("t1"); driver.begin(); driver.write({ type: "update", value: { id: "t1", title: "mine", n: 3, project: "p1" } }); driver.commit(); await wait(); show("  exit 2, next statement");
+const tx2 = createTransaction({ id: "att-2", autoCommit: false, mutationFn: () => new Promise<void>((x, y) => { release = x; refuse = y; }) });
+tx2.mutate(() => c.update("t1", (d: any) => { d.title = "doomed"; })); await wait(); show("predicted 2");
+const p2 = tx2.commit().catch(() => {}); await wait(); refuse(new Error("403")); await p2; await wait(); show("refused: rolled back");
+// H6: a whole-collection subscription says delete only when the row is gone. Moving project is not a delete here.
+driver.begin(); driver.write({ type: "update", value: { id: "t1", title: "mine", n: 3, project: "p2" } }); driver.commit(); await wait(); show("moved to p2, unfiltered");
+const log: string[] = []; const f = (c as any).subscribeChanges((ch: any[]) => log.push(ch.map((x: any) => `${x.type}:${x.key}`).join(",")), { includeInitialState: true, where: (r: any) => eq(r.project, "p2") });
+await wait(); driver.begin(); driver.write({ type: "update", value: { id: "t1", title: "mine", n: 3, project: "p3" } }); driver.commit(); await wait();
+console.log("a FILTERED subscription, same move:", log.join(" | "), "<- why a sourced listen must not filter"); show("store after, unfiltered");
+driver.begin(); driver.write({ type: "delete", key: "t1" }); driver.commit(); await wait(); show("deleted by source");
+console.log("doubts raised on one engine, two sessions:", st.doubts.length);
+a.unsubscribe(); b.unsubscribe(); f.unsubscribe(); process.exit(0);

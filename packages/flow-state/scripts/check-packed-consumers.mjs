@@ -129,7 +129,7 @@ try {
   const tarballSpec = `file:${tarball}`;
 
   const coreRoot = createConsumer("core", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeTypeScriptConfig(coreRoot, { noEmit: true, declaration: false, emitDeclarationOnly: false });
@@ -238,7 +238,7 @@ if (!deepImportRejected) throw new Error("private deep import was not rejected b
   if (installedManifest.peerDependenciesMeta?.react?.optional !== true) {
     throw new Error("React must be an optional peer for core-only consumers.");
   }
-  if (installedManifest.peerDependencies?.effect !== "4.0.0-beta.86") {
+  if (installedManifest.peerDependencies?.effect !== "4.0.0-rc.112") {
     throw new Error("Packed consumers must share the package's exact Effect peer.");
   }
   if (installedManifest.peerDependencies?.react !== "^18.0.0 || ^19.0.0") {
@@ -279,7 +279,7 @@ if (!rejected) throw new Error("duplicate package resource identity crossed app 
   run("node", ["src/duplicate-owner.mjs"], { cwd: coreRoot });
 
   const testingRoot = createConsumer("testing", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeFileSync(
@@ -296,7 +296,7 @@ if (harness.pendingWork().activeFibers !== 0) throw new Error("testing entrypoin
   run("node", ["src/index.mjs"], { cwd: testingRoot });
 
   const serverRoot = createConsumer("server", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeFileSync(
@@ -318,7 +318,7 @@ await withRequestRuntime(layer, async (runtime) => {
   run("node", ["src/index.mjs"], { cwd: serverRoot });
 
   const inspectRoot = createConsumer("inspect", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   writeFileSync(
@@ -341,7 +341,7 @@ await runtime.dispose();
   run("node", ["src/index.mjs"], { cwd: inspectRoot });
 
   const cliRoot = createConsumer("cli", {
-    effect: "4.0.0-beta.86",
+    effect: "4.0.0-rc.112",
     "flow-state": tarballSpec,
   });
   install(cliRoot);
@@ -354,7 +354,7 @@ await runtime.dispose();
 
   const multiRoot = createConsumer(
     "multi-entry",
-    { effect: "4.0.0-beta.86", "flow-state": tarballSpec, react: packageOverride("react") },
+    { effect: "4.0.0-rc.112", "flow-state": tarballSpec, react: packageOverride("react") },
     { "@types/react": packageOverride("@types/react") },
     { react: packageOverride("react") },
   );
@@ -365,144 +365,6 @@ await runtime.dispose();
   writeTypeScriptConfig(multiRoot);
   install(multiRoot);
   typecheck(multiRoot);
-
-  for (const major of [18, 19]) {
-    const reactRoot = createConsumer(
-      `react-${major}`,
-      {
-        effect: "4.0.0-beta.86",
-        "flow-state": tarballSpec,
-        react: major === 18 ? "18.3.1" : packageOverride("react"),
-      },
-      {
-        "@types/react": major === 18 ? "18.3.31" : packageOverride("@types/react"),
-      },
-      major === 18 ? {} : { react: packageOverride("react") },
-    );
-    cpSync(
-      resolve(repoRoot, "examples", `typescript-proof-packed-react-${major}`, "src", "index.ts"),
-      join(reactRoot, "src", "index.ts"),
-    );
-    writeTypeScriptConfig(reactRoot);
-    install(reactRoot);
-    typecheck(reactRoot);
-  }
-
-  const incidentSourceRoot = resolve(repoRoot, "examples", "incident-console");
-  const incidentDependency = packageOverride;
-  const flagshipRoot = createConsumer(
-    "incident-console",
-    {
-      clsx: incidentDependency("clsx"),
-      effect: "4.0.0-beta.86",
-      "flow-state": tarballSpec,
-      next: incidentDependency("next"),
-      react: incidentDependency("react"),
-      "react-dom": incidentDependency("react-dom"),
-      "tailwind-merge": incidentDependency("tailwind-merge"),
-      "tw-animate-css": incidentDependency("tw-animate-css"),
-    },
-    {
-      "@types/node": `link:${join(repoRoot, "node_modules/@types/node")}`,
-      "@types/react": incidentDependency("@types/react"),
-      "@types/react-dom": incidentDependency("@types/react-dom"),
-    },
-    {
-      next: incidentDependency("next"),
-      react: incidentDependency("react"),
-      "react-dom": incidentDependency("react-dom"),
-    },
-  );
-  for (const directory of ["app", "components", "lib", "server", "src"]) {
-    cpSync(resolve(incidentSourceRoot, directory), join(flagshipRoot, directory), {
-      recursive: true,
-      filter: (source) => !source.endsWith(".test.ts") && !source.endsWith(".test.tsx"),
-    });
-  }
-  cpSync(resolve(incidentSourceRoot, "next-env.d.ts"), join(flagshipRoot, "next-env.d.ts"));
-  writeJson(join(flagshipRoot, "tsconfig.json"), {
-    compilerOptions: {
-      allowSyntheticDefaultImports: true,
-      exactOptionalPropertyTypes: true,
-      forceConsistentCasingInFileNames: true,
-      jsx: "react-jsx",
-      lib: ["DOM", "DOM.Iterable", "ES2024"],
-      module: "ESNext",
-      moduleResolution: "Bundler",
-      noEmit: true,
-      noUncheckedIndexedAccess: true,
-      paths: { "@/*": ["./*"] },
-      skipLibCheck: true,
-      strict: true,
-      target: "ES2024",
-      types: ["node"],
-      verbatimModuleSyntax: true,
-    },
-    include: [
-      "next-env.d.ts",
-      "app/**/*.ts",
-      "app/**/*.tsx",
-      "components/**/*.ts",
-      "components/**/*.tsx",
-      "lib/**/*.ts",
-      "server/**/*.ts",
-      "src/**/*.ts",
-      "src/**/*.tsx",
-    ],
-  });
-  install(flagshipRoot);
-  typecheck(flagshipRoot);
-
-  const recipeRoot = createConsumer(
-    "basic-cached-posts",
-    {
-      effect: "4.0.0-beta.86",
-      "flow-state": tarballSpec,
-      next: packageOverride("next"),
-      react: packageOverride("react"),
-      "react-dom": packageOverride("react-dom"),
-    },
-    {
-      "@types/react": `link:${join(repoRoot, "node_modules/@types/react")}`,
-      "@types/react-dom": `link:${join(repoRoot, "node_modules/@types/react-dom")}`,
-    },
-    {
-      next: packageOverride("next"),
-      react: packageOverride("react"),
-      "react-dom": packageOverride("react-dom"),
-    },
-  );
-  cpSync(resolve(repoRoot, "examples", "basic-cached-posts", "src"), join(recipeRoot, "src"), {
-    recursive: true,
-  });
-  cpSync(resolve(repoRoot, "examples", "basic-cached-posts", "app"), join(recipeRoot, "app"), {
-    recursive: true,
-  });
-  cpSync(
-    resolve(repoRoot, "examples", "basic-cached-posts", "next-env.d.ts"),
-    join(recipeRoot, "next-env.d.ts"),
-  );
-  writeJson(join(recipeRoot, "tsconfig.json"), {
-    compilerOptions: {
-      allowSyntheticDefaultImports: true,
-      exactOptionalPropertyTypes: true,
-      forceConsistentCasingInFileNames: true,
-      jsx: "react-jsx",
-      lib: ["DOM", "DOM.Iterable", "ES2024"],
-      module: "ESNext",
-      moduleResolution: "Bundler",
-      noEmit: true,
-      noUncheckedIndexedAccess: true,
-      skipLibCheck: true,
-      strict: true,
-      target: "ES2024",
-      verbatimModuleSyntax: true,
-    },
-    include: ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx"],
-    exclude: ["**/*.test.ts", "**/*.test.tsx"],
-  });
-  install(recipeRoot);
-  typecheck(recipeRoot);
 
   console.log(`Packed consumer proofs ok for ${basename(tarball)}.`);
 } finally {

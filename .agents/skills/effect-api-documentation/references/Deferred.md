@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Deferred` API](https://www.effect.website/docs/v4/api/effect/Deferred). Examples assume `import { Deferred, Effect, Fiber } from "effect"`.
 
+`Deferred` is a one-shot synchronization cell: one fiber completes a future success or failure and other fibers await that result.
+
 ## API index
 
 1. [Deferred.make](#deferredmake)

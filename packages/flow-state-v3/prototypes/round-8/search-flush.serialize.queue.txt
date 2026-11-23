@@ -1,0 +1,27 @@
+{
+ "search": "flush.serialize.queue",
+ "verdict": "inconclusive",
+ "perDepth": [
+  1,
+  3,
+  5,
+  15,
+  41,
+  111,
+  319,
+  900,
+  2458,
+  6836
+ ],
+ "states": 12644,
+ "edges": 29283,
+ "steps": 567019,
+ "depthCompleted": 9,
+ "classes": {},
+ "ms": 30001,
+ "peakRssMb": 208,
+ "unpinned": [],
+ "lanesAhead": 0
+}
+
+WATCH peak 198 MB, 30.1 s, exit 0, killed no

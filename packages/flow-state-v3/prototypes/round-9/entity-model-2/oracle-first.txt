@@ -1,0 +1,38 @@
+== old judge, new oracle, mutant: none
+rec-delta-fifo         FAIL seed 141: stuck: [{"f":"a","to":12,"asked":true}] with nothing in flight
+hello other frame drop reload reload write write.lost answer.now retry.ok other otherRemove reload
+rec-delta-shuffle      FAIL seed 141: stuck: [{"f":"a","to":12,"asked":true}] with nothing in flight
+hello other frame drop reload reload write write.lost answer.now retry.ok other otherRemove reload otherBack
+rec-whole-shuffle      FAIL seed 141: stuck: [{"f":"a","to":12,"asked":true}] with nothing in flight
+hello other frame drop reload reload write write.lost answer.now retry.ok other otherRemove reload otherBack
+rec-nofeed             FAIL seed 145: stuck: [{"f":"a","to":11,"asked":true}] with nothing in flight
+write write.fail part write answer.now read part answer.start write.ok reload
+rec-nofeed-others      FAIL seed 141: stuck: [{"f":"a","to":9,"asked":true}] with nothing in flight
+other reload reload write write.lost answer.now retry.ok other otherRemove reload
+none-delta-fifo        FAIL seed 36: stuck: [{"f":"b","to":19,"asked":true}] with nothing in flight
+hello write part answer.now other frame reload reload read read landLate write expire otherRemove write.fail answer.start otherBack answer.now reload other reload part ~answer.now
+none-whole-shuffle     FAIL seed 36: stuck: [{"f":"b","to":19,"asked":true}] with nothing in flight
+hello write part answer.now other frame reload reload read read landLate write expire otherRemove write.fail answer.start otherBack answer.now reload other reload part ~answer.start
+none-delta-shuffle     FAIL seed 36: stuck: [{"f":"b","to":19,"asked":true}] with nothing in flight
+hello write part answer.now other frame reload reload read read landLate write expire otherRemove write.fail answer.start otherBack answer.now reload other reload part ~answer.start
+none-nofeed            FAIL seed 33: stuck: [{"f":"b","to":11,"asked":true}] with nothing in flight
+read read reload reload read write answer.start write.ok part part reload part ~answer.now
+== old judge, new oracle, mutant: markEverything
+rec-delta-fifo         FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+rec-delta-shuffle      FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+rec-whole-shuffle      FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+rec-nofeed             FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+rec-nofeed-others      FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+none-delta-fifo        FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+none-whole-shuffle     FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+none-delta-shuffle     FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now
+none-nofeed            FAIL seed 1: over-mark: $present is uncertain after a fresh whole read
+read answer.now

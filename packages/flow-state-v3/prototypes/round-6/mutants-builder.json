@@ -1,0 +1,2911 @@
+[
+ {
+  "id": "d58-pos-no-tick",
+  "kills": [
+   "D58"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "d57-canon-unsorted",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H5/a-reset-value-is-the-value-not-its-key-order"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "d57-list-bad-not-counted",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H4/list-null-repairs-never-refuses",
+   "REV4-H4/list-five-repairs-never-refuses",
+   "REV4-H4/list-string-repairs-never-refuses"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 245
+ },
+ {
+  "id": "d57-valid-leaf-unchecked",
+  "kills": [
+   "D61"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 339
+ },
+ {
+  "id": "d57-valid-kid-frag-unchecked",
+  "kills": [
+   "D61"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H3/kid-frag-is-another-fragment"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "d57-valid-history-unchecked",
+  "kills": [
+   "D61"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H3/history-names-a-removed-node"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "d57-valid-frozen-unchecked",
+  "kills": [
+   "D61"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H3/frozen-of-no-shape",
+   "REV5-H2/junk-in-frozen-quarantines-at-boot",
+   "REV5-H2/junk-frozen-timers-quarantine-at-boot"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 264
+ },
+ {
+  "id": "d57-parked-not-sanitised",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H4/a-success-of-a-bigint-parked-on-a-persisted-lane"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 235
+ },
+ {
+  "id": "h3-hold-dropped-on-second-boot",
+  "kills": [
+   "rule:46"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H3/leaf-this-release-removed",
+   "REV4-H3/kid-frag-this-release-removed",
+   "REV4-H3/kid-leaf-removed",
+   "REV4-H3/placement-removed",
+   "REV4-H3/no-timers",
+   "REV4-H3/no-kids",
+   "REV4-H3/activations-for-a-leaf-gone",
+   "REV4-H3/timer-of-no-shape",
+   "REV4-H3/memory-not-an-object",
+   "REV4-H3/kid-frag-is-another-fragment",
+   "REV4-H3/history-names-a-removed-node",
+   "REV4-H3/frozen-of-no-shape",
+   "REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 233
+ },
+ {
+  "id": "l5-parked-in-lane-order",
+  "kills": [
+   "rule:44"
+  ],
+  "killed": true,
+  "killers": [
+   "PAY-13/waiting-flushed",
+   "PAY-16/settled-during-disposal-parked",
+   "PAY-16/parked-success-is-delivered",
+   "FRAG-19/unplaced-parked-survives-a-reload",
+   "REAL-04/r54-a-pending-reset-runs-before-adoption",
+   "REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload",
+   "REV5-M1/a-crash-during-recovery-loses-no-parked-ending"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "h6-exit-still-abandons",
+  "kills": [
+   "rule:6"
+  ],
+  "killed": true,
+  "killers": [
+   "REAL-01/own-exit-hands-no-draft-back",
+   "REAL-02/own-exit-no-draft",
+   "REAL-02/kept-returns-to-the-exact-step-through-a-nested-exit",
+   "REAL-02/discarded-fills-the-wizards-own-exit-two-own-exits-in-one-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "h6-exit-skips-descendants",
+  "kills": [
+   "rule:6"
+  ],
+  "killed": true,
+  "killers": [
+   "REAL-02/own-exit-no-draft"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 260
+ },
+ {
+  "id": "m2-refreeze",
+  "kills": [
+   "rule:1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "m2-thaw-any",
+  "kills": [
+   "rule:1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M2/a-frozen-child-keeps-its-timer-through-a-freeze-above"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 232
+ },
+ {
+  "id": "m3-frozen-not-reconciled",
+  "kills": [
+   "rule:9"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "crash",
+  "peakMb": 57
+ },
+ {
+  "id": "m4-facts-dropped",
+  "kills": [
+   "rule:8"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M4"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "m4-loops-unbound",
+  "kills": [
+   "D35"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "rss",
+  "peakMb": 1420
+ },
+ {
+  "id": "m5-fire-not-redelivered",
+  "kills": [
+   "D50"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M5/a-firing-that-throws-once-comes-again",
+   "REV4-M5/a-firing-that-always-throws-is-final-and-bounded"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "m7-no-reorder",
+  "kills": [
+   "rule:9"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M7"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "d64-thaw-no-check",
+  "kills": [
+   "D64"
+  ],
+  "killed": true,
+  "killers": [
+   "REAL-04/D64-a-changed-ticket-resets-on-return-with-no-frame-of-the-old-subject"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "r53-thaw-no-adoption",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": true,
+  "killers": [
+   "REAL-04/r53-a-write-that-ends-while-frozen-parks-and-the-thaw-adopts-it",
+   "REAL-04/r52-the-cut-lookup-comes-before-a-parked-write",
+   "REV5-H5H6/a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind",
+   "REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 250
+ },
+ {
+  "id": "thaw-says-restored",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M3/a-thaw-tells-its-own-hold-nothing-new"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 240
+ },
+ {
+  "id": "m1-then-regardless",
+  "kills": [
+   "D48"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-M1"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "l6-fire-touches",
+  "kills": [
+   "rule:8"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 354
+ },
+ {
+  "id": "d65-tables-keep-prototype",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/prototype-names-at-the-doors",
+   "REV5-H1/a-server-tag-named-like-a-prototype-key-is-unmapped",
+   "REV5-H1/ensure-of-an-unknown-machine",
+   "SEARCH-ODD-ALL",
+   "REV5-H2/stored-names-like-prototype-keys"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 229
+ },
+ {
+  "id": "d65-patch-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn",
+   "REV6-H4/a-throwing-getter-refuses-at-the-gate-M11"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ },
+ {
+  "id": "d65-guard-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "d65-followup-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "SEARCH-ODD-ALL"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 226
+ },
+ {
+  "id": "d65-raise-from-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 240
+ },
+ {
+  "id": "d65-raise-key-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 320
+ },
+ {
+  "id": "d65-notify-from-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "d65-exit-from-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "d65-schedule-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H4/a-schedule-of-no-length-refuses-the-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ },
+ {
+  "id": "d65-frag-initial-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "d65-mapped-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "d65-port-guard-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "d65-kids-by-prototype",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/prototype-names-at-the-doors"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "d65-records-by-prototype",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "SEARCH-ODD-ALL"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "d65-predicts-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "SEARCH-ODD-ALL"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 255
+ },
+ {
+  "id": "d65-send-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/an-event-of-no-shape-is-refused-at-the-door"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "d65-ensure-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H1/ensure-of-an-unknown-machine"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 240
+ },
+ {
+  "id": "d65-saved-unchecked",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H2/a-module-value-of-no-shape-on-disk-does-not-disable-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "h2-frozen-mail-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H2/junk-in-frozen-quarantines-at-boot"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "d57-frozen-timers-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H2/junk-frozen-timers-quarantine-at-boot"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "h2-orphan-not-dropped",
+  "kills": [
+   "P19"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H2/a-frozen-ending-of-a-removed-operation-is-orphaned-not-fatal"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "h2-lane-id-unchecked",
+  "kills": [
+   "D65"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 348
+ },
+ {
+  "id": "d66-remove-not-kept",
+  "kills": [
+   "D66"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/a-confirmed-remove-stays-removed",
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back",
+   "REV6-H1/a-remove-before-the-first-row-stays-removed"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "d66-resend-no-doubt",
+  "kills": [
+   "D66"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/a-resend-with-nothing-carried-and-no-prediction-doubts"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "d66-threw-no-doubt",
+  "kills": [
+   "D59"
+  ],
+  "killed": true,
+  "killers": [
+   "HIGH-03/confirms-throws-on-a-shape",
+   "REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "d66-carried-unchecked",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store",
+   "SEARCH-ODD-ALL"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "d67-version-shape-unchecked",
+  "kills": [
+   "D67"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H8/a-version-of-no-shape-falls-back-with-an-issue"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 245
+ },
+ {
+  "id": "h4-answer-through-input",
+  "kills": [
+   "D68"
+  ],
+  "killed": true,
+  "killers": [
+   "LIKE-01",
+   "LIKE-06",
+   "STORE-01",
+   "STORE-02",
+   "STORE-03",
+   "STORE-04/Superseded",
+   "STORE-04/Cancelled",
+   "STORE-04/StorageRefused",
+   "STORE-04/Disposed",
+   "STORE-07/a-live-hold-outranks-the-bound",
+   "STORE-07/a-late-repair-is-fenced",
+   "STORE-08",
+   "CART-02/five-taps",
+   "CART-02/remove-asked",
+   "CART-02/repriced-under-pending",
+   "CART-02/coupon",
+   "REFUND-01/three-refunds",
+   "HIGH-03/a-read-mapper-throws",
+   "HIGH-04",
+   "MED-03/stale-read-does-not-overwrite-a-confirmed-write",
+   "MED-03/a-read-started-after-the-write-applies",
+   "MED-03/stale-repair-runs-again",
+   "MED-08",
+   "SURV-05",
+   "SURV-08",
+   "FRAG-11/deleteRefused",
+   "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
+   "REV4-H1/a-read-started-after-the-write-applies-with-no-extra-read",
+   "REV4-H1/the-doubt-outlives-a-failed-repair",
+   "REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store",
+   "REV4-L4",
+   "REAL-05/pin-predicts-confirms-and-an-idle-guard-holds",
+   "SPIKE-01/first-open-registers-and-names-a-place",
+   "SPIKE-01/a-value-and-its-bookmark-are-one-write",
+   "SPIKE-01/a-denied-value-still-moves-the-bookmark",
+   "SPIKE-01/values-in-order-one-in-mail",
+   "SPIKE-01/a-value-before-any-hello-registers-first",
+   "SPIKE-02/a-reload-restores-memory-and-bookmark-together",
+   "SPIKE-02/the-servers-echo-is-proof-no-notice",
+   "SPIKE-02/a-drop-reconnects-from-the-bookmark-on-the-backoff",
+   "SPIKE-02/idle-loses-it-a-ping-re-arms-it-a-ping-before-hello-does-not",
+   "SPIKE-02/a-server-reset-moves-the-bookmark-at-the-notices-admission",
+   "SPIKE-02/a-reset-at-the-first-open-is-silent",
+   "SPIKE-02/a-wipe-the-field-emptied-reads-as-owed",
+   "SPIKE-03/bookmark-is-a-member-on-after-memory",
+   "SPIKE-03/a-refused-turn-takes-its-member-with-it",
+   "SPIKE-03/refetch-forgets-the-place",
+   "SPIKE-03/a-value-in-mail-when-its-placement-ends-is-discarded",
+   "SPIKE-03/with-no-session-placed-T3-only",
+   "SPIKE-04/a-session-belongs-to-its-incarnation-a-reset-is-a-new-slice",
+   "SPIKE-04/an-old-value-in-mail-does-not-reach-the-new-slice",
+   "SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place",
+   "SPIKE-04/a-frozen-partition-survives-a-reload",
+   "SPIKE-04/dispose-then-ensure-brings-both-back",
+   "SPIKE-04/one-connection-at-a-time-for-one-key",
+   "SPIKE-05/a-refused-value-ends-the-session",
+   "SPIKE-05/a-failure-delivery-refused-once-comes-again",
+   "SPIKE-05/a-module-defect-fails-closed-and-no-value-is-lost",
+   "SPIKE-05/a-position-that-cannot-be-saved-ends-the-session",
+   "REV5-H3/no-version-a-read-overlapping-a-confirmed-archive-doubts",
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it",
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back",
+   "REV5-H3/many-records-one-write",
+   "REV5-H8/an-older-version-drops-whatever-its-kind-no-repair",
+   "REV5-H8/the-same-without-a-version-costs-a-read",
+   "REV5-H8/a-newer-version-applies-whatever-overlaps",
+   "REV5-H8/equal-versions-merge-and-confirm-a-partial-answer",
+   "REV5-H8/a-tombstone-has-a-version",
+   "REV5-H8/a-version-of-no-shape-falls-back-with-an-issue",
+   "REV5-H4",
+   "REV5-SESS/a-burst-keeps-one-in-mail",
+   "REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time",
+   "REV5-SESS/a-clear-and-leave-is-a-wipe-the-reconnect-owes",
+   "REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects",
+   "REV5-SESS/a-close-that-never-finishes-is-overdue",
+   "REV5-SESS/a-member-stops-what-is-already-in-mail-from-moving",
+   "REV5-SESS/a-proof-with-nothing-claimed-is-not-believed",
+   "REV5-SESS/a-healthy-minute-resets-the-backoff",
+   "REV5-SESS/a-value-with-no-position-keeps-the-place",
+   "REV5-SESS/a-value-re-arms-idle",
+   "REV5-SESS/a-failure-behind-a-release-is-discarded",
+   "REV5-SESS/input-is-read-once",
+   "REV5-SESS/end-delivers-what-is-queued-first",
+   "REV5-SESS/end-behind-a-queued-value-under-a-slow-drain",
+   "REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken",
+   "REV5-SESS/a-reset-mark-does-not-outlive-its-notice",
+   "REV5-SESS/a-member-with-an-empty-field-writes-filled-false",
+   "REV5-SESS/a-position-that-cannot-be-saved-at-registration-ends-it",
+   "REV5-SESS/a-drop-with-one-in-mail-loses-what-moves",
+   "STREAM5-PULL/a-pulled-source-waits-for-the-turn",
+   "STREAM5-PULL/every-value-still-arrives-in-order",
+   "STREAM5-PULL/a-closed-source-ends-its-pull",
+   "STREAM5-REPAIR/first-open-reads-and-the-record-is-made-at-complete",
+   "STREAM5-REPAIR/values-buffer-during-a-read-and-flush-after-its-pages",
+   "STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does",
+   "STREAM5-REPAIR/gone-is-one-notice-then-what-is-kept",
+   "STREAM5-REPAIR/a-drop-discards-the-buffer-and-keeps-the-place",
+   "STREAM5-REPAIR/a-registration-during-a-read-restarts-it-no-second-notice",
+   "STREAM5-REPAIR/a-proof-during-a-read-stays",
+   "STREAM5-REPAIR/a-page-that-repeats-ends-it",
+   "STREAM5-REPAIR/a-page-failure-retries-with-the-socket-open",
+   "STREAM5-REPAIR/any-other-page-failure-ends",
+   "STREAM5-REPAIR/a-page-of-no-shape-is-defect",
+   "STREAM5-REPAIR/pages-map-to-one-turn",
+   "STREAM5-REPAIR/a-bookmark-member-restarts-from-its-place-no-notice",
+   "STREAM5-REPAIR/refetch-reads-from-nothing",
+   "STREAM5-REPAIR/a-reload-during-a-read-reads-again",
+   "STREAM5-REPAIR/a-release-abandons-the-read",
+   "STREAM5-REPAIR/three-repairs-with-no-move-then-one-lost",
+   "STREAM5-LOSE/eight-short-connections-flap",
+   "STREAM5-LOSE/a-healthy-minute-clears-flaps",
+   "STREAM5-LOSE/silence-is-not-a-flap",
+   "STREAM5-LOSE/a-tag-while-refuses-ends-by-that-tag",
+   "STREAM5-LOSE/a-tag-while-accepts-reconnects",
+   "STREAM5-LOSE/overflow-with-no-reconnect-ends-it",
+   "STREAM5-LOSE/when-places-and-releases-level-triggered",
+   "STREAM5-LISTEN/version-frames-place-themselves",
+   "STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it",
+   "STREAM5-LISTEN/an-echo-clears-the-unplaced-write-at-no-cost",
+   "STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too",
+   "STREAM5-LISTEN/a-version-bump-alone-is-an-echo",
+   "STREAM5-LISTEN/with-no-write-a-frame-just-applies-no-read",
+   "STREAM5-LISTEN/a-patch-of-a-record-nobody-holds-changes-nothing",
+   "STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier",
+   "STREAM5-LISTEN/a-proven-registration-is-no-gap",
+   "STREAM5-LISTEN/from-is-the-sessions-own-last-position",
+   "STREAM5-LATEST/a-value-is-implicit-live-and-delivers",
+   "STREAM5-LATEST/newest-wins-while-a-turn-is-behind",
+   "STREAM5-LATEST/an-equal-value-confirms-and-is-not-heard-again",
+   "STREAM5-LATEST/a-drop-stops-value-being-current",
+   "STREAM5-LATEST/live-alone-does-not-confirm-proof-confirms-its-own",
+   "REV6-ENGINE/a-poke-is-atomic-one-publication",
+   "REV6-ENGINE/confirmed-and-visible-cannot-disagree",
+   "REV6-ENGINE/blocks-false-drops-D3-the-server-orders",
+   "REV6-ENGINE/an-older-cookie-changes-nothing-a-hole-asks-again",
+   "REV6-H1/a-frame-before-the-first-row-is-kept",
+   "REV6-H1/an-older-frame-before-the-first-row-loses",
+   "REV6-H1/no-version-it-is-marked-and-asked",
+   "REV6-H1/a-read-that-started-after-the-frame-needs-no-stub",
+   "REV6-H1/a-success-before-the-first-row-is-a-claim",
+   "REV6-H2/a-partial-frame-is-no-echo",
+   "REV6-H2/a-repair-obeys-the-judge",
+   "REV6-H2/a-success-with-a-version-settles-an-older-claim-L7",
+   "REV6-H2/a-whole-echo-clears-the-claim",
+   "REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted",
+   "REV6-H2/other-fields-of-a-newer-frame-merge-under-a-claim",
+   "REV6-H3/string-versions-have-no-order-unless-declared",
+   "REV6-H3/electric-offsets-are-strings",
+   "REV6-H3/a-string-write-still-defends-itself-by-claim",
+   "REV6-H3/a-declared-lexical-order-compares",
+   "REV6-H3/numbers-still-order",
+   "REV6-TWOFEEDS/with-a-version-frames-may-cross",
+   "REV6-TWOFEEDS/with-no-version-the-stated-limit",
+   "REV6-H4/a-throwing-backoff-does-not-stop-streaming",
+   "REV6-H4/a-backoff-of-no-shape-is-not-an-hour-L5",
+   "REV6-H4/a-throwing-reconnect-while-means-not-retried",
+   "REV6-H4/a-throwing-page-retry-means-not-retried",
+   "REV6-H4/other-machines-keep-streaming",
+   "REV6-H4/a-throwing-subscribe-is-a-defect-M4",
+   "REV6-H4/a-dying-stream-is-a-defect-M4",
+   "REV6-H7/a-read-that-never-answers-does-not-wedge",
+   "REV6-H7/three-silent-reads-make-one-lost",
+   "REV6-H7/overflow-reaches-a-stopped-pull-out-of-band",
+   "REV6-H7/overflow-with-a-running-pull-drains-then-fails",
+   "REV6-H7/a-deadline-is-armed-only-while-a-pull-is-out-T1",
+   "REV6-STREAMS/M1-a-read-banks-no-credit",
+   "REV6-STREAMS/M2-end-mid-flush-discards-with-evidence",
+   "REV6-STREAMS/M3-a-member-stops-the-in-mail-value-with-catchUp",
+   "REV6-STREAMS/L2-down-disarms-healthy-and-idle",
+   "REV6-STREAMS/L4-a-value-with-a-field-named-feed-is-a-value",
+   "REV6-STREAMS/M13-a-denied-value-moves-the-bookmark",
+   "REV6-STREAMS/M13-a-ping-does-not-re-arm-connecting",
+   "REV6-STREAMS/M13-two-empty-pages-stall"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "d69-placed-includes-frozen",
+  "kills": [
+   "D69"
+  ],
+  "killed": true,
+  "killers": [
+   "SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place",
+   "SPIKE-04/a-frozen-partition-survives-a-reload",
+   "SPIKE-04/one-connection-at-a-time-for-one-key",
+   "REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects",
+   "REV5-SESS/a-close-that-never-finishes-is-overdue"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ },
+ {
+  "id": "h5-rebind-root-only",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H5H6/a-persisted-rebind-adopts-its-fragments-ending",
+   "REV5-H5H6/and-its-lost-answer-once-with-no-restored",
+   "REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life",
+   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload",
+   "REV5-M1/a-crash-during-recovery-loses-no-parked-ending",
+   "REV5-M1/the-record-goes-once-delivered"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "h5-frozen-adopts-at-rebind",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 347
+ },
+ {
+  "id": "h5-spread-loses-adoption",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-M1/the-record-goes-once-delivered"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "r54-restored-also-when-parked",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H5H6/and-its-lost-answer-once-with-no-restored",
+   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "r54-facts-before-reset",
+  "kills": [
+   "rule:54"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 327
+ },
+ {
+  "id": "h6-w-dropped-with-parked-hold",
+  "kills": [
+   "rule:17"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H5H6/w-behind-a-parked-hold-ends-at-a-reload"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "m1-boot-writes-away",
+  "kills": [
+   "D72"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-M1/a-crash-during-recovery-loses-no-parked-ending",
+   "REV5-M1/nor-a-w-behind-an-acked-head"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 250
+ },
+ {
+  "id": "m1-never-off-disk",
+  "kills": [
+   "D72"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/w-is-off-the-disk-once-it-has-ended",
+   "REV6-H5/the-rekeyed-lane-is-what-a-guard-reads"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "m2-recheck-no-lists",
+  "kills": [
+   "rule:9"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-M2"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 237
+ },
+ {
+  "id": "l6-firing-not-saved",
+  "kills": [
+   "rule:8"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 329
+ },
+ {
+  "id": "r51-commit-other-path",
+  "kills": [
+   "rule:51"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-S/another-paths-commit-under-serialize-is-rejected"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "d26-capture-plain-write",
+  "kills": [
+   "D26"
+  ],
+  "killed": true,
+  "killers": [
+   "PAY-04",
+   "PAY-05",
+   "PAY-16/timeout-per-send",
+   "PAY-16/resend-refused-capture",
+   "PAY-16/retry-count-persists",
+   "HIGH-01/pay-told-not-charged",
+   "HIGH-01/retry-then-cancel-releases",
+   "HIGH-01/retry-then-refuse-holds",
+   "REV5-S/a-resends-capture-is-awaited"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "r15-fill-may-leave",
+  "kills": [
+   "rule:15"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-S/a-late-fillings-target-may-not-leave-the-hosts-work"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 250
+ },
+ {
+  "id": "t1-wipe-unchecked",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-clear-and-leave-is-a-wipe-the-reconnect-owes"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "r70-no-predecessor-wait",
+  "kills": [
+   "rule:70"
+  ],
+  "killed": true,
+  "killers": [
+   "SPIKE-04/one-connection-at-a-time-for-one-key",
+   "REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects",
+   "REV5-SESS/a-close-that-never-finishes-is-overdue"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "r69-two-in-mail",
+  "kills": [
+   "rule:69"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 235
+ },
+ {
+  "id": "t1-member-notice-at-tail",
+  "kills": [
+   "T1"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 331
+ },
+ {
+  "id": "t2-row4-proof-always",
+  "kills": [
+   "T2:4"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-proof-with-nothing-claimed-is-not-believed"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "t1-healthy-no-reset",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-healthy-minute-resets-the-backoff",
+   "STREAM5-LOSE/a-healthy-minute-clears-flaps"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "t3-denied-position-kept-missing",
+  "kills": [
+   "T3"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-value-with-no-position-keeps-the-place"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 253
+ },
+ {
+  "id": "t1-idle-not-armed-on-value",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-value-re-arms-idle"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "m3-release-keeps-end",
+  "kills": [
+   "rule:70"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 340
+ },
+ {
+  "id": "m3-fence-by-incarnation",
+  "kills": [
+   "rule:70"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 354
+ },
+ {
+  "id": "m4-input-read-every-change",
+  "kills": [
+   "rule:68"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "rss",
+  "peakMb": 1409
+ },
+ {
+  "id": "m5-end-drops-queue",
+  "kills": [
+   "T9"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 323
+ },
+ {
+  "id": "m7-bookmark-always-filled",
+  "kills": [
+   "T3"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-member-with-an-empty-field-writes-filled-false"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 257
+ },
+ {
+  "id": "t3-release-lowers-filled",
+  "kills": [
+   "T3"
+  ],
+  "killed": true,
+  "killers": [
+   "SPIKE-03/with-no-session-placed-T3-only",
+   "SPIKE-04/a-session-belongs-to-its-incarnation-a-reset-is-a-new-slice",
+   "SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place",
+   "SPIKE-04/dispose-then-ensure-brings-both-back",
+   "SPIKE-04/one-connection-at-a-time-for-one-key",
+   "REV5-SESS/a-clear-and-leave-is-a-wipe-the-reconnect-owes",
+   "REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects",
+   "REV5-SESS/a-close-that-never-finishes-is-overdue",
+   "STREAM5-REPAIR/a-release-abandons-the-read",
+   "STREAM5-LOSE/when-places-and-releases-level-triggered"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "l4-position-unchecked",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-position-that-cannot-be-saved-at-registration-ends-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "l7-lose-keeps-moving",
+  "kills": [
+   "T1"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 324
+ },
+ {
+  "id": "d71-no-credit",
+  "kills": [
+   "D71"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken",
+   "STREAM5-LOSE/overflow-with-no-reconnect-ends-it",
+   "REV6-H7/overflow-reaches-a-stopped-pull-out-of-band",
+   "REV6-H7/overflow-with-a-running-pull-drains-then-fails",
+   "REV6-H7/a-deadline-is-armed-only-while-a-pull-is-out-T1"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "h7-overdue-never",
+  "kills": [
+   "rule:70"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-SESS/a-close-that-never-finishes-is-overdue"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "s-buffer-lost-at-complete",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/values-buffer-during-a-read-and-flush-after-its-pages",
+   "REV6-STREAMS/M2-end-mid-flush-discards-with-evidence"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "s-no-settle-at-complete",
+  "kills": [
+   "T3"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/first-open-reads-and-the-record-is-made-at-complete",
+   "STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does",
+   "STREAM5-REPAIR/gone-is-one-notice-then-what-is-kept",
+   "STREAM5-REPAIR/a-drop-discards-the-buffer-and-keeps-the-place",
+   "STREAM5-REPAIR/a-reload-during-a-read-reads-again",
+   "STREAM5-REPAIR/three-repairs-with-no-move-then-one-lost"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ },
+ {
+  "id": "s-page-items-move",
+  "kills": [
+   "T3"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "s-through-ignored",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 232
+ },
+ {
+  "id": "s-repeat-next-loops",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/a-page-that-repeats-ends-it",
+   "REV6-STREAMS/M13-two-empty-pages-stall"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "s-gone-no-notice",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/gone-is-one-notice-then-what-is-kept"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 230
+ },
+ {
+  "id": "s-churn-no-restart",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/a-registration-during-a-read-restarts-it-no-second-notice"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ },
+ {
+  "id": "s-proof-restarts",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/a-proof-during-a-read-stays"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 229
+ },
+ {
+  "id": "s-abandon-not-sent",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-REPAIR/a-release-abandons-the-read"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "s-flap-counts-silent",
+  "kills": [
+   "sec:2.11.10"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LOSE/silence-is-not-a-flap"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "s-flap-never",
+  "kills": [
+   "sec:2.11.10"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LOSE/eight-short-connections-flap"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "s-healthy-keeps-flaps",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LOSE/a-healthy-minute-clears-flaps"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ },
+ {
+  "id": "s-listen-no-gap",
+  "kills": [
+   "T7"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "s-listen-proof-gaps",
+  "kills": [
+   "T7"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/a-proven-registration-is-no-gap"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 237
+ },
+ {
+  "id": "s-listen-from-lost",
+  "kills": [
+   "T7"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/from-is-the-sessions-own-last-position"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "s-latest-no-retract",
+  "kills": [
+   "T5"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LATEST/newest-wins-while-a-turn-is-behind"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "s-latest-heard-ignored",
+  "kills": [
+   "T5"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "rss",
+  "peakMb": 1527
+ },
+ {
+  "id": "s-latest-live-confirms",
+  "kills": [
+   "T5"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LATEST/live-alone-does-not-confirm-proof-confirms-its-own"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ },
+ {
+  "id": "s-latest-down-keeps-confirmed",
+  "kills": [
+   "T5"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 363
+ },
+ {
+  "id": "s-when-ignored",
+  "kills": [
+   "D69"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LOSE/when-places-and-releases-level-triggered"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "e-gap-ignored",
+  "kills": [
+   "T7"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "d74-older-is-newer",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H8/an-older-version-drops-whatever-its-kind-no-repair",
+   "REV5-H8/a-success-older-than-what-we-hold-drops",
+   "REV5-H8/a-tombstone-has-a-version",
+   "STREAM5-LISTEN/version-frames-place-themselves",
+   "REV6-H1/an-older-frame-before-the-first-row-loses",
+   "REV6-H3/a-declared-lexical-order-compares",
+   "REV6-H3/numbers-still-order",
+   "REV6-TWOFEEDS/with-a-version-frames-may-cross"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 237
+ },
+ {
+  "id": "d74-newer-ignores-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it",
+   "REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "d74-equal-gone-applies",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 240
+ },
+ {
+  "id": "d74-equal-gone-after-is-older",
+  "kills": [
+   "D74"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 342
+ },
+ {
+  "id": "d74-equal-ignores-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it",
+   "REV6-H2/a-partial-frame-is-no-echo",
+   "REV6-H2/a-repair-obeys-the-judge"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 245
+ },
+ {
+  "id": "d74-frame-ignores-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it",
+   "STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too",
+   "REV6-H2/a-repair-obeys-the-judge",
+   "REV6-H3/a-string-write-still-defends-itself-by-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "d74-early-is-newer",
+  "kills": [
+   "D74"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 335
+ },
+ {
+  "id": "d74-read-ignores-landing",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "LIKE-01",
+   "STORE-05/retry-success-clears",
+   "HIGH-04",
+   "MED-03/stale-repair-runs-again",
+   "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+   "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean",
+   "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ },
+ {
+  "id": "d74-read-ignores-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 351
+ },
+ {
+  "id": "d74-past-claim-ge",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "d74-repair-older-no-again",
+  "kills": [
+   "D74"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 336
+ },
+ {
+  "id": "d74-echo-any-field",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "CART-02/repriced-under-pending",
+   "MED-03/stale-read-does-not-overwrite-a-confirmed-write",
+   "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
+   "REV4-H1/the-doubt-outlives-a-failed-repair",
+   "REV5-H8/the-same-without-a-version-costs-a-read",
+   "STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too",
+   "REV6-H2/a-repair-obeys-the-judge"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "d74-echo-absent-counts",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H2/a-partial-frame-is-no-echo",
+   "REV6-H2/a-repair-obeys-the-judge"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 235
+ },
+ {
+  "id": "d74-echo-keeps-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/an-echo-clears-the-unplaced-write-at-no-cost",
+   "REV6-H2/a-whole-echo-clears-the-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "d74-success-no-doubt",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "LIKE-01",
+   "STORE-05/retry-success-clears",
+   "CART-02/repriced-under-pending",
+   "HIGH-04",
+   "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+   "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean",
+   "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 257
+ },
+ {
+  "id": "d74-merge-at-equal-doubts",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "d74-merge-loses-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it",
+   "REV6-H2/a-partial-frame-is-no-echo"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "d74-ordered-still-conflicts",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H2/other-fields-of-a-newer-frame-merge-under-a-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "d74-unordered-no-conflict",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "LIKE-01",
+   "STORE-05/retry-success-clears",
+   "HIGH-04",
+   "MED-03/stale-repair-runs-again",
+   "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+   "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean",
+   "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it",
+   "REV6-H1/no-version-it-is-marked-and-asked",
+   "REV6-H2/a-repair-obeys-the-judge"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "d74-fill-loses-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H1/a-success-before-the-first-row-is-a-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 259
+ },
+ {
+  "id": "d74-fill-no-doubt",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H1/a-success-before-the-first-row-is-a-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 232
+ },
+ {
+  "id": "d74-gone-not-marked",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back",
+   "REV6-H1/a-remove-before-the-first-row-stays-removed"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "d74-tombstone-loses-floor",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back",
+   "REV5-H8/a-tombstone-has-a-version",
+   "STREAM5-LISTEN/version-frames-place-themselves"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "d74-repair-ignores-again",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H2/a-repair-obeys-the-judge"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 235
+ },
+ {
+  "id": "d74-doubt-cleared-by-early-read",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 232
+ },
+ {
+  "id": "d74-claim-not-set-on-fields",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "d74-held-field-claim-dropped",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV5-H3/no-version-a-read-overlapping-a-confirmed-archive-doubts",
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it",
+   "STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it",
+   "REV6-H2/a-partial-frame-is-no-echo",
+   "REV6-H2/a-repair-obeys-the-judge",
+   "REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted",
+   "REV6-H3/a-string-write-still-defends-itself-by-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "d74-no-base-no-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H1/a-success-before-the-first-row-is-a-claim"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 252
+ },
+ {
+  "id": "d74-remove-no-claim",
+  "kills": [
+   "D74"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 321
+ },
+ {
+  "id": "d75-strings-order",
+  "kills": [
+   "D75"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H3/string-versions-have-no-order-unless-declared",
+   "REV6-H3/electric-offsets-are-strings"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "d75-lexical-ignored",
+  "kills": [
+   "D75"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H3/a-declared-lexical-order-compares"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "d76-frame-dropped",
+  "kills": [
+   "D76"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H1/a-frame-before-the-first-row-is-kept",
+   "REV6-H1/no-version-it-is-marked-and-asked"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 235
+ },
+ {
+  "id": "d76-no-replay",
+  "kills": [
+   "D76"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H1/a-frame-before-the-first-row-is-kept",
+   "REV6-H1/no-version-it-is-marked-and-asked"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "d76-later-read-replays",
+  "kills": [
+   "D76"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H1/a-read-that-started-after-the-frame-needs-no-stub"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 245
+ },
+ {
+  "id": "d76-older-stub-overwrites",
+  "kills": [
+   "D76"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 335
+ },
+ {
+  "id": "d77-backoff-bare",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-throwing-backoff-does-not-stop-streaming",
+   "REV6-H4/a-backoff-of-no-shape-is-not-an-hour-L5"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "d77-while-bare",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-throwing-reconnect-while-means-not-retried",
+   "REV6-H4/other-machines-keep-streaming"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 236
+ },
+ {
+  "id": "d77-page-while-bare",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-throwing-page-retry-means-not-retried"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ },
+ {
+  "id": "d77-key-bare",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-throwing-key-places-no-session"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "d77-backoff-unchecked",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-backoff-of-no-shape-is-not-an-hour-L5"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 256
+ },
+ {
+  "id": "d77-unknown-closure-ok",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "crash",
+  "peakMb": 40
+ },
+ {
+  "id": "m11-no-copy",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-throwing-getter-refuses-at-the-gate-M11"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 241
+ },
+ {
+  "id": "m12-not-sealed",
+  "kills": [
+   "D77"
+  ],
+  "killed": true,
+  "killers": [
+   "ORDER-05",
+   "DRV-03/throw-at-settlement",
+   "LIKE-01",
+   "LIKE-02",
+   "LIKE-03",
+   "LIKE-04",
+   "LIKE-05",
+   "LIKE-06",
+   "STORE-01",
+   "STORE-02",
+   "STORE-03",
+   "STORE-04/Rejected",
+   "STORE-04/Superseded",
+   "STORE-04/Superseded-head",
+   "STORE-04/Cancelled",
+   "STORE-04/Restored",
+   "STORE-04/Restored-W",
+   "STORE-04/StorageRefused",
+   "STORE-04/Disposed",
+   "STORE-04/NothingToResend",
+   "STORE-05/retry-success-clears",
+   "STORE-05/failed-retry-does-not",
+   "STORE-05/a-read-does-not",
+   "STORE-05/a-later-failure-does-not",
+   "STORE-11/a-resend-waits-for-its-repair",
+   "STORE-11/cancel-a-waiting-resend",
+   "STORE-11/stillunknown-keeps-its-place",
+   "STORE-07/released-entry-leaves-at-the-bound",
+   "STORE-07/a-live-hold-outranks-the-bound",
+   "STORE-07/a-late-repair-is-fenced",
+   "STORE-08",
+   "STORE-09",
+   "STORE-10",
+   "CART-01",
+   "CART-02/five-taps",
+   "CART-02/lines-independent",
+   "CART-02/at-most-nine",
+   "CART-02/remove-asked",
+   "CART-02/page-and-header",
+   "CART-02/repriced-under-pending",
+   "CART-02/coupon",
+   "REFUND-01/three-refunds",
+   "REFUND-01/unsure-holds-the-charge",
+   "REFUND-01/reload-mid-refund",
+   "REFUND-01/sixty-five",
+   "LIB-02",
+   "LIB-03",
+   "HIGH-01/retry-then-cancel-releases",
+   "HIGH-01/retry-then-commit-queues-behind",
+   "HIGH-01/retry-then-refuse-holds",
+   "HIGH-03/confirms-throws-on-a-shape",
+   "HIGH-03/a-read-mapper-throws",
+   "HIGH-04",
+   "HIGH-04b",
+   "MED-01/cancel-waits-for-its-ack",
+   "MED-01/cancel-refused-by-storage",
+   "MED-01/landed-without-ack-then-reload",
+   "MED-01/latest-replace-waits-for-its-ack",
+   "MED-01/other-actor-behind-a-hung-ack",
+   "MED-02/record-held-names-holder-and-waiter",
+   "MED-03/stale-read-does-not-overwrite-a-confirmed-write",
+   "MED-03/a-read-started-after-the-write-applies",
+   "MED-03/stale-repair-runs-again",
+   "MED-07/repair-stops-at-its-bound",
+   "MED-07/disposal-stops-module-fibers",
+   "MED-07/a-survivor-is-evidence",
+   "MED-08",
+   "SURV-01",
+   "SURV-02",
+   "SURV-03",
+   "SURV-04",
+   "SURV-05",
+   "SURV-06",
+   "SURV-07",
+   "SURV-08",
+   "SURV-10",
+   "STORE-12",
+   "FRAG-08/rebind-delivers-a-hold-once",
+   "FRAG-08/non-persisted-with-no-return-is-evidence",
+   "FRAG-11/deleteRefused",
+   "FRAG-12/unbound-hold-with-a-waiter-yields",
+   "FRAG-12/bound-hold-never-yields",
+   "FRAG-12/unbound-hold-with-no-waiter-stays",
+   "FRAG-13",
+   "FRAG-14",
+   "FRAG-16/denied-keeps-the-cell-and-promotes",
+   "FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time",
+   "FRAG-20/no-waiter-left-no-yield",
+   "REV4-H1/a-read-started-during-a-write-does-not-overwrite-it",
+   "REV4-H1/a-read-started-after-the-write-applies-with-no-extra-read",
+   "REV4-H1/the-doubt-outlives-a-failed-repair",
+   "REV4-H2/a-confirmed-write-is-shown-during-the-repair-and-stays-marked",
+   "REV4-H2/one-failed-repair-does-not-leave-the-screen-wrong-and-clean",
+   "REV4-H2/a-read-that-started-before-the-doubt-does-not-clear-it",
+   "REV4-H2/a-confirms-mapper-that-throws-keeps-the-mark",
+   "REV4-H4/a-schedule-of-no-length-refuses-the-turn",
+   "REV4-H4/a-record-field-of-a-bigint-does-not-disable-the-store",
+   "REV4-H4/a-mapper-of-no-shape-does-not-disable-the-store",
+   "REV4-M1",
+   "REV4-L1",
+   "REV4-L4",
+   "REAL-03/persisted-host-with-the-store",
+   "REAL-05/pin-predicts-confirms-and-an-idle-guard-holds",
+   "REAL-05/pin-unsure-releases-and-the-look-stays-marked",
+   "SPIKE-01/first-open-registers-and-names-a-place",
+   "SPIKE-01/a-value-and-its-bookmark-are-one-write",
+   "SPIKE-01/a-denied-value-still-moves-the-bookmark",
+   "SPIKE-01/values-in-order-one-in-mail",
+   "SPIKE-01/a-value-before-any-hello-registers-first",
+   "SPIKE-02/a-reload-restores-memory-and-bookmark-together",
+   "SPIKE-02/the-servers-echo-is-proof-no-notice",
+   "SPIKE-02/a-drop-reconnects-from-the-bookmark-on-the-backoff",
+   "SPIKE-02/idle-loses-it-a-ping-re-arms-it-a-ping-before-hello-does-not",
+   "SPIKE-02/a-server-reset-moves-the-bookmark-at-the-notices-admission",
+   "SPIKE-02/a-reset-at-the-first-open-is-silent",
+   "SPIKE-02/a-wipe-the-field-emptied-reads-as-owed",
+   "SPIKE-03/bookmark-is-a-member-on-after-memory",
+   "SPIKE-03/a-refused-turn-takes-its-member-with-it",
+   "SPIKE-03/refetch-forgets-the-place",
+   "SPIKE-03/a-value-in-mail-when-its-placement-ends-is-discarded",
+   "SPIKE-03/with-no-session-placed-T3-only",
+   "SPIKE-04/a-session-belongs-to-its-incarnation-a-reset-is-a-new-slice",
+   "SPIKE-04/an-old-value-in-mail-does-not-reach-the-new-slice",
+   "SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place",
+   "SPIKE-04/a-frozen-partition-survives-a-reload",
+   "SPIKE-04/dispose-then-ensure-brings-both-back",
+   "SPIKE-04/one-connection-at-a-time-for-one-key",
+   "SPIKE-05/a-refused-value-ends-the-session",
+   "SPIKE-05/a-failure-delivery-refused-once-comes-again",
+   "SPIKE-05/a-module-defect-fails-closed-and-no-value-is-lost",
+   "SPIKE-05/a-position-that-cannot-be-saved-ends-the-session",
+   "REV5-H1/prototype-names-at-the-doors",
+   "REV5-H1/a-server-tag-named-like-a-prototype-key-is-unmapped",
+   "REV5-H1/each-closure-kind-of-no-shape-refuses-its-turn",
+   "REV5-H1/ensure-of-an-unknown-machine",
+   "SEARCH-ODD-ALL",
+   "REV5-H2/stored-names-like-prototype-keys",
+   "REV5-H3/no-version-a-read-overlapping-a-confirmed-archive-doubts",
+   "REV5-H3/version-the-same-read-cannot-show-the-write-and-does-not-undo-it",
+   "REV5-H3/a-resend-with-nothing-carried-and-no-prediction-doubts",
+   "REV5-H3/a-confirmed-remove-stays-removed",
+   "REV5-H3/an-old-list-does-not-bring-a-removed-record-back",
+   "REV5-H3/many-records-one-write",
+   "REV5-H8/an-older-version-drops-whatever-its-kind-no-repair",
+   "REV5-H8/the-same-without-a-version-costs-a-read",
+   "REV5-H8/a-newer-version-applies-whatever-overlaps",
+   "REV5-H8/a-success-older-than-what-we-hold-drops",
+   "REV5-H8/equal-versions-merge-and-confirm-a-partial-answer",
+   "REV5-H8/a-tombstone-has-a-version",
+   "REV5-H8/a-version-of-no-shape-falls-back-with-an-issue",
+   "REV5-H8/a-mark-is-not-a-versions-to-clear",
+   "REV5-H4",
+   "REV5-SESS/a-burst-keeps-one-in-mail",
+   "REV5-SESS/a-notice-and-a-value-at-once-are-still-one-at-a-time",
+   "REV5-SESS/a-clear-and-leave-is-a-wipe-the-reconnect-owes",
+   "REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects",
+   "REV5-SESS/a-close-that-never-finishes-is-overdue",
+   "REV5-SESS/a-member-stops-what-is-already-in-mail-from-moving",
+   "REV5-SESS/a-proof-with-nothing-claimed-is-not-believed",
+   "REV5-SESS/a-healthy-minute-resets-the-backoff",
+   "REV5-SESS/a-value-with-no-position-keeps-the-place",
+   "REV5-SESS/a-value-re-arms-idle",
+   "REV5-SESS/a-failure-behind-a-release-is-discarded",
+   "REV5-SESS/input-is-read-once",
+   "REV5-SESS/end-delivers-what-is-queued-first",
+   "REV5-SESS/end-behind-a-queued-value-under-a-slow-drain",
+   "REV5-SESS/under-pull-a-drop-cannot-overtake-a-value-already-taken",
+   "REV5-SESS/a-reset-mark-does-not-outlive-its-notice",
+   "REV5-SESS/a-member-with-an-empty-field-writes-filled-false",
+   "REV5-SESS/a-position-that-cannot-be-saved-at-registration-ends-it",
+   "REV5-SESS/a-drop-with-one-in-mail-loses-what-moves",
+   "STREAM5-PULL/a-pulled-source-waits-for-the-turn",
+   "STREAM5-PULL/every-value-still-arrives-in-order",
+   "STREAM5-PULL/a-closed-source-ends-its-pull",
+   "STREAM5-REPAIR/first-open-reads-and-the-record-is-made-at-complete",
+   "STREAM5-REPAIR/values-buffer-during-a-read-and-flush-after-its-pages",
+   "STREAM5-REPAIR/a-page-item-does-not-move-the-bookmark-through-does",
+   "STREAM5-REPAIR/gone-is-one-notice-then-what-is-kept",
+   "STREAM5-REPAIR/a-drop-discards-the-buffer-and-keeps-the-place",
+   "STREAM5-REPAIR/a-registration-during-a-read-restarts-it-no-second-notice",
+   "STREAM5-REPAIR/a-proof-during-a-read-stays",
+   "STREAM5-REPAIR/a-page-that-repeats-ends-it",
+   "STREAM5-REPAIR/a-page-failure-retries-with-the-socket-open",
+   "STREAM5-REPAIR/any-other-page-failure-ends",
+   "STREAM5-REPAIR/a-page-of-no-shape-is-defect",
+   "STREAM5-REPAIR/pages-map-to-one-turn",
+   "STREAM5-REPAIR/a-bookmark-member-restarts-from-its-place-no-notice",
+   "STREAM5-REPAIR/refetch-reads-from-nothing",
+   "STREAM5-REPAIR/a-reload-during-a-read-reads-again",
+   "STREAM5-REPAIR/a-release-abandons-the-read",
+   "STREAM5-REPAIR/three-repairs-with-no-move-then-one-lost",
+   "STREAM5-LOSE/eight-short-connections-flap",
+   "STREAM5-LOSE/a-healthy-minute-clears-flaps",
+   "STREAM5-LOSE/silence-is-not-a-flap",
+   "STREAM5-LOSE/a-tag-while-refuses-ends-by-that-tag",
+   "STREAM5-LOSE/a-tag-while-accepts-reconnects",
+   "STREAM5-LOSE/overflow-with-no-reconnect-ends-it",
+   "STREAM5-LOSE/when-places-and-releases-level-triggered",
+   "STREAM5-LISTEN/version-frames-place-themselves",
+   "STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it",
+   "STREAM5-LISTEN/an-echo-clears-the-unplaced-write-at-no-cost",
+   "STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too",
+   "STREAM5-LISTEN/a-version-bump-alone-is-an-echo",
+   "STREAM5-LISTEN/with-no-write-a-frame-just-applies-no-read",
+   "STREAM5-LISTEN/a-patch-of-a-record-nobody-holds-changes-nothing",
+   "STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier",
+   "STREAM5-LISTEN/a-proven-registration-is-no-gap",
+   "STREAM5-LISTEN/from-is-the-sessions-own-last-position",
+   "STREAM5-LATEST/a-value-is-implicit-live-and-delivers",
+   "STREAM5-LATEST/newest-wins-while-a-turn-is-behind",
+   "STREAM5-LATEST/an-equal-value-confirms-and-is-not-heard-again",
+   "STREAM5-LATEST/a-drop-stops-value-being-current",
+   "STREAM5-LATEST/live-alone-does-not-confirm-proof-confirms-its-own",
+   "REV6-ENGINE/a-poke-is-atomic-one-publication",
+   "REV6-ENGINE/confirmed-and-visible-cannot-disagree",
+   "REV6-ENGINE/blocks-false-drops-D3-the-server-orders",
+   "REV6-ENGINE/an-older-cookie-changes-nothing-a-hole-asks-again",
+   "REV6-H1/a-frame-before-the-first-row-is-kept",
+   "REV6-H1/an-older-frame-before-the-first-row-loses",
+   "REV6-H1/no-version-it-is-marked-and-asked",
+   "REV6-H1/a-read-that-started-after-the-frame-needs-no-stub",
+   "REV6-H1/a-success-before-the-first-row-is-a-claim",
+   "REV6-H2/gone-keeps-its-version-and-a-row-there-is-older",
+   "REV6-H2/a-partial-frame-is-no-echo",
+   "REV6-H2/a-repair-obeys-the-judge",
+   "REV6-H2/a-success-with-a-version-settles-an-older-claim-L7",
+   "REV6-H2/a-whole-echo-clears-the-claim",
+   "REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted",
+   "REV6-H2/other-fields-of-a-newer-frame-merge-under-a-claim",
+   "REV6-H3/string-versions-have-no-order-unless-declared",
+   "REV6-H3/electric-offsets-are-strings",
+   "REV6-H3/a-string-write-still-defends-itself-by-claim",
+   "REV6-H3/a-declared-lexical-order-compares",
+   "REV6-H3/numbers-still-order",
+   "REV6-TWOFEEDS/with-a-version-frames-may-cross",
+   "REV6-TWOFEEDS/with-no-version-the-stated-limit",
+   "REV6-H4/a-throwing-backoff-does-not-stop-streaming",
+   "REV6-H4/a-backoff-of-no-shape-is-not-an-hour-L5",
+   "REV6-H4/a-throwing-reconnect-while-means-not-retried",
+   "REV6-H4/a-throwing-page-retry-means-not-retried",
+   "REV6-H4/a-throwing-key-places-no-session",
+   "REV6-H4/other-machines-keep-streaming",
+   "REV6-H4/a-throwing-subscribe-is-a-defect-M4",
+   "REV6-H4/a-dying-stream-is-a-defect-M4",
+   "REV6-H4/a-throwing-getter-refuses-at-the-gate-M11",
+   "REV6-H7/a-read-that-never-answers-does-not-wedge",
+   "REV6-H7/three-silent-reads-make-one-lost",
+   "REV6-H7/overflow-reaches-a-stopped-pull-out-of-band",
+   "REV6-H7/overflow-with-a-running-pull-drains-then-fails",
+   "REV6-H7/a-deadline-is-armed-only-while-a-pull-is-out-T1",
+   "REV6-STREAMS/M1-a-read-banks-no-credit",
+   "REV6-STREAMS/M2-end-mid-flush-discards-with-evidence",
+   "REV6-STREAMS/M3-a-member-stops-the-in-mail-value-with-catchUp",
+   "REV6-STREAMS/L2-down-disarms-healthy-and-idle",
+   "REV6-STREAMS/L4-a-value-with-a-field-named-feed-is-a-value",
+   "REV6-STREAMS/M13-a-denied-value-moves-the-bookmark",
+   "REV6-STREAMS/M13-a-ping-does-not-re-arm-connecting",
+   "REV6-STREAMS/M13-two-empty-pages-stall"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 225
+ },
+ {
+  "id": "d78-no-rekey",
+  "kills": [
+   "D78"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold",
+   "REV6-H5/the-rekeyed-lane-is-what-a-guard-reads"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 242
+ },
+ {
+  "id": "d78-old-id-stays",
+  "kills": [
+   "D78"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H5/the-rekeyed-lane-is-what-a-guard-reads"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "d78-no-evidence",
+  "kills": [
+   "D78"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H5/a-release-that-changes-a-key-does-not-mint-beside-a-hold"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 246
+ },
+ {
+  "id": "d79-no-out-of-band",
+  "kills": [
+   "D79"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LOSE/overflow-with-no-reconnect-ends-it",
+   "REV6-H7/overflow-reaches-a-stopped-pull-out-of-band"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "d79-out-of-band-any",
+  "kills": [
+   "D79"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H7/overflow-with-a-running-pull-drains-then-fails"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "d79-no-page-deadline",
+  "kills": [
+   "D79"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H7/a-read-that-never-answers-does-not-wedge",
+   "REV6-H7/three-silent-reads-make-one-lost"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 253
+ },
+ {
+  "id": "d79-page-deadline-not-disarmed",
+  "kills": [
+   "D79"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 319
+ },
+ {
+  "id": "d79-idle-while-stopped",
+  "kills": [
+   "D79"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 325
+ },
+ {
+  "id": "d79-pagesilent-no-stall",
+  "kills": [
+   "D79"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 335
+ },
+ {
+  "id": "t6-unbounded",
+  "kills": [
+   "T6"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LOSE/overflow-with-no-reconnect-ends-it",
+   "REV6-H7/overflow-reaches-a-stopped-pull-out-of-band",
+   "REV6-H7/overflow-with-a-running-pull-drains-then-fails"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 247
+ },
+ {
+  "id": "t6-no-drain",
+  "kills": [
+   "T6"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H7/overflow-with-a-running-pull-drains-then-fails"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "t6-down-hidden",
+  "kills": [
+   "T6"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 333
+ },
+ {
+  "id": "t6-weaker-upgrades",
+  "kills": [
+   "T6"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 343
+ },
+ {
+  "id": "t6-no-finalizer",
+  "kills": [
+   "T6"
+  ],
+  "killed": true,
+  "killers": [
+   "SPIKE-03/with-no-session-placed-T3-only",
+   "SPIKE-04/a-session-belongs-to-its-incarnation-a-reset-is-a-new-slice",
+   "SPIKE-04/a-freeze-releases-and-a-thaw-comes-back-from-the-same-place",
+   "SPIKE-04/dispose-then-ensure-brings-both-back",
+   "SPIKE-04/one-connection-at-a-time-for-one-key",
+   "REV5-SESS/a-leave-and-return-during-a-slow-close-waits-then-connects",
+   "REV5-SESS/a-close-that-never-finishes-is-overdue",
+   "STREAM5-LOSE/when-places-and-releases-level-triggered"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 248
+ },
+ {
+  "id": "m1-banks-credit",
+  "kills": [
+   "T4"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 345
+ },
+ {
+  "id": "m2-end-silent",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "SPIKE-05/a-refused-value-ends-the-session",
+   "SPIKE-05/a-position-that-cannot-be-saved-ends-the-session",
+   "STREAM5-PULL/a-pulled-source-waits-for-the-turn",
+   "REV6-STREAMS/M2-end-mid-flush-discards-with-evidence"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ },
+ {
+  "id": "m3-value-keeps-moving",
+  "kills": [
+   "T3"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-STREAMS/M3-a-member-stops-the-in-mail-value-with-catchUp"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "m4-defect-reconnects",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-H4/a-throwing-subscribe-is-a-defect-M4",
+   "REV6-H4/a-dying-stream-is-a-defect-M4"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "l2-healthy-stays",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-STREAMS/L2-down-disarms-healthy-and-idle"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 244
+ },
+ {
+  "id": "l4-any-feed-field",
+  "kills": [
+   "T1"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-STREAMS/L4-a-value-with-a-field-named-feed-is-a-value"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 257
+ },
+ {
+  "id": "l5-module-timer-unguarded",
+  "kills": [
+   "D77"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 343
+ },
+ {
+  "id": "d80-failed-not-retried",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-M7/a-failed-plain-write-is-not-believed"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 251
+ },
+ {
+  "id": "d80-retry-overwrites-newer",
+  "kills": [
+   "D80"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 326
+ },
+ {
+  "id": "d80-no-issue",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-M7/a-failed-plain-write-is-not-believed"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "d80-awaited-does-not-flush",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-CAPTURE/an-awaited-write-carries-what-waits-with-it"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "d80-coalesce-ignored",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-CAPTURE/plain-writes-coalesce-to-the-newest",
+   "REV6-CAPTURE/a-crash-loses-plain-memory-and-only-that"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 254
+ },
+ {
+  "id": "d80-gate-skips-memory",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "HIGH-02/persisted-memory-that-cannot-encode",
+   "REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine",
+   "SPIKE-05/a-position-that-cannot-be-saved-ends-the-session"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 243
+ },
+ {
+  "id": "d80-cycle-passes",
+  "kills": [
+   "D80"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 324
+ },
+ {
+  "id": "d80-bigint-passes",
+  "kills": [
+   "D80"
+  ],
+  "killed": true,
+  "killers": [
+   "HIGH-02/persisted-memory-that-cannot-encode",
+   "REV4-H4/memory-initial-of-a-bigint-on-a-persisted-machine",
+   "SPIKE-05/a-position-that-cannot-be-saved-ends-the-session"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 234
+ },
+ {
+  "id": "d80-persist-off-ignored",
+  "kills": [
+   "D80"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 339
+ },
+ {
+  "id": "d81-publish-nobody",
+  "kills": [
+   "D81"
+  ],
+  "killed": true,
+  "killers": [
+   "STREAM5-LISTEN/version-frames-place-themselves",
+   "STREAM5-LISTEN/a-frame-before-a-confirmed-write-does-not-silently-undo-it",
+   "STREAM5-LISTEN/an-echo-clears-the-unplaced-write-at-no-cost",
+   "STREAM5-LISTEN/a-write-with-a-row-and-no-version-stands-unplaced-too",
+   "STREAM5-LISTEN/a-version-bump-alone-is-an-echo",
+   "STREAM5-LISTEN/with-no-write-a-frame-just-applies-no-read",
+   "STREAM5-LISTEN/an-unproven-registration-rereads-what-was-read-earlier",
+   "REV6-ENGINE/a-poke-is-atomic-one-publication",
+   "REV6-ENGINE/confirmed-and-visible-cannot-disagree",
+   "REV6-ENGINE/blocks-false-drops-D3-the-server-orders",
+   "REV6-ENGINE/an-older-cookie-changes-nothing-a-hole-asks-again",
+   "REV6-H1/a-frame-before-the-first-row-is-kept",
+   "REV6-H1/no-version-it-is-marked-and-asked",
+   "REV6-H2/a-repair-obeys-the-judge",
+   "REV6-H2/a-success-with-a-version-settles-an-older-claim-L7",
+   "REV6-H2/a-whole-echo-clears-the-claim",
+   "REV6-H2/a-differing-newer-frame-over-a-claim-is-doubted",
+   "REV6-H2/other-fields-of-a-newer-frame-merge-under-a-claim",
+   "REV6-H3/string-versions-have-no-order-unless-declared",
+   "REV6-H3/electric-offsets-are-strings",
+   "REV6-H3/a-string-write-still-defends-itself-by-claim",
+   "REV6-H3/a-declared-lexical-order-compares",
+   "REV6-H3/numbers-still-order",
+   "REV6-TWOFEEDS/with-a-version-frames-may-cross",
+   "REV6-TWOFEEDS/with-no-version-the-stated-limit"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 238
+ },
+ {
+  "id": "d82-restore-ignored",
+  "kills": [
+   "D82"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-M8/a-declared-decode-gives-the-new-field-its-default"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 249
+ },
+ {
+  "id": "l3-body-key-unchecked",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-L3/a-stored-key-of-proto-quarantines"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 256
+ },
+ {
+  "id": "l3-frag-unchecked",
+  "kills": [
+   "D57"
+  ],
+  "killed": true,
+  "killers": [
+   "REV6-L3/a-stored-frag-of-no-shape-quarantines"
+  ],
+  "author": "builder",
+  "by": "tests",
+  "peakMb": 239
+ }
+]

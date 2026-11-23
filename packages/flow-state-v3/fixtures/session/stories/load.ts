@@ -1,0 +1,81 @@
+import type { Story } from "../../../src/host/testing/index.ts";
+import { wallAvatar } from "../app.ts";
+import { acme, coreTeam, mainInbox, mainSession, newsletter, wallBadge } from "../app.ts";
+import { Mailer } from "../machines/mailer.ts";
+import { Badge } from "../machines/badge.ts";
+import { Session } from "../machines/session.ts";
+import { Team } from "../machines/team.ts";
+import { grownStory } from "./structure.ts";
+
+// A wall of `count` badges on the core team; the team is renamed, then every badge is pinged twice
+// in a burst.
+const wallOf = (id: string, count: number) => {
+  const badges = Array.from({ length: count }, (_, n) => wallBadge(n));
+
+  const built = badges.reduce<Story>(
+    (s, b) => s.ensure(b),
+    grownStory(id).ensure(acme).ensure(mainSession).ensure(coreTeam),
+  );
+
+  const renamed = built.send(coreTeam, Team.E.Rename({ name: "Platform" })).checkpoint("renamed");
+
+  return [...badges, ...badges]
+    .reduce((s, b) => s.send(b, Badge.E.Ping()), renamed)
+    .checkpoint("pinged");
+};
+
+/**
+ * How many badges the stress wall holds: more persisted records than any one screen keeps.
+ */
+export const STRESS_WALL = 5000;
+
+/**
+ * 64 badges on one team, renamed, then pinged in a burst: the rename adds 128 follow-ups.
+ */
+export const wall = wallOf("session/wall", 64);
+
+/**
+ * `STRESS_WALL` badges on one team, renamed, then pinged in a burst, each badge its own saved
+ * record. A stress Story, built on call and kept out of `stories`: its 15,000 steps are too long
+ * for the CLI's runs and the reload sweep.
+ */
+export const stressWall = () => wallOf("session/stress-wall", STRESS_WALL);
+
+/**
+ * A wall of `count` badges, renamed and pinged: one point of the bench's saved-identities series,
+ * built on call.
+ */
+export const wallOfSize = (count: number) => wallOf(`session/wall-${count}`, count);
+
+/**
+ * 65 header avatars on the main session; Ada signs in, so one admitted event adds 65 context
+ * updates and 65 onContext events.
+ */
+export const avatarWall = Array.from({ length: 65 }, (_, n) => wallAvatar(n))
+  .reduce<Story>((s, a) => s.ensure(a), grownStory("session/avatar-wall").ensure(acme))
+  .ensure(mainSession)
+  .send(mainSession, Session.E.SignIn({ user: "ada" }))
+  .checkpoint("signed in");
+
+/**
+ * The 65 header avatars on the main session, signed in; then 50 give-ups with no notice to clear,
+ * each an accepted turn of the session that leaves its state and memory the same objects, while
+ * all 65 avatars read it.
+ */
+export const waveNoop = Array.from({ length: 50 }).reduce<Story>(
+  (s) => s.send(mainSession, Session.E.GiveUp()),
+  Array.from({ length: 65 }, (_, n) => wallAvatar(n))
+    .reduce<Story>((s, a) => s.ensure(a), grownStory("session/wave-noop").ensure(acme))
+    .ensure(mainSession)
+    .send(mainSession, Session.E.SignIn({ user: "ada" })),
+);
+
+/**
+ * The newsletter's run: one turn sends its thousand copies to the main inbox, so a thousand
+ * messages wait in one mailbox, taken past the drain's yields.
+ */
+export const newsletterRun = grownStory("session/newsletter-run")
+  .ensure(mainInbox)
+  .ensure(newsletter)
+  .send(newsletter, Mailer.E.Run())
+  .checkpoint("delivered");

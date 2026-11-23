@@ -1,95 +1,39 @@
-import { scaffoldNotImplemented } from "../internal/scaffold.js";
-import type {
-  ActorRef,
-  App,
-  Definition,
-  Machine,
-  Module,
-  Persistence,
-  PersistenceStorage,
-  Resource,
-  RuntimeSetup,
-  Transaction,
-} from "./types.js";
-import type { FlowPath, FlowUsageCode } from "./types.js";
+import * as diagnosticOwner from "../diagnostic/diagnostic.js";
+import type { PublicDiagnostic } from "../diagnostic/diagnostic.js";
 
-export class FlowDisposeError extends Error {
-  readonly _tag = "FlowDisposeError" as const;
-}
+const Diagnostic = {
+  // RETURN_TYPE: Keeps internal diagnostic classification private on the public defect route.
+  Defect: (cause: unknown): PublicDiagnostic => diagnosticOwner.Defect(cause),
+  // RETURN_TYPE: Keeps internal diagnostic classification private on the public failure route.
+  Failure: (fields: diagnosticOwner.FailureFields): PublicDiagnostic =>
+    diagnosticOwner.Failure(fields),
+  // RETURN_TYPE: Keeps internal diagnostic classification private on the public interruption route.
+  Interrupt: (): PublicDiagnostic => diagnosticOwner.Interrupt(),
+} as const;
 
-export class FlowPersistenceError extends Error {
-  readonly _tag = "FlowPersistenceError" as const;
-}
+export { app, module } from "../app/app.js";
 
-export class FlowUsageError extends Error {
-  readonly _tag = "FlowUsageError" as const;
-  readonly code: FlowUsageCode;
-  readonly path: FlowPath;
-  readonly details: Readonly<Record<string, string | number | boolean | null>>;
+export { definition } from "../definition/definition.js";
 
-  constructor(
-    code: FlowUsageCode,
-    path: FlowPath = [],
-    details: Readonly<Record<string, string | number | boolean | null>> = {},
-  ) {
-    super(`Flow usage error: ${code}`);
-    this.name = "FlowUsageError";
-    this.code = code;
-    this.path = path;
-    this.details = details;
-  }
-}
+export { Diagnostic };
 
-export function actorRef(..._args: readonly unknown[]): ActorRef {
-  return scaffoldNotImplemented("actorRef");
-}
+export { Implementation } from "../implementation/implementation.js";
 
-export function app(..._args: readonly unknown[]): App {
-  return scaffoldNotImplemented("app");
-}
+export { machine } from "../machine/machine.js";
 
-export function can(..._args: readonly unknown[]): boolean {
-  return scaffoldNotImplemented("can");
-}
+export { resource } from "../operation/resource.js";
 
-export function definition(..._args: readonly unknown[]): Definition {
-  return scaffoldNotImplemented("definition");
-}
+export { stream } from "../operation/stream.js";
 
-export function indexedDbStorage(..._args: readonly unknown[]): PersistenceStorage {
-  return scaffoldNotImplemented("indexedDbStorage");
-}
+export { transaction } from "../operation/transaction.js";
 
-export function machine(..._args: readonly unknown[]): Machine {
-  return scaffoldNotImplemented("machine");
-}
+export { actorRef } from "../runtime/actor-ref.js";
 
-export function module(..._args: readonly unknown[]): Module {
-  return scaffoldNotImplemented("module");
-}
+export { runtimeSetup } from "../runtime/runtime.js";
 
-export function persistence(..._args: readonly unknown[]): Persistence {
-  return scaffoldNotImplemented("persistence");
-}
+// Deferred public values: future persistence and storage owners will publish these names.
+// export { can, indexedDbStorage, persistence, webStorage };
+// Deferred public values: future diagnostic owners will publish these names.
+// export { FlowDisposeError, FlowPersistenceError, FlowUsageError };
 
-export function resource(..._args: readonly unknown[]): Resource {
-  return scaffoldNotImplemented("resource");
-}
-
-export function runtimeSetup(..._args: readonly unknown[]): RuntimeSetup {
-  return scaffoldNotImplemented("runtimeSetup");
-}
-
-export function stream(..._args: readonly unknown[]): Definition {
-  return scaffoldNotImplemented("stream");
-}
-
-export function transaction(..._args: readonly unknown[]): Transaction {
-  return scaffoldNotImplemented("transaction");
-}
-
-export function webStorage(..._args: readonly unknown[]): PersistenceStorage {
-  return scaffoldNotImplemented("webStorage");
-}
-
-export type { CanonicalKeyInput, Implementation } from "./types.js";
+export type { CanonicalKeyInput, FlowStream, OperationOptions } from "./types.js";

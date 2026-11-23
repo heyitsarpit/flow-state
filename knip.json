@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@6.34.0/schema.json",
+  "workspaces": {
+    "packages/flow-state-v3": {
+      "entry": ["src/index.ts", "src/host/testing/index.ts", "src/**/*.test.ts", "tests/**/*.ts"],
+      "project": ["src/**/*.ts", "tests/**/*.ts"]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+== baseline, 600000 walks per configuration
+suite restart flags [] fails 0/4; walks 2400000; repairs 1680759; max repairs in one walk 12; conflicts raised 1121424; refreshes 0; fields marked at quiet 3953734/11400000 (34.7%); walks ending MayStillLand 646800; ending VersionWentBack (fields) 107013; RepairOverdue 337
+suite ties flags [] fails 0/13; walks 7800000; repairs 5778958; max repairs in one walk 11; conflicts raised 4207408; refreshes 0; fields marked at quiet 12874560/36600000 (35.2%); walks ending MayStillLand 2019044; ending VersionWentBack (fields) 2879; RepairOverdue 1578
+suite base flags [] fails 0/13; walks 7800000; repairs 5329563; max repairs in one walk 11; conflicts raised 2678642; refreshes 0; fields marked at quiet 12939639/36600000 (35.4%); walks ending MayStillLand 1972602; ending VersionWentBack (fields) 0; RepairOverdue 1010
+suite answers flags [] fails 0/13; walks 7800000; repairs 6017615; max repairs in one walk 10; conflicts raised 4880027; refreshes 23607880; fields marked at quiet 5400964/36600000 (14.8%); walks ending MayStillLand 1975120; ending VersionWentBack (fields) 0; RepairOverdue 821
+suite boxed flags [] fails 0/13; walks 7800000; repairs 5329563; max repairs in one walk 11; conflicts raised 2678642; refreshes 0; fields marked at quiet 12939639/36600000 (35.4%); walks ending MayStillLand 1972602; ending VersionWentBack (fields) 0; RepairOverdue 1010
+== trust list: each claim made false. These are meant to fail, 100000 walks
+suite trust.restartFeed flags [] fails 3/3; walks 68; repairs 25; max repairs in one walk 
+suite trust.lag flags [] fails 6/6; walks 22290; repairs 8425; max repairs in one walk 6; 
+suite trust.dedupe flags [] fails 13/13; walks 224890; repairs 157642; max repairs in one 
+suite trust.noAlsoChanges flags [] fails 13/13; walks 513; repairs 275; max repairs in one
+suite trust.lossy flags [] fails 8/13; walks 500831; repairs 318379; max repairs in one wa
+suite trust.feedOmitsDerived flags [] fails 6/13; walks 712251; repairs 476600; max repair
+suite trust.arrival flags [] fails 8/13; walks 882236; repairs 565878; max repairs in one 
+== mutants, 100000 walks per configuration: configurations failed, first failure
+alsoChangesClean (base): 13/13  | quiet: t shows 0, server 101
+beforeClosesNothing (base): 9/13  | stuck: conflict on t with nothing in flight
+blankAgrees (base): 10/13  | quiet: rev shows 1, server 2
+claimNoRev (base): 13/13  | quiet: t shows 0, server 101
+conflictsNeverClose (base): 13/13  | stuck: conflict on a with nothing in flight
+dropNoGap (base): 8/13  | quiet: $present shows true, server false
+fromAtLanding (base): 13/13  | quiet: a shows 0, server 506
+gapEntityWide (base): 1/13  | scope: $present marked by a gap in a session that does not cover it
+helloNoGap (base): 8/13  | quiet: $present shows true, server false
+identityEq (boxed): 13/13  | spurious doubt: 6 between equal values
+markEverything (base): 13/13  | scope: $present is uncertain and nothing touched it
+noBehind (base): 7/13  | quiet: t shows 0, server 501
+noDemote (base): 13/13  | level: a reads uncertain with its Attempt given up and a read after th
+noFieldScope (base): 10/13  | quiet: t shows 101, server 504
+noGap (base): 13/13  | quiet: $present shows true, server false
+noPresent (base): 0/13  | 
+noReask (base): 13/13  | stuck: conflict on b with nothing in flight
+noRowFree (base): 13/13  | after a late landing: a shows 503, server 102
+noRowVolatile (base): 13/13  | after a late landing: b shows 0, server 102
+noTie (ties): 9/13  | exit: b still in conflict after a fresh whole read
+noUnknown (base): 13/13  | quiet: b shows 0, server 101
+perCollectionBehind (base): 2/13  | scope: a marked behind by a collection's version
+proofAtEqual (base): 7/13  | after a late landing: b shows 0, server 101
+readClearsOpen (base): 13/13  | after a late landing: a shows 503, server 102
+readClearsQuiet (base): 13/13  | after a late landing: a shows 503, server 102
+recordScopeMarks (base): 13/13  | exit: $present reads uncertain after a fresh whole read
+reloadNoGap (base): 13/13  | quiet: $present shows true, server false
+rule32Clears (base): 13/13  | after a late landing: a shows 502, server 103
+sameKeepsLanded (base): 12/13  | exit: b reads unconfirmed:claim after a fresh whole read
+silentBefore (restart): 2/4  | exit: $present reads unconfirmed:gap after a fresh whole read
+volatileDoubts (base): 13/13  | after a late landing: a shows 503, server 102
+== sim: refresh
+refresh does not feed; per-record version, write every RTT requests after the kick 2 in 1000 RTTs; marks left: p null q unconfirmed:behind
+refresh does not feed; per-record version, write every 10 RTTs requests after the kick 2 in 1000 RTTs; marks left: p null q null
+MUTANT refresh feeds; per-record version, write every RTT  requests after the kick 1000 in 1000 RTTs; marks left: p null q unconfirmed:behind
+MUTANT refresh feeds; per-record version, write every 10 RTTs requests after the kick 2 in 1000 RTTs; marks left: p null q null
+per-collection, behind off, this record never written      requests after the kick 0 in 1000 RTTs; marks left: p null q null
+MUTANT per-collection with behind on, refresh feeds        requests after the kick 1000 in 1000 RTTs; marks left: p null q unconfirmed:behind
+== traces
+H2 A1 retitle {title,v2}, then list row v1     $present=true title=new slug=s[unconfirmed:behind] archived=false[unconfirmed:behind] total=10[unconfirmed:behind] revision=2 conflicts:0 open:0
+H2 A2 204, frame {title,v3}, row v1            $present=true title=x slug=s archived=true[uncertain] total=10 revision=3 conflicts:1 open:0
+H2 A3 frame v5, then rename ok whole v4        $present=true title=mine slug=s archived=true total=10 revision=5 conflicts:0 open:0
+H2 A4 tombstone v2, frame {title,v3}           $present=true title=x slug=-[absent] archived=-[absent] total=-[absent] revision=3 conflicts:0 open:0
+M12 doubt on archived, projection of title     $present=true title=t slug=s[unconfirmed:behind] archived=false[uncertain] total=10[unconfirmed:behind] revision=3 conflicts:1 open:0
+M5 10 versioned frames during a repair         $present=true title=b11 slug=s archived=false total=10 revision=11 conflicts:0 open:0
+   repairs still wanted: false
+H1 tie: read after says y at 100; reads 1      $present=true title=y slug=s archived=false total=10 revision=100 conflicts:0 open:0
+H1b tie, the read overlaps: doubt, not a take  $present=true title=z[uncertain] slug=s archived=false total=10 revision=100 conflicts:1 open:0
+T2 tomb v6, re-created v1; asks 3 (max 3)      $present=false[uncertain] title=-[absent] slug=-[absent] archived=-[absent] total=-[absent] revision=-[absent] conflicts:6 open:0
+   named: VersionWentBack
+T2 exit: the version passes what we hold       $present=true title=new2 slug=s archived=false total=10 revision=7 conflicts:0 open:0
+T3 404 no version, then exists at v1           $present=true title=x slug=s archived=false total=10 revision=1 conflicts:0 open:0
+T4 204 no bump                                 $present=true title=x2[unconfirmed:claim] slug=s archived=false total=10 revision=1[unconfirmed:claim] conflicts:0 open:0
+T4 read agrees at v1: claim ends               $present=true title=x2 slug=s archived=false total=10 revision=1 conflicts:0 open:0
+T4b server ignored it, or a lagging replica    $present=true title=x2[uncertain] slug=s archived=false total=10 revision=1 conflicts:1 open:0
+T4b exit: a later version                      $present=true title=x3 slug=s archived=false total=10 revision=2 conflicts:0 open:0
+H4 204, .alsoChanges total                     $present=true title=n[unconfirmed:claim] slug=s archived=false total=10[unconfirmed:claim] revision=1[unconfirmed:claim] conflicts:0 open:0
+H4 read after                                  $present=true title=n slug=s archived=false total=10 revision=2 conflicts:0 open:0
+Q1 Save A, unknown, Held                       $present=true title=A[uncertain] slug=s archived=false total=10 revision=1[uncertain] conflicts:0 open:2
+Q1 Held: a read does not touch it (OD19)       $present=true title=A[uncertain] slug=s archived=false total=10 revision=1[uncertain] conflicts:0 open:2
+Q1 give up                                     $present=true title=A[uncertain] slug=s archived=false total=10 revision=1[uncertain] conflicts:0 open:2
+Q1 one read after give-up: level 2             $present=true title=A[unconfirmed:mayLand] slug=s archived=false total=10 revision=1[unconfirmed:mayLand] conflicts:0 open:2
+   wantsRepair: false clearable by a refresh: false
+Q1 re-save B ok, read agrees: still level 2    $present=true title=B[unconfirmed:mayLand] slug=s archived=false total=10 revision=2[unconfirmed:mayLand] conflicts:0 open:2
+Q1 A lands at minute 20, a read shows it: marked $present=true title=A[unconfirmed:mayLand] slug=s archived=false total=10 revision=3[unconfirmed:mayLand] conflicts:0 open:2
+Q1 guarded (basedOn 4), given up, read at 4    $present=true title=A[unconfirmed:mayLand] slug=s archived=false total=10 revision=4[unconfirmed:mayLand] conflicts:0 open:2
+Q1 guarded: a version past its base: mark ends $present=true title=other slug=s archived=false total=10 revision=5 conflicts:0 open:0
+M10 session drop: marks at once                $present=true[unconfirmed:gap] title=t[unconfirmed:gap] slug=s[unconfirmed:gap] archived=false[unconfirmed:gap] total=10[unconfirmed:gap] revision=1[unconfirmed:gap] conflicts:0 open:0
+listen.load frame.now, frame.was               $present=true title=other1[uncertain] slug=s archived=false total=10 conflicts:1 open:0
+listen.load repair                             $present=true title=other1 slug=s archived=false total=10 conflicts:0 open:0
+M4 equal structs overlapping:                  conflicts 0
+M4 with === instead:                           conflicts 1

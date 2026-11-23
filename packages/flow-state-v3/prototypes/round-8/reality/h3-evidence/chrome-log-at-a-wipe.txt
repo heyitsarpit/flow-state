@@ -1,0 +1,3 @@
+[66072:16641657:1103/011036.270045:ERROR:content/browser/indexed_db/instance/leveldb/backing_store.cc:244] Failed to open LevelDB database from IndexedDB/http_127.0.0.1_57933.indexeddb.leveldb,Corruption: checksum mismatch
+[66072:16641657:1103/011036.270221:ERROR:content/browser/indexed_db/instance/leveldb/backing_store.cc:1649] Got corruption for { origin: http://127.0.0.1:57933, top-level site: http://127.0.0.1, nonce: <null>, ancestor chain bit: Same-Site }, checksum mismatch
+[66072:16641657:1103/011036.274552:ERROR:content/browser/indexed_db/instance/leveldb/backing_store.cc:1515] IndexedDB recovering from a corrupted (and deleted) database.

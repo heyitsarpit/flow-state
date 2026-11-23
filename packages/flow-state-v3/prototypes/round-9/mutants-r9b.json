@@ -1,0 +1,680 @@
+[
+ {
+  "id": "d122.slice-per-pump",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-LOOP/a-spin-over-a-resolved-promise-never-freezes",
+   "REV9-LOOP/a-failing-promise-spin-never-freezes",
+   "REV9-LOOP/listeners-hear-a-spin-while-it-runs",
+   "REV9-LOOP/a-batch-lands-during-a-spin",
+   "REV9-LOOP/a-press-on-the-same-actor-ends-its-spin",
+   "REV9-LOOP/a-kill-during-a-spin-boots-clean",
+   "REV9-LOOP/a-dispose-during-a-spin-ends-it",
+   "REV9-LOOP/1000-rows-over-a-resolved-promise-need-no-timer",
+   "REV9-LOOP/the-same-input-failing-in-a-row-is-named-once",
+   "REV9-LOOP/a-new-input-each-time-is-not-the-same-failure",
+   "REV9-LOOP/a-success-spin-is-not-named",
+   "REV9-LOOP/a-spin-does-not-delay-another-actors-ending",
+   "REV9-LOOP/a-press-beside-a-spin-goes-in-its-task"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 378
+ },
+ {
+  "id": "d122.no-yield-in-loop",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [],
+  "author": "builder",
+  "by": "rss",
+  "peakMb": 1454
+ },
+ {
+  "id": "d122.spent-never-refills",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV8-STORM/a-press-beside-a-spin-goes",
+   "REV9-LOOP/a-spin-answered-inside-the-pump-yields-too"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 299
+ },
+ {
+  "id": "d122.no-notify-at-yield",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-LOOP/listeners-hear-a-spin-that-never-leaves-the-pump"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 306
+ },
+ {
+  "id": "d122.cut-waits-for-the-drain",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-LOOP/a-batch-lands-during-a-spin"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 310
+ },
+ {
+  "id": "d122.cut-splits-a-turn",
+  "kills": [
+   "D84"
+  ],
+  "killed": true,
+  "killers": [
+   "REV8-PINS/D84-batches-go-after-the-drain"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 298
+ },
+ {
+  "id": "d122.mail-fifo",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 324
+ },
+ {
+  "id": "d122.rota-not-rotated",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "ORDER-01",
+   "REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 299
+ },
+ {
+  "id": "d122.rota-forgets",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "ORDER-01",
+   "REV9-LOOP/a-bulk-does-not-stand-in-front-of-another-actors-press"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 302
+ },
+ {
+  "id": "d122.named-each",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-yields",
+   "REV8-STORM/a-commit-that-throws-at-once-and-asks-again-yields",
+   "REV9-LOOP/the-same-input-failing-in-a-row-is-named-once"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 326
+ },
+ {
+  "id": "d122.not-named",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV8-STORM/a-lookup-that-fails-at-once-and-asks-again-yields",
+   "REV8-STORM/a-commit-that-throws-at-once-and-asks-again-yields",
+   "REV9-LOOP/the-same-input-failing-in-a-row-is-named-once"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 302
+ },
+ {
+  "id": "d122.any-input-counts",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-LOOP/200-failing-rows-are-not-a-spin",
+   "REV9-LOOP/200-failing-writes-are-not-a-spin",
+   "REV9-LOOP/a-new-input-each-time-is-not-the-same-failure"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 325
+ },
+ {
+  "id": "d122.success-counts",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-BURST/a-queue-over-a-local-source-finishes",
+   "REV9-LOOP/a-success-spin-is-not-named"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 314
+ },
+ {
+  "id": "d122.redelivery-counts",
+  "kills": [
+   "D122"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "survived",
+  "peakMb": 299
+ },
+ {
+  "id": "d122.lint-silent",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "asks-forever: expected true, got false"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 332
+ },
+ {
+  "id": "d122.lint-any",
+  "kills": [
+   "D122"
+  ],
+  "killed": true,
+  "killers": [
+   "a queue with a way out says nothing: expected false, got true"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 306
+ },
+ {
+  "id": "rule52.freeze-leaves-mail",
+  "kills": [
+   "rule:52"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-LOOP/a-freeze-ends-a-spin"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 437
+ },
+ {
+  "id": "d123.decline-blocks",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-kept-decline-blocks-nothing"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 309
+ },
+ {
+  "id": "d123.parked-is-kept",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/an-ordinary-parked-ending-blocks-nothing"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 325
+ },
+ {
+  "id": "d123.keyless-idle-heads-only",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-key-less-idle-denies-a-kept-ending"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 304
+ },
+ {
+  "id": "d123.keyless-cancel-nothing",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-key-less-cancel-lets-a-kept-ending-go",
+   "REV9-EDGE/a-key-less-cancel-stays-in-its-own-life",
+   "REV9-EDGE/cancel-leaves-an-ordinary-parked-ending-where-it-is"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 304
+ },
+ {
+  "id": "d123.keyless-cancel-all-subjects",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-key-less-cancel-stays-in-its-own-life"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 330
+ },
+ {
+  "id": "d123.letgo-takes-all",
+  "kills": [
+   "D123"
+  ],
+  "killed": false,
+  "killers": [],
+  "author": "builder",
+  "by": "survived",
+  "peakMb": 336
+ },
+ {
+  "id": "d123.named-cancel-skips-kept",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-KEPT/cancel-lets-a-kept-ending-go",
+   "REV9-EDGE/a-cancel-with-a-head-beside-it-lets-go-too",
+   "REV9-EDGE/cancel-of-its-own-key-lets-a-decline-go"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 304
+ },
+ {
+  "id": "d123.decline-piles-up",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/kept-declines-do-not-pile-up",
+   "REV9-EDGE/a-kept-success-and-its-rejections-stay-two"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 302
+ },
+ {
+  "id": "d123.decline-replaces-sent",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-kept-success-and-its-rejections-stay-two",
+   "REV9-EDGE/two-parked-on-a-lane-at-boot-are-both-heard"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 302
+ },
+ {
+  "id": "d123.decline-key-null",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands",
+   "REV9-EDGE/a-decline-names-its-own-key",
+   "REV9-EDGE/cancel-of-its-own-key-lets-a-decline-go",
+   "REV9-EDGE/kept-declines-do-not-pile-up",
+   "REV9-EDGE/a-reads-decline-carries-its-input"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 334
+ },
+ {
+  "id": "d123.local-keeps",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-new-local-life-hears-nothing-of-the-old"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 312
+ },
+ {
+  "id": "d123.persisted-drops-too",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "FRAG-08/persisted-disposed-ending-parked-delivered-once",
+   "FRAG-08/rebind-delivers-a-hold-once",
+   "FRAG-12/unbound-hold-with-a-waiter-yields",
+   "FRAG-12/unbound-hold-with-no-waiter-stays",
+   "FRAG-20/a-bound-hold-never-yields-an-actor-back-in-time",
+   "FRAG-20/no-waiter-left-no-yield",
+   "REV5-H5H6/a-persisted-rebind-adopts-its-fragments-ending",
+   "REV5-H5H6/and-its-lost-answer-once-with-no-restored",
+   "REV5-H5H6/a-hold-heard-before-disposal-is-restored-to-the-rebound-life",
+   "REV5-H5H6/a-frozen-kid-adopts-at-the-thaw-not-at-the-rebind",
+   "REV5-H5H6/a-disposed-identity-sleeps-through-a-reload",
+   "REV5-M1/a-crash-during-recovery-loses-no-parked-ending",
+   "REV8-PINS/D72-a-parked-ending-survives-a-kill-before-delivery",
+   "REV9-EDGE/a-new-persisted-life-does-hear-it",
+   "REV9-EDGE/a-new-life-tries-a-kept-ending-once",
+   "REV9-EDGE/a-sleeping-actors-kept-ending-stays-kept-through-a-boot"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 299
+ },
+ {
+  "id": "d123.strand-by-op",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/another-rows-ask-leaves-a-stranded-wait",
+   "REV9-EDGE/two-rows-stranded-are-two-waits"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 329
+ },
+ {
+  "id": "d123.strand-outlives-life",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-stranded-wait-ends-with-its-life"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 322
+ },
+ {
+  "id": "d123.strand-outlives-actor",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-stranded-wait-ends-with-its-actor"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 329
+ },
+ {
+  "id": "d123.boot-tries-twice",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-KEPT/still-broken-at-boot-is-kept-again",
+   "REV9-EDGE/a-boot-tries-a-kept-ending-once"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 305
+ },
+ {
+  "id": "d123.adoption-tries-twice",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-new-life-tries-a-kept-ending-once"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 329
+ },
+ {
+  "id": "d123.rekeep-forgets",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-sleeping-actors-kept-ending-stays-kept-through-a-boot"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 304
+ },
+ {
+  "id": "d123.no-cause",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-refusal-says-what-was-thrown"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 303
+ },
+ {
+  "id": "d123.delivered-silent-at-boot",
+  "kills": [
+   "D123"
+  ],
+  "killed": true,
+  "killers": [
+   "REV8-KEPT/a-refused-ending-is-kept-named-and-delivered-at-the-next-boot",
+   "REV9-M1/a-refused-not-sent-is-parked-and-the-wait-says-so",
+   "REV9-M1/a-kept-decline-whose-input-cannot-be-carried-still-lands",
+   "REV9-KEPT/a-kept-ending-delivered-at-boot-frees-its-key",
+   "REV9-KEPT/still-broken-at-boot-is-kept-again",
+   "REV9-KEPT/a-fragments-kept-decline-keeps-its-subject",
+   "REV9-EDGE/a-boot-tries-a-kept-ending-once",
+   "REV9-EDGE/a-new-persisted-life-does-hear-it",
+   "REV9-EDGE/a-new-life-tries-a-kept-ending-once",
+   "REV9-EDGE/two-parked-on-a-lane-at-boot-are-both-heard"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 303
+ },
+ {
+  "id": "d114.read-input-lost",
+  "kills": [
+   "M6"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-reads-decline-carries-its-input"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 302
+ },
+ {
+  "id": "d114.read-key-lost",
+  "kills": [
+   "M6"
+  ],
+  "killed": true,
+  "killers": [
+   "REV9-EDGE/a-reads-decline-carries-its-input"
+  ],
+  "author": "builder",
+  "by": "suite",
+  "peakMb": 330
+ },
+ {
+  "id": "d124.front-none",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-amount-bigint: amount: expected [\"amount\"], got []",
+   "form-key-bigint: orderId: expected [\"orderId\"], got []",
+   "form-struct-bigint: line.total: expected [\"line.total\"], got []",
+   "form-array-bigint: totals[]: expected [\"totals[]\"], got []",
+   "form-record-bigint: byLine[]: expected [\"byLine[]\"], got []",
+   "form-nullable-bigint: tip: expected [\"tip\"], got []",
+   "form-set: tags: expected [\"tags\"], got []",
+   "form-map: tags: expected [\"tags\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 304
+ },
+ {
+  "id": "d124.keys-only",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-amount-bigint: amount: expected [\"amount\"], got []",
+   "form-struct-bigint: line.total: expected [\"line.total\"], got []",
+   "form-array-bigint: totals[]: expected [\"totals[]\"], got []",
+   "form-record-bigint: byLine[]: expected [\"byLine[]\"], got []",
+   "form-nullable-bigint: tip: expected [\"tip\"], got []",
+   "form-set: tags: expected [\"tags\"], got []",
+   "form-map: tags: expected [\"tags\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 305
+ },
+ {
+  "id": "d124.no-objects",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-struct-bigint: line.total: expected [\"line.total\"], got []",
+   "form-record-bigint: byLine[]: expected [\"byLine[]\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 304
+ },
+ {
+  "id": "d124.no-records",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-record-bigint: byLine[]: expected [\"byLine[]\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 301
+ },
+ {
+  "id": "d124.no-arrays",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-array-bigint: totals[]: expected [\"totals[]\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 301
+ },
+ {
+  "id": "d124.no-unions",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-nullable-bigint: tip: expected [\"tip\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 335
+ },
+ {
+  "id": "d124.no-sets",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-set: tags: expected [\"tags\"], got []",
+   "form-map: tags: expected [\"tags\"], got []"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 327
+ },
+ {
+  "id": "d124.date-warns",
+  "kills": [
+   "D124"
+  ],
+  "killed": true,
+  "killers": [
+   "form-date-key: nothing to say: expected [], got [\"day\"]"
+  ],
+  "author": "builder",
+  "by": "cli",
+  "peakMb": 328
+ }
+]

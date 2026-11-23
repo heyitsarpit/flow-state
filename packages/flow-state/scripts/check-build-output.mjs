@@ -35,11 +35,8 @@ function assertRelativeSources(map, label) {
     `${label} must not contain absolute filesystem paths`,
   );
   assert(
-    map.sources.every(
-      (source) =>
-        !source.includes("examples/") && !source.includes("apps/docs") && !source.includes("docs/"),
-    ),
-    `${label} must not reference example or docs sources`,
+    map.sources.every((source) => !source.includes("apps/docs") && !source.includes("docs/")),
+    `${label} must not reference docs sources`,
   );
 }
 
@@ -56,7 +53,7 @@ function assertSourcesContent(map, label) {
 }
 
 function assertNoBundleLeakage(bundle, label) {
-  const forbiddenNeedles = ["examples/launch-workspace", "apps/docs", "launchWorkspace", "docs/"];
+  const forbiddenNeedles = ["apps/docs", "launchWorkspace", "docs/"];
 
   for (const needle of forbiddenNeedles) {
     assert(!bundle.includes(needle), `${label} must not leak '${needle}'`);

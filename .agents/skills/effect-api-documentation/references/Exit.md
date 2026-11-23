@@ -2,6 +2,8 @@
 
 Source: [Effect v4 `Exit` API](https://www.effect.website/docs/v4/api/effect/Exit). Examples assume `import { Exit } from "effect"`.
 
+`Exit` is the final value of an Effect computation, representing either success or a structured failure `Cause`.
+
 ## API index
 
 1. [Exit.match](#exitmatch)
@@ -103,3 +105,7 @@ const cause = Exit.getCause(Exit.fail("bad"));
 ```ts
 const result: Exit.Exit<number, string> = Exit.succeed(42);
 ```
+
+### Changes since 4.0.5
+
+- `hasFails`, `hasDies` and `hasInterrupts` return `boolean`, no longer a type guard ([Exit.d.ts:448](/Users/arpit/Developer/flow-state/node_modules/effect/dist/Exit.d.ts:448)); narrow with `Exit.isFailure` instead.
