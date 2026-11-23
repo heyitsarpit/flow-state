@@ -125,9 +125,9 @@ description
     root cause after convergence does not stop the run or hold the phase. The orchestrator records the root cause and
     what is left as a comment on the slice's Tasks, leaves those Tasks open, and goes on to the next slice. Usage
     reserve: the run stops at 100 percent weekly usage, all models (the user, 2026-11-15); at the reserve the lead
-    finishes its step, commits and leaves a resume note. Usage always means the weekly window, never the 5-hour one,
-    read from the harness's usage view. The user changes the reserve at any time: a new value is an edit here and
-    a note.
+    finishes its step, commits and leaves a resume note. No new slice starts with less than 5% of the weekly limit left;
+    a running lead finishes (the user, 2026-11-23). Usage always means the weekly window, never the 5-hour one, read
+    from the harness's usage view. The user changes the reserve at any time: a new value is an edit here and a note.
 
     ## Glossary
 
@@ -175,6 +175,9 @@ run
     additions to R2: a Task in `review` comes first, and its independent check starts before any builder; a phase's
     Tasks stay `draft` until it starts; before its first Task starts, run R48's breakdown review, apply its re-splits,
     then write the next Task's full text with skill:to-task and open it; within a phase, follow its card's Order line.
+    Project addition to R7: a background agent's output file stays empty until it finishes, so activity is its
+    transcript file growing (size and time only, never its contents), plus commits and status changes (the
+    user, 2026-11-23).
 
     Rules: follow skill:build-a-loop#rules, skill:policy-delegation and skill:policy-verification at the library
     revision in skill; instructions override their defaults. The library is the Git repository
@@ -200,6 +203,10 @@ instructions
       2026-11-08); re-running and logging results is skill:policy-delegation's.
     - A lead works through three context compactions and is rotated out only when a fourth is close: finish the step,
       commit, leave a resume note (the user, 2026-11-14).
+    - Who runs each step of a slice (the user, 2026-11-23): the requirements lead, at high effort, writes the
+      requirements and their fix round, then stops; a fresh building lead at medium effort takes the build and every
+      later fix round. A fix round's review goes back by message to the lead that wrote the verdict, so it re-runs its
+      own probes; a fresh reviewer is started only when that lead is gone or past its compactions.
     - Leads report once per batch or stop, in at most 10 lines: verdict, commits, test counts, and what needs a decision
       (the user, 2026-11-11).
     - Constraints: the Epic's Constraints section. Limits: its Limits section.
@@ -292,7 +299,8 @@ instructions
       can't yet meet lands as an inverted test titled by its rule, with an owner Task, and the Spec keeps the rule.
     - Lessons from the 2026-11-15 run (the user, 2026-11-16): comments are stamped only with `--now`, and every `.log`
       entry only with `wk log add`, never a hand-written time (the user, 2026-11-22); a gate counts by its exit code,
-      never its summary line; a Task with its reviews costs about 2% of the weekly limit.
+      never its summary line; a slice with its reviews costs about 5 to 10% of the weekly limit (slices T119 and T92
+      took about 8% each; the user, 2026-11-23).
     - Plan changes found while building go to @plan.Pending as decisions, never into the Plans (the user, 2026-11-11),
       with the same whole-system check (the user, 2026-11-15).
     - Effect prior art (the user, 2026-11-11): each module's Spec skeleton lists the Effect features that cover its
@@ -364,9 +372,11 @@ instructions
       proposed; the user confirms them, confirmed items are merged into the Epic or a convention and removed from
       the record.
     - At each slice's close the orchestrator writes the user's page. A second slice may not close on an unread page (the
-      user, 2026-11-12); that is in stops. The user's page ends with a "Review the diff" section of `hunk diff <from>
-      <to>` commands for the slice: the whole slice, then its requirements commits, its build, and each fix round, then
-      each Task's own changes (with a pathspec where Tasks share commits) (the user, 2026-11-22).
+      user, 2026-11-12); that is in stops. On a close review's PASS the orchestrator still sets the Task `done`; only
+      the slice's close (its parent, and the page's loop findings) waits on the unread page (the user, 2026-11-23). The
+      user's page ends with a "Review the diff" section of `hunk diff <from> <to>` commands for the slice: the whole
+      slice, then its requirements commits, its build, and each fix round, then each Task's own changes (with a pathspec
+      where Tasks share commits) (the user, 2026-11-22).
     - Benchmarks follow @convention.bench (the user, 2026-11-18): no agent sits blocked on a bench; `--dev` while
       working, every longer run capped and in the background; a Task's close runs no bench by default, and a performance
       Task records the quick tier once at its end, its review reading `--summary`. No full or tier-wide bench run, the
@@ -391,10 +401,10 @@ cadence
     Prompt: "V3 wake. Read wiki/tasks/V3/epic.task and the last notes in its V3.log. Read the weekly usage and the
     5-hour window from the harness's usage view; if the reserve in Limits is reached, stop the run by R21 and note it;
     follow instructions' 5-hour pacing. Never start a bench or `nub run faults` whole (the user's demand only). If a
-    Task is in review, or a review event in instructions has no review covering it, and no lead is running, start one
-    Opus lead at medium effort with its read-only Haiku sidecars, one of them blind; verify its findings, route the
-    accepted ones, and note the review. If the lead has shown no activity for 100 minutes, resume it by message or
-    replace it (R7) and note it. Otherwise write nothing."
+    Task is in review with no verdict yet, or a review event in instructions has no review covering it, and no lead is
+    running, start one Opus lead at medium effort with its read-only Haiku sidecars, one of them blind; verify its
+    findings, route the accepted ones, and note the review. If the lead has shown no activity for 100 minutes, resume it
+    by message or replace it (R7) and note it. Otherwise write nothing."
 
     Quiet rule: a wake that finds nothing writes no note and sends no message; timings within bound are not noted.
 stops

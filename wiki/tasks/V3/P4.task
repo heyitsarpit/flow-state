@@ -457,6 +457,10 @@ tasks
         comment     2026-11-22T03:54:04Z
             Fix 4: acceptance is now the slice form; the boot-refusal item moved to @task.V3.T121, the rest restated the
             children's. R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-23T02:28:34Z
+            Slice texts written (orchestrator, 2026-11-23): T121 to T124 opened with the current fault wording and the
+            items routed from T119 and T92 (R16 kept unknown, Audience, the pipe pin, Collect and Release writers,
+            format 6 codec for saved entries). Next: one requirements lead for the whole slice.
     T56
         title       Durability: release versions, key fingerprints and record migration
         status      draft
@@ -1393,7 +1397,7 @@ tasks
 
     T92
         title       Records decoded into meaning: branded identifiers, each fact stored once, full record decoding
-        status      review
+        status      done
         priority    high
         blocked_by  [@T118]
 
@@ -5066,7 +5070,7 @@ tasks
 
     T119
         title       Turn parts: the walk, the applier, alarms and mail
-        status      review
+        status      done
         priority    high
         blocked_by  [@T113]
         description
@@ -5816,7 +5820,7 @@ tasks
             (tests/turn/nested-placement.test.ts: the inner placement's timer is lost today, inner 0 for 1).
     T121
         title       Operation endings and the retry guards
-        status      draft
+        status      open
         priority    high
         parent      [@T21]
 
@@ -5860,8 +5864,14 @@ tasks
               any fixture.
             - `idle` and `retryable` read `laneView` at the part's subject; the faults `guard-reads-other-subject` and
               `retryable-ignores-count` are caught.
+            - Live and reloaded runs agree on a final answer replacing its Attempt's Kept unknown (@spec.Records R16):
+              the inverted test in `src/host/ledger.test.ts` passes (routed from @task.V3.T92).
+            - The per-subject `Audience` and `locate` in `ledger.ts` are replaced or deleted with @task.V3.T109 (routed
+              from @task.V3.T119); an event or memory field named `pipe` keeps the typo check (the inverted pin in
+              `tests/types/excess-keys.test-d.ts` flips).
             - A mapper that throws refuses its row's turn; the row is tried once more and then kept with its issue.
-            - Each new rule has a planted fault that `nub run faults` catches.
+            - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
+              catches with its own target tests.
             - Boot refuses an operation whose service the Runtime Layer lacks, by name, read from the contract's
               `services` list (decisions §5 G1, G2); the reference contracts list their services.
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
@@ -5906,7 +5916,7 @@ tasks
             Task's second table lands.
     T122
         title       Read entries and read slots
-        status      draft
+        status      open
         priority    high
         parent      [@T21]
 
@@ -5951,6 +5961,10 @@ tasks
             - An entry with no hold is removed at `gcTime` by `Alarm.Collect`; `gcTime: 0` removes it in the same step.
             - A freeze owes each waiting lookup one `Interrupted` row and leaves the entry's request running.
             - A lookup's input is checked by its Schema at run time (routed from @task.V3.T104's close review).
+            - `Alarm.Collect` gets its writer here: the union and `tick`'s match already hold it with none (from
+              @task.V3.T119); the host's wake covers it, judged at every Story cut.
+            - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
+              catches with its own target tests.
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
               `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
               `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
@@ -5965,7 +5979,7 @@ tasks
               after every step are @spec.Operations (I1–I10, I12, I22, I24, I25; tests T1, T2, T4, T5, T7).
     T123
         title       Placements and release
-        status      draft
+        status      open
         priority    medium
         parent      [@T21]
 
@@ -6000,7 +6014,11 @@ tasks
             - A placement released within the disposal bound shows no issue; past it, `ReleaseOverdue` shows for every
               incarnation that holds the call's key, with no host code.
             - Placements are unplaced at a freeze and placed at a thaw.
-            - Each new rule has a planted fault that `nub run faults` catches.
+            - `Alarm.Release` gets its writer here (in the union with none since @task.V3.T119); a Story where a
+              `Release` and a `Schedule` alarm share an instant and the schedule reads that lane decides @spec.Changes
+              Q9's first choice (routed from @task.V3.T119).
+            - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
+              catches with its own target tests.
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
               `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
               `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and
@@ -6019,7 +6037,7 @@ tasks
             order A, kept by T119's tag) once Release has a writer.
     T124
         title       Persisted resources
-        status      draft
+        status      open
         priority    medium
         parent      [@T21]
 
@@ -6050,6 +6068,13 @@ tasks
             - A saved entry installs with `asked: none`, so the first ask after a reload starts a request.
             - An entry already in memory wins over a saved one at adoption.
             - `persist: true` without `output` is refused at construction.
+            - The saved entry is a format 6 record kind with its one Shape codec, which the writer, the boot and the
+              corrupt-record oracle share (@spec.Records R11, built by @task.V3.T92); the one-field corruption and
+              literal-swap tests cover it with no list of fields.
+            - A persisted shape changes, so restore after a definition edit is shown: a reorder, an add, a remove and a
+              rename of the resource and its `output` fields.
+            - Each new runtime rule has a planted fault in `tests/faults.ts` that `nub run faults --only <names>`
+              catches with its own target tests.
             - Fixtures first (@convention.fixtures): this Task's rows of step 4 of @convention.fixture-catalog: `pay`,
               `transfers`, `session`, `wizard`, `search`, `home`, `kanban`, `chat`, `draft` (new: `search`, `chat`,
               `draft`) gain the features, scenarios and sources of their rows; each scenario red before the build, and

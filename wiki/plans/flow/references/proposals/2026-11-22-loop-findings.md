@@ -57,8 +57,6 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
 12. **The requirements list maps every Requirement in the Task's Spec range, not only its Invariants** [proposed].
    Why: slice T119's requirements review blocked on R22 (one input builder), which no Invariant carries, so the list
    drawn from the Invariants missed it.
-13. **A fix round's review goes back to the same reviewer by message** [proposed]. Why: slice T119's second close
-   review re-ran its own probes on the fixes in about 14 minutes and a third of the first review's tokens.
 14. **Whatever the harness judges about a fact, it also judges the host's view of it** [proposed]. Why: slice T119's
    lost wake passed because I12 checked the alarm map but not whether the host held a wake; the same gap can recur for
    any fact the host mirrors (leases, subscriptions).
@@ -70,6 +68,8 @@ into the Epic (or a convention) and then deleted here, with the merging commit n
 
 ## Already merged
 
+- Who runs each step: the requirements lead stops after its fix round, a fresh medium builder takes the build, and a
+  fix round's review returns to the same reviewer (was item 13; Epic "Models and agents", the user, 2026-11-23).
 - The requirements lead runs at high effort; other leads stay medium (Epic, the user, 2026-11-22). Check over the
   next slices that it cuts fold-in rounds.
 - Builder decisions tagged and reversible, Specs not kept in step; logs only via `wk log add`; mid-build design
