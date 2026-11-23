@@ -75,6 +75,7 @@ describe("the unions of the turn's parts (Changes R11, T14, Q5, realization)", (
       | "Release"
       | "Send"
       | "Settled"
+      | "Progress"
       | "Tick"
       | "Stored"
       | "Refused"

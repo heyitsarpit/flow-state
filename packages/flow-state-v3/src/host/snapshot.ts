@@ -1,5 +1,6 @@
 import { Option, Predicate } from "effect";
-import { savedScheduleIssues, scheduleIssues } from "../core/schedule-issues.ts";
+import { savedScheduleIssues } from "../core/schedule-issues.ts";
+import { issuesOf } from "../core/issues-of.ts";
 import { operationsOf } from "../core/schedule-plan.ts";
 import { publicMemory } from "../core/compiled.ts";
 import type { Compiled, Values } from "../core/compiled.ts";
@@ -185,13 +186,6 @@ const savedTimersOf = (saved: SavedSchedules) =>
       .map(([name, entry]) => [name, savedShownOf(entry)] as const),
   );
 
-// Every open issue of a live incarnation: the stored ones, then each schedule's, read from its
-// state.
-const issuesOf = (incarnation: Incarnation) => [
-  ...incarnation.issues,
-  ...[...incarnation.schedules].flatMap(([name, scheduled]) => scheduleIssues(name, scheduled)),
-];
-
 const NO_TIMERS: Timers = {};
 
 // The diagnostic code of an issue: a refused turn (a denial code, not a diagnostic) is the
@@ -254,7 +248,7 @@ export const snapshotIn = (
         memory: live.memory,
         lifecycle: actorLifecycleOf(world.life),
         context: Object.fromEntries([...live.context].map(([slot, s]) => [slot, s.value])),
-        issues: issuesOf(live).map((issue) => issueOf(actor, issue)),
+        issues: issuesOf(world, machines, live).map((issue) => issueOf(actor, issue)),
         schedules: liveTimersOf(live),
       }),
     );

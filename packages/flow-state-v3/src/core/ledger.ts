@@ -3,7 +3,7 @@ import { Act } from "./evidence-of.ts";
 import type { RecordedWhy } from "./evidence.ts";
 import type { Persistence } from "./persist.ts";
 import type { Tx } from "./tx.ts";
-import type { Channel } from "./vocabulary.ts";
+import type { Channel, IssueCode } from "./vocabulary.ts";
 import { Life } from "./life.ts";
 import type { Values } from "./compiled.ts";
 import {
@@ -16,16 +16,6 @@ import {
   Mail,
   OwnedBy,
 } from "./world.ts";
-
-/**
- * Who may hear an owed ending: any incarnation of the identity, or one incarnation alone.
- */
-export type Audience = Data.TaggedEnum<{ Identity: {}; Life: { incarnation: IncarnationId } }>;
-
-/**
- * Constructors and matchers for {@link Audience}.
- */
-export const Audience = Data.taggedEnum<Audience>();
 
 /**
  * Where an owed ending's delivery stands.
@@ -72,13 +62,25 @@ export type Origin = Data.TaggedEnum<{ Decided: {}; ReadBack: {} }>;
 export const Origin = Data.taggedEnum<Origin>();
 
 /**
+ * Why a row's last try was refused: the refusal's code and the callback slot that failed. It is
+ * the cause of the row's issue, so the issue is shown exactly while the row holds it.
+ */
+export type Refusal = { readonly code: IssueCode; readonly slot: Option.Option<string> };
+
+/**
  * One owed ending: the only place an ending is held from its birth to its close.
+ *
+ * **Details**
+ *
+ * `life` names the one incarnation a read's ending is owed to; none for a write's, which any
+ * incarnation of the identity hears. `refusal` is written only by {@link makeLedger}'s `afterTry`
+ * and never saved.
  */
 export type Owed = {
   readonly id: OwedId;
   readonly origin: Origin;
   readonly actor: ActorId;
-  readonly to: Audience;
+  readonly life: Option.Option<IncarnationId>;
   readonly operation: string;
   readonly attempt: Option.Option<AttemptId>;
   readonly lane: Option.Option<LaneId>;
@@ -88,9 +90,15 @@ export type Owed = {
   readonly value: unknown;
   readonly route: Route;
   readonly delivery: Delivery;
-  // The input of the commit it ends, which its saved row keeps with its key; none for a lookup's.
+  // The input of the call it ends, which its mapper reads and its saved row keeps with its key.
   readonly input: Option.Option<Values>;
+  readonly refusal: Option.Option<Refusal>;
 };
+
+/**
+ * What a new row carries: everything but what the ledger writes itself.
+ */
+export type Ending = Omit<Owed, "id" | "delivery" | "origin" | "refusal">;
 
 /**
  * How a row closes: heard by a turn, or recorded as evidence or let go.
@@ -104,6 +112,17 @@ export type Closed = Data.TaggedEnum<{
  * Constructors and matchers for {@link Closed}.
  */
 export const Closed = Data.taggedEnum<Closed>();
+
+/**
+ * How a turn heard a row's try: with no mapping, heard (accepted, unhandled or denied), or refused
+ * with its refusal.
+ */
+export type Heard = Data.TaggedEnum<{ Unmapped: {}; Heard: {}; Refused: { refusal: Refusal } }>;
+
+/**
+ * Constructors and matchers for {@link Heard}.
+ */
+export const Heard = Data.taggedEnum<Heard>();
 
 /**
  * Each identity's owed rows, in the order they were owed. Only this module writes one.
@@ -147,14 +166,19 @@ export const keptOn = (ledger: Ledger, actor: ActorId, lane: LaneId) =>
   );
 
 /**
- * How a turn heard a row's try: with no mapping, heard (accepted, unhandled or denied), or
- * refused.
+ * Whether a row is owed to its identity, whichever incarnation hears it, and not to one life.
  */
-export type Heard = "Unmapped" | "Heard" | "Refused";
+export const toIdentity = (row: Pick<Owed, "life">) => Option.isNone(row.life);
+
+// An unknown row of an Attempt, whose final answer may still replace it.
+const unknownOf = (rows: ReadonlyArray<Owed>, attempt: AttemptId) =>
+  Option.fromUndefinedOr(
+    rows.find((r) => r.channel === "unknown" && Option.contains(r.attempt, attempt)),
+  );
 
 /**
- * The ledger's five functions on one step's working state: the only code that builds, moves or
- * removes a row.
+ * The ledger's functions on one step's working state: the only code that builds, moves or removes
+ * a row.
  */
 export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const { incarnationOf } = tx;
@@ -188,16 +212,13 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const adopt = (row: Owed, delivery: Delivery) =>
     queue({ ...row, route: Route.Current() }, delivery);
 
-  const live = (row: Pick<Owed, "actor" | "to">) => {
+  const live = (row: Pick<Owed, "actor" | "life">) => {
     const incarnation = incarnationOf(row.actor);
 
     return (
       Life.$is("Open")(tx.world().life) &&
       incarnation !== undefined &&
-      Audience.$match(row.to, {
-        Identity: () => true,
-        Life: ({ incarnation: id }) => incarnation.id === id,
-      })
+      Option.match(row.life, { onNone: () => true, onSome: (id) => incarnation.id === id })
     );
   };
 
@@ -210,7 +231,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   // A row the owed record held at the step's start: every row owed to the identity at a step's end
   // is in it, a row still in the mailbox included.
   const onRecord = (row: Owed) =>
-    Audience.$is("Identity")(row.to) &&
+    toIdentity(row) &&
     (started.get(actorKey(row.actor)) ?? rowsOf(tx.world().owed, row.actor)).some(
       (r) => r.id === row.id,
     );
@@ -238,17 +259,16 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     saved(row, Delivery.Waiting());
   };
 
-  /**
-   * Owes an ending, already applied to its lane: Queued when its audience can hear it now,
-   * Waiting when not; a row for an incarnation that is gone closes at once as evidence.
-   */
-  const owe = (
-    ending: Omit<Owed, "id" | "delivery" | "origin">,
-    origin: Origin = Origin.Decided(),
-  ) => {
-    const row: Owed = { ...ending, id: tx.mint("owed"), origin, delivery: Delivery.Queued() };
-    setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
+  const added = (ending: Ending, origin: Origin) => {
+    const row: Owed = {
+      ...ending,
+      id: tx.mint("owed"),
+      origin,
+      delivery: Delivery.Queued(),
+      refusal: Option.none(),
+    };
 
+    setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
     tx.act(Act.Ended({ actor: row.actor, ending: row }));
 
     if (live(row)) {
@@ -258,53 +278,68 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
       return row.id;
     }
 
-    if (Audience.$is("Life")(row.to)) close(row, Closed.Recorded({ why: "evidence" }));
+    if (Option.isSome(row.life)) close(row, Closed.Recorded({ why: "evidence" }));
     else wait(row);
 
     return row.id;
   };
 
   /**
-   * Serves one mail reference: a reference to a row that is gone, or not in the mailbox, does
-   * nothing. `hear` runs the row's turn; an unmapped row closes as evidence, a heard one closes
-   * delivered, and a refusal queues a Queued row once more behind queued mail and keeps a
-   * Retrying one.
+   * Owes an ending, already applied to its lane: Queued when its audience can hear it now, Waiting
+   * when not; a row for an incarnation that is gone closes at once as evidence. An Attempt has at
+   * most one unheard unknown row: a second unknown adds nothing, and a final answer first closes
+   * the unknown it replaces.
    */
-  const tryOne = (actor: ActorId, id: OwedId, hear: (row: Owed) => Heard) => {
-    const found = find(actor, id);
+  const owe = (ending: Ending, origin: Origin = Origin.Decided()) => {
+    const unheard = Option.flatMap(ending.attempt, (attempt) =>
+      unknownOf(rowsOf(tx.world().owed, ending.actor), attempt),
+    );
 
-    if (Option.isNone(found)) return;
+    if (Option.isSome(unheard)) {
+      if (ending.channel === "unknown") return unheard.value.id;
+      close(unheard.value, Closed.Recorded({ why: "replaced" }));
+    }
 
-    const row = found.value;
-
-    if (!IN_MAILBOX[row.delivery._tag]) return;
-
-    const heard = hear(row);
-    const now = find(actor, id);
-
-    if (Option.isNone(now)) return;
-
-    afterTry[heard](now.value);
+    return added(ending, origin);
   };
 
-  // A refused try: a Queued row queues once more, Retrying; a Retrying one is Kept. A row out of
-  // the mailbox was moved by the turn itself and stays as it is.
-  const refused = (row: Owed) =>
+  /**
+   * The row a mail reference may try: none when it is gone or not in the mailbox.
+   */
+  const tried = (actor: ActorId, id: OwedId) =>
+    Option.filter(find(actor, id), (row) => IN_MAILBOX[row.delivery._tag]);
+
+  // A refused try: a Queued row queues once more, Retrying; a Retrying one is Kept. Either holds
+  // its refusal until it closes.
+  const refused = (row: Owed, refusal: Refusal) =>
     Delivery.$match(row.delivery, {
-      Queued: () => queue(row, Delivery.Retrying()),
+      Queued: () => queue({ ...row, refusal: Option.some(refusal) }, Delivery.Retrying()),
       Retrying: () => {
-        replace(row, Option.some({ ...row, delivery: Delivery.Kept() }));
+        replace(
+          row,
+          Option.some({ ...row, refusal: Option.some(refusal), delivery: Delivery.Kept() }),
+        );
         saved(row, Delivery.Kept());
       },
       Waiting: () => undefined,
       Kept: () => undefined,
     });
 
-  const afterTry = {
-    Unmapped: (row) => close(row, Closed.Recorded({ why: "evidence" })),
-    Heard: (row) => close(row, Closed.Delivered()),
-    Refused: refused,
-  } as const satisfies Record<Heard, (row: Owed) => void>;
+  /**
+   * A row's move after its try, by how its turn heard it: unmapped closes as evidence, heard closes
+   * delivered, refused queues a Queued row once more and keeps a Retrying one. A row the turn
+   * itself moved out of the mailbox, or closed, stays as it is.
+   */
+  const afterTry = (id: OwedId, actor: ActorId, heard: Heard) =>
+    Option.match(tried(actor, id), {
+      onNone: () => undefined,
+      onSome: (row) =>
+        Heard.$match(heard, {
+          Unmapped: () => close(row, Closed.Recorded({ why: "evidence" })),
+          Heard: () => close(row, Closed.Delivered()),
+          Refused: ({ refusal }) => refused(row, refusal),
+        }),
+    });
 
   /**
    * An identity can no longer hear: its Queued and Retrying rows wait, lane or not, and rows owed
@@ -313,11 +348,10 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
   const forgotten = (row: Owed) =>
     close(row, Closed.Recorded({ why: Delivery.$is("Kept")(row.delivery) ? "letGo" : "evidence" }));
 
-  const suspended = (row: Owed) =>
-    Audience.$match(row.to, {
-      Life: () => close(row, Closed.Recorded({ why: "evidence" })),
-      Identity: () => (IN_MAILBOX[row.delivery._tag] ? wait(row) : undefined),
-    });
+  const suspended = (row: Owed) => {
+    if (Option.isSome(row.life)) close(row, Closed.Recorded({ why: "evidence" }));
+    else if (IN_MAILBOX[row.delivery._tag]) wait(row);
+  };
 
   const suspend = (actor: ActorId, forget: boolean) => {
     for (const row of rowsOf(tx.world().owed, actor)) (forget ? forgotten : suspended)(row);
@@ -366,7 +400,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
    */
   const restore = (
     rows: ReadonlyArray<{
-      readonly row: Omit<Owed, "id" | "delivery" | "to" | "origin"> & { readonly kept: boolean };
+      readonly row: Omit<Ending, "life"> & { readonly kept: boolean };
       readonly derived: boolean;
     }>,
   ) => {
@@ -376,10 +410,11 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     } of rows) {
       const row: Owed = {
         ...ending,
-        to: Audience.Identity(),
+        life: Option.none(),
         id: tx.mint("owed"),
         origin: Origin.ReadBack(),
         delivery: kept ? Delivery.Kept() : Delivery.Waiting(),
+        refusal: Option.none(),
       };
 
       setRows(row.actor, [...rowsOf(tx.world().owed, row.actor), row]);
@@ -391,7 +426,7 @@ export const makeLedger = (tx: Tx, persistence: Persistence) => {
     }
   };
 
-  return { owe, tryOne, suspend, start, letGoKept, restore };
+  return { owe, tried, afterTry, suspend, start, letGoKept, restore };
 };
 
 /**

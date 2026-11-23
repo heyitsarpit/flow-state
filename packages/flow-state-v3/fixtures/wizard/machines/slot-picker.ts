@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a read member or mapper context the Operations Spec adds and the package lacks, so its values type as any until it lands */
 import { Schema } from "effect";
 import { actorRef, definition, deny, Flow, machine, send } from "../../../src/index.ts";
 import { area, slots } from "../operations/reads.ts";
@@ -49,9 +48,7 @@ export const SlotPicker = definition({
       failure: { NoResponse: E.Offline, Defect: E.Offline, Interrupted: E.Offline },
     }),
     holdSlot: holdSlot.outcomes({
-      // @ts-expect-error Operations R2: a mapper reads its row's input
       success: E.Held.from((v, { input }) => ({ slot: input.slot, heldUntil: v.heldUntil })),
-      // @ts-expect-error Operations R2: a mapper reads its row's input
       failure: { Taken: E.Taken.from((_, { input }) => ({ slot: input.slot })) },
       notSent: E.HoldRefused.from((n) => ({ why: n.why })),
       unknown: E.HoldUnsure,

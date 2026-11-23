@@ -70,6 +70,7 @@ import {
   type App,
   type DefsOf,
   machineOf,
+  missingServices,
   noStore,
   type RuntimeConfig,
   type ServicesOf,
@@ -303,6 +304,9 @@ export const buildRuntime = <R = never, A extends App = App>(
         Effect.provideService(StoreScope, { app: config.app.id, scope: config.scope ?? "" }),
         Effect.catch((cause) => failed(servicesFailed(cause))),
       );
+
+    for (const error of Option.toArray(missingServices([...machines.values()], services)))
+      return yield* failed(error);
 
     store = persistence
       ? yield* Effect.transposeOption(

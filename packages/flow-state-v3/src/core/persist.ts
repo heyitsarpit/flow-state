@@ -2,7 +2,7 @@ import { savedSchedulesOf } from "./schedule-restore.ts";
 import { Duration, Option, Result } from "effect";
 import { Alarm } from "./alarms.ts";
 import { Act } from "./evidence-of.ts";
-import { Audience, IN_MAILBOX, type Owed, rowsOf } from "./ledger.ts";
+import { IN_MAILBOX, type Owed, rowsOf, toIdentity } from "./ledger.ts";
 import { encodePosition } from "./record.ts";
 import { encodeWork } from "./record-work.ts";
 import { keyText, RecordKey } from "./record-key.ts";
@@ -26,9 +26,6 @@ import {
   type Wiring,
   type Write,
 } from "./world.ts";
-
-// An identity's work record holds every row owed to the identity, whatever its delivery.
-const toIdentity = (row: Owed) => Audience.$is("Identity")(row.to);
 
 /**
  * The key an identity's position is stored under.

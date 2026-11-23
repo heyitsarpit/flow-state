@@ -20,16 +20,10 @@ export type Trigger = Data.TaggedEnum<{
 export const Trigger = Data.taggedEnum<Trigger>();
 
 /**
- * The source an ending's turn raises or clears its issue on: its operation.
- */
-// RETURN_TYPE: a stored source, never a schedule's.
-export const endingSource = (row: Owed): StoredSource =>
-  IssueSource.Operation({ name: row.operation });
-
-/**
  * What a turn's trigger decides: whether its source can send it again, the activation it is late
- * for, the lane it acts on as owner, the row it hears, and the source whose issue it raises or
- * clears; a firing's issues are its schedule's decision, so it names its firing instead.
+ * for, the lane it acts on as owner, the row it hears, and the source whose stored issue it raises
+ * or clears. A firing's issues are its schedule's decision and an ending's are its row's refusal,
+ * so neither names a stored source.
  */
 export const routeOf = (trigger: Trigger) =>
   Trigger.$match(trigger, {
@@ -54,7 +48,7 @@ export const routeOf = (trigger: Trigger) =>
       late,
       own: row.lane,
       ending: Option.some(row),
-      source: Option.some(endingSource(row)),
+      source: Option.none<StoredSource>(),
       firing: Option.none<Firing>(),
     }),
   });

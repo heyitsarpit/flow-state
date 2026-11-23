@@ -93,7 +93,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.shown.read(Catalog.results).map((c) => c.status)).toEqual(["answered"]);
   });
 
-  it.fails("Operations Rows, S7: a setup that lacks the search service is refused at boot, by name", async () => {
+  it("Operations Rows, S7: a setup that lacks the search service is refused at boot, by name", async () => {
     await expect(missingSearch().run()).rejects.toThrow(
       /MissingService.*Search\/suggestions.*SearchApi/su,
     );

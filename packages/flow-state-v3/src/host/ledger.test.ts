@@ -352,12 +352,13 @@ describe("the owed ledger on the production runtime", () => {
     assert.deepStrictEqual(turnsOf(fourth.seen, ["Unsure", "Rang"]), [], "each heard once");
   });
 
-  // Owned by the ledger's runtime side (@task.V3.T121): live, an Attempt's final answer does not yet
-  // replace its Kept unknown, so the live run hears both while a reload hears the final alone.
-  it.fails("Records R16: a final answer replaces its Attempt's Kept unknown live as after a reload, so the live run hears it alone", () => {
+  // Live, an Attempt's final answer replaces its Kept unknown, as the saved form does across a
+  // reload, so both hear the final answer alone. A Kept row's next try is at the identity's next
+  // start (Operations, Rows), so the actor is disposed and started again.
+  it("Records R16: a final answer replaces its Attempt's Kept unknown live as after a reload, so the live run hears it alone", () => {
     const store = new Map<string, string>();
     const jam: Jam = { on: true, tries: [] };
-    const { served } = tollOver(jam, []);
+    const { served, TollMachine } = tollOver(jam, []);
     const first = bootWith(served, store, 1);
 
     testing.attach(first.built, tolls, "host", false);
@@ -368,7 +369,7 @@ describe("the owed ledger on the production runtime", () => {
     first.tab.settle();
     rung(first, attempt);
     jam.on = false;
-    testing.detach(first.built, tolls, "host");
+    first.built.runtime.disposeActor(actorRef(TollMachine, "t1"));
     testing.attach(first.built, tolls, "host", false);
     first.tab.settle();
 
@@ -708,8 +709,9 @@ describe("the owed ledger on the production runtime", () => {
 
   // WriteLanes `algorithm` ledger, start: "Waiting goes Queued and Kept goes Retrying, in the order
   // the rows were owed". Rows owed across two lanes: a Kept unknown on "b", a Waiting success on
-  // "a", then a Waiting success on "b"; the adoption hears them in that order.
-  it("a start delivers Waiting and Kept rows in the order owed, across lanes (WriteLanes algorithm start; Restore R3)", () => {
+  // "a", then a Waiting success on "b", which replaces b's unknown (Records R16); the adoption hears
+  // the two successes in that order, as after a reload.
+  it("a start delivers Waiting and Kept rows in the order owed, across lanes, an Attempt's final answer in place of its unknown (WriteLanes algorithm start; Restore R3; Records R16)", () => {
     const jam: Jam = { on: true, tries: [] };
     const { served, TollMachine } = tollOver(jam, []);
     const b = bootWith(served, new Map(), 1);
@@ -732,7 +734,7 @@ describe("the owed ledger on the production runtime", () => {
 
     assert.deepStrictEqual(
       deliveredOf(b.seen.slice(from)),
-      [`${onB} Unsure`, `${onA} Rang`, `${onB} Rang`],
+      [`${onA} Rang`, `${onB} Rang`],
       "rows are heard in the order owed, across lanes",
     );
   });

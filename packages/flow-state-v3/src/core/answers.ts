@@ -4,7 +4,7 @@ import type { Channel } from "./evidence.ts";
 import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
 import type { Tx } from "./tx.ts";
-import { Audience, type LedgerSteps, Route } from "./ledger.ts";
+import { type LedgerSteps, Route } from "./ledger.ts";
 import type { CallId, Read, TicketId } from "./world.ts";
 import { onWireAs } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
@@ -43,9 +43,9 @@ export const makeAnswers = (tx: Tx, lanes: LaneSteps, ledger: LedgerSteps) => {
 
     ledger.owe({
       actor: read.actor,
-      to: Audience.Life({ incarnation: read.incarnation }),
+      life: Option.some(read.incarnation),
       operation: read.operation,
-      input: Option.none(),
+      input: Option.some(read.input),
       attempt: Option.none(),
       lane: Option.none(),
       channel: c.channel === "unknown" ? "failure" : c.channel,

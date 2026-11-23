@@ -31,7 +31,7 @@ const deleteIssues = (cut: Cut) =>
 const sendKeys = (cut: Cut) => cut.read(Chat.send).map((c) => c.input.key);
 
 describe("a mapper's context (Operations R2)", () => {
-  it.fails("Operations R2: a sent message takes the server's id through the mapper's `{ input }`", async () => {
+  it("Operations R2: a sent message takes the server's id through the mapper's `{ input }`", async () => {
     const run = await usual.run();
 
     expect(ids(run.checkpoints.sent)).toEqual(["m-1", "m-2", "m-3"]);
@@ -39,7 +39,7 @@ describe("a mapper's context (Operations R2)", () => {
     expect(run.checkpoints.sent.read(general)?.issues).toEqual([]);
   });
 
-  it.fails(`Operations R2 under L5: ${String(BURST)} sends in a burst go one at a time, in order, each reconciled by its own input`, async () => {
+  it(`Operations R2 under L5: ${String(BURST)} sends in a burst go one at a time, in order, each reconciled by its own input`, async () => {
     const run = await sendBurst.run();
     const sent = run.checkpoints.sent;
 
@@ -57,7 +57,7 @@ describe("a mapper's context (Operations R2)", () => {
 });
 
 describe("a delete's key (Operations R2)", () => {
-  it.fails("Operations R2: a delete of a message the server no longer has names it from the delete's key", async () => {
+  it("Operations R2: a delete of a message the server no longer has names it from the delete's key", async () => {
     const run = await deleteGone.run();
 
     expect(run.checkpoints.gone.read(general)?.memory.notice).toBe("m-9 was gone");
@@ -72,7 +72,7 @@ describe("a refused ending's row and its issue (Operations R6, R11, I13)", () =>
     expect(ids(run.checkpoints.kept)).toEqual(["m-1", "m-2"]);
   });
 
-  it.fails("Operations R6, I13, T4.1: another key's delete heard cleanly leaves the kept delete's issue standing", async () => {
+  it("Operations R6, I13, T4.1: another key's delete heard cleanly leaves the kept delete's issue standing", async () => {
     const run = await deleteBadUndo.run();
 
     expect(
@@ -116,7 +116,7 @@ describe("resends and keys (Operations R1, R15, I16; Records R3)", () => {
 });
 
 describe("services at boot (Operations, Rows: MissingService)", () => {
-  it.fails("Operations Rows, S7: a setup that lacks the history service is refused at boot, naming the read and the service", async () => {
+  it("Operations Rows, S7: a setup that lacks the history service is refused at boot, naming the read and the service", async () => {
     await expect(missingHistory().run()).rejects.toThrow(
       /MissingService.*Chat\/history.*HistoryApi/su,
     );
@@ -124,7 +124,7 @@ describe("services at boot (Operations, Rows: MissingService)", () => {
 });
 
 describe("a declared idempotency (Plan Operations O1)", () => {
-  it.fails("Plan Operations O1: the send declares the client id as the field the server keys it by, and a resend carries it", async () => {
+  it("Plan Operations O1: the send declares the client id as the field the server keys it by, and a resend carries it", async () => {
     const run = await played(resendLimit);
 
     expect(Predicate.hasProperty(send, "idempotency") && send.idempotency).toEqual(["clientId"]);

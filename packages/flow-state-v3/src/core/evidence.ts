@@ -50,7 +50,7 @@ export type SendDrop = "NoRecord" | "RecordUndecodable" | "NotAdopted";
 /**
  * Why an ending was recorded and not delivered.
  */
-export type RecordedWhy = "evidence" | "letGo";
+export type RecordedWhy = "evidence" | "letGo" | "replaced";
 
 /**
  * The lanes a member acts on: an unkeyed operation's one lane, one key's lane, or none.

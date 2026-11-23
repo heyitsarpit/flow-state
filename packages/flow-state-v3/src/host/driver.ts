@@ -55,10 +55,12 @@ const provided = (effect: Effect.Effect<unknown, unknown, unknown>) =>
 
 /**
  * How a call ended, as the core hears it: Flow's own marks, then a plain error as a failure; an
- * interrupted call is Interrupted, its cleanup's failure being its Owner's.
+ * interrupted call is Interrupted, its cleanup's failure being its Owner's. A write's
+ * `Cause.TimeoutError` is unknown, since a write that timed out may still have happened; a read's
+ * is a failure like any other.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: a call's value and error are the contract's own.
-const resultOf = (ending: Ending<unknown>) =>
+const resultOf = (kind: "read" | "write") => (ending: Ending<unknown>) =>
   Ending.$match(ending, {
     Done: ({ value }) => CallResult.Success({ value }),
     Died: () => CallResult.Defect(),
@@ -69,6 +71,9 @@ const resultOf = (ending: Ending<unknown>) =>
 
       if (error instanceof OutcomeFailure)
         return CallResult.Failure({ reason: reasonOf(error.error), error: error.error });
+
+      if (kind === "write" && Cause.isTimeoutError(error))
+        return CallResult.Unknown({ reason: "TimeoutError", error });
 
       return CallResult.Failure({ reason: reasonOf(error), error });
     },
@@ -200,10 +205,15 @@ export const makeDriver = (options: {
       defect(`no operation ${machine}.${operation}`),
     );
 
-  // FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
-  const call = (owner: Owner, id: CallId, effect: () => Effect.Effect<unknown, unknown, unknown>) =>
+  const call = (
+    kind: "read" | "write",
+    owner: Owner,
+    id: CallId,
+    // FLOW_STATE_ALLOW_UNKNOWN: a call's value, error and services are the contract's own.
+    effect: () => Effect.Effect<unknown, unknown, unknown>,
+  ) =>
     owner.fork(`call/${id}`, provided(Effect.suspend(effect)), (ending) =>
-      input(Input.Settled({ call: id, result: resultOf(ending) })),
+      input(Input.Settled({ call: id, result: resultOf(kind)(ending) })),
     );
 
   // A task that only wakes the core when it runs to its end: a sleep or a yield.
@@ -217,14 +227,17 @@ export const makeDriver = (options: {
       Invoke: ({ call: id, machine, operation, input: given, attempt }) =>
         Operation.$match(operationAt(machine, operation), {
           Write: (op) =>
-            call(work, id, () =>
-              op.call.run(given, { attempt: { ...attempt, operation, input: given } }),
+            call("write", work, id, () =>
+              op.call.run(given, {
+                attempt: { ...attempt, operation, input: given },
+                progress: (value) => input(Input.Progress({ call: id, value })),
+              }),
             ),
           Read: () => defect(`${machine}.${operation} is not a write`),
         }),
       Lookup: ({ call: id, actor, operation, input: given, owner }) =>
         Operation.$match(operationAt(actor.machine, operation), {
-          Read: (op) => call(ownerOf(owner, actor), id, () => op.call.run(given)),
+          Read: (op) => call("read", ownerOf(owner, actor), id, () => op.call.run(given)),
           Write: () => defect(`${actor.machine}.${operation} is not a read`),
         }),
       Interrupt: ({ call }) => work.cancel(`call/${call}`),

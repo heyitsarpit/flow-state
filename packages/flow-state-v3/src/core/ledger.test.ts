@@ -7,9 +7,8 @@ import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
 import {
-  Audience,
   Delivery,
-  type Heard,
+  Heard,
   keptOn,
   makeLedger,
   Origin,
@@ -34,6 +33,7 @@ import {
   emptyWorld,
   Mail,
   OwnedBy,
+  type IncarnationId,
   Place,
   Quarantine,
   type World,
@@ -60,13 +60,14 @@ const workOf = (
           id: Brand.nominal<OwedId>()(`owed-${n}`),
           origin: Origin.Decided(),
           actor,
-          to: Audience.Identity(),
+          life: Option.none(),
           operation: "pay",
           attempt: Option.none(),
           lane: Option.none(),
           route: Route.Current(),
           delivery: Delivery.Waiting(),
           input: Option.some({ cents: 1 }),
+          refusal: Option.none(),
         })),
         carried: [],
       }),
@@ -115,12 +116,18 @@ const stepOver = (world: World) => {
   return { tx, ledger, rows: () => rowsOf(tx.world().owed, actor) };
 };
 
-const ending = (lane: Option.Option<string>, to: Audience = Audience.Identity()) => ({
+// An unknown ending owed to the identity or to one life, of the Attempt named after its lane unless
+// another is named: one Attempt has one unknown row.
+const ending = (
+  lane: Option.Option<string>,
+  life = Option.none<IncarnationId>(),
+  attempt = `att-${Option.getOrElse(lane, () => "none")}`,
+) => ({
   actor,
-  to,
+  life,
   operation: "ring",
   input: Option.some({}),
-  attempt: Option.some(attemptOf("att-1")),
+  attempt: Option.some(attemptOf(attempt)),
   lane: Option.map(lane, laneOf),
   channel: "unknown" as const,
   reason: "Lost",
@@ -149,7 +156,7 @@ const ledgerFaults = (world: World) => {
     : [`refs ${refs.join()} for queued rows ${queued.join()}`];
 };
 
-const hearAs = (heard: Heard) => () => heard;
+const refused = Heard.Refused({ refusal: { code: "InvalidTurn", slot: Option.some("m") } });
 
 // A persisted machine with one write operation, `pay`, whose owed records the boot may read.
 const pay = transaction({
@@ -243,7 +250,7 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   it("owe: Waiting, reported Parked, when no incarnation can hear; a gone incarnation's row closes as evidence", () => {
     const s = stepOver(emptyWorld(true));
     s.ledger.owe(ending(Option.none()));
-    s.ledger.owe(ending(Option.none(), Audience.Life({ incarnation: incarnation("inc-gone") })));
+    s.ledger.owe(ending(Option.none(), Option.some(incarnation("inc-gone")), "att-gone"));
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"]);
     assert.deepStrictEqual(
@@ -252,47 +259,33 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     );
   });
 
-  it("tryOne: refused once is Retrying behind queued mail, refused again is Kept; a closed row's reference does nothing", () => {
+  it("afterTry: refused once is Retrying behind queued mail, refused again is Kept, each holding its refusal; a Kept row is not tried", () => {
     const s = stepOver(live(emptyWorld(true)));
     const id = s.ledger.owe(ending(Option.some("L")));
     s.tx.clearMail();
 
-    s.ledger.tryOne(actor, id, hearAs("Refused"));
+    s.ledger.afterTry(id, actor, refused);
     assert.deepStrictEqual(deliveries(s.rows()), ["Retrying"]);
     assert.deepStrictEqual(ledgerFaults(s.tx.world()), []);
 
-    s.ledger.tryOne(actor, id, hearAs("Refused"));
+    s.ledger.afterTry(id, actor, refused);
     assert.deepStrictEqual(deliveries(s.rows()), ["Kept"]);
-
-    const heard: Array<string> = [];
-    s.ledger.tryOne(actor, id, () => {
-      heard.push("tried");
-
-      return "Heard";
-    });
     assert.deepStrictEqual(
-      heard,
-      [],
-      "a Kept row is not in the mailbox, so its reference does nothing",
+      s.rows().map((r) => Option.map(r.refusal, (f) => f.code)),
+      [Option.some("InvalidTurn")],
     );
+    assert.ok(Option.isNone(s.ledger.tried(actor, id)), "a Kept row is not in the mailbox");
   });
 
-  it("tryOne: heard closes Delivered, unmapped closes Recorded, and a closed row is never tried again (WriteLanes I30)", () => {
+  it("afterTry: heard closes Delivered, unmapped closes Recorded, and a closed row is never tried again (WriteLanes I30)", () => {
     const s = stepOver(live(emptyWorld(true)));
     const heard = s.ledger.owe(ending(Option.some("L")));
     const unmapped = s.ledger.owe(ending(Option.some("M")));
 
-    s.ledger.tryOne(actor, heard, hearAs("Heard"));
-    s.ledger.tryOne(actor, unmapped, hearAs("Unmapped"));
+    s.ledger.afterTry(heard, actor, Heard.Heard());
+    s.ledger.afterTry(unmapped, actor, Heard.Unmapped());
     assert.deepStrictEqual(s.rows(), []);
-
-    const again: Array<string> = [];
-    s.ledger.tryOne(actor, heard, () => {
-      again.push("tried");
-
-      return "Heard";
-    });
-    assert.deepStrictEqual(again, []);
+    assert.ok(Option.isNone(s.ledger.tried(actor, heard)));
     assert.ok(
       s.tx.out().evidence.some((e) => e._tag === "Recorded" && e.why === "evidence"),
       "closing an unmapped row records evidence",
@@ -301,12 +294,12 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
 
   it("two rows refused twice on one lane are two Kept rows; keptOn reads Kept rows only (WriteLanes I31, I33)", () => {
     const s = stepOver(live(emptyWorld(true)));
-    const one = s.ledger.owe(ending(Option.some("L")));
-    const two = s.ledger.owe(ending(Option.some("L")));
+    const one = s.ledger.owe(ending(Option.some("L"), Option.none(), "att-one"));
+    const two = s.ledger.owe(ending(Option.some("L"), Option.none(), "att-two"));
 
     assert.ok(!keptOn(s.tx.world().owed, actor, laneOf("L")), "Queued rows block no key");
 
-    for (const id of [one, two, one, two]) s.ledger.tryOne(actor, id, hearAs("Refused"));
+    for (const id of [one, two, one, two]) s.ledger.afterTry(id, actor, refused);
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Kept", "Kept"], "two Kept rows on one lane");
     assert.ok(keptOn(s.tx.world().owed, actor, laneOf("L")));
@@ -320,12 +313,12 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
     s.ledger.owe(ending(Option.none()));
     const retrying = s.ledger.owe(ending(Option.some("L")));
     const kept = s.ledger.owe(ending(Option.some("M")));
-    s.ledger.owe(ending(Option.some("N"), Audience.Life({ incarnation: incarnation("inc-1") })));
+    s.ledger.owe(ending(Option.some("N"), Option.some(incarnation("inc-1"))));
     s.tx.clearMail();
-    s.ledger.tryOne(actor, retrying, hearAs("Refused"));
+    s.ledger.afterTry(retrying, actor, refused);
     s.tx.clearMail();
-    s.ledger.tryOne(actor, kept, hearAs("Refused"));
-    s.ledger.tryOne(actor, kept, hearAs("Refused"));
+    s.ledger.afterTry(kept, actor, refused);
+    s.ledger.afterTry(kept, actor, refused);
     // The drain serves each reference once; these direct tries leave the refusal's reference behind.
     s.tx.clearMail();
     s.tx.dropIncarnation(actor);
@@ -344,19 +337,32 @@ describe("the owed ledger's five functions (WriteLanes algorithm ledger)", () =>
   });
 
   // A refusal moves only a row still in the mailbox: a row its own turn sent to wait stays Waiting.
-  it("tryOne: a refusal leaves a row its turn suspended Waiting, never Kept", () => {
+  it("afterTry: a refusal leaves a row its turn suspended Waiting, never Kept", () => {
     const s = stepOver(live(emptyWorld(true)));
     const id = s.ledger.owe(ending(Option.some("L")));
-    s.ledger.tryOne(actor, id, hearAs("Refused"));
+    s.ledger.afterTry(id, actor, refused);
 
-    s.ledger.tryOne(actor, id, () => {
-      s.tx.dropIncarnation(actor);
-      s.ledger.suspend(actor, false);
-
-      return "Refused";
-    });
+    // The turn that heard the row's second try ended its identity, which suspended the row.
+    s.tx.dropIncarnation(actor);
+    s.ledger.suspend(actor, false);
+    s.ledger.afterTry(id, actor, refused);
 
     assert.deepStrictEqual(deliveries(s.rows()), ["Waiting"], "the suspended row stays Waiting");
+  });
+
+  it("owe: one unknown per Attempt; a final answer closes its unheard unknown as replaced (Operations R2, I15)", () => {
+    const s = stepOver(live(emptyWorld(true)));
+    const unknown = ending(Option.some("L"));
+    const first = s.ledger.owe(unknown);
+
+    assert.equal(s.ledger.owe(unknown), first, "a second unknown adds nothing");
+    s.ledger.owe({ ...unknown, channel: "success", reason: "success" });
+
+    assert.deepStrictEqual(
+      s.rows().map((r) => r.channel),
+      ["success"],
+    );
+    assert.ok(s.tx.out().evidence.some((e) => e._tag === "Recorded" && e.why === "replaced"));
   });
 
   it("start: Waiting rows queue and Kept rows take their one try, adopted current from the root (Turn R20)", () => {

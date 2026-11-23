@@ -42,7 +42,7 @@ export const turnPartsFaults: ReadonlyArray<Fault> = [
       {
         file: "src/core/ledger.ts",
         find: "    if (live(row)) {",
-        replace: '    if (live(row) || row.to._tag === "Identity") {',
+        replace: "    if (live(row) || Option.isNone(row.life)) {",
       },
     ],
   },
@@ -67,9 +67,9 @@ export const turnPartsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/apply.ts",
-        find: "              issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, source)), issue],",
+        find: "          return install({ ...incarnation, issues: [...others, issue] }, false);",
         replace:
-          '              issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, source)), issue],\n              memory: { ...incarnation.memory, [Object.keys(incarnation.memory)[0] ?? ""]: null },',
+          '          return install({ ...incarnation, issues: [...others, issue], memory: { ...incarnation.memory, [Object.keys(incarnation.memory)[0] ?? ""]: null } }, false);',
       },
     ],
   },

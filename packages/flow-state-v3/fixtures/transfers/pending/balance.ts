@@ -91,9 +91,6 @@ export const available = resource({
   lookup: (input) => AvailableApi.use((api) => api.available(input)),
 });
 
-// The server keys a card payment by the payment's own id, not by the Attempt (Plan Operations O1).
-const keyedByPayment = { idempotency: ["paymentId"] } as const;
-
 /**
  * A card payment from an account, keyed by its payment id. A lost answer is unknown.
  */
@@ -103,7 +100,8 @@ export const cardPayment = transaction({
   key: ["paymentId"],
   concurrency: "reject",
   services: [AvailableApi],
-  ...keyedByPayment,
+  // The server keys a card payment by the payment's own id, not by the Attempt.
+  idempotency: ["paymentId"],
   commit: (input) =>
     AvailableApi.use((api) => api.debit(input, { idempotencyKey: input.paymentId })).pipe(
       Effect.catchTag("NoAnswer", (e) => Outcome.unknown(e)),

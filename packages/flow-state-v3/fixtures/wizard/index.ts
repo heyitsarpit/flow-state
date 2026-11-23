@@ -22,11 +22,24 @@ export const wizard = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
     {
       samples: slotSamples,
-      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
+      // The picker's writes are local, but the booking it tells saves its record while one is out.
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: true,
+      },
     },
   ],
   bench: {

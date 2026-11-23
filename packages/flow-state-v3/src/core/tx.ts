@@ -418,7 +418,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
       world.persistence = false;
     },
     act: (a: Act) => void evidence.push(...evidenceOf(a)),
-    refuse: <I extends Issue>(
+    refuse: <I extends Pick<Issue, "code" | "slot">>(
       actor: ActorId,
       issue: I,
       ending: Parameters<typeof Act.Refused>[0]["ending"] = Option.none(),

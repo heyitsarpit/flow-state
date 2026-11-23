@@ -31,9 +31,9 @@ export type EventToken<
      * - Type only, as a Schema's `Type` is: it holds no value at run time.
      */
     readonly Type: P;
-    readonly from: <V, R extends P>(
-      map: (value: V) => R & { readonly [K in Exclude<keyof R, keyof P>]: never },
-    ) => MappedEvent<Name, V, P, Id> & UncertainMark<IsUncertain>;
+    readonly from: <V, R extends P, C = unknown>(
+      map: (value: V, context: C) => R & { readonly [K in Exclude<keyof R, keyof P>]: never },
+    ) => MappedEvent<Name, V, P, Id, C> & UncertainMark<IsUncertain>;
   };
 
 // A payload with no fields takes none: `{}` alone skips TypeScript's excess-key check.
@@ -46,17 +46,18 @@ type UncertainMark<IsUncertain extends boolean> = IsUncertain extends true
 
 /**
  * An event token's mapping (`E.X.from(f)`): an ending's target, or a send's event, whose payload
- * `f` computes from a value of type `V`.
+ * `f` computes from a value of type `V` and the ending's context `C` (its call's input and key).
  */
 export type MappedEvent<
   Name extends string,
   V,
   P,
   Id extends string = string,
+  C = unknown,
 > = Branded<"mapping"> & {
   readonly ending: { readonly event: Name };
-  // A phantom type: the value its mapper takes and the payload it computes.
-  readonly "~maps"?: (value: V) => P;
+  // A phantom type: the value and context its mapper takes and the payload it computes.
+  readonly "~maps"?: (value: V, context: C) => P;
   // A phantom type: the definition whose event it is.
   readonly "~definition"?: Id;
 };

@@ -6,8 +6,8 @@ import { RuntimeDefaults } from "./defaults.ts";
 import { Change, refusalOf } from "./change.ts";
 import { scopeOf } from "./reads.ts";
 import { routeOf, Trigger } from "./trigger.ts";
-import { isInFlight, type Tx } from "./tx.ts";
-import { type Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
+import { isInFlight, pick, type Tx } from "./tx.ts";
+import { Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
 import {
   type ActivationId,
   type ActorId,
@@ -20,12 +20,6 @@ import {
 import type { LaneSteps } from "./lanes.ts";
 import type { IncarnationSteps } from "./incarnations.ts";
 import { makeFirings } from "./firings.ts";
-
-const HEARD: Heard = "Heard";
-
-const REFUSED: Heard = "Refused";
-
-const UNMAPPED: Heard = "Unmapped";
 
 /**
  * The activations that own an actor's pending work: each InFlight head and every queued commit,
@@ -110,7 +104,7 @@ export const makeServe = (
   const turn = (incarnation: Incarnation, tag: string, payload: Values, trigger: Trigger) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
 
-    if (compiled === undefined) return HEARD;
+    if (compiled === undefined) return;
 
     const route = routeOf(trigger);
 
@@ -145,43 +139,45 @@ export const makeServe = (
         schedules.stepper(incarnation.actor, name, tx.env.now)(series, attempt),
     });
 
-    const applied = (change: Change) =>
-      Change.$is("Refused")(apply(Option.some(incarnation), change)) ? REFUSED : HEARD;
+    const applied = (change: Change) => void apply(Option.some(incarnation), change);
 
-    return TurnResult.$match(result, {
+    TurnResult.$match(result, {
       Unhandled: () => {
         tx.act(Act.Unhandled({ actor: incarnation.actor, event: tag }));
         ranNothing(incarnation, trigger);
-
-        return HEARD;
       },
       Denied: ({ reasons }) => {
         tx.act(Act.Denied({ actor: incarnation.actor, event: tag, reasons }));
         ranNothing(incarnation, trigger);
-
-        return HEARD;
       },
       Refused: ({ code, slot }) => applied(refusalOf(trigger, { code, slot })),
       Accepted: ({ turn: decided }) => applied(Change.Turn({ turn: decided, trigger })),
     });
   };
 
-  // One try of an owed row: its mapped event's turn. An unmapped row is recorded as evidence by
-  // its close; a mapper that throws refuses the turn.
+  // One try of an owed row: its mapped event's turn, whose applier moves the row. An unmapped row
+  // closes as evidence; a mapper that throws refuses the turn.
   const serveEnding = (incarnation: Incarnation, ending: Owed) => {
     const compiled = tx.machines.get(incarnation.actor.machine);
     const operation = compiled?.operations.get(ending.operation);
 
-    if (operation === undefined) return UNMAPPED;
+    const mapping = Option.flatMap(Option.fromUndefinedOr(operation), (op) =>
+      endingMapping(op, ending),
+    );
 
-    const mapping = endingMapping(operation, ending);
+    if (operation === undefined || Option.isNone(mapping)) {
+      ledger.afterTry(ending.id, ending.actor, Heard.Unmapped());
 
-    if (Option.isNone(mapping)) return UNMAPPED;
+      return;
+    }
+
+    const input = Option.getOrElse(ending.input, () => ({}));
 
     const payload = Option.match(mapping.value.from, {
       onNone: () => Result.succeed<Values>({}),
       // FLOW_STATE_ALLOW_UNKNOWN: a throw from an outcome mapper refuses the turn.
-      onSome: (from) => callSlot(from, ending.value),
+      onSome: (from) =>
+        callSlot(from, ending.value, { input, key: pick(input, operation.keyFields) }),
     });
 
     tx.act(Act.Heard({ row: ending, event: mapping.value.event, actor: incarnation.actor }));
@@ -201,16 +197,12 @@ export const makeServe = (
 
     const trigger = Trigger.Ending({ row: ending, late });
 
-    if (Result.isFailure(payload)) {
+    if (Result.isFailure(payload))
       apply(
         Option.some(incarnation),
         refusalOf(trigger, { code: "InvalidTurn", slot: payload.failure }),
       );
-
-      return REFUSED;
-    }
-
-    return turn(incarnation, mapping.value.event, payload.success, trigger);
+    else turn(incarnation, mapping.value.event, payload.success, trigger);
   };
 
   const firings = makeFirings(tx, incarnations, (incarnation, schedule, payload, firing) =>
@@ -242,7 +234,7 @@ export const makeServe = (
 
         // A row is in the mailbox only while its identity can hear it; every end suspends it.
         if (incarnation !== undefined)
-          ledger.tryOne(actor, id, (row) => serveEnding(incarnation, row));
+          for (const row of Option.toArray(ledger.tried(actor, id))) serveEnding(incarnation, row);
       },
     });
 

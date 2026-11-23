@@ -136,15 +136,33 @@ export const shop = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: storeSamples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: checkoutSendSamples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
   ],
   bench: {

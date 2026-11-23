@@ -110,19 +110,43 @@ export const transfers = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: true, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: true,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: formSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
     {
       samples: orderSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
     {
       samples: reminderSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
   ],
   bench: {

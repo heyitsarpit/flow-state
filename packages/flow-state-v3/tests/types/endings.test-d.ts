@@ -7,6 +7,7 @@ import {
   Flow,
   machine,
   type Machine,
+  type MapperContext,
   type ReadEndings,
   resource,
   send,
@@ -25,6 +26,9 @@ type Busy = { readonly _tag: "Busy" };
 type Gone = { readonly _tag: "Gone" };
 
 type Receipt = { readonly receipt: number };
+
+// What each mapper of `pay` and `look` reads beside its value: the call's input and its key.
+type IdContext = MapperContext<{ readonly id: string }, { readonly id: string }>;
 
 const pay = transaction({
   id: "types/endings/pay",
@@ -64,14 +68,18 @@ type PayEndings = Parameters<typeof pay.outcomes>[0];
 
 describe("Compile R9, WriteLanes R3: a write's endings take the commit's values", () => {
   it("success takes the commit's value, each failure its error, unknown an uncertain event", () => {
-    expectTypeOf<PayEndings>().toEqualTypeOf<WriteEndings<Declined | Busy, Receipt>>();
-    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
-    expectTypeOf<PayEndings["failure"]["Declined"]>().toEqualTypeOf<Ending<Declined>>();
-    expectTypeOf<PayEndings["unknown"]>().toEqualTypeOf<UnknownEnding>();
+    expectTypeOf<PayEndings>().toEqualTypeOf<
+      WriteEndings<Declined | Busy, Receipt, string, IdContext>
+    >();
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt, string, IdContext>>();
+    expectTypeOf<PayEndings["failure"]["Declined"]>().toEqualTypeOf<
+      Ending<Declined, string, IdContext>
+    >();
+    expectTypeOf<PayEndings["unknown"]>().toEqualTypeOf<UnknownEnding<string, IdContext>>();
   });
 
   it("a success token whose payload no value fills", () => {
-    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt, string, IdContext>>();
 
     definition({
       id: "types/endings/A",
@@ -116,12 +124,14 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
       }),
     });
 
-    expectTypeOf<PayEndings["unknown"]>().toEqualTypeOf<UnknownEnding>();
+    expectTypeOf<PayEndings["unknown"]>().toEqualTypeOf<UnknownEnding<string, IdContext>>();
   });
 
   it("a mapper whose parameter is not the commit's value", () => {
-    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
-    expectTypeOf<PayEndings["failure"]["Declined"]>().toEqualTypeOf<Ending<Declined>>();
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt, string, IdContext>>();
+    expectTypeOf<PayEndings["failure"]["Declined"]>().toEqualTypeOf<
+      Ending<Declined, string, IdContext>
+    >();
 
     definition({
       id: "types/endings/C",
@@ -152,7 +162,7 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
 
     const TargetMachine = machine(Target, ({ S }) => ({ default: S.A }));
 
-    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt>>();
+    expectTypeOf<PayEndings["success"]>().toEqualTypeOf<Ending<Receipt, string, IdContext>>();
 
     definition({
       id: "types/endings/Extra",
@@ -224,7 +234,7 @@ describe("Compile R9, WriteLanes R3: a write's endings take the commit's values"
 
   it("a write's failures are exhaustive", () => {
     expectTypeOf<Parameters<typeof pay.outcomes>[0]>().toEqualTypeOf<
-      WriteEndings<Declined | Busy, Receipt>
+      WriteEndings<Declined | Busy, Receipt, string, IdContext>
     >();
 
     definition({
@@ -257,7 +267,7 @@ describe("Compile R9, Reads R1: a read's failures are its lookup's tags, each ma
     });
 
     expectTypeOf<Parameters<typeof look.outcomes>[0]>().toEqualTypeOf<
-      ReadEndings<Gone, { readonly cents: number }>
+      ReadEndings<Gone, { readonly cents: number }, string, IdContext>
     >();
   });
 });

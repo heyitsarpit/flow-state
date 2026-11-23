@@ -11,7 +11,6 @@ export const send = transaction({
   input: { thread: Schema.String, clientId: Schema.String, text: Schema.String },
   key: ["thread"],
   concurrency: "serialize",
-  // @ts-expect-error Plan Operations O1: a write declares the input fields the server keys it by
   idempotency: ["clientId"],
   services: [MessagesApi],
   commit: (input) =>

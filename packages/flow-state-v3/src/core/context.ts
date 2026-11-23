@@ -1,5 +1,12 @@
 import { Data, Equal, Option, Result } from "effect";
-import { InternalsId, callSlot, type Compiled, type ContextRead, type Values } from "./compiled.ts";
+import {
+  InternalsId,
+  callSlot,
+  type Compiled,
+  type ContextRead,
+  NO_CALL,
+  type Values,
+} from "./compiled.ts";
 import { sameValue } from "./same.ts";
 import { readsOf, scopeOf } from "./reads.ts";
 import { type Selected, sameSlot, selectedOf } from "./slots.ts";
@@ -305,7 +312,8 @@ export const makeContext = (tx: Tx, needs: ContextNeeds) => {
           ? Result.succeed(Option.none<Values>())
           : Option.match(reaction.event.from, {
               onNone: () => Result.succeed(Option.some<Values>({})),
-              onSome: (from) => Result.map(callSlot(from, current.value), Option.some),
+              // A reaction's mapping ends no call, so it reads no input and no key.
+              onSome: (from) => Result.map(callSlot(from, current.value, NO_CALL), Option.some),
             }),
       );
 

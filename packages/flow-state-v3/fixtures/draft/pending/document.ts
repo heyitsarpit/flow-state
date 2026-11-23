@@ -37,7 +37,6 @@ export const Document = definition({
       failure: { NoResponse: E.LoadFailed, Defect: E.LoadFailed, Interrupted: E.LoadFailed },
     }),
     save: save.outcomes({
-      // @ts-expect-error Operations R2: a mapper reads its row's input
       success: E.Saved.from((v, { input }) => ({ body: input.body, revision: v.revision })),
       failure: { Conflict: E.Conflicted.from((e) => ({ revision: e.revision })) },
       notSent: E.SaveNotSent.from((n) => ({ why: n.why })),

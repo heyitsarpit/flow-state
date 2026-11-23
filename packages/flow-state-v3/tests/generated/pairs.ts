@@ -40,10 +40,16 @@ const FORBIDDEN: ReadonlyArray<readonly [(c: Cell) => boolean, string]> = [
     "no call is on the wire in this phase",
   ],
   [
-    ({ r, fault }) => fault === "storage refusal" && !r.persisted,
+    ({ r, fault }) => fault === "storage refusal" && !r.persisted && !r.storesBeside,
     "a local identity writes nothing (WriteAhead R15)",
   ],
 ];
+
+// Whether only the drive's seed decides if a cell's fault fires: a storage refusal meets a local
+// write only when another identity happens to save while it is out. Such a cell may stay unreached;
+// reached, the rules judge it like any other.
+const seedDecides = (r: Reach, fault: string) =>
+  fault === "storage refusal" && !r.persisted && r.storesBeside;
 
 // Why a cell cannot be reached, from the lifecycle rules, or none when it can.
 const whyUnreachable = (r: Reach, phase: PhaseTag, fault: string) =>
@@ -93,7 +99,8 @@ export const sweepChecks = (samples: Samples, reachable: Reach, tier: "usual" | 
   );
 
   const unreached = cells.flatMap((c) =>
-    c.outcome._tag === "Unreached"
+    c.outcome._tag === "Unreached" &&
+    !(seedDecides(reachable, c.fault) && whyUnreachable(reachable, c.phase, c.fault) === "")
       ? [`${c.phase} × ${c.fault}: ${whyUnreachable(reachable, c.phase, c.fault) || c.outcome.why}`]
       : [],
   );

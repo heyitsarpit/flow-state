@@ -1,7 +1,7 @@
 import { Option, Predicate, Result, type Schema } from "effect";
 import { toCanonicalJson } from "./codec.ts";
 import type { Compiled, Operation, Values } from "./compiled.ts";
-import { Audience, Delivery, type Owed } from "./ledger.ts";
+import { Delivery, type Owed, toIdentity } from "./ledger.ts";
 import { keyTextOfLane } from "./record-key.ts";
 import { textOf } from "./record.ts";
 import { encodedBy, Lane as LaneCodec, Row } from "./record-shape.ts";
@@ -359,7 +359,8 @@ export const encodeWork = (machines: ReadonlyMap<string, Compiled>, parts: WorkP
     );
 
     const operationOf = (name: string) => Option.fromUndefinedOr(compiled.operations.get(name));
-    const owed = parts.rows.filter((r) => Audience.$is("Identity")(r.to));
+    // An identity's work record holds every row owed to the identity, whatever its delivery.
+    const owed = parts.rows.filter(toIdentity);
 
     const lanes = yield* Result.all(
       parts.lanes.map(([, lane]) =>

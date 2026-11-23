@@ -21,7 +21,7 @@ const progressOf = (cut: Cut, ref: ActorRef<typeof Attachment>) => {
 };
 
 describe("an attachment's upload (Plan Operations O6)", () => {
-  it.fails("Plan Operations O6: an upload's row shows the share sent after each chunk, and the photo is attached", async () => {
+  it("Plan Operations O6: an upload's row shows the share sent after each chunk, and the photo is attached", async () => {
     const { uploadProgress, photo } = await load();
     const run = await uploadProgress.run();
 
@@ -29,7 +29,7 @@ describe("an attachment's upload (Plan Operations O6)", () => {
     expect(run.checkpoints.attached.read(photo)?.state).toBe("ATTACHED");
   });
 
-  it.fails("Plan Operations O3, O6: a stopped upload is unsure, its row at the share it sent", async () => {
+  it("Plan Operations O3, O6: a stopped upload is unsure, its row at the share it sent", async () => {
     const { uploadStopped, photo } = await load();
     const run = await uploadStopped.run();
 

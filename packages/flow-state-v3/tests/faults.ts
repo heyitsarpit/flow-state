@@ -275,8 +275,9 @@ const planted: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/ledger.ts",
-        find: "    Heard: (row) => close(row, Closed.Delivered()),",
-        replace: "    Heard: refused,",
+        find: "          Heard: () => close(row, Closed.Delivered()),",
+        replace:
+          '          Heard: () => refused(row, { code: "InvalidTurn", slot: Option.none() }),',
       },
     ],
   },

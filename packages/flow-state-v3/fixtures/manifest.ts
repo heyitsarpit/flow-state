@@ -12,6 +12,9 @@ export type Reach = {
   readonly persisted: boolean;
   readonly cancelsAcknowledging: boolean;
   readonly retainsUnknown: boolean;
+  // Whether another identity of the samples saves a record while a local write is out, so a storage
+  // refusal can meet it.
+  readonly storesBeside: boolean;
 };
 
 /**

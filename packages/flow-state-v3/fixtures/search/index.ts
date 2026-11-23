@@ -29,6 +29,7 @@ export const search = manifest({
         persisted: false,
         cancelsAcknowledging: false,
         retainsUnknown: false,
+        storesBeside: false,
       },
     },
   ],

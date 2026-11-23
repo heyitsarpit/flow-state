@@ -4,7 +4,7 @@ import { type Operation, operationOf as lookup, type Values } from "./compiled.t
 import { defect } from "./defect.ts";
 import { Act } from "./evidence-of.ts";
 import { Life } from "./life.ts";
-import { Audience, type LedgerSteps, Route } from "./ledger.ts";
+import { type LedgerSteps, Route } from "./ledger.ts";
 import { type Machines, pick, type Tx } from "./tx.ts";
 import type { Channel } from "./vocabulary.ts";
 import {
@@ -13,6 +13,7 @@ import {
   Command,
   type Displaced,
   type Head,
+  type IncarnationId,
   type Lane,
   type LaneId,
   type OwnedBy,
@@ -57,7 +58,7 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
 
   const oweOf = (at: At, attempt: Option.Option<AttemptId>, input: Values) => ({
     actor: at.actor,
-    to: Audience.Identity(),
+    life: Option.none<IncarnationId>(),
     operation: at.operation,
     attempt,
     input: Option.some(input),
@@ -178,12 +179,14 @@ export const makeMoves = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const hold = (at: At, lane: Lane) =>
     setLane(at.id, { ...lane, head: { ...lane.head, phase: Phase.Held() } });
 
-  const headFor = (input: Values, owner: OwnedBy) => ({
+  // RETURN_TYPE: a new head of the World's Head contract.
+  const headFor = (input: Values, owner: OwnedBy): Head => ({
     id: tx.mintAttempt(),
     input,
     retryCount: 0,
     owner,
     phase: Phase.Unsent(),
+    progress: Option.none(),
   });
 
   // The head is gone: the oldest queued commit is promoted to a new head, or the lane drops.

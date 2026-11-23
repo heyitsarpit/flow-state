@@ -86,7 +86,7 @@ const setup = runtimeSetup({
 const storyOf: (s: unknown, options: unknown) => Story = loose(Story.app);
 
 describe("a write's timeout (Operations R2, TimeoutIsUnknown)", () => {
-  it.fails("Operations R2, TimeoutIsUnknown: a post whose answer does not come within its 5-second timeout ends unknown, not as a failure", async () => {
+  it("Operations R2, TimeoutIsUnknown: a post whose answer does not come within its 5-second timeout ends unknown, not as a failure", async () => {
     const run = await storyOf(setup, { id: "test/post-timeout", fixtures: [MessagesFake] })
       .ensure(poster)
       .world(Chat.send.hold())

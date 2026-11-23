@@ -61,15 +61,33 @@ export const home = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: hubSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
     {
       samples: tripSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
   ],
   bench: {

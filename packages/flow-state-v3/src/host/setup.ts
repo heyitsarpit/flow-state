@@ -1,5 +1,7 @@
-import type { Layer } from "effect";
-import { flowError, flowErrorOf } from "../error.ts";
+import { Array as Arr, Context, type Layer, Option } from "effect";
+import type { Compiled } from "../core/compiled.ts";
+import { compiledOf } from "../compiled-of.ts";
+import { type Finding, flowError, flowErrorOf } from "../error.ts";
 import type { RequirementsOf } from "../contract.ts";
 import type { Machine } from "../definition.ts";
 import type { Parts } from "../derive.ts";
@@ -105,6 +107,41 @@ export const servicesFailed = (cause: unknown) =>
       },
     ],
     cause,
+  );
+
+/**
+ * The boot's error when an operation's contract lists a service the Runtime's services lack, one
+ * finding per contract and service: an app built where the setup's type was widened.
+ */
+export const missingServices = (
+  machines: ReadonlyArray<Machine>,
+  services: Context.Context<never>,
+) =>
+  Option.map(
+    Arr.match(findingsOf(machines.map(compiledOf), services), {
+      onEmpty: () => Option.none(),
+      onNonEmpty: Option.some,
+    }),
+    flowError,
+  );
+
+const findingsOf = (machines: ReadonlyArray<Compiled>, services: Context.Context<never>) =>
+  machines.flatMap((compiled) =>
+    [...compiled.operations.values()].flatMap((operation) =>
+      operation.services
+        .run()
+        .filter((key) => Option.isNone(Context.getOption(services, key)))
+        .map(
+          (key) =>
+            ({
+              code: "MissingService",
+              path: [compiled.id, "operations", operation.name],
+              details: { contract: operation.contract, reason: key.key },
+              summary: `${operation.contract} needs the service ${key.key}, which the Runtime's services lack`,
+              help: "Provide the service in the setup's services Layer, or in the Story's fixtures.",
+            }) satisfies Finding,
+        ),
+    ),
   );
 
 /**

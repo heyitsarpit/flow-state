@@ -138,8 +138,8 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     ["tests/compile/codes.test.ts"],
     "a denial reason Flow never raises as a diagnostic joins the closed code list",
     "src/error.ts",
-    '  "CleanupFailed",\n]);',
-    '  "CleanupFailed",\n  "InFlight",\n]);',
+    '  "MissingService",\n]);',
+    '  "MissingService",\n  "InFlight",\n]);',
   ),
   fault(
     "denial-is-a-diagnostic",

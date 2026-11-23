@@ -50,7 +50,6 @@ export const Thread = definition({
       failure: { NoResponse: E.JoinFailed, Defect: E.JoinFailed, Interrupted: E.JoinFailed },
     }),
     send: send.outcomes({
-      // @ts-expect-error Operations R2: a mapper reads its row's input
       success: E.Sent.from((v, { input }) => ({ clientId: input.clientId, id: v.id })),
       failure: {},
       unknown: E.SendUnsure,
@@ -61,7 +60,6 @@ export const Thread = definition({
         messageId: v.messageId,
         undo: new URL(v.undo).pathname,
       })),
-      // @ts-expect-error Operations R2: a mapper reads its row's key
       failure: { Gone: E.DeleteFailed.from((_, { key }) => ({ messageId: key.messageId })) },
       unknown: E.DeleteUnsure,
     }),

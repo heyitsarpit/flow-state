@@ -3,7 +3,7 @@ import { expect, it } from "vite-plus/test";
 import { admit } from "../core/admit.ts";
 import { workKey } from "../core/persist.ts";
 import { encodeWork } from "../core/record-work.ts";
-import { Audience, Delivery, Origin, type Owed, type OwedId, Route } from "../core/ledger.ts";
+import { Delivery, Origin, type Owed, type OwedId, Route } from "../core/ledger.ts";
 import { attempt } from "../core/test/ids.ts";
 import { type CallId, laneId, OwnedBy, Phase } from "../core/world.ts";
 import { definition, Flow, machine, transaction } from "../index.ts";
@@ -58,6 +58,7 @@ const restoredFrom = (
       retryCount: 0,
       owner: OwnedBy.Root(),
       phase: Phase.OnWire({ call: Brand.nominal<CallId>()("call-1") }),
+      progress: Option.none(),
     },
     queue: Array.from({ length: queued }, () => ({ input, owner: OwnedBy.Root() })),
   };
@@ -118,13 +119,14 @@ it("a Held head whose unknown is still owed saves it in its slot, and a boot owe
     retryCount: 0,
     owner: OwnedBy.Root(),
     phase: Phase.Held(),
+    progress: Option.none(),
   };
 
   const unknown: Owed = {
     id: Brand.nominal<OwedId>()("owed-1"),
     origin: Origin.Decided(),
     actor,
-    to: Audience.Identity(),
+    life: Option.none(),
     operation: "write",
     attempt: Option.some(head.id),
     lane: Option.some(id),
@@ -134,6 +136,7 @@ it("a Held head whose unknown is still owed saves it in its slot, and a boot owe
     route: Route.Current(),
     delivery: Delivery.Waiting(),
     input: Option.some(input),
+    refusal: Option.none(),
   };
 
   const work = Result.getOrThrow(

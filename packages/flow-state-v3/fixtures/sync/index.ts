@@ -77,15 +77,33 @@ export const sync = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: repoSamples,
-      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: mirrorSamples,
-      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
   ],
   bench: {

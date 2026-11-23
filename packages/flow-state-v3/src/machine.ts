@@ -63,9 +63,10 @@ const changeTokens = (slots: ReadonlyArray<string>, owner: symbol) =>
     ]),
   );
 
-// A value a body holds whole: a token Flow made, or an Effect value such as a Duration or Schedule.
-// FLOW_STATE_ALLOW_UNKNOWN: either brand is matched by its key alone, whatever it holds.
-type Opaque = { readonly [KindOf]: unknown } | { readonly pipe: unknown };
+// A value a body holds whole: a token Flow made, or an Effect value such as a Duration or Schedule,
+// known by its callable `pipe`, so a record with a field named `pipe` is still a record.
+// FLOW_STATE_ALLOW_UNKNOWN: a token's brand is matched by its key alone, whatever it holds.
+type Opaque = { readonly [KindOf]: unknown } | { readonly pipe: Callable };
 
 type KeysOf<T> = T extends unknown ? keyof T : never;
 

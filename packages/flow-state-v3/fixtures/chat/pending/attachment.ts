@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a commit option the Operations Spec adds and the package lacks, so its values type as any until it lands */
 // @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
 import { Context, Effect, Exit, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
@@ -101,7 +100,7 @@ export const upload = transaction({
   input: { uploadId: Schema.String, chunks: Schema.Number },
   key: ["uploadId"],
   concurrency: "reject",
-  // @ts-expect-error Plan Operations O1, O6: a write's progress has its own Schema
+  idempotency: ["uploadId"],
   progress: Schema.Number,
   services: [UploadsApi],
   commit: (input, context) =>
@@ -113,7 +112,6 @@ export const upload = transaction({
         ).pipe(
           Effect.tap(() =>
             Effect.sync(() => {
-              // @ts-expect-error Plan Operations O6: a commit reports `progress(p)`
               context.progress((n + 1) / input.chunks);
             }),
           ),

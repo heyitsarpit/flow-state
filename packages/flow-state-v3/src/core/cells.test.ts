@@ -15,6 +15,7 @@ const head = (phase: Phase, sent = false) => ({
   retryCount: sent ? 1 : 0,
   owner: OwnedBy.Root(),
   phase,
+  progress: Option.none(),
 });
 
 const phases = {

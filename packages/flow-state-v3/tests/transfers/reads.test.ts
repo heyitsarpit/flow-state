@@ -58,7 +58,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     ]);
   });
 
-  it.fails("Plan Operations O6: a deposit's row shows its progress after each part", async () => {
+  it("Plan Operations O6: a deposit's row shows its progress after each part", async () => {
     const { depositInParts, rentCheque } = await loadDeposit();
     const run = await depositInParts.run();
 
@@ -66,7 +66,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(run.checkpoints.deposited.read(rentCheque)?.state).toBe("DONE");
   });
 
-  it.fails("Plan Operations O3, O6, S6: a deposit whose screen closes goes on, and the screen opened again shows its progress", async () => {
+  it("Plan Operations O3, O6, S6: a deposit whose screen closes goes on, and the screen opened again shows its progress", async () => {
     const { depositClosedMidway, rentCheque } = await loadDeposit();
     const run = await depositClosedMidway.run();
 
@@ -74,7 +74,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(run.checkpoints.deposited.read(rentCheque)?.state).toBe("DONE");
   });
 
-  it.fails("Plan Operations O6, E8: a reload mid-deposit leaves it unsure with no progress, and resuming deposits it", async () => {
+  it("Plan Operations O6, E8: a reload mid-deposit leaves it unsure with no progress, and resuming deposits it", async () => {
     const { depositReloaded, rentCheque } = await loadDeposit();
     const run = await depositReloaded.run();
     const reloaded = run.checkpoints.reloaded.read(rentCheque);
@@ -84,7 +84,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(run.checkpoints.resumed.read(rentCheque)?.state).toBe("DONE");
   });
 
-  it.fails("Plan Operations O6: a lost part leaves the deposit unsure, its row at the parts it sent", async () => {
+  it("Plan Operations O6: a lost part leaves the deposit unsure, its row at the parts it sent", async () => {
     const { depositPartLost, rentCheque } = await loadDeposit();
     const run = await depositPartLost.run();
     const lost = run.checkpoints.lost.read(rentCheque);
@@ -93,7 +93,7 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     expect(progressOf(run.checkpoints.lost, rentCheque)).toBe(1 / 3);
   });
 
-  it.fails("Plan Operations O3, O6: an aborted deposit is unsure, and resuming sends the same deposit again until it lands", async () => {
+  it("Plan Operations O3, O6: an aborted deposit is unsure, and resuming sends the same deposit again until it lands", async () => {
     const { depositAbortResume, rentCheque } = await loadDeposit();
     const run = await depositAbortResume.run();
 

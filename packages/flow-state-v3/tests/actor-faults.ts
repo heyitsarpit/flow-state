@@ -94,9 +94,9 @@ export const actorFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/apply.ts",
-        find: "              issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, source)), issue],",
+        find: "          return install({ ...incarnation, issues: [...others, issue] }, false);",
         replace:
-          "              issues: incarnation.issues.length < 0 ? [issue] : incarnation.issues,",
+          "          return install({ ...incarnation, issues: others.length < 0 ? [issue] : incarnation.issues }, false);",
       },
     ],
   },

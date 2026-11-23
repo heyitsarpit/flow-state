@@ -5210,7 +5210,7 @@ tasks
             code:packages/flow-state-v3/src/core/disposal.ts#started,
             code:packages/flow-state-v3/src/core/disposal.ts#end,
             `packages/flow-state-v3/src/core/disposal.ts#consumersFirst`;
-            code:packages/flow-state-v3/src/core/ledger.ts#Audience,
+            `packages/flow-state-v3/src/core/ledger.ts#Audience`,
             code:packages/flow-state-v3/src/core/ledger.ts#live,
             code:packages/flow-state-v3/src/core/ledger.ts#onRecord,
             code:packages/flow-state-v3/src/core/ledger.ts#suspend;
@@ -5913,13 +5913,13 @@ tasks
             in `wiki/specs/specs.log`.
 
             **Supersedes:** code:packages/flow-state-v3/src/core/ledger.ts#owe,
-            code:packages/flow-state-v3/src/core/ledger.ts#tryOne,
+            `packages/flow-state-v3/src/core/ledger.ts#tryOne`,
             code:packages/flow-state-v3/src/core/ledger.ts#afterTry,
             code:packages/flow-state-v3/src/core/ledger.ts#refused,
             code:packages/flow-state-v3/src/core/ledger.ts#start,
             code:packages/flow-state-v3/src/core/ledger.ts#restore;
             code:packages/flow-state-v3/src/core/serve.ts#serveEnding,
-            code:packages/flow-state-v3/src/core/trigger.ts#endingSource;
+            `packages/flow-state-v3/src/core/trigger.ts#endingSource`;
             code:packages/flow-state-v3/src/core/answers.ts#settled;
             code:packages/flow-state-v3/src/core/world.ts#IssueSource;
             `packages/flow-state-v3/src/core/incarnations.ts#CREATION`;

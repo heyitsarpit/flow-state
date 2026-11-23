@@ -133,6 +133,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Release: ({ actor, use }) => incarnations.release(actor, use),
     Send: ({ actor, tag, payload }) => incarnations.deliver(actor, { tag, payload }, Option.none()),
     Settled: ({ call, result }) => answers.settled(call, result, open),
+    Progress: ({ call, value }) => lanes.progressed(call, value),
     Tick: () => tick(),
     Stored: ({ ticket }) => {
       answers.stored(ticket);

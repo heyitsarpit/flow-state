@@ -184,17 +184,45 @@ export const apps = [
   },
 ];
 
+// A service whose every method's call dies: an ending the machine maps.
+const dead = new Proxy(
+  {},
+  { get: () => () => Effect.die(new Error("the surface walk gives no real service")) },
+);
+
+// The app's Runtime over the given services. The hostile table runs every app's probe on one erased
+// Runtime.
+const runtimeOver = (app: Flow.App, services: Layer.Layer<never>) =>
+  Flow.runtimeSetup<Flow.App<Record<never, never>>>({ app, services }).construct();
+
+// Every service the boot names missing, each a dead one: a call that needs one dies, an ending the
+// machine maps. Each MissingService diagnostic names its service's key in `details.reason`.
+// FLOW_STATE_ALLOW_UNKNOWN: a boot's failure, read only when it is a FlowError.
+const deadServices = (error: unknown) =>
+  Layer.succeedContext(
+    Context.makeUnsafe(
+      new Map(
+        (error instanceof Flow.FlowError ? error.diagnostics : [])
+          .filter((d) => d.code === "MissingService")
+          .flatMap((d) => Option.toArray(Option.fromUndefinedOr(d.details.reason)))
+          .map((key) => [key, dead]),
+      ),
+    ),
+  );
+
 /**
- * One app's Runtime, booted with no services, and one actor of it: the roots a walk of its handed
- * out values starts from.
+ * One app's Runtime, booted with dead services, and one actor of it: the roots a walk of its
+ * handed out values starts from.
  */
 export const booted = (entry: (typeof apps)[number]) =>
   Effect.gen(function* () {
-    // No service is given: a call that needs one dies, an ending the machine maps.
-    // The hostile table runs every app's probe on one erased Runtime.
-    const runtime: Flow.Runtime = Flow.runtimeSetup<Flow.App<Record<never, never>>>({
-      app: entry.app,
-    }).construct();
+    const bare = runtimeOver(entry.app, Layer.empty);
+    const boot = yield* Effect.exit(bare.ready());
+
+    const runtime: Flow.Runtime = Option.match(Exit.findErrorOption(boot), {
+      onNone: () => bare,
+      onSome: (refused) => runtimeOver(entry.app, deadServices(refused)),
+    });
 
     yield* runtime.ready();
     const actor = runtime.ensureActor(entry.ref);

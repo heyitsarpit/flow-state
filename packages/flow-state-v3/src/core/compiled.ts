@@ -1,4 +1,5 @@
 import {
+  type Context,
   Data,
   Duration,
   type Effect,
@@ -366,18 +367,33 @@ export type EventEntry = {
 };
 
 /**
+ * What an ending's mapper reads beside its value: the row's input and its key fields.
+ */
+export type EndingContext = { readonly input: Values; readonly key: Values };
+
+/**
+ * The context of a mapping that ends no call, such as a context reaction's: no input, no key.
+ */
+export const NO_CALL: EndingContext = { input: {}, key: {} };
+
+/**
  * Where an ending goes: its event and the mapper that makes the event's payload.
  */
 export type Mapping = {
   readonly event: string;
   // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the commit's or lookup's own type, typed at the contract.
-  readonly from: Option.Option<Slot<(value: unknown) => Values>>;
+  readonly from: Option.Option<Slot<(value: unknown, context: EndingContext) => Values>>;
 };
 
 /**
- * What a commit receives beside its input: the Attempt it runs as.
+ * What a commit receives beside its input: the Attempt it runs as, and where it reports how far
+ * it got.
  */
-export type CommitContext = { readonly attempt: Attempt };
+export type CommitContext = {
+  readonly attempt: Attempt;
+  // FLOW_STATE_ALLOW_UNKNOWN: a progress value has the type its contract's progress Schema decodes.
+  readonly progress: (value: unknown) => void;
+};
 
 /**
  * The Attempt a commit runs as.
@@ -434,6 +450,9 @@ export type Operation = Data.TaggedEnum<{
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
     walk: OperationWalk;
+    services: Slot<() => ServiceKeys>;
+    // What the server keys the write by: the Attempt's id, or these input fields.
+    idempotency: "attempt" | ReadonlyArray<string>;
     call: Slot<Commit>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
@@ -449,11 +468,20 @@ export type Operation = Data.TaggedEnum<{
     input: Schema.Codec<Values, Values>;
     inputJson: Schema.Codec<Values, Values>;
     walk: OperationWalk;
+    services: Slot<() => ServiceKeys>;
     call: Slot<Lookup>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
   };
 }>;
+
+/**
+ * The services an operation's call needs, as its contract lists them: the boot refuses a Runtime
+ * whose services lack one. Each key is an Effect value with methods, so Compiled reaches them
+ * through a slot.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a service key's identifier and shape are its contract's; only its presence is read.
+export type ServiceKeys = ReadonlyArray<Context.Key<unknown, unknown>>;
 
 /**
  * Constructors and matchers for {@link Operation}.

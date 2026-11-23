@@ -25,7 +25,7 @@ type Key = { readonly [field: string]: Json };
  * A saved row as the boot reads it back: owed to its identity, delivered current from the active
  * leaf, Kept or waiting for the identity's next start.
  */
-export type RestoredRow = Omit<Owed, "id" | "delivery" | "to" | "origin"> & {
+export type RestoredRow = Omit<Owed, "id" | "delivery" | "life" | "origin" | "refusal"> & {
   readonly kept: boolean;
 };
 
@@ -245,6 +245,7 @@ const restored = (
                 retryCount: saved.retryCount,
                 owner: OwnedBy.Root(),
                 phase: Phase.Held(),
+                progress: Option.none(),
               },
               queue: [],
             },
@@ -394,12 +395,21 @@ export const resolveWork = (compiled: Compiled, actor: ActorId, body: Work, step
 
   const read = both(lanes, rows);
 
+  // One ending per Attempt beyond its final answer: a head out at the save whose Attempt already
+  // has a saved row (its parked unknown, or a NotSent) owes nothing more (Operations, Rows).
+  const told = new Set(read.saved.flatMap((row) => Option.toArray(row.attempt)));
+
+  const owedByHeads = read.heads
+    .toSorted(([a], [b]) => byCodeUnits(a, b))
+    .map(([, owing]) => owing)
+    .filter((owing) => !owing.derived || !Option.exists(owing.row.attempt, (a) => told.has(a)));
+
   return {
     lanes: read.lanes,
     rows: [
       ...read.saved.map((row) => ({ row, derived: false })),
       ...read.derived.map((row) => ({ row, derived: true })),
-      ...read.heads.toSorted(([a], [b]) => byCodeUnits(a, b)).map(([, owing]) => owing),
+      ...owedByHeads,
     ],
     carried: read.carried,
     dirty: stepped || read.dirty,

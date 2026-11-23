@@ -48,6 +48,9 @@ export type Input = Data.TaggedEnum<{
   Release: { actor: ActorId; use: Use };
   Send: { actor: ActorId; tag: string; payload: Values };
   Settled: { call: CallId; result: CallResult };
+  // A commit on the wire reported how far it got, with `progress(p)`.
+  // FLOW_STATE_ALLOW_UNKNOWN: a progress value has the type its contract's progress Schema decodes.
+  Progress: { call: CallId; value: unknown };
   // The host's wake came: the alarms due by now are taken.
   Tick: {};
   Stored: { ticket: TicketId };

@@ -67,7 +67,8 @@ export const ENDS = {
  *
  * - `Begin`: an incarnation starts, fresh or from its record, bound to its providers.
  * - `Turn`: an accepted turn's one record, with its trigger.
- * - `Refused`: a turn refused before commit: its source's issue; an ending's row when it was one.
+ * - `Refused`: a turn refused before commit: its source's stored issue, or an ending's row, whose
+ *   refusal its issue reads.
  * - `Unturned`: an ending's turn that ran nothing (denied or unhandled).
  * - `Inputs`: a context update's read.
  * - `Lanes`: the actor's lanes moved outside a turn.
@@ -83,7 +84,7 @@ export type Change = Data.TaggedEnum<{
     graph: Option.Option<Wiring>;
   };
   Turn: { turn: Turn; trigger: Trigger };
-  Refused: { source: StoredSource; failure: Failure; ending: Option.Option<Owed> };
+  Refused: { failure: Failure; by: Refusing };
   Unturned: { row: Owed };
   Inputs: { read: Read };
   Lanes: {};
@@ -142,9 +143,28 @@ export const refusalOf = (trigger: Trigger, failure: Failure) => {
     onSome: (firing) => Change.Settled({ firing, refusal: Option.some(failure) }),
     onNone: () =>
       Change.Refused({
-        source: Option.getOrElse(route.source, () => defect("a refusal with no source")),
         failure,
-        ending: route.ending,
+        by: Option.match(route.ending, {
+          onSome: (row) => Refusing.Ending({ row }),
+          onNone: () =>
+            Refusing.Source({
+              source: Option.getOrElse(route.source, () => defect("a refusal with no source")),
+            }),
+        }),
       }),
   });
 };
+
+/**
+ * What a refused turn refused: an event's or reaction's source, which stores its issue, or an
+ * ending's row, which holds its refusal itself.
+ */
+export type Refusing = Data.TaggedEnum<{
+  Source: { source: StoredSource };
+  Ending: { row: Owed };
+}>;
+
+/**
+ * Constructors and matchers for {@link Refusing}.
+ */
+export const Refusing = Data.taggedEnum<Refusing>();

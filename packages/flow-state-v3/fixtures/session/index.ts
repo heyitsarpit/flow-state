@@ -102,7 +102,13 @@ export const session = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: true, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: true,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
   ],
   bench: {

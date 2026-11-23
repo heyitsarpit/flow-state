@@ -27,7 +27,7 @@ describe("the slot picker (Operations R2, R4, R5)", () => {
     expect(run.checkpoints.held.read(booking)?.state).toBe("HELD");
   });
 
-  it.fails("Operations R2: a hold whose slot was taken names the slot from its own input, and the day is listed again", async () => {
+  it("Operations R2: a hold whose slot was taken names the slot from its own input, and the day is listed again", async () => {
     const run = await slotTaken.run();
     const taken = run.checkpoints.taken;
 
@@ -63,7 +63,7 @@ describe("the slot picker (Operations R2, R4, R5)", () => {
     expect(run.checkpoints["an hour on"].read(Inspections.area)).toHaveLength(1);
   });
 
-  it.fails("Operations R2, under reject: a second pick while the first hold is out is not sent, and the first's mapper tells the booking", async () => {
+  it("Operations R2, under reject: a second pick while the first hold is out is not sent, and the first's mapper tells the booking", async () => {
     const run = await doublePick.run();
 
     expect(run.checkpoints.refused.read(Inspections.hold)).toHaveLength(1);

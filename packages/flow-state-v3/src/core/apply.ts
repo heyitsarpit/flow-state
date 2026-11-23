@@ -2,17 +2,17 @@ import { Equal, Option, Result } from "effect";
 import type { Values } from "./compiled.ts";
 import { type ContextSteps, OutcomeEdit } from "./context.ts";
 import { defect } from "./defect.ts";
-import { Change, ENDS, Origin, publishesAlways, refusalOf, whyOf } from "./change.ts";
+import { Change, ENDS, Origin, publishesAlways, refusalOf, Refusing, whyOf } from "./change.ts";
 import { Act } from "./evidence-of.ts";
 import type { LaneSteps } from "./lanes.ts";
-import type { LedgerSteps } from "./ledger.ts";
+import { Heard, type LedgerSteps } from "./ledger.ts";
 import type { Persistence } from "./persist.ts";
 import { sameForm } from "./slots.ts";
 import { Occasion } from "./schedule-decision.ts";
 import type { Due } from "./schedule-plan.ts";
 import type { ScheduleSteps } from "./schedules.ts";
 import { Alarm } from "./alarms.ts";
-import type { Scheduled } from "./timers.ts";
+import type { Failure, Scheduled } from "./timers.ts";
 import { historyAfter } from "./tree.ts";
 import { Resolved } from "./turn.ts";
 import type { Turn } from "./walk.ts";
@@ -64,6 +64,9 @@ const sendsOf = (turn: Turn) =>
  * queues the change's mail. `apply` returns the change it applied, which the guard may have made
  * a refusal.
  */
+// A refused turn's refusal: its code and the callback slot that failed.
+const refusalIn = (failure: Failure) => ({ code: failure.code, slot: Option.some(failure.slot) });
+
 export const makeApply = (tx: Tx, parts: ApplierParts) => {
   const { persistence, ledger, lanes, schedules, context } = parts;
   const { incarnationOf } = tx;
@@ -201,21 +204,19 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
             true,
           );
         }),
-      Refused: ({ source, failure, ending }) =>
+      // An ending's refusal is its row's, which the holders row writes: nothing is stored here.
+      Refused: ({ failure, by }) =>
         Option.map(before, (incarnation) => {
-          const issue = tx.refuse(
-            incarnation.actor,
-            { source, code: failure.code, slot: Option.some(failure.slot) },
-            ending,
-          );
+          if (Refusing.$is("Ending")(by)) {
+            tx.refuse(incarnation.actor, refusalIn(failure), Option.some(by.row));
 
-          return install(
-            {
-              ...incarnation,
-              issues: [...incarnation.issues.filter((i) => !Equal.equals(i.source, source)), issue],
-            },
-            false,
-          );
+            return incarnation;
+          }
+
+          const issue = tx.refuse(incarnation.actor, { ...refusalIn(failure), source: by.source });
+          const others = incarnation.issues.filter((i) => !Equal.equals(i.source, by.source));
+
+          return install({ ...incarnation, issues: [...others, issue] }, false);
         }),
       Unturned: () => before,
       Inputs: ({ read }) =>
@@ -293,14 +294,20 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
     return Option.map(after, (a) => incarnationOf(a.actor) ?? a);
   };
 
-  // The holders: the owed rows a start delivers and an end suspends; an ending's own row is tried by its
-  // ledger around the change.
+  // The holders: the owed rows a start delivers and an end suspends, and an ending's own row moved
+  // by how its turn heard it, before the publish row, so the publication shows the move.
   const holders = (change: Change, actor: Option.Option<ActorId>) =>
     Change.$match(change, {
       Begin: ({ actor: started }) => ledger.start(started),
-      Turn: () => undefined,
-      Refused: () => undefined,
-      Unturned: () => undefined,
+      Turn: ({ trigger }) => {
+        for (const row of Option.toArray(routeOf(trigger).ending))
+          ledger.afterTry(row.id, row.actor, Heard.Heard());
+      },
+      Refused: ({ failure, by }) => {
+        if (Refusing.$is("Ending")(by))
+          ledger.afterTry(by.row.id, by.row.actor, Heard.Refused({ refusal: refusalIn(failure) }));
+      },
+      Unturned: ({ row }) => ledger.afterTry(row.id, row.actor, Heard.Heard()),
       Inputs: () => undefined,
       Lanes: () => undefined,
       Settled: () => undefined,

@@ -1,6 +1,6 @@
 import { Brand, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { Audience, Delivery, Origin, type Owed, type OwedId, Route } from "./ledger.ts";
+import { Delivery, Origin, type Owed, type OwedId, Route } from "./ledger.ts";
 import { Trigger } from "./trigger.ts";
 import { activation, chain, incarnation } from "./test/ids.ts";
 import {
@@ -19,7 +19,7 @@ const row: Owed = {
   id: Brand.nominal<OwedId>()("owed-1"),
   origin: Origin.Decided(),
   actor,
-  to: Audience.Identity(),
+  life: Option.none(),
   operation: "save",
   attempt: Option.none(),
   lane: Option.some(laneId(actor, "save", "{}")),
@@ -29,6 +29,7 @@ const row: Owed = {
   route: Route.Current(),
   delivery: Delivery.Queued(),
   input: Option.some({}),
+  refusal: Option.none(),
 };
 
 // Each pair is a control that must compile and the wrong shape beside it, which must not.

@@ -158,17 +158,16 @@ export type Incarnation = {
 
 /**
  * What raised an issue: an event's turn, a schedule's timer (a keyed one's key by its canonical
- * text; none for an unkeyed schedule or its `keys`), an operation's ending, a context slot's
- * selector, an `onContext` reaction, or the incarnation's creation. An issue is replaced or cleared
- * only by its own source.
+ * text; none for an unkeyed schedule or its `keys`), an owed ending of an operation at one key, a
+ * context slot's selector, or an `onContext` reaction. An issue is replaced or cleared only by its
+ * own source.
  */
 export type IssueSource = Data.TaggedEnum<{
   Event: { tag: string };
   Schedule: { name: string; key: Option.Option<string> };
-  Operation: { name: string };
+  Ending: { operation: string; key: string };
   Context: { slot: string };
   OnContext: { at: number };
-  Creation: {};
 }>;
 
 /**
@@ -178,7 +177,7 @@ export const IssueSource = Data.taggedEnum<IssueSource>();
 
 /**
  * An issue source as a snapshot names it: `event X`, `schedule X` (a keyed one's `schedule X KEY`),
- * `operation X`, `context X`, `onContext N` or `creation`.
+ * `operation X KEY`, `context X` or `onContext N`.
  */
 export const sourceText = (source: IssueSource) =>
   IssueSource.$match(source, {
@@ -188,10 +187,9 @@ export const sourceText = (source: IssueSource) =>
         onNone: () => `schedule ${name}`,
         onSome: (k) => `schedule ${name} ${k}`,
       }),
-    Operation: ({ name }) => `operation ${name}`,
+    Ending: ({ operation, key }) => `operation ${operation} ${key}`,
     Context: ({ slot }) => `context ${slot}`,
     OnContext: ({ at }) => `onContext ${at}`,
-    Creation: () => "creation",
   });
 
 /**
@@ -206,9 +204,10 @@ export type Issue = {
 };
 
 /**
- * The sources whose issues are stored: every source but a schedule's.
+ * The sources whose issues are stored: every source but a schedule's, read from its timers, and an
+ * ending's, read from its owed row's refusal.
  */
-export type StoredSource = Exclude<IssueSource, { readonly _tag: "Schedule" }>;
+export type StoredSource = Exclude<IssueSource, { readonly _tag: "Schedule" | "Ending" }>;
 
 /**
  * A stored issue: one of a {@link StoredSource}.
@@ -252,7 +251,8 @@ export type Phase = Data.TaggedEnum<{
 export const Phase = Data.taggedEnum<Phase>();
 
 /**
- * The lane's addressable Attempt, with the activation that owns it.
+ * The lane's addressable Attempt, with the activation that owns it. `progress` is the last value
+ * its commit reported with `progress(p)`, kept while the Attempt is the head and never saved.
  */
 export type Head = {
   readonly id: AttemptId;
@@ -260,6 +260,8 @@ export type Head = {
   readonly retryCount: number;
   readonly owner: OwnedBy;
   readonly phase: Phase;
+  // FLOW_STATE_ALLOW_UNKNOWN: a progress value has the type its contract's progress Schema decodes.
+  readonly progress: Option.Option<unknown>;
 };
 
 /**
@@ -328,6 +330,7 @@ export type Read = {
   readonly actor: ActorId;
   readonly incarnation: IncarnationId;
   readonly operation: string;
+  readonly input: Values;
   readonly owner: OwnedBy;
 };
 

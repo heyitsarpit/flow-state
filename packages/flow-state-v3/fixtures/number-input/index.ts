@@ -26,6 +26,7 @@ export const numberInput = manifest({
         persisted: false,
         cancelsAcknowledging: false,
         retainsUnknown: false,
+        storesBeside: false,
       },
     },
   ],

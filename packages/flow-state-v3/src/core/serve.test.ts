@@ -23,7 +23,14 @@ const ownedBy = (n: number) => OwnedBy.State({ activation: activation(n) });
 const lane = (phase: Phase, owner: number, queued: ReadonlyArray<number>): Lane => ({
   actor,
   operation: "save",
-  head: { id: attempt("att-1"), input: {}, retryCount: 0, owner: ownedBy(owner), phase },
+  head: {
+    id: attempt("att-1"),
+    input: {},
+    retryCount: 0,
+    owner: ownedBy(owner),
+    phase,
+    progress: Option.none(),
+  },
   queue: queued.map((q) => ({ input: {}, owner: ownedBy(q) })),
 });
 

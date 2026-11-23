@@ -117,19 +117,43 @@ export const signIn = manifest({
   pairs: [
     {
       samples,
-      reach: { writes: true, persisted: false, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: true,
+        persisted: false,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
     {
       samples: sessionSamples,
-      reach: { writes: true, persisted: true, cancelsAcknowledging: false, retainsUnknown: true },
+      reach: {
+        writes: true,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: true,
+        storesBeside: false,
+      },
     },
     {
       samples: deviceSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
     {
       samples: idleSamples,
-      reach: { writes: false, persisted: true, cancelsAcknowledging: false, retainsUnknown: false },
+      reach: {
+        writes: false,
+        persisted: true,
+        cancelsAcknowledging: false,
+        retainsUnknown: false,
+        storesBeside: false,
+      },
     },
   ],
   bench: {

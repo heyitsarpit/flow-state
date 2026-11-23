@@ -29,6 +29,7 @@ export const Code = Schema.Literals([
   "StorageFailure",
   "RunFailed",
   "CleanupFailed",
+  "MissingService",
 ]);
 
 /**

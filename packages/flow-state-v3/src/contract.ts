@@ -54,11 +54,12 @@ export type FailureTag<E> =
  * Where one ending goes: an event token (`E.Voided`) or one with a payload mapper
  * (`E.Declined.from(f)`).
  */
-export type Ending<V = unknown, Id extends string = string> = Branded<"event" | "mapping"> & {
+export type Ending<V = unknown, Id extends string = string, C = unknown> = Branded<
+  "event" | "mapping"
+> & {
   readonly ending: { readonly event: string };
-  // A phantom type: the value its mapper takes, so it maps only an ending of that value.
-  // FLOW_STATE_ALLOW_UNKNOWN: a mapper's context is Flow's own and read by no mapper yet.
-  readonly "~maps"?: (value: V, context: unknown) => Values;
+  // A phantom type: the value and context its mapper takes, so it maps only an ending of them.
+  readonly "~maps"?: (value: V, context: C) => Values;
   // A phantom type: the definition whose event it is, so it maps only onto that definition.
   readonly "~definition"?: Id;
 };
@@ -67,14 +68,14 @@ export type Ending<V = unknown, Id extends string = string> = Branded<"event" | 
  * The ending Compiled and a bound contract hold: every `Ending<V>` assigns to it, since its value
  * type is erased there and restored at its mapper.
  */
-export type ErasedEnding = Ending<never>;
+export type ErasedEnding = Ending<never, string, never>;
 
 /**
  * An unknown ending's target: an uncertain event with no fields, since an unknown ending carries no
  * value to fill them.
  */
 // FLOW_STATE_ALLOW_UNKNOWN: an unknown ending has no value, so its target takes any.
-export type UnknownEnding<Id extends string = string> = Ending<unknown, Id> & {
+export type UnknownEnding<Id extends string = string, C = unknown> = Ending<unknown, Id, C> & {
   readonly "~uncertain": true;
 };
 
@@ -90,26 +91,28 @@ export type FailureOf<E, T extends string> = Extract<
  * A write's endings mapped onto the declarer's events, by origin: `success` takes the commit's
  * value, `failure` is exhaustive over the commit's own failure tags and nothing else, each taking
  * its error; `notSent`, optional, takes Flow's `NotSent` for a commit never sent; `unknown` takes
- * every unknown ending, onto an uncertain event with no fields.
+ * every unknown ending, onto an uncertain event with no fields. Every mapper also takes `C`, the
+ * call's {@link MapperContext}.
  */
-export type WriteEndings<E, A, Id extends string = string> = {
-  readonly success: Ending<A, Id>;
-  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id> };
-  readonly notSent?: Ending<{ readonly why: NotSentWhy }, Id>;
-  readonly unknown: UnknownEnding<Id>;
+export type WriteEndings<E, A, Id extends string = string, C = unknown> = {
+  readonly success: Ending<A, Id, C>;
+  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id, C> };
+  readonly notSent?: Ending<{ readonly why: NotSentWhy }, Id, C>;
+  readonly unknown: UnknownEnding<Id, C>;
 };
 
 /**
  * A read's endings mapped onto the declarer's events: its value, each of its failure tags with its
- * error, and Flow's `Defect` and `Interrupted`.
+ * error, and Flow's `Defect` and `Interrupted`. Every mapper also takes `C`, the call's
+ * {@link MapperContext}.
  */
-export type ReadEndings<E, A, Id extends string = string> = {
-  readonly success: Ending<A, Id>;
-  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id> } & {
+export type ReadEndings<E, A, Id extends string = string, C = unknown> = {
+  readonly success: Ending<A, Id, C>;
+  readonly failure: { readonly [T in FailureTag<E>]: Ending<FailureOf<E, T>, Id, C> } & {
     // FLOW_STATE_ALLOW_UNKNOWN: Flow's defect and interruption carry no value a mapper reads.
-    readonly Defect?: Ending<unknown, Id>;
+    readonly Defect?: Ending<unknown, Id, C>;
     // FLOW_STATE_ALLOW_UNKNOWN: as above.
-    readonly Interrupted?: Ending<unknown, Id>;
+    readonly Interrupted?: Ending<unknown, Id, C>;
   };
 };
 
@@ -206,12 +209,20 @@ export type RequirementsOf<O> = Exclude<
 >;
 
 /**
- * What a bound contract keeps for the core: its call and its key's text from a value's key fields.
+ * What a bound contract keeps for the core: its call, its key's text from a value's key fields,
+ * and the services its call needs, which the boot checks the Runtime provides.
  */
 export type BoundInternals = (
-  | { readonly kind: "write"; readonly call: (...args: ReadonlyArray<never>) => ReturnType<Commit> }
+  | {
+      readonly kind: "write";
+      readonly call: (...args: ReadonlyArray<never>) => ReturnType<Commit>;
+      readonly idempotency: "attempt" | ReadonlyArray<string>;
+    }
   | { readonly kind: "read"; readonly call: (...args: ReadonlyArray<never>) => ReturnType<Lookup> }
-) & { readonly textOfKey: (value: Values) => Option.Option<string> };
+) & {
+  readonly textOfKey: (value: Values) => Option.Option<string>;
+  readonly services: Services;
+};
 
 /**
  * What every bound contract carries, whichever its kind.
@@ -265,6 +276,7 @@ export type Transaction<
   E = never,
   R = never,
   Key extends ReadonlyArray<string> = ReadonlyArray<keyof F & string>,
+  P = never,
 > = {
   readonly kind: "transaction";
   readonly id: string;
@@ -272,13 +284,34 @@ export type Transaction<
   readonly key: Key;
   readonly concurrency: Concurrency;
   readonly services: Services;
+  readonly idempotency: Idempotency<F>;
   readonly commit: (
     input: StructType<F>,
-    context: { readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>> },
+    context: CommitContextOf<F, Key, P>,
   ) => Effect.Effect<A, E, R>;
   readonly outcomes: <Id extends string = string>(
-    endings: WriteEndings<E, A, Id>,
+    endings: WriteEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
   ) => Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id>;
+};
+
+/**
+ * A write's progress Schema: what its commit reports with `progress(p)`, of type `P`.
+ */
+// FLOW_STATE_ALLOW_UNKNOWN: a progress Schema's encoded side is never read; its type P is.
+export type ProgressSchema<P> = Schema.Codec<P, unknown>;
+
+/**
+ * What the server keys a write by: the Attempt's id, or the input fields that name it.
+ */
+export type Idempotency<F extends Fields> = "attempt" | ReadonlyArray<keyof F & string>;
+
+/**
+ * What a commit receives beside its input: its Attempt, and `progress(p)` to report how far it got
+ * in the type its contract's `progress` Schema declares (`never`, so not callable, without one).
+ */
+export type CommitContextOf<F extends Fields, Key extends ReadonlyArray<string>, P> = {
+  readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>>;
+  readonly progress: (value: P) => void;
 };
 
 /**
@@ -300,7 +333,7 @@ export type Resource<
   readonly gcTime: Duration.Input;
   readonly lookup: (input: StructType<F>) => Effect.Effect<A, E, R>;
   readonly outcomes: <Id extends string = string>(
-    endings: ReadEndings<E, A, Id>,
+    endings: ReadEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
   ) => Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id>;
 };
 
@@ -327,21 +360,26 @@ export const transaction = entry(
     E,
     const S extends Services,
     R extends ServiceIds<S>,
+    P = never,
   >(config: {
     readonly id: string;
     readonly input: F;
     readonly key: Key;
     readonly concurrency: Concurrency;
     readonly services: S;
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: an omitted option takes its default, the Attempt's id
+    readonly idempotency?: Idempotency<F>;
+    // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the Plan's public word: a write without progress reports none
+    readonly progress?: ProgressSchema<P>;
     readonly commit: (
       input: StructType<F>,
-      context: { readonly attempt: Attempt<StructType<F>, KeyRecord<F, Key>> },
+      context: CommitContextOf<F, Key, P>,
     ) => Effect.Effect<A, E, R>;
-  }): Transaction<F, A, E, R, Key> => {
+  }): Transaction<F, A, E, R, Key, P> => {
     const identity = Symbol(config.id);
     const codecs = codecsOf(config.input, config.key);
 
-    const contract: Transaction<F, A, E, R, Key> = made(
+    const contract: Transaction<F, A, E, R, Key, P> = made(
       "contract",
       identity,
       {
@@ -351,12 +389,13 @@ export const transaction = entry(
         key: config.key,
         concurrency: config.concurrency,
         services: config.services,
+        idempotency: config.idempotency ?? "attempt",
         commit: entry(`${config.id}.commit`, config.commit),
         outcomes: entry(
           `${config.id}.outcomes`,
           // RETURN_TYPE: the bound contract carries its declarer's phantom types.
           <Id extends string>(
-            endings: WriteEndings<E, A, Id>,
+            endings: WriteEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
           ): Bound<"write", R, StructType<F>, KeyRecord<F, Key>, Id> =>
             made(
               "bound",
@@ -376,7 +415,9 @@ export const transaction = entry(
               {
                 kind: "write",
                 call: config.commit,
+                idempotency: config.idempotency ?? "attempt",
                 textOfKey: codecs.textOfKey,
+                services: config.services,
               } satisfies BoundInternals,
             ),
         ),
@@ -434,7 +475,7 @@ export const resource = entry(
           `${config.id}.outcomes`,
           // RETURN_TYPE: the bound contract carries its declarer's phantom types.
           <Id extends string>(
-            endings: ReadEndings<E, A, Id>,
+            endings: ReadEndings<E, A, Id, MapperContext<StructType<F>, KeyRecord<F, Key>>>,
           ): Bound<"read", R, StructType<F>, KeyRecord<F, Key>, Id> =>
             made(
               "bound",
@@ -453,6 +494,7 @@ export const resource = entry(
                 kind: "read",
                 call: config.lookup,
                 textOfKey: codecs.textOfKey,
+                services: config.services,
               } satisfies BoundInternals,
             ),
         ),

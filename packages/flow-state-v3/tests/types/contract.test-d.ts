@@ -21,11 +21,16 @@ type PayInput = { readonly id: string; readonly cents: number };
 
 type PayKey = { readonly id: string };
 
+// FLOW_STATE_ALLOW_UNKNOWN: a row's progress has its contract's progress type, read by no test here.
+type Progress = unknown;
+
 type Row = {
   readonly pending: boolean;
   readonly uncertain: boolean;
   readonly waiting: boolean;
   readonly retryCount: number;
+  // oxlint-disable-next-line lint-bomb/no-optional-domain-properties -- the public row's `progress` is absent until a commit reports one
+  readonly progress?: Progress;
 };
 
 const pay = transaction({

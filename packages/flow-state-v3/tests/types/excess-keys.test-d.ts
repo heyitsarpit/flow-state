@@ -337,10 +337,8 @@ describe("Types R2: a machine body is exact, at every depth", () => {
   });
 });
 
-// OPEN, owned by T121: `Opaque` matches an Effect value by a `pipe` key of any type, so an event
-// named `pipe` switches the typo check off for its record. The test is inverted: it pins the wrong
-// result, the typo compiling. When `Opaque` stops matching a bare `pipe` key, the line below gains
-// the `@ts-expect-error` it should have, and the title loses "today".
+// `Opaque` matches an Effect value by its callable `pipe`, so an event named `pipe`, whose handler
+// is no function, keeps the typo check on for its record.
 const Piped = definition({
   id: "types/ExcessPiped",
   states: ["IDLE", "ON"],
@@ -349,11 +347,16 @@ const Piped = definition({
 });
 
 describe("Types R2: a field named `pipe` must not turn the typo check off", () => {
-  it("a misspelt event beside `pipe` is accepted today, so the check is off", () => {
+  it("a misspelt event beside `pipe` is refused, and `pipe` alone compiles", () => {
     machine(Piped, ({ S }) => ({
       default: S.IDLE,
+      // @ts-expect-error Types R2: stopp is no event of Piped
       on: { pipe: S.ON, stopp: S.IDLE },
     }));
+
+    expectTypeOf(
+      machine(Piped, ({ S }) => ({ default: S.IDLE, on: { pipe: S.ON, go: S.IDLE } })),
+    ).toEqualTypeOf<Machine<typeof Piped>>();
   });
 });
 

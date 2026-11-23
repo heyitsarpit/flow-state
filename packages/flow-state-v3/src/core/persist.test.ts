@@ -6,7 +6,7 @@ import { transaction } from "../contract.ts";
 import { definition } from "../definition.ts";
 import { Flow } from "../flow.ts";
 import { machine } from "../machine.ts";
-import { Audience, makeLedger, Route } from "./ledger.ts";
+import { Heard, makeLedger, Route } from "./ledger.ts";
 import { Life } from "./life.ts";
 import { makePersistence } from "./persist.ts";
 import { step } from "./step.ts";
@@ -129,7 +129,7 @@ it("WriteAhead I20: a row owed to the identity and still Queued at a step's end 
 
   ledger.owe({
     actor,
-    to: Audience.Identity(),
+    life: Option.none(),
     operation: "ring",
     input: Option.some({}),
     attempt: Option.some(attemptOf(minted(1))),
@@ -160,7 +160,7 @@ const owing = (receipts: ReadonlyArray<string>, from = stepOver()) => {
   for (const [n, receipt] of receipts.entries())
     from.ledger.owe({
       actor,
-      to: Audience.Identity(),
+      life: Option.none(),
       operation: "ring",
       input: Option.some({}),
       attempt: Option.some(attemptOf(minted(n + 1))),
@@ -253,7 +253,7 @@ it("Codec R4: a Flow-made row with no value saves none and is never reported", (
 
   from.ledger.owe({
     actor,
-    to: Audience.Identity(),
+    life: Option.none(),
     operation: "ring",
     input: Option.some({}),
     attempt: Option.some(attemptOf(minted(9))),
@@ -327,7 +327,7 @@ const writesOf = (capture: ReturnType<typeof captured>) =>
 
 const success = {
   actor,
-  to: Audience.Identity(),
+  life: Option.none(),
   operation: "ring",
   input: Option.some({}),
   attempt: Option.some(attemptOf(minted(1))),
@@ -356,6 +356,7 @@ it("WriteAhead I11: an identity whose actor record cannot encode at a capture wr
       retryCount: 0,
       owner: OwnedBy.Root(),
       phase: Phase.Held(),
+      progress: Option.none(),
     },
     queue: [],
   });
@@ -387,11 +388,9 @@ it("WriteAhead I20, I22: a row saved while still in the mailbox leaves the owed 
   expect(writesOf(saved)).toEqual([`work/${actorKey(actor)}=${minted(1)}`]);
 
   const second = stepOver({ count: 1 }, saved.world);
-  second.ledger.tryOne(actor, id, () => {
-    second.persistence.saveActor(actor);
-
-    return "Heard";
-  });
+  // The turn that hears the row saves its actor; the row closes heard after it.
+  second.persistence.saveActor(actor);
+  second.ledger.afterTry(id, actor, Heard.Heard());
   second.persistence.close();
 
   expect(writesOf(captured(second.tx.out().world))).toEqual([
@@ -407,11 +406,8 @@ it("Actors R8, WriteAhead I11: a free actor whose actor record cannot encode doe
   const saved = captured(first.tx.out().world);
 
   const heard = stepOver({ count: "many" }, saved.world);
-  heard.ledger.tryOne(actor, id, () => {
-    heard.persistence.saveActor(actor);
-
-    return "Heard";
-  });
+  heard.persistence.saveActor(actor);
+  heard.ledger.afterTry(id, actor, Heard.Heard());
   heard.persistence.close();
 
   const grace = Alarm.Grace({ actor, incarnation: incarnation("inc-1") });
@@ -541,6 +537,7 @@ it("WriteAhead R13: a ticket whose identity's actor record stops encoding before
       retryCount: 0,
       owner: OwnedBy.Root(),
       phase: Phase.Unsent(),
+      progress: Option.none(),
     },
     queue: [],
   };

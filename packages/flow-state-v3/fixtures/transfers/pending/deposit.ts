@@ -1,4 +1,3 @@
-/* oxlint-disable typescript/no-unsafe-assignment, typescript/no-unsafe-member-access, typescript/no-unsafe-call -- each line under an `@ts-expect-error` uses a commit option the Operations Spec adds and the package lacks, so its values type as any until it lands */
 // @effect-diagnostics unstableApiUsage:off -- the setup's adapter runs over Effect's fetch client, as the app's real Layer would
 import { Context, Effect, Exit, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
@@ -101,9 +100,6 @@ export const DepositsHttp = (origin: string) =>
     }),
   );
 
-// The deposit reports how many parts it has sent, as a fraction (Plan Operations O1, O6).
-const withProgress = { progress: Schema.Number, idempotency: ["depositId"] } as const;
-
 /**
  * A cheque deposit sent in parts, reporting its progress after each; keyed by the deposit's id.
  */
@@ -113,7 +109,8 @@ export const depositCheque = transaction({
   key: ["depositId"],
   concurrency: "reject",
   services: [DepositsApi],
-  ...withProgress,
+  idempotency: ["depositId"],
+  progress: Schema.Number,
   commit: (input, context) =>
     Effect.forEach(
       Array.from({ length: input.parts }, (_, n) => n),
@@ -126,7 +123,6 @@ export const depositCheque = transaction({
         ).pipe(
           Effect.tap(() =>
             Effect.sync(() => {
-              // @ts-expect-error Operations O1, O6: a commit reports `progress(p)`
               context.progress((n + 1) / input.parts);
             }),
           ),
@@ -160,6 +156,11 @@ const byDeposit = ({ memory }: { readonly memory: typeof ChequeDeposit.Memory.Ty
  */
 export const ChequeDepositMachine = machine(ChequeDeposit, ({ S, O }) => ({
   default: S.READY,
+  // A deposit's ending reaches whichever screen is open, a reopened one included.
+  on: {
+    Deposited: { target: S.DONE, updateMemory: () => ({ notice: "deposited" }) },
+    Unsure: { target: S.READY, updateMemory: () => ({ notice: "not sure it arrived" }) },
+  },
   states: {
     READY: {
       on: {
@@ -183,8 +184,6 @@ export const ChequeDepositMachine = machine(ChequeDeposit, ({ S, O }) => ({
     SENDING: {
       on: {
         Abort: { actions: [O.depositCheque.cancel(byDeposit)] },
-        Deposited: { target: S.DONE, updateMemory: () => ({ notice: "deposited" }) },
-        Unsure: { target: S.READY, updateMemory: () => ({ notice: "not sure it arrived" }) },
       },
     },
     DONE: {},

@@ -2,12 +2,14 @@ import { Option, Schema, SchemaAST } from "effect";
 import { walkerOf } from "./core/boundary.ts";
 import {
   type Commit,
+  type EndingContext,
   type EventEntry,
   type Field,
   type Lookup,
   type Mapping,
   Operation,
   type OperationWalk,
+  type ServiceKeys,
   Source,
   type Values,
 } from "./core/compiled.ts";
@@ -47,7 +49,7 @@ export const mappingOf = (
       (map) => ({
         slot,
         // FLOW_STATE_ALLOW_UNKNOWN: an ending's value is the call's own; its mapper is written for it.
-        run: (value: unknown) => map(value, {}),
+        run: (value: unknown, context: EndingContext) => map(value, context),
       }),
     ),
   };
@@ -88,14 +90,17 @@ export const operationOf = (name: string, bound: Bound) => {
 
   const place = `operations.${name}.call`;
   const internals = internalsOf<BoundInternals>("bound", bound);
+  const services = slot<() => ServiceKeys>(`operations.${name}.services`, () => internals.services);
 
   if (internals.kind === "read")
-    return Operation.Read({ ...shared, call: slot<Lookup>(place, internals.call) });
+    return Operation.Read({ ...shared, services, call: slot<Lookup>(place, internals.call) });
 
   return bound.kind === "write"
     ? Operation.Write({
         ...shared,
+        services,
         call: slot<Commit>(place, internals.call),
+        idempotency: internals.idempotency,
         concurrency: bound.concurrency,
         notSent: Option.map(bound.notSent, (ending) =>
           mappingOf(ending, `operations.${name}.notSent`),

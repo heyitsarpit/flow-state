@@ -4,7 +4,7 @@ import { type Concurrency, Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
-import { Audience, keptOn, type LedgerSteps, Route } from "./ledger.ts";
+import { keptOn, type LedgerSteps, Route } from "./ledger.ts";
 import { LaneView, Resolved } from "./turn.ts";
 import type { Turn } from "./walk.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
@@ -139,7 +139,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   const decline = (actor: ActorId, operation: string, why: Decline, input: Values) =>
     void ledger.owe({
       actor,
-      to: Audience.Identity(),
+      life: Option.none(),
       operation,
       input: Option.some(input),
       attempt: Option.none(),
@@ -312,6 +312,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       actor: incarnation.actor,
       incarnation: incarnation.id,
       operation: operation.name,
+      input,
       owner,
     });
     tx.command(
@@ -352,6 +353,20 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         apply(atOf(id, lane), Cue.Answered(settled));
         sendPromoted(id);
       }
+  };
+
+  /**
+   * A commit on the wire reported how far it got: its lane's head keeps the value until the
+   * Attempt leaves the head. A report from a call that is no head's on the wire changes nothing.
+   */
+  // FLOW_STATE_ALLOW_UNKNOWN: a progress value has the type its contract's progress Schema decodes.
+  const progressed = (call: CallId, value: unknown) => {
+    for (const [id, lane] of Option.toArray(tx.laneWaiting(call)))
+      if (onWireAs(lane, call))
+        persistence.sendLane(id, {
+          ...lane,
+          head: { ...lane.head, progress: Option.some(value) },
+        });
   };
 
   /**
@@ -465,6 +480,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     lookup,
     flushLanes,
     settle,
+    progressed,
     answer,
     everyLane,
     viewOf,

@@ -1,11 +1,18 @@
 import { Option } from "effect";
-import { operationOf } from "../core/compiled.ts";
+import { Operation, operationOf } from "../core/compiled.ts";
 import { Evidence } from "../core/evidence.ts";
 import { laneKeyText } from "../core/lane-moves.ts";
 import { type Life, lifecycleOf } from "../core/life.ts";
 import type { Delivery } from "../core/ledger.ts";
 import type { Channel } from "../core/vocabulary.ts";
-import { type ActorKey, actorKey, type AttemptId, type Phase, type Use } from "../core/world.ts";
+import {
+  type ActorKey,
+  actorKey,
+  type AttemptId,
+  type Lane,
+  type Phase,
+  type Use,
+} from "../core/world.ts";
 import { Alarm } from "../core/alarms.ts";
 import { isInFlight } from "../core/tx.ts";
 import type { Driver } from "./driver.ts";
@@ -80,6 +87,10 @@ export type RuntimeCut<Ds extends AnyDefinition = AnyDefinition> = {
     readonly state: "InFlight" | "Held";
     readonly key: Option.Option<string>;
     readonly attempt: AttemptId;
+    // What the server keys the head's sends by: its Attempt's id, or the values of the input
+    // fields its contract declares as its idempotency.
+    // FLOW_STATE_ALLOW_UNKNOWN: an input field's value has its field's type.
+    readonly keyedBy: ReadonlyArray<unknown>;
     readonly phase: Phase["_tag"];
     readonly retryCount: number;
   }>;
@@ -116,6 +127,22 @@ const contractOf = (driver: Driver, machine: string, operation: string) =>
     onSome: (op) => op.contract,
   });
 
+// What the server keys a lane's head by, as its write's contract declares it.
+const keyedByOf = (driver: Driver, lane: Lane) =>
+  Option.match(
+    Option.filter(
+      operationOf(driver.machines, lane.actor.machine, lane.operation),
+      Operation.$is("Write"),
+    ),
+    {
+      onNone: () => [lane.head.id],
+      onSome: (op) =>
+        op.idempotency === "attempt"
+          ? [lane.head.id]
+          : op.idempotency.map((field) => lane.head.input[field]),
+    },
+  );
+
 // RETURN_TYPE: the exported RuntimeCut contract.
 const cutOf = (driver: Driver): RuntimeCut => {
   const world = driver.world();
@@ -146,6 +173,7 @@ const cutOf = (driver: Driver): RuntimeCut => {
       state: isInFlight(lane) ? "InFlight" : "Held",
       key: laneKeyText(driver.machines, lane),
       attempt: lane.head.id,
+      keyedBy: keyedByOf(driver, lane),
       phase: lane.head.phase._tag,
       retryCount: lane.head.retryCount,
     })),

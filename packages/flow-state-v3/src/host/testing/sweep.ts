@@ -98,26 +98,30 @@ const reachOf = (samples: Samples, seed: number, found: Map<string, Reach>) => {
 // Only a head on the wire has a call whose answer can be lost.
 const ON_WIRE: ReadonlySet<Phase["_tag"]> = new Set<Phase["_tag"]>(["OnWire", "Cancelling"]);
 
-// Whether a call's input carries an Attempt's id, the idempotency key a write sends, as any of its
-// values.
+// Whether a call's input carries a value the server keys a write by (its Attempt's id, or a
+// declared idempotency field's value), as any of its values.
+// FLOW_STATE_ALLOW_UNKNOWN: a call's input and a key's value have the contract's own types.
 // RETURN_TYPE: the function recurses, so its result type cannot be inferred.
-const carries = (input: unknown, attempt: string): boolean =>
-  input === attempt ||
-  (Predicate.isObject(input) && Object.values(input).some((v) => carries(v, attempt)));
+const carries = (input: unknown, key: unknown): boolean =>
+  input === key || (Predicate.isObject(input) && Object.values(input).some((v) => carries(v, key)));
 
-// The held call of the write standing in the phase: the one carrying its Attempt's id, and only
-// when it is its endpoint's oldest held call, the one a wire word acts on.
+// The held call of a write standing in the phase: the one carrying what the server keys its
+// Attempt by, and only when it is its endpoint's oldest held call, the one a wire word acts on.
+// The actor's writes in the phase are tried in lane order; a write whose call carries no key (a
+// request with no idempotency) has none.
 const callOf = (view: View, phase: Phase["_tag"], actor: ActorId) =>
-  Option.flatMap(
-    Option.fromUndefinedOr(
-      view.lanes().find((lane) => lane.phase === phase && lane.actor === actorKey(actor)),
-    ),
-    (lane) =>
-      Option.filter(
-        Option.fromUndefinedOr(view.held.find((h) => carries(h.input, lane.attempt))),
-        (call) =>
-          view.held.find((h) => h.server === call.server && h.endpoint === call.endpoint) === call,
-      ),
+  Option.fromUndefinedOr(
+    view
+      .lanes()
+      .filter((lane) => lane.phase === phase && lane.actor === actorKey(actor))
+      .flatMap((lane) =>
+        view.held.filter(
+          (call) =>
+            lane.keyedBy.every((key) => carries(call.input, key)) &&
+            view.held.find((h) => h.server === call.server && h.endpoint === call.endpoint) ===
+              call,
+        ),
+      )[0],
   );
 
 // Whether the oldest held store write acknowledges the write standing in the phase: one batch is

@@ -373,8 +373,16 @@ export const startRun = <Names extends string>(
       turns.count += 1;
     });
 
-    if (!Option.exists(opened.perform(opened.built.runtime.ready()), Exit.isSuccess))
-      scriptFault(`open ${open} of the tab did not boot`);
+    const ready = opened.perform(opened.built.runtime.ready());
+
+    // A boot that failed names its failure, so a Story of a refused setup reads why.
+    if (!Option.exists(ready, Exit.isSuccess))
+      scriptFault(
+        `open ${open} of the tab did not boot${Option.match(
+          Option.flatMap(ready, (exit) => Exit.findErrorOption(exit)),
+          { onNone: () => "", onSome: (error) => `: ${String(error)}` },
+        )}`,
+      );
 
     return opened;
   };

@@ -142,6 +142,7 @@ const table = {
     Stopped: drop,
   },
   Settled: answer,
+  Progress: answer,
   Tick: answer,
   Stored: answer,
   Refused: answer,
