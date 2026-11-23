@@ -77,6 +77,19 @@ export const oneReaderLeft = signedIn(chatStory("chat/one-reader-left"))
   .checkpoint("answered");
 
 /**
+ * The thread asks first and the sidebar joins its read; the thread, which started the read, is
+ * closed: the read belongs to its entry, so it goes on and the sidebar shows its preview.
+ */
+export const firstReaderLeft = signedIn(chatStory("chat/first-reader-left"))
+  .world(Chat.history.hold())
+  .send(general, Thread.E.Join())
+  .send(hub, Hub.E.Open({ thread: "general" }))
+  .dispose(general)
+  .checkpoint("one left")
+  .world(Chat.history.release())
+  .checkpoint("answered");
+
+/**
  * The thread is closed, then the sidebar opens another thread: nobody waits on `general`'s history
  * any more, so its read is stopped.
  */
@@ -211,6 +224,7 @@ export const stories = {
   usual,
   twoThreads,
   oneReaderLeft,
+  firstReaderLeft,
   noReaderLeft,
   deleteBadUndo,
   deleteGone,

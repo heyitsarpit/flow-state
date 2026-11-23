@@ -179,17 +179,6 @@ export const makeDriver = (options: {
     );
   };
 
-  const ownerOf = (id: string, actor: ActorId) =>
-    Option.getOrElse(
-      Option.map(Option.fromUndefinedOr(incarnations.get(id)), (held) => held.owner),
-      () => {
-        const owner = work.child(`incarnation ${id}`);
-        incarnations.set(id, { owner, actor });
-
-        return owner;
-      },
-    );
-
   const edge = makeEdge(options.platform, work, {
     captureMs: options.captureMs,
     store: options.store,
@@ -235,10 +224,10 @@ export const makeDriver = (options: {
             ),
           Read: () => defect(`${machine}.${operation} is not a write`),
         }),
-      Lookup: ({ call: id, actor, operation, input: given, owner }) =>
-        Operation.$match(operationAt(actor.machine, operation), {
-          Read: (op) => call("read", ownerOf(owner, actor), id, () => op.call.run(given)),
-          Write: () => defect(`${actor.machine}.${operation} is not a read`),
+      Lookup: ({ call: id, machine, operation, input: given }) =>
+        Operation.$match(operationAt(machine, operation), {
+          Read: (op) => call("read", work, id, () => op.call.run(given)),
+          Write: () => defect(`${machine}.${operation} is not a read`),
         }),
       Interrupt: ({ call }) => work.cancel(`call/${call}`),
       // Each named incarnation's Owner closes in turn; the Runtime's close takes over any not yet

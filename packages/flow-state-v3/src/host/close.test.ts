@@ -341,7 +341,9 @@ const ensureThrown = (ensure: () => unknown) =>
   });
 
 describe("a ref whose ended actor's cleanup failed (Actors R23)", () => {
-  it("Actors R23: an actor disposed while its read is out, whose cleanup dies, quarantines its ref: every later ensure reports CleanupFailed with the whole Cause", async () => {
+  // Operations, Releases: a read's request is its entry's, in the Runtime's work, so its released
+  // call's failed cleanup is the Runtime's to report; no ref is quarantined for it.
+  it("Operations, Releases: an actor disposed while its read is out, whose cleanup dies, leaves its ref free: later ensures run", async () => {
     const { runtime, watch } = watchingOver(Effect.die("the status stream did not close"));
     runtime.ensureActor(watch).send({ _tag: "Look" });
     await tick();
@@ -351,13 +353,11 @@ describe("a ref whose ended actor's cleanup failed (Actors R23)", () => {
     for (const thrown of [
       ensureThrown(() => runtime.ensureActor(watch)),
       ensureThrown(() => runtime.ensureActor(watch)),
-    ]) {
-      assert.deepStrictEqual(codeOf(thrown), Option.some("CleanupFailed"));
-      assert.ok(causeOf(thrown).includes("the status stream did not close"));
-    }
+    ])
+      assert.equal(thrown, undefined);
   });
 
-  it("Actors R23: a cleanup that dies only after the ref was ensured again still quarantines it", async () => {
+  it("Operations, Releases: a cleanup that dies only after the ref was ensured again leaves it free", async () => {
     const { runtime, watch } = watchingOver(
       Effect.andThen(Effect.yieldNow, Effect.die("the status stream did not close")),
     );
@@ -369,9 +369,9 @@ describe("a ref whose ended actor's cleanup failed (Actors R23)", () => {
     await tick();
     await tick();
 
-    assert.deepStrictEqual(
-      codeOf(ensureThrown(() => runtime.ensureActor(watch))),
-      Option.some("CleanupFailed"),
+    assert.equal(
+      ensureThrown(() => runtime.ensureActor(watch)),
+      undefined,
     );
   });
 

@@ -681,8 +681,8 @@ export type Command = Data.TaggedEnum<{
       readonly mayHaveApplied: boolean;
     };
   };
-  // A read's request runs in the work of the life whose slot started it.
-  Lookup: { call: CallId; actor: ActorId; operation: string; input: Values; owner: string };
+  // A read's request belongs to its entry, so it runs in the Runtime's work, not a life's.
+  Lookup: { call: CallId; machine: string; operation: string; input: Values };
   Interrupt: { call: CallId };
   // The end of each named incarnation's work: its reads stop and their cleanups are awaited, in
   // order; a failed cleanup is the ref's at an incarnation's end, the Runtime's at its disposal.

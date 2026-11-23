@@ -194,14 +194,18 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps) => {
       route: Route.From({ owner: slot.owner }),
     });
 
-  // Start: a call asked at a new position, the entry's one request, run in the work of the life
-  // whose slot asks.
+  // Start: a call asked at a new position, the entry's one request, run in the Runtime's work.
   // RETURN_TYPE: the entry's own type, whichever request a start writes.
-  const start = (key: EntryKey, entry: Entry, by: Holder, actor: ActorId): Entry => {
+  const start = (key: EntryKey, entry: Entry, _by: Holder, _actor: ActorId): Entry => {
     const call = tx.mint("call");
     tx.put("callHome", call, key);
     tx.command(
-      Command.Lookup({ call, actor, operation: by.operation, input: entry.key, owner: by.life }),
+      Command.Lookup({
+        call,
+        machine: entry.read.machine,
+        operation: entry.read.operation,
+        input: entry.key,
+      }),
     );
 
     return { ...entry, request: Request.Running({ call, asked: tx.mintPosition() }) };

@@ -41,25 +41,28 @@ const recordsOf = (run: StoryRun, owner: (name: string) => boolean) =>
   });
 
 describe("a fake call whose cleanup fails as it is cancelled (Actors R23, Diagnostics R8)", () => {
-  it("Actors R23: a held read whose cleanup dies when the tab closes is one Issue CleanupFailed, heard by its incarnation's Owner, whose closer is the Runtime's disposal", async () => {
+  // Operations, Start and Releases: a read's request is its entry's and runs in the Runtime's work,
+  // so the Runtime's Owner hears its failed cleanup, as it does a write's.
+  it("Actors R23; Operations, Releases: a held read whose cleanup dies when the tab closes is one Issue CleanupFailed, heard by the Runtime's work", async () => {
     const run = checked(await readCleanupDies.run());
+    const work = recordsOf(run, (name) => name === "work");
 
     expect(cleanupIssues(run)).toBe(1);
-    expect(recordsOf(run, (name) => name.startsWith("work/incarnation "))).toEqual([
+    expect(work.filter((r) => r.startsWith("call "))).toEqual([
       "call started false",
-      "scope started false",
       "call Interrupted true",
-      "scope Done false",
-      "report closer 1",
     ]);
+    expect(work.at(-1)).toBe("report closer 1");
   });
 
-  it("Actors R23: a held save whose cleanup dies once the disposal's bound passes is one Issue CleanupFailed, heard by the Runtime's work", async () => {
+  it("Actors R23: a held save whose cleanup dies once the disposal's bound passes is one Issue CleanupFailed, heard by the Runtime's work, after the profile read it ran answered", async () => {
     const run = checked(await saveCleanupDies.run());
     const work = recordsOf(run, (name) => name === "work");
 
     expect(cleanupIssues(run)).toBe(1);
     expect(work.filter((r) => r.startsWith("call "))).toEqual([
+      "call started false",
+      "call Done false",
       "call started false",
       "call Interrupted true",
     ]);
@@ -76,14 +79,14 @@ describe("a fake call whose cleanup fails as it is cancelled (Actors R23, Diagno
         .run(),
     );
 
+    const work = recordsOf(run, (name) => name === "work");
+
     expect(cleanupIssues(run)).toBe(1);
-    expect(recordsOf(run, (name) => name.startsWith("work/incarnation "))).toEqual([
+    expect(work.filter((r) => r.startsWith("call "))).toEqual([
       "call started false",
-      "scope started false",
       "call Interrupted true",
-      "scope Done false",
-      "report closer 1",
     ]);
+    expect(work.at(-1)).toBe("report closer 1");
   });
 
   it("Gotcha (Actors R23, I48; Diagnostics R8): a cleanup's typed failure under a port's catchTag never reaches the effect Flow runs, since Effect's catch on an interrupted fiber keeps only the interrupt; a defect is kept", async () => {
@@ -99,13 +102,13 @@ describe("a fake call whose cleanup fails as it is cancelled (Actors R23, Diagno
         .run(),
     );
 
+    const work = recordsOf(run, (name) => name === "work");
+
     expect(cleanupIssues(run)).toBe(0);
-    expect(recordsOf(run, (name) => name.startsWith("work/incarnation "))).toEqual([
+    expect(work.filter((r) => r.startsWith("call "))).toEqual([
       "call started false",
-      "scope started false",
       "call Interrupted false",
-      "scope Done false",
-      "report closer 0",
     ]);
+    expect(work.at(-1)).toBe("report closer 0");
   });
 });

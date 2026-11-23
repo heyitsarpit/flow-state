@@ -225,28 +225,40 @@ describe("every forked fiber's interrupt cleanup at Runtime disposal (Actors R23
       });
 });
 
-describe("a read's interrupt cleanup at actor disposal (Actors R23)", () => {
+// Operations, Dispatch and Releases: a read's request belongs to its entry and runs in the Runtime's
+// work, so the actor's end releases it; a Fail or Die its cleanup leaves is heard by the call's
+// Owner, the Runtime's, which reports it, and reaches dispose's failure. The ref is never
+// quarantined for it.
+describe("a read's interrupt cleanup at actor disposal (Actors R23; Operations, Releases)", () => {
   for (const outcome of outcomes)
-    it(`Actors R23: a read whose cleanup ${outcome.name} when its actor is disposed ${Option.isSome(outcome.failure(lineDropped)) ? "quarantines the ref: a later ensure throws CleanupFailed keeping its failure" : "leaves the ref free"}`, () => {
+    it(`Operations, Releases: a read whose cleanup ${outcome.name} when its actor is disposed leaves the ref free, and ${Option.isSome(outcome.failure(lineDropped)) ? "rejects dispose with CleanupFailed keeping its failure" : "leaves dispose a success"}`, () => {
       const started = kinds[2]?.start(outcome);
       assert.ok(started !== undefined);
       started.runtime.disposeActor(phone);
       started.tab.settle();
 
-      const thrown = thrownBy(() => started.runtime.ensureActor(phone));
+      assert.equal(
+        thrownBy(() => started.runtime.ensureActor(phone)),
+        undefined,
+      );
+
+      const ended = disposedPastBounds(started);
+      assert.ok(Option.isSome(ended), "the dispose ended within its bounds");
 
       Option.match(started.failure, {
-        onNone: () => assert.equal(thrown, undefined),
+        onNone: () => assert.ok(Exit.isSuccess(ended.value), "dispose succeeded"),
         onSome: (failure) => {
-          const quarantined = flowOf(thrown);
-
-          assert.deepStrictEqual(
-            Option.map(quarantined, (r) => r.code),
-            Option.some("CleanupFailed"),
+          const rejected = Option.flatMap(
+            Exit.isFailure(ended.value) ? Cause.findErrorOption(ended.value.cause) : Option.none(),
+            (e) => flowOf(e),
           );
 
+          assert.deepStrictEqual(
+            Option.map(rejected, (r) => r.code),
+            Option.some("CleanupFailed"),
+          );
           assert.ok(
-            Option.exists(quarantined, (r) => keeps(r.cause, failure)),
+            Option.exists(rejected, (r) => keeps(r.cause, failure)),
             "its Cause kept",
           );
         },
@@ -413,7 +425,8 @@ const handlers: ReadonlyArray<{
   { name: "catchCause", wrap: (read) => Effect.catchCause(read, () => Effect.succeed("caught")) },
 ];
 
-// The CleanupFailed an ensure throws once a read's actor is disposed, if it throws one.
+// The CleanupFailed dispose rejects with once a read's actor was disposed, if it rejects with one:
+// the released read's cleanup failure is the Runtime's (Operations, Releases).
 const quarantinedAfter = (read: Effect.Effect<string, LineDropped>) => {
   const tab = platformOver(new Map(), 1);
   const runtime = readyOver(tab, Layer.succeed(Line, Line.of({ hold: Effect.never, watch: read })));
@@ -422,11 +435,11 @@ const quarantinedAfter = (read: Effect.Effect<string, LineDropped>) => {
   runtime.disposeActor(phone);
   tab.settle();
 
-  return flowOf(thrownBy(() => runtime.ensureActor(phone)));
+  return disposeHeard(runtime, tab);
 };
 
 describe("a cleanup failure inside the app's own error handling (Actors R23, I48; Diagnostics R8)", () => {
-  it("Actors R23, I48: with no handler around the read, a cleanup's typed failure reaches the effect Flow runs and quarantines the ref", () => {
+  it("Actors R23, I48; Operations, Releases: with no handler around the read, a cleanup's typed failure reaches the effect Flow runs and rejects dispose", () => {
     assert.ok(
       Option.exists(quarantinedAfter(hung(Effect.fail(lineDropped))), (r) =>
         keeps(r.cause, lineDropped),
@@ -520,7 +533,7 @@ describe("a cleanup failure in a life that records no Issue (Actors R23, R25)", 
 });
 
 describe("a read cancelled while its actor lives (Actors R23)", () => {
-  it("Actors R23; Operations OneWait: a second lookup of an open read's key joins it, so its cleanup runs only when its actor ends, which quarantines the ref", () => {
+  it("Operations OneWait, Releases: a second lookup of an open read's key joins it; its actor's end releases it, whose dying cleanup is one Issue CleanupFailed, the ref stays free and dispose rejects with it", () => {
     const tab = platformOver(new Map(), 1);
     const { runtime, issues } = readyObserved(tab, lineWith(Effect.die(died)));
     const handle = runtime.ensureActor(phone);
@@ -530,23 +543,21 @@ describe("a read cancelled while its actor lives (Actors R23)", () => {
     tab.settle();
 
     assert.deepStrictEqual(issues, []);
-    assert.equal(
-      thrownBy(() => runtime.ensureActor(phone)),
-      undefined,
-      "the live ref is not refused",
-    );
 
     runtime.disposeActor(phone);
     tab.settle();
 
-    const quarantined = flowOf(thrownBy(() => runtime.ensureActor(phone)));
-
-    assert.deepStrictEqual(
-      Option.map(quarantined, (r) => r.code),
-      Option.some("CleanupFailed"),
+    assert.deepStrictEqual(issues, ["CleanupFailed"]);
+    assert.equal(
+      thrownBy(() => runtime.ensureActor(phone)),
+      undefined,
+      "the ref is not refused",
     );
+
+    const heard = disposeHeard(runtime, tab);
+
     assert.ok(
-      Option.exists(quarantined, (r) => keeps(r.cause, died)),
+      Option.exists(heard, (r) => keeps(r.cause, died)),
       "its Cause kept",
     );
   });
@@ -607,25 +618,24 @@ describe("a quarantine no ensure reported (Actors R23)", () => {
     );
   });
 
-  it("Actors R23: a quarantine an ensure reported is not reported again at dispose", () => {
+  it("Operations, Releases: a released read's failed cleanup is no ensure's to report: the next ensure runs and dispose reports it once", () => {
     const tab = platformOver(new Map(), 1);
     const runtime = readyOver(tab, lineWith(Effect.die(died)));
     runtime.ensureActor(phone).send({ _tag: "Look" });
     tab.settle();
     runtime.disposeActor(phone);
     tab.settle();
-    assert.deepStrictEqual(
-      Option.map(flowOf(thrownBy(() => runtime.ensureActor(phone))), (r) => r.code),
-      Option.some("CleanupFailed"),
-      "an ensure reported it",
+    assert.equal(
+      thrownBy(() => runtime.ensureActor(phone)),
+      undefined,
+      "no ensure reports it",
     );
 
-    const disposing = Effect.runFork(runtime.dispose());
-    tab.settle();
+    const heard = disposeHeard(runtime, tab);
 
-    assert.ok(
-      Option.exists(Option.fromUndefinedOr(disposing.pollUnsafe()), Exit.isSuccess),
-      "dispose settled with a success",
+    assert.deepStrictEqual(
+      Option.map(heard, (r) => r.code),
+      Option.some("CleanupFailed"),
     );
   });
 });
@@ -651,23 +661,11 @@ const ordersOf = (moves: ReadonlyArray<Move>): ReadonlyArray<ReadonlyArray<Move>
         ).values(),
       ];
 
-// What the ensures report, by R23 alone: each reports every failure that landed on the ref while
-// the Runtime was open and no disposeActor lifted since. The first failure has landed before any
-// move.
-const ensureReports = (order: ReadonlyArray<Move>) => {
-  const held: Array<Error> = [firstDied];
-  const reported: Array<Error> = [];
-
-  for (const move of order.slice(0, order.indexOf("dispose"))) {
-    if (move === "the second cleanup dies") held.push(secondDied);
-
-    if (move === "disposeActor") held.length = 0;
-
-    if (move === "ensure") reported.push(...held);
-  }
-
-  return reported;
-};
+// What the ensures report, by Operations' Releases: none. A read's request is its entry's, run in
+// the Runtime's work, so a released read's failed cleanup is the Runtime's to report, whatever the
+// moves; dispose reports each failure once.
+// RETURN_TYPE: the failures an ensure reports, here none, typed as the list the checks compare.
+const ensureReports = (_order: ReadonlyArray<Move>): ReadonlyArray<Error> => [];
 
 // How many times the Causes keep a cleanup's defect.
 // FLOW_STATE_ALLOW_UNKNOWN: a cleanup fails with whatever it was given.

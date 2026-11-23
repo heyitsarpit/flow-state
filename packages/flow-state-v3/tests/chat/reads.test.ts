@@ -3,6 +3,7 @@ import { general, hub, random, threadOf } from "../../fixtures/chat/app.ts";
 import { manyThreads, THREADS } from "../../fixtures/chat/stories/load.ts";
 import {
   echoInPreview,
+  firstReaderLeft,
   noReaderLeft,
   oneReaderLeft,
   releaseOverdue,
@@ -62,6 +63,15 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     const run = await oneReaderLeft.run();
 
     expect(historyCalls(run.checkpoints["one left"], "general")).toHaveLength(1);
+    expect(historyCalls(run.checkpoints.answered, "general").map((c) => c.status)).toEqual([
+      "answered",
+    ]);
+    expect(run.checkpoints.answered.read(hub)?.memory.preview).toBe("standup at ten");
+  });
+
+  it("Operations R3, T4.3, Occasions (a request belongs to its entry): the reader that started the request closed, it runs on for the other, which hears it", async () => {
+    const run = await firstReaderLeft.run();
+
     expect(historyCalls(run.checkpoints.answered, "general").map((c) => c.status)).toEqual([
       "answered",
     ]);
