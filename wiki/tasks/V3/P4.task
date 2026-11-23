@@ -608,6 +608,10 @@ tasks
         comment     2026-11-22T03:54:14Z
             Fix 11: owns the discard of machine records under `persist: false`; @task.V3.T124 owns the resource-entry
             gate (`gcTime: 0`, Q15). R48 breakdown review (2026-11-22, P4 comment).
+        comment     2026-11-23T00:16:38Z
+            Routed from @task.V3.T92's close review (orchestrator, 2026-11-23): R12's FORMAT pin and the Shapes' hash
+            (after the codecSig spike), R21's records-boot bench row, and the 1,300-row durability stress time (6.4 s
+            alone; likely the whole work text rewritten per capture and the ledger's per-row copies).
     T22
         title       CLI check, explain and graph
         status      draft

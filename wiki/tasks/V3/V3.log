@@ -845,3 +845,7 @@ note 2026-11-22T23:44:30Z
 note 2026-11-23T00:09:33Z
     T92 fix round in review (01c59bf6, ecf7851c): one Shape codec per record kind; second close review by the same
     reviewer. Weekly 97%.
+
+note 2026-11-23T00:16:40Z
+    T92 close review 2: PASS (90d5fd75). Page @page.T92-records written; T56 routings recorded. T92's close is held with
+    T119's: @page.T142-typed-machine unread.
