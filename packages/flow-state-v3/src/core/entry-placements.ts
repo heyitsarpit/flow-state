@@ -13,10 +13,10 @@ import {
   entryKeyOf,
   type Holder,
   Placement,
-  PLACEHOLDER,
-  type ReadEnding,
+  ReadEnding,
   withOne,
 } from "./entry-view.ts";
+import { Origin } from "./ledger.ts";
 import type { Tx } from "./tx.ts";
 import type { ActorId, Incarnation, OwnedBy } from "./world.ts";
 
@@ -47,6 +47,7 @@ export type PlacementParts = {
     to: { readonly actor: ActorId; readonly owner: OwnedBy },
     entry: Entry,
     ending: ReadEnding,
+    origin: Origin,
   ) => void;
   readonly keyOf: (operation: Operation, input: Values) => Option.Option<string>;
 };
@@ -101,7 +102,7 @@ export const makeEntryPlacements = (tx: Tx, parts: PlacementParts) => {
       for (const { h, placed } of placedOn(key))
         if (!Option.exists(placed.shown, (shown) => Equal.equals(shown, data.value))) {
           setPlacement(h, Option.some({ ...placed, shown: Option.some(data.value) }));
-          owe(h, placed, entry, { channel: "success", reason: "success", value: data.value });
+          owe(h, placed, entry, ReadEnding.Landed({ value: data.value }), Origin.Decided());
         }
   };
 
@@ -135,7 +136,7 @@ export const makeEntryPlacements = (tx: Tx, parts: PlacementParts) => {
       const given = callSlot(slot, { previous: Option.getOrUndefined(previous), input });
 
       if (Result.isSuccess(given) && given.success !== undefined)
-        owe(h, placed, entry, { channel: "success", reason: PLACEHOLDER, value: given.success });
+        owe(h, placed, entry, ReadEnding.Landed({ value: given.success }), Origin.Placeholder());
     }
   };
 

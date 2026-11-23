@@ -34,15 +34,33 @@ export type Request = Data.TaggedEnum<{
 export const Request = Data.taggedEnum<Request>();
 
 /**
- * A read's ending as a row carries it: a success with its value, or a failure by its tag, `Defect`
- * or `Interrupted`, with the lookup's error.
+ * A read's ending: data landed, a failure by the lookup's own tag with its error, or Flow's own
+ * `Defect` or `Interrupted`, kept apart from any tag a contract names.
  */
-export type ReadEnding = {
-  readonly channel: "success" | "failure";
-  readonly reason: string;
-  // FLOW_STATE_ALLOW_UNKNOWN: a read's value or error is the lookup's own, mapped when heard.
-  readonly value: unknown;
-};
+export type ReadEnding = Data.TaggedEnum<{
+  // FLOW_STATE_ALLOW_UNKNOWN: a read's value is the lookup's own, mapped when heard.
+  Landed: { value: unknown };
+  // FLOW_STATE_ALLOW_UNKNOWN: a read's error is the lookup's own, mapped when heard.
+  Failed: { reason: string; error: unknown };
+  Defect: {};
+  Interrupted: {};
+}>;
+
+/**
+ * Constructors and matchers for {@link ReadEnding}.
+ */
+export const ReadEnding = Data.taggedEnum<ReadEnding>();
+
+/**
+ * A read ending as the row owed for it carries it: its channel, reason and value.
+ */
+export const rowEnding = (ending: ReadEnding) =>
+  ReadEnding.$match(ending, {
+    Landed: ({ value }) => ({ channel: "success", reason: "success", value }) as const,
+    Failed: ({ reason, error }) => ({ channel: "failure", reason, value: error }) as const,
+    Defect: () => ({ channel: "failure", reason: "Defect", value: undefined }) as const,
+    Interrupted: () => ({ channel: "failure", reason: "Interrupted", value: undefined }) as const,
+  });
 
 /**
  * One commit's optimistic update of an entry: its Attempt, the update readers see applied over
@@ -122,14 +140,14 @@ export type Placement = Data.TaggedEnum<{
 export const Placement = Data.taggedEnum<Placement>();
 
 /**
- * A call the core told to stop and has not heard end: the entry it was the request of, and when.
+ * A call the core told to stop and has not heard end: the entry it was the request of, the read
+ * whose call it is, which outlives the entry, and when.
  */
-export type Releasing = { readonly entry: EntryKey; readonly since: number };
-
-/**
- * The reason of a row that owes a placement its `placeholder`, not landed data.
- */
-export const PLACEHOLDER = "placeholder";
+export type Releasing = {
+  readonly entry: EntryKey;
+  readonly operation: string;
+  readonly since: number;
+};
 
 /**
  * A slot or a placement as its entry's holders name it: its life and its operation.
@@ -265,18 +283,15 @@ export const withAgain = (entry: Entry, again: boolean): Entry =>
   });
 
 /**
- * A settled read's ending as its row carries it.
+ * A settled read's ending.
  */
 export const endingOf = (result: CallResult) =>
   CallResult.$match(result, {
-    Success: ({ value }) => ({ channel: "success", reason: "success", value }) satisfies ReadEnding,
-    Failure: ({ reason, error }) =>
-      ({ channel: "failure", reason, value: error }) satisfies ReadEnding,
-    Unknown: ({ reason, error }) =>
-      ({ channel: "failure", reason, value: error }) satisfies ReadEnding,
-    Defect: () => ({ channel: "failure", reason: "Defect", value: undefined }) satisfies ReadEnding,
-    Interrupted: () =>
-      ({ channel: "failure", reason: "Interrupted", value: undefined }) satisfies ReadEnding,
+    Success: ({ value }) => ReadEnding.Landed({ value }),
+    Failure: ({ reason, error }) => ReadEnding.Failed({ reason, error }),
+    Unknown: ({ reason, error }) => ReadEnding.Failed({ reason, error }),
+    Defect: () => ReadEnding.Defect(),
+    Interrupted: () => ReadEnding.Interrupted(),
   });
 
 /**

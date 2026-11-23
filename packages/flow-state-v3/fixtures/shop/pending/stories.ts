@@ -83,3 +83,21 @@ export const staleOverlappingAdds = miniCartStory("shop/stale-overlapping-adds")
   .checkpoint("one answered")
   .world(Carts.addLine.release(), Carts.cart.release())
   .checkpoint("settled");
+
+/**
+ * The shopper closes the mini cart, then adds from a product page; the add's answer is lost, so
+ * the cart is read again, and that read is held past the cart's minute of `gcTime`. Once it lands,
+ * nothing holds the cart, which is kept a minute and then collected.
+ */
+export const closedAddUnsure = miniCartStory("shop/closed-add-unsure")
+  .send(miniCart, MiniCart.E.Close())
+  .world(Carts.addLine.hold(), Carts.cart.hold())
+  .send(miniCart, MiniCart.E.Add({ lineId: "l1", variantId: "v-red" }))
+  .world(Carts.addLine.lose())
+  .checkpoint("unsure")
+  .advance("2 minutes")
+  .checkpoint("held past gcTime")
+  .world(Carts.cart.release())
+  .checkpoint("refetched")
+  .advance("1 minute")
+  .checkpoint("collected");

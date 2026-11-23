@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { Alarm, alarmKey } from "./alarms.ts";
-import { Placement } from "./entry-view.ts";
+import { Placement, ReadEnding } from "./entry-view.ts";
 import type { Values } from "./compiled.ts";
 import { rowsOf } from "./ledger.ts";
 import { scheduleIssues } from "./schedule-issues.ts";
@@ -47,7 +47,7 @@ const entryIssues = (world: World, machines: Machines, incarnation: Incarnation)
     Option.toArray(
       Option.flatMap(Option.fromUndefinedOr(world.entries.get(slot.entry)), (entry) =>
         Option.map(
-          Option.filter(entry.last, (last) => last.reason === "Defect"),
+          Option.filter(entry.last, ReadEnding.$is("Defect")),
           () =>
             ({
               source: IssueSource.Entry({

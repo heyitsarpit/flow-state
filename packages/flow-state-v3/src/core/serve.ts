@@ -1,14 +1,13 @@
 import { Option, Result } from "effect";
 import { callSlot, type Mapping, Operation, type Values } from "./compiled.ts";
 import { Act } from "./evidence-of.ts";
-import { PLACEHOLDER } from "./entry-view.ts";
 import { runTurn, TurnResult } from "./walk.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { Change, refusalOf } from "./change.ts";
 import { scopeOf } from "./reads.ts";
 import { routeOf, Trigger } from "./trigger.ts";
 import { isInFlight, pick, type Tx } from "./tx.ts";
-import { Heard, type LedgerSteps, type Owed, Route } from "./ledger.ts";
+import { Heard, type LedgerSteps, Origin, type Owed, Route } from "./ledger.ts";
 import {
   type ActivationId,
   type ActorId,
@@ -181,7 +180,7 @@ export const makeServe = (
         callSlot(from, ending.value, {
           input,
           key: pick(input, operation.keyFields),
-          placeholder: ending.reason === PLACEHOLDER,
+          placeholder: Origin.$is("Placeholder")(ending.origin),
         }),
     });
 

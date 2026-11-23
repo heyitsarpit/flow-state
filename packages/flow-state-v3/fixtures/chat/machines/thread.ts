@@ -61,15 +61,17 @@ export const Thread = definition({
         unknown: E.SendUnsure,
       },
       {
-        // The sent message joins the history of the thread the server names.
-        writes: ({ value, input }) => [
-          history.update({ thread: value.thread }, (current) => ({
-            messages: [
-              ...current.messages.filter((m) => m.id !== value.id),
-              { id: value.id, author: value.author, text: input.text },
-            ],
-          })),
-        ],
+        // The sent message joins the history of the thread the server names, and of the thread
+        // it was sent from, which differ when the server moves it into another thread.
+        writes: ({ value, input }) =>
+          [value.thread, input.thread].map((thread) =>
+            history.update({ thread }, (current) => ({
+              messages: [
+                ...current.messages.filter((m) => m.id !== value.id),
+                { id: value.id, author: value.author, text: input.text },
+              ],
+            })),
+          ),
       },
     ),
     deleteMessage: deleteMessage.outcomes({

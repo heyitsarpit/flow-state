@@ -58,6 +58,25 @@ describe("the balance card and cheque deposits (Operations R4; Plan Operations O
     ]);
   });
 
+  it("Operations R11, I23: a placement whose select throws keeps its last key and data, shows its issue at the select, and places the next key it names", async () => {
+    const { garbledLink, card } = await load();
+    const run = await garbledLink.run();
+
+    const shown = (cut: Cut) => ({
+      issues: (cut.read(card)?.issues ?? []).map((i) => i.code),
+      calls: cut.read(Accounts.balance).map((c) => c.input.account),
+      cents: cut.read(card)?.memory.cents,
+    });
+
+    expect(
+      [run.checkpoints.shown, run.checkpoints.garbled, run.checkpoints.chosen].map(shown),
+    ).toEqual([
+      { issues: [], calls: ["acct-1"], cents: 10_000 },
+      { issues: ["Defect"], calls: ["acct-1"], cents: 10_000 },
+      { issues: [], calls: ["acct-1", "acct-2"], cents: 0 },
+    ]);
+  });
+
   it("Plan Operations O6: an account switch shows the last account's balance as a placeholder until its own lands", async () => {
     const { switchAccount, card } = await load();
     const run = await switchAccount.run();

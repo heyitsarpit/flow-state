@@ -114,6 +114,22 @@ describe("a released history read (Operations R8, I11)", () => {
       [released, run.checkpoints["before bound"], run.checkpoints["past bound"], ended].map(codes),
     ).toEqual([[], [], ["ReleaseOverdue"], []]);
   });
+
+  it("Operations Releases (evidence): each released call past the bound records ReleaseOverdue once, and Released once when it ends", async () => {
+    const run = await releaseOverdue.run();
+
+    const overdue = run.evidence.filter(
+      (e) => Predicate.isTagged(e, "Issue") && e.code === "ReleaseOverdue",
+    );
+
+    const released = run.evidence.filter(
+      (e) => Predicate.isTagged(e, "Lane") && e.kind === "Released" && e.operation === "history",
+    );
+
+    // One call is released: the first read of general, left when the sidebar opened random.
+    expect(overdue).toHaveLength(1);
+    expect(released).toHaveLength(1);
+  });
 });
 
 describe("invalidate, refetch and clear on the history (Operations entry table, T4.4)", () => {
@@ -169,7 +185,7 @@ describe("a send's success write on the history (Plan Operations O3; entry table
     expect(run.evidence.filter((e) => Predicate.isTagged(e, "InvalidUpdate"))).toEqual([]);
   });
 
-  it("Plan Operations O3 (InvalidUpdate): a write whose thread the answer leaves empty applies nothing, is reported once, and the send succeeds", async () => {
+  it("Plan Operations O3 (InvalidUpdate), O5 (any invalid target rejects the whole batch): a send whose answer leaves the thread empty applies neither of its two writes, not even the valid one, is reported once, and succeeds", async () => {
     const run = await sentWriteInvalid.run();
     const { sent } = run.checkpoints;
 

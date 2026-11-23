@@ -51,10 +51,11 @@ export type Route = Data.TaggedEnum<{ Current: {}; From: { owner: OwnedBy } }>;
 export const Route = Data.taggedEnum<Route>();
 
 /**
- * Who made an owed row: an ending a call or a lane decided, or a row a boot read back or derived
- * from its record. Apart from the row's reason, so no contract's own reason passes for Flow's.
+ * Who made an owed row: an ending a call or a lane decided, a row a boot read back or derived
+ * from its record, or a placement's `placeholder`, which is no landed data. Apart from the row's
+ * reason, so no contract's own reason passes for Flow's.
  */
-export type Origin = Data.TaggedEnum<{ Decided: {}; ReadBack: {} }>;
+export type Origin = Data.TaggedEnum<{ Decided: {}; ReadBack: {}; Placeholder: {} }>;
 
 /**
  * Constructors and matchers for {@link Origin}.

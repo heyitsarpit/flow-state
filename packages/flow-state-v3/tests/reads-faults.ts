@@ -73,111 +73,6 @@ export const readsFaults: ReadonlyArray<Fault> = [
     ],
   },
   {
-    name: "overdue-early",
-    tests: ["tests/chat/reads.test.ts"],
-    says: "a released call shows ReleaseOverdue from its release, before the disposal bound passes",
-    rule: "Operations R8, I11",
-    edits: [
-      {
-        file: "src/core/issues-of.ts",
-        find: "      .filter(([call]) => !world.alarms.has(alarmKey(Alarm.Release({ call }))))",
-        replace: "      .filter(([call]) => call !== alarmKey(Alarm.Release({ call })))",
-      },
-    ],
-  },
-  {
-    name: "overdue-kept-after-end",
-    tests: ["tests/chat/reads.test.ts"],
-    says: "a released call that ends stays releasing, so its holders keep ReleaseOverdue",
-    rule: "Operations R8, I11",
-    edits: [
-      {
-        file: "src/core/entry-releases.ts",
-        find: '    tx.drop("releasing", call);\n',
-        replace: "",
-      },
-    ],
-  },
-  {
-    name: "release-alarm-not-cleared",
-    tests: ["tests/chat/reads.test.ts"],
-    says: "a released call that ends keeps its Release alarm, which owns no fact",
-    rule: "Operations I22",
-    edits: [
-      {
-        file: "src/core/entry-releases.ts",
-        find: "    tx.clearAlarm(Alarm.Release({ call }));\n",
-        replace: "",
-      },
-    ],
-  },
-  {
-    name: "release-without-interrupt",
-    tests: ["tests/search/results.test.ts"],
-    says: "a released call is never told to stop, so it runs on and its answer is delivered",
-    rule: "Operations R8, Releases",
-    edits: [
-      {
-        file: "src/core/entry-releases.ts",
-        find: "        tx.command(Command.Interrupt({ call }));\n",
-        replace: "",
-      },
-    ],
-  },
-  {
-    name: "placement-kept-after-exit",
-    tests: ["tests/search/results.test.ts"],
-    says: "a state's exit leaves its placement holding its entry, so its read runs on",
-    rule: "Operations, placements (unplace at exit)",
-    edits: [
-      {
-        file: "src/core/placements.ts",
-        find: "      if (!active.has(operation)) entries.unplace(incarnation, operation);",
-        replace:
-          "      if (active.has(operation) && !active.has(operation)) entries.unplace(incarnation, operation);",
-      },
-    ],
-  },
-  {
-    name: "placeholder-unmarked",
-    tests: ["tests/transfers/reads.test.ts"],
-    says: "a placement's placeholder reaches its mapper as landed data",
-    rule: "Plan Operations O6",
-    edits: [
-      {
-        file: "src/core/serve.ts",
-        find: "          placeholder: ending.reason === PLACEHOLDER,",
-        replace: "          placeholder: false,",
-      },
-    ],
-  },
-  {
-    name: "select-failure-quiet",
-    tests: ["tests/transfers/reads.test.ts"],
-    says: "a placement whose select named no key shows no issue",
-    rule: "Operations R11, I23",
-    edits: [
-      {
-        file: "src/core/issues-of.ts",
-        find: "          Unkeyed: ({ failed }) => Option.some(failed),",
-        replace: "          Unkeyed: () => Option.none<string>(),",
-      },
-    ],
-  },
-  {
-    name: "failure-kept-as-unknown",
-    tests: ["tests/shop/mini-cart.test.ts"],
-    says: "a commit's plain failure keeps its optimistic value and reads again, as an unknown does",
-    rule: "Plan Operations O5",
-    edits: [
-      {
-        file: "src/core/entry-view.ts",
-        find: '  failure: "removed",',
-        replace: '  failure: "unknown",',
-      },
-    ],
-  },
-  {
     name: "retryable-ignores-count",
     tests: ["tests/chat/endings.test.ts"],
     says: "a guard's lane view reads a Held head's resends as none, so `retryable` never declines",
@@ -431,9 +326,8 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/issues-of.ts",
-        find: '          Option.filter(entry.last, (last) => last.reason === "Defect"),',
-        replace:
-          '          Option.filter(entry.last, (last) => last.reason === "Defect" && Number.isNaN(0)),',
+        find: '          Option.filter(entry.last, ReadEnding.$is("Defect")),',
+        replace: '          Option.filter(entry.last, ReadEnding.$is("Interrupted")),',
       },
     ],
   },
@@ -445,8 +339,8 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entry-writes.ts",
-        find: "          onSome: (d) => Cue.Written({ value: applied(w.update, d.value) }),",
-        replace: "          onSome: () => Cue.Invalidate(),",
+        find: "        onSome: (d) => updated(d.value),",
+        replace: "        onSome: () => Cue.Invalidate(),",
       },
     ],
   },
@@ -458,8 +352,53 @@ export const readsFaults: ReadonlyArray<Fault> = [
     edits: [
       {
         file: "src/core/entry-writes.ts",
-        find: "          if (Option.isNone(w.keyText)) invalid();\n          else written(w, head.started);",
-        replace: "          written(w, head.started);",
+        find: "      if (!isReadWrites(writes) || writes.some((w) => Option.isNone(w.keyText)))",
+        replace: "      if (!isReadWrites(writes))",
+      },
+    ],
+  },
+  {
+    name: "batch-partly-applied",
+    tests: ["tests/chat/reads.test.ts"],
+    says: "a batch with an invalid target is reported but its valid targets apply",
+    rule: "Plan Operations O5 (any invalid target rejects the whole batch)",
+    edits: [
+      {
+        file: "src/core/entry-writes.ts",
+        find: "        tx.act(Act.InvalidUpdate({ actor, operation: operation.name }));\n      else for",
+        replace:
+          "        tx.act(Act.InvalidUpdate({ actor, operation: operation.name }));\n      if (isReadWrites(writes)) for",
+      },
+    ],
+  },
+  {
+    name: "layer-holds-nothing",
+    tests: ["tests/shop/mini-cart.test.ts"],
+    says: "a live optimistic layer does not hold its entry, so an unknown's refetch runs on an unheld entry and strands it uncollected",
+    rule: "Plan Operations O2; Operations I3, I12, I22",
+    edits: [
+      {
+        file: "src/core/entries.ts",
+        find: "    holdersOf(key).size === 0 && entry.layers.length === 0;",
+        replace: "    holdersOf(key).size === 0;",
+      },
+      {
+        file: "src/core/entries.ts",
+        find: "    const arrived = entry.layers.length > 0 && Option.isSome(entry.unheldSince);",
+        replace: "    const arrived = entry.layers.length < 0 && Option.isSome(entry.unheldSince);",
+      },
+    ],
+  },
+  {
+    name: "unknown-look-kept",
+    tests: ["tests/shop/mini-cart.test.ts"],
+    says: "an unknown's optimistic value is never settled, so the refetch that lands keeps it and its entry held for good",
+    rule: "Plan Operations O5 (unknown refetches once); Operations I12",
+    edits: [
+      {
+        file: "src/core/entry-writes.ts",
+        find: "      settle(key, entry, mine);\n      apply(key, Cue.Ask",
+        replace: "      apply(key, Cue.Ask",
       },
     ],
   },

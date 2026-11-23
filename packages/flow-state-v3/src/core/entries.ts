@@ -3,36 +3,34 @@ import { Alarm } from "./alarms.ts";
 import type { Operation, Values } from "./compiled.ts";
 import { makeEntryPlacements } from "./entry-placements.ts";
 import { makeEntryReleases } from "./entry-releases.ts";
+import { makeEntrySlots } from "./entry-slots.ts";
 import { makeEntryStore } from "./entry-store.ts";
 import type { Persistence } from "./persist.ts";
 import {
   againOf,
-  type Asker,
   type Cell,
   Cue,
   type Entry,
   type EntryKey,
   endingOf,
-  entryKeyOf,
   type Holder,
   holderText,
   matches,
   phaseOf,
   Placement,
-  type ReadEnding,
-  type ReadSlot,
+  ReadEnding,
   Request,
+  rowEnding,
   type Row,
   freshAt,
   timesIn,
   viewOf,
   withAgain,
-  withOne,
 } from "./entry-view.ts";
 import { makeEntryWrites } from "./entry-writes.ts";
 import { Act } from "./evidence-of.ts";
 import { CallResult } from "./input.ts";
-import { type LedgerSteps, Route } from "./ledger.ts";
+import { type LedgerSteps, Origin, Route } from "./ledger.ts";
 import { pick, type Tx } from "./tx.ts";
 import { type ActorId, type CallId, Command, type Incarnation, type OwnedBy } from "./world.ts";
 
@@ -61,21 +59,25 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
 
   const holdersOf = (key: EntryKey) => tx.world().holders.get(key) ?? new Map<string, Holder>();
 
-  // An entry written; its saved entry follows its data.
+  // An entry written; its saved entry follows its data. A live optimistic layer holds its entry: the
+  // first to arrive on an unheld entry is its first hold, and one leaving is judged at the step's end.
   const put = (key: EntryKey, entry: Entry) => {
-    store.changed(Option.fromUndefinedOr(tx.world().entries.get(key)), entry);
-    tx.put("entries", key, entry);
+    const before = Option.fromUndefinedOr(tx.world().entries.get(key));
+    const arrived = entry.layers.length > 0 && Option.isSome(entry.unheldSince);
+
+    if (arrived) tx.clearAlarm(Alarm.Collect({ entry: key }));
+
+    if (Option.exists(before, (b) => b.layers.length > entry.layers.length)) touched.add(key);
+
+    const next = arrived ? { ...entry, unheldSince: Option.none() } : entry;
+
+    store.changed(before, next);
+    tx.put("entries", key, next);
   };
 
-  const slotOf = (h: Holder) =>
-    Option.fromUndefinedOr(tx.world().slots.get(h.life)?.get(h.operation));
-
-  const setSlot = (h: Holder, slot: Option.Option<ReadSlot>) => {
-    const slots = withOne(tx.world().slots.get(h.life) ?? new Map<string, ReadSlot>(), h, slot);
-
-    if (slots.size === 0) tx.drop("slots", h.life);
-    else tx.put("slots", h.life, slots);
-  };
+  // Whether nothing holds an entry: no slot or placement points at it and no layer is live.
+  const unheldNow = (key: EntryKey, entry: Entry) =>
+    holdersOf(key).size === 0 && entry.layers.length === 0;
 
   const hold = (key: EntryKey, h: Holder, held: boolean) => {
     const holders = new Map(holdersOf(key));
@@ -90,28 +92,27 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
     else tx.put("holders", key, holders);
   };
 
-  const waitersOf = (key: EntryKey) =>
-    [...holdersOf(key).values()].flatMap((h) =>
-      Option.toArray(
-        Option.map(
-          Option.filter(slotOf(h), (s) => s.waiting),
-          (slot) => ({ h, slot }),
-        ),
-      ),
-    );
-
   // One row to a slot's or a placement's life, with the entry's key as the row's input.
-  const owe = (h: Holder, to: Recipient, entry: Entry, ending: ReadEnding) =>
-    ledger.owe({
-      actor: to.actor,
-      life: Option.some(h.life),
-      operation: h.operation,
-      input: Option.some(entry.key),
-      attempt: Option.none(),
-      lane: Option.none(),
-      ...ending,
-      route: Route.From({ owner: to.owner }),
-    });
+  const owe = (
+    h: Holder,
+    to: Recipient,
+    entry: Entry,
+    ending: ReadEnding,
+    origin: Origin = Origin.Decided(),
+  ) =>
+    ledger.owe(
+      {
+        actor: to.actor,
+        life: Option.some(h.life),
+        operation: h.operation,
+        input: Option.some(entry.key),
+        attempt: Option.none(),
+        lane: Option.none(),
+        ...rowEnding(ending),
+        route: Route.From({ owner: to.owner }),
+      },
+      origin,
+    );
 
   // The placements, which call back into the table's moves only once a step runs.
   const { place, unplace, placementsOf, placementOf, placedOn, show } = makeEntryPlacements(tx, {
@@ -122,6 +123,18 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
     holdersOf,
     keyOf: (operation, input) => keyOf(operation, input),
   });
+
+  // The slots, likewise.
+  const slots = makeEntrySlots(tx, ledger, {
+    holdersOf,
+    hold,
+    held: (key, incarnation, operation, input) => held(key, incarnation, operation, input),
+    apply: (key, cue) => apply(key, cue),
+    owe,
+    keyOf: (operation, input) => keyOf(operation, input),
+  });
+
+  const { slotOf, serve, wait, oweWaiters } = slots;
 
   // ── the moves.
 
@@ -140,31 +153,6 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
     );
 
     return { ...entry, request: Request.Running({ call, asked: tx.mintPosition(), again: false }) };
-  };
-
-  // Serve: the asking slot is owed the data with each live update applied; no request.
-  const serve = (asker: Asker, entry: Entry) => {
-    for (const { h, slot } of Option.toArray(asker))
-      for (const data of Option.toArray(entry.data))
-        owe(h, slot, entry, {
-          channel: "success",
-          reason: "success",
-          value: viewOf(entry, data.value),
-        });
-  };
-
-  // The asking slot waits for the entry's request.
-  const wait = (asker: Asker) => {
-    for (const { h, slot } of Option.toArray(asker))
-      setSlot(h, Option.some({ ...slot, waiting: true }));
-  };
-
-  // Owe: every waiting slot of an entry is owed the ending once, and waits no more.
-  const oweWaiters = (key: EntryKey, entry: Entry, ending: ReadEnding) => {
-    for (const { h, slot } of waitersOf(key)) {
-      setSlot(h, Option.some({ ...slot, waiting: false }));
-      owe(h, slot, entry, ending);
-    }
   };
 
   // The releasing calls: a holder's identity is its slot's or its placement's.
@@ -223,7 +211,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
   };
 
   // Whether anything wants the entry's data now: a waiting slot or a placement.
-  const wanted = (key: EntryKey) => waitersOf(key).length > 0 || placedOn(key).length > 0;
+  const wanted = (key: EntryKey) => slots.waited(key) || placedOn(key).length > 0;
 
   const invalidated = (key: EntryKey, entry: Entry) =>
     put(key, withAgain({ ...entry, staleAt: tx.mintPosition() }, againOf(entry) || wanted(key)));
@@ -243,7 +231,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
     const next = withAgain({ ...confirmed(entry, value, p), staleAt: p }, false);
 
     put(key, next);
-    oweWaiters(key, next, { channel: "success", reason: "success", value: viewOf(next, value) });
+    oweWaiters(key, next, ReadEnding.Landed({ value: viewOf(next, value) }));
     show(key, next);
   };
 
@@ -268,21 +256,21 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
       const ending = endingOf(result);
       const idle = { ...entry, request: Request.Idle() };
 
-      const next =
-        ending.channel === "success"
-          ? confirmed(idle, ending.value, asked)
-          : { ...idle, last: Option.some(ending) };
-
-      put(key, next);
-      oweWaiters(
-        key,
-        next,
-        ending.channel === "success" ? { ...ending, value: viewOf(next, ending.value) } : ending,
-      );
-
       // A placement sees landed data once it changes, and every landed ending that is not data.
-      if (ending.channel === "success") show(key, next);
-      else for (const { h, placed } of placedOn(key)) owe(h, placed, next, ending);
+      if (ReadEnding.$is("Landed")(ending)) {
+        const next = confirmed(idle, ending.value, asked);
+
+        put(key, next);
+        oweWaiters(key, next, ReadEnding.Landed({ value: viewOf(next, ending.value) }));
+        show(key, next);
+      } else {
+        const next = { ...idle, last: Option.some(ending) };
+
+        put(key, next);
+        oweWaiters(key, next, ending);
+
+        for (const { h, placed } of placedOn(key)) owe(h, placed, next, ending);
+      }
     },
     Behind: (key, entry) => {
       tx.act(Act.ReadReplaced({ operation: entry.read.operation }));
@@ -310,7 +298,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
   const collectDue: Row<"CollectDue"> = {
     Idle: (key, entry) => {
       if (
-        holdersOf(key).size === 0 &&
+        unheldNow(key, entry) &&
         Option.exists(entry.unheldSince, (since) => now() - since >= timesOf(entry).gcTime)
       )
         collected(key, entry);
@@ -353,58 +341,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
     });
   };
 
-  // ── the slot cells.
-
-  // The input a lookup's Schema refuses: one Defect row and its evidence, nothing asked.
-  const refused = (incarnation: Incarnation, operation: string, input: Values, owner: OwnedBy) => {
-    tx.act(Act.InvalidInput({ actor: incarnation.actor, operation }));
-    ledger.owe({
-      actor: incarnation.actor,
-      life: Option.some(incarnation.id),
-      operation,
-      input: Option.some(input),
-      attempt: Option.none(),
-      lane: Option.none(),
-      channel: "failure",
-      reason: "Defect",
-      value: undefined,
-      route: Route.From({ owner }),
-    });
-  };
-
-  /**
-   * A lookup through a life's slot: its input checked by the operation's Schema, its entry made if
-   * absent and held by the slot, then asked. A slot on another entry ends its old wait as
-   * superseded and leaves it; an ask through a slot that already waits keeps its one wait.
-   */
-  const lookup = (
-    incarnation: Incarnation,
-    operation: Operation,
-    given: Values,
-    owner: OwnedBy,
-  ) => {
-    const input = tx.env.admit(given);
-
-    const text = keyOf(operation, input);
-
-    if (Option.isNone(text)) return refused(incarnation, operation.name, input, owner);
-
-    const key = entryKeyOf(operation.contract, text.value);
-    const h = { life: incarnation.id, operation: operation.name };
-
-    for (const slot of Option.toArray(slotOf(h))) {
-      if (slot.waiting) tx.act(Act.ReadReplaced({ operation: operation.name }));
-
-      if (slot.entry !== key) hold(slot.entry, h, false);
-    }
-
-    const slot = { entry: key, actor: incarnation.actor, owner, waiting: false };
-
-    held(key, incarnation, operation, input);
-    setSlot(h, Option.some(slot));
-    hold(key, h, true);
-    apply(key, Cue.Ask({ asker: Option.some({ h, slot }), refetch: false }));
-  };
+  // ── the holds' and reads' cells.
 
   // An entry a new hold points at: made if absent, its first hold arriving if it was unheld.
   const held = (key: EntryKey, incarnation: Incarnation, operation: Operation, input: Values) => {
@@ -460,30 +397,17 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
   };
 
   /**
-   * A read's cancel: its slot is dropped with no row.
-   */
-  const cancel = (incarnation: Incarnation, operation: string) => {
-    const h = { life: incarnation.id, operation };
-
-    for (const slot of Option.toArray(slotOf(h))) {
-      setSlot(h, Option.none());
-      hold(slot.entry, h, false);
-    }
-  };
-
-  /**
-   * A life ended: each of its slots is dropped with no row.
+   * A life ended: each of its slots is dropped with no row, and each placement left.
    */
   const end = (incarnation: Incarnation) => {
-    for (const operation of Array.from(tx.world().slots.get(incarnation.id)?.keys() ?? []))
-      cancel(incarnation, operation);
+    slots.end(incarnation);
 
     for (const operation of placementsOf(incarnation)) unplace(incarnation, operation);
 
     tx.drop("placements", incarnation.id);
   };
 
-  const { layer, attemptEnded, succeeded } = makeEntryWrites(tx, apply);
+  const { layer, attemptEnded, succeeded } = makeEntryWrites(tx, { apply, put });
 
   // ── the dispatch and the step's edges.
 
@@ -520,7 +444,7 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
     for (const key of touched) {
       const entry = tx.world().entries.get(key);
 
-      if (entry !== undefined && holdersOf(key).size === 0 && Option.isNone(entry.unheldSince))
+      if (entry !== undefined && unheldNow(key, entry) && Option.isNone(entry.unheldSince))
         apply(key, Cue.LastHoldLeft());
     }
 
@@ -539,14 +463,14 @@ export const makeEntries = (tx: Tx, ledger: LedgerSteps, persistence: Persistenc
   };
 
   return {
-    lookup,
+    lookup: slots.lookup,
     place,
     unplace,
     placementsOf,
     refetch,
     invalidate: onNamed(Cue.Invalidate()),
     clear: onNamed(Cue.Clear()),
-    cancel,
+    cancel: slots.cancel,
     end,
     settled: settledCall,
     collectDue: collect,

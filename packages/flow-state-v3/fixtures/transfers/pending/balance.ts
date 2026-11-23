@@ -152,9 +152,12 @@ export const BalanceCardMachine = machine(BalanceCard, ({ S, E, O }) => ({
   states: {
     SHOWN: {
       activities: [
-        O.available.subscribe(({ context }) => ({ account: context.account ?? "" }), {
-          placeholder: ({ previous }) => previous?.data,
-        }),
+        // An account can be chosen from a deep link, whose id is percent-encoded; a garbled one
+        // throws, as `decodeURIComponent` does.
+        O.available.subscribe(
+          ({ context }) => ({ account: decodeURIComponent(context.account ?? "") }),
+          { placeholder: ({ previous }) => previous?.data },
+        ),
       ],
       on: {
         Read: {

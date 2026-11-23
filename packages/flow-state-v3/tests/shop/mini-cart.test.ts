@@ -71,6 +71,19 @@ describe("the mini cart (Operations entry table; Plan Operations O5)", () => {
     expect(lineIds(settled, miniCart)).toEqual(["l1"]);
   });
 
+  it("Plan Operations O2 (a live optimistic layer holds an entry); Operations I3, I12, I22: an unsure add from a product page holds the closed cart until its refetch lands, then the cart is kept a minute and collected", async () => {
+    const { closedAddUnsure } = await load();
+    const run = await closedAddUnsure.run();
+    const collects = (cut: Cut) => cut.inspection.timers.filter((t) => t.kind === "Collect");
+    const { unsure, refetched, collected } = run.checkpoints;
+
+    expect(collects(unsure)).toEqual([]);
+    expect(collects(run.checkpoints["held past gcTime"])).toEqual([]);
+    expect(refetched.read(Carts.cart)).toHaveLength(2);
+    expect(collects(refetched)).toHaveLength(1);
+    expect(collects(collected)).toEqual([]);
+  });
+
   it.fails("Operations R4, I7; Plan Operations O5: overlapping adds keep both lines shown, and the stale snapshot between them lands nothing", async () => {
     const { staleOverlappingAdds, miniCart } = await load();
     const run = await staleOverlappingAdds.run();

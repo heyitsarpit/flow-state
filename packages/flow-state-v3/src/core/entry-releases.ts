@@ -2,6 +2,7 @@ import { Duration, Option } from "effect";
 import { Alarm } from "./alarms.ts";
 import { RuntimeDefaults } from "./defaults.ts";
 import { type Entry, type EntryKey, type Holder, Request } from "./entry-view.ts";
+import { Act } from "./evidence-of.ts";
 import type { Tx } from "./tx.ts";
 import { type ActorId, type CallId, Command } from "./world.ts";
 
@@ -24,7 +25,11 @@ export const makeEntryReleases = (
       Idle: () => entry,
       Running: ({ call }) => {
         tx.drop("callHome", call);
-        tx.put("releasing", call, { entry: key, since: tx.env.now });
+        tx.put("releasing", call, {
+          entry: key,
+          operation: entry.read.operation,
+          since: tx.env.now,
+        });
         tx.setAlarm(
           Alarm.Release({ call }),
           tx.env.now + Duration.toMillis(RuntimeDefaults.disposalBound),
@@ -36,26 +41,34 @@ export const makeEntryReleases = (
     });
 
   /**
-   * A call ended: one that was released is dropped with its alarm. Returns whether it was.
+   * A call ended: one that was released is dropped with its alarm, evidence `Released`. Returns
+   * whether it was.
    */
   const ended = (call: CallId) => {
-    if (!tx.world().releasing.has(call)) return false;
+    const releasing = tx.world().releasing.get(call);
+
+    if (releasing === undefined) return false;
 
     tx.drop("releasing", call);
     tx.clearAlarm(Alarm.Release({ call }));
+    tx.act(Act.ReadReleased({ operation: releasing.operation }));
 
     return true;
   };
 
   /**
-   * A Release alarm came due: the call still runs past the disposal bound. Nothing is written;
-   * returns the identities that hold its entry's key, whose snapshots now show it overdue.
+   * A Release alarm came due: the call still runs past the disposal bound. Nothing is written but
+   * evidence `ReleaseOverdue`, once; returns the identities that hold its entry's key, whose
+   * snapshots now show it overdue.
    */
   const releaseDue = (call: CallId) =>
     Option.match(Option.fromUndefinedOr(tx.world().releasing.get(call)), {
       onNone: () => [],
-      onSome: ({ entry }) =>
-        [...holdersOf(entry).values()].flatMap((h) => Option.toArray(holderActor(h))),
+      onSome: ({ entry }) => {
+        tx.act(Act.ReleaseOverdue());
+
+        return [...holdersOf(entry).values()].flatMap((h) => Option.toArray(holderActor(h)));
+      },
     });
 
   return { release, ended, releaseDue };
