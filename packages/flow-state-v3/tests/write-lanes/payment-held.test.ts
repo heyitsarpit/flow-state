@@ -76,17 +76,18 @@ describe("PAY-15 (WriteLanes R2, R5, R7, R8; Restore R3)", () => {
     expect(endings(run.evidence, "pay").filter((e) => e.reason === "Restored")).toHaveLength(1);
   });
 
-  it("PAY-15/dead-activation-timer: PAYING's slow timer dies with its activation, so UNSURE reads twice by 8.5 seconds", async () => {
+  it("PAY-15/dead-activation-timer (Operations R3, OneWait): PAYING's slow timer dies with its activation, so UNSURE asks twice by 8.5 seconds, the second joining the held read", async () => {
     const run = await played(
       onWire("PAY-15/dead-activation-timer", Shop.confirm.drop())
         .checkpoint("unsure")
-        .world(Shop.intent.hold(), Shop.intent.hold())
+        .world(Shop.intent.hold())
         .advance("8500 millis")
         .checkpoint("later"),
     );
 
     expect(state(run.checkpoints.unsure)).toBe("UNSURE");
-    expect(run.checkpoints.later.read(Shop.intent)).toHaveLength(2);
+    expect(run.checkpoints.later.read(Shop.intent)).toHaveLength(1);
+    expect(laneFacts(run.evidence, "Superseded")).toBeGreaterThan(0);
   });
 
   it("PAY-15/retry-budget: three re-sends, each lost, then the budget is spent: four sends with one id", async () => {

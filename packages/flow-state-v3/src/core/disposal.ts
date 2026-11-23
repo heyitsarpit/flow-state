@@ -20,6 +20,7 @@ import {
 import type { Persistence } from "./persist.ts";
 import { onWire } from "./lane-moves.ts";
 import type { LaneSteps } from "./lanes.ts";
+import type { EntrySteps } from "./entries.ts";
 
 // The alarms a disposal clears: schedules and graces start no more work; a storage silence still
 // fires, the bound is the disposal's own, and an entry's alarms are its own owner's.
@@ -42,6 +43,7 @@ export const makeDisposal = (
   lanes: LaneSteps,
   ledger: LedgerSteps,
   apply: Apply,
+  entries: EntrySteps,
 ) => {
   const { setAlarm, clearAlarm, clearAlarmsWhere } = tx;
   const { saveActor } = persistence;
@@ -96,7 +98,7 @@ export const makeDisposal = (
         reportTo: "runtime",
       }),
     );
-    tx.replace("reads", new Map());
+    entries.runtimeEnds();
     clearAlarmsWhere((a) => CLEARED_AT_DISPOSAL[a._tag]);
 
     for (const incarnation of tx.world().incarnations.values()) saveActor(incarnation.actor);

@@ -197,6 +197,9 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
 
   const mintActivation = () => activationOf((world.counter += 1));
 
+  // A position in the Runtime's one order: larger than every earlier one, never saved.
+  const mintPosition = () => (world.counter += 1);
+
   const mintArming = () => armingOf((world.counter += 1));
 
   // Chains have their own count, never reset, so a chain cleared early never gives its id again;
@@ -438,6 +441,7 @@ export const makeTx = (machines: Machines, world0: World, env: Env) => {
     mintAttempt,
     mintIncarnation,
     mintActivation,
+    mintPosition,
     mintArming,
     persisted,
     putIncarnation,

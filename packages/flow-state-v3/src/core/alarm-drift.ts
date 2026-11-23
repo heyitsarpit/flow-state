@@ -8,7 +8,7 @@ import { actorKey, type Incarnation, type World } from "./world.ts";
 /**
  * The alarms a world owes, by key, from its owner facts: a `Schedule` alarm per due run of an awake
  * actor (used, the Runtime open), at its deadline; a `Grace` per free actor (live, unused, no lane
- * in flight, no mail); a `Bound` while the Runtime disposes.
+ * in flight, no mail); a `Bound` while the Runtime disposes; a `Collect` per Idle unheld entry.
  */
 const owed = (world: World) => {
   const open = Life.$is("Open")(world.life);
@@ -34,7 +34,14 @@ const owed = (world: World) => {
     ? [[alarmKey(Alarm.Bound()), Option.none<number>()] as const]
     : [];
 
-  return new Map([...[...world.incarnations.values()].flatMap(owedBy), ...bound]);
+  // A `Collect` per entry that is Idle and unheld: one with no `gcTime` was removed at once.
+  const collects = [...world.entries].flatMap(([entry, e]) =>
+    e.request._tag === "Idle" && Option.isSome(e.unheldSince)
+      ? [[alarmKey(Alarm.Collect({ entry })), Option.none<number>()] as const]
+      : [],
+  );
+
+  return new Map([...[...world.incarnations.values()].flatMap(owedBy), ...bound, ...collects]);
 };
 
 // Whether a held alarm stands for a fact the world still owes it for, by `owed`. A silence is not
@@ -46,7 +53,7 @@ const ownedBy =
       Silent: () => true,
       Bound: () => wanted.has(key),
       Release: () => false,
-      Collect: () => false,
+      Collect: () => wanted.has(key),
       Grace: () => wanted.has(key),
       Schedule: () =>
         Option.exists(Option.flatten(Option.fromUndefinedOr(wanted.get(key))), (t) => t === at),

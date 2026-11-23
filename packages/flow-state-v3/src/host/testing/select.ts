@@ -161,6 +161,7 @@ const NAMES_EVENT = {
   Unparked: false,
   Recorded: false,
   Unhandled: true,
+  InvalidInput: false,
   SendTargetAbsent: true,
   Denied: true,
   Paused: false,

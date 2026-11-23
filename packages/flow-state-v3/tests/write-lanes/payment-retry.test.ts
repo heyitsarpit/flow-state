@@ -166,10 +166,10 @@ describe("PAY-16 (WriteLanes R2, R3, R5, R8; Restore R3; Turn I12)", () => {
     expect(lastReason(run.evidence, "intent")).toBe("success");
   });
 
-  it("PAY-16/superseded-read: a newer read interrupts the older one", async () => {
+  it("PAY-16/joined-read (Operations R3, OneWait): a newer check joins the read on the wire, and the older ask is superseded with no row", async () => {
     const run = await played(
-      onWire("PAY-16/superseded-read", Shop.confirm.drop())
-        .world(Shop.intent.hold(), Shop.intent.hold())
+      onWire("PAY-16/joined-read", Shop.confirm.drop())
+        .world(Shop.intent.hold())
         .advance(CHECK)
         .checkpoint("first")
         .advance(CHECK)
@@ -181,8 +181,8 @@ describe("PAY-16 (WriteLanes R2, R3, R5, R8; Restore R3; Turn I12)", () => {
     const { first, second, released } = run.checkpoints;
 
     expect(first.read(Shop.intent)).toHaveLength(1);
-    expect(second.read(Shop.intent)).toHaveLength(2);
-    expect(released.read(Shop.intent).map((c) => c.status)).toEqual(["handled", "held at request"]);
+    expect(second.read(Shop.intent)).toHaveLength(1);
+    expect(released.read(Shop.intent).map((c) => c.status)).toEqual(["answered"]);
     expect(laneFacts(run.evidence, "Superseded")).toBeGreaterThan(0);
   });
 });

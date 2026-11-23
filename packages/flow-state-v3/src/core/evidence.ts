@@ -135,6 +135,8 @@ export type Evidence = Data.TaggedEnum<{
     why: RecordedWhy;
   };
   Unhandled: { actor: Who; event: string };
+  // A lookup whose input its Schema refused: nothing was asked.
+  InvalidInput: { actor: Who; operation: string };
   SendTargetAbsent: { actor: Who; event: string; reason: SendDrop; sender: Option.Option<Who> };
   Denied: { actor: Who; event: string; reasons: ReadonlyArray<string> };
   Paused: {

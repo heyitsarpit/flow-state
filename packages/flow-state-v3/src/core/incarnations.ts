@@ -10,6 +10,7 @@ import { makeSchedules } from "./schedules.ts";
 import { makeScheduleRestore } from "./schedule-restore.ts";
 import { Act } from "./evidence-of.ts";
 import type { LaneSteps } from "./lanes.ts";
+import type { EntrySteps } from "./entries.ts";
 import type { LedgerSteps } from "./ledger.ts";
 import { admit } from "./admit.ts";
 import { positionKey, workKey } from "./persist.ts";
@@ -37,6 +38,7 @@ export const makeIncarnations = (
   persistence: Persistence,
   ledger: LedgerSteps,
   lanes: LaneSteps,
+  entries: EntrySteps,
 ) => {
   const { setAlarm, clearAlarm, incarnationOf, used, lanesOf, enqueue } = tx;
   const { removeActor } = persistence;
@@ -55,6 +57,7 @@ export const makeIncarnations = (
     persistence,
     ledger,
     lanes,
+    entries,
     schedules,
     restore,
     context,

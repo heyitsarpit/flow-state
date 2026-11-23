@@ -6,6 +6,7 @@ import { makeDisposal } from "./disposal.ts";
 import { makeIncarnations } from "./incarnations.ts";
 import { awaits } from "./lane-moves.ts";
 import { makeLanes } from "./lanes.ts";
+import { makeEntries } from "./entries.ts";
 import { makeLedger } from "./ledger.ts";
 import { makePersistence } from "./persist.ts";
 import { makeServe } from "./serve.ts";
@@ -67,11 +68,12 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
   }
 
   const ledger = makeLedger(tx, persistence);
-  const lanes = makeLanes(tx, persistence, ledger);
-  const answers = makeAnswers(tx, lanes, ledger);
-  const incarnations = makeIncarnations(tx, persistence, ledger, lanes);
+  const entries = makeEntries(tx, ledger);
+  const lanes = makeLanes(tx, persistence, ledger, entries);
+  const answers = makeAnswers(tx, lanes, entries);
+  const incarnations = makeIncarnations(tx, persistence, ledger, lanes, entries);
   const serve = makeServe(tx, lanes, incarnations, ledger);
-  const disposal = makeDisposal(tx, persistence, lanes, ledger, incarnations.apply);
+  const disposal = makeDisposal(tx, persistence, lanes, ledger, incarnations.apply, entries);
   const { incarnationOf, enqueue } = tx;
   const { end } = incarnations;
   const { boundPassed } = disposal;
@@ -90,7 +92,7 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
               tx.act(Act.Silent({ operation: lane.operation, attempt: lane.head.id }));
         },
         Release: () => defect("a Release alarm was set, and no owner sets one"),
-        Collect: () => defect("a Collect alarm was set, and no owner sets one"),
+        Collect: ({ entry }) => entries.collectDue(entry),
         Grace: ({ actor, incarnation }) => {
           if (incarnationOf(actor)?.id === incarnation) end(actor);
         },
@@ -171,6 +173,10 @@ export const step = (machines: Machines, world0: World, input: Input, env: Env) 
     Disposed: () => undefined,
     Stopped: () => undefined,
   });
+
+  // An entry that lost its last hold in the step is judged at its end, before the wake: it may set
+  // a Collect alarm.
+  entries.stepEnds();
 
   // The step's last row: the host's one wake, when the earliest alarm changed.
   tx.wake();

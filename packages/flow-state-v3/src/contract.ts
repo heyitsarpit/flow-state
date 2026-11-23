@@ -1,4 +1,4 @@
-import { type Context, type Duration, type Effect, Option, Result, Schema, Struct } from "effect";
+import { type Context, Duration, type Effect, Option, Result, Schema, Struct } from "effect";
 import { type Walker, walkerOf } from "./core/boundary.ts";
 import { writeJson } from "./core/codec.ts";
 import type { NotSentWhy } from "./core/cells.ts";
@@ -218,7 +218,12 @@ export type BoundInternals = (
       readonly call: (...args: ReadonlyArray<never>) => ReturnType<Commit>;
       readonly idempotency: "attempt" | ReadonlyArray<string>;
     }
-  | { readonly kind: "read"; readonly call: (...args: ReadonlyArray<never>) => ReturnType<Lookup> }
+  | {
+      readonly kind: "read";
+      readonly call: (...args: ReadonlyArray<never>) => ReturnType<Lookup>;
+      readonly staleTime: number;
+      readonly gcTime: number;
+    }
 ) & {
   readonly textOfKey: (value: Values) => Option.Option<string>;
   readonly services: Services;
@@ -493,6 +498,8 @@ export const resource = entry(
               {
                 kind: "read",
                 call: config.lookup,
+                staleTime: Duration.toMillis(config.staleTime),
+                gcTime: Duration.toMillis(config.gcTime),
                 textOfKey: codecs.textOfKey,
                 services: config.services,
               } satisfies BoundInternals,

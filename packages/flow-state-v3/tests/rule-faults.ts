@@ -151,15 +151,6 @@ export const ruleFaults: ReadonlyArray<Fault> = [
     '  "InvalidConfiguration",\n  "NotInState",\n',
   ),
   fault(
-    "newer-lookup-unsuperseded",
-    "Reads R6",
-    ["tests/write-lanes/payment-retry.test.ts"],
-    "a newer lookup replaces the older one with no Superseded evidence",
-    "src/core/lanes.ts",
-    "interruptReads(incarnation, operation.name, true);",
-    "interruptReads(incarnation, operation.name, false);",
-  ),
-  fault(
     "refused-write-landed",
     "Restore I17",
     ["tests/stories/storage.test.ts"],

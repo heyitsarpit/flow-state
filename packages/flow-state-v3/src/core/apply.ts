@@ -5,6 +5,7 @@ import { defect } from "./defect.ts";
 import { Change, ENDS, Origin, publishesAlways, refusalOf, Refusing, whyOf } from "./change.ts";
 import { Act } from "./evidence-of.ts";
 import type { LaneSteps } from "./lanes.ts";
+import type { EntrySteps } from "./entries.ts";
 import { Heard, type LedgerSteps } from "./ledger.ts";
 import type { Persistence } from "./persist.ts";
 import { sameForm } from "./slots.ts";
@@ -38,6 +39,7 @@ export type ApplierParts = {
   readonly persistence: Persistence;
   readonly ledger: LedgerSteps;
   readonly lanes: LaneSteps;
+  readonly entries: EntrySteps;
   readonly schedules: ScheduleSteps;
   readonly restore: (incarnation: Incarnation, saved: ActorRecord["schedules"]) => Incarnation;
   readonly context: ContextSteps;
@@ -248,8 +250,7 @@ export const makeApply = (tx: Tx, parts: ApplierParts) => {
             memory: incarnation.memory,
           });
 
-          for (const [call, read] of tx.world().reads)
-            if (read.incarnation === incarnation.id) tx.drop("reads", call);
+          parts.entries.end(incarnation);
 
           tx.command(Command.EndWork({ owners: [incarnation.id], reportTo: "ref" }));
         }

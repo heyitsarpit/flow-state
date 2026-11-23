@@ -27,7 +27,7 @@ const ids = (cut: Cut) => (cut.read(general)?.memory.messages ?? []).map((m) => 
 const codes = (cut: Cut) => (cut.read(hub)?.issues ?? []).map((i) => i.code);
 
 describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
-  it.fails("Operations R3: the sidebar and the thread waiting on one thread's history share one request", async () => {
+  it("Operations R3: the sidebar and the thread waiting on one thread's history share one request", async () => {
     const run = await usual.run();
 
     expect(historyCalls(run.checkpoints.joining, "general")).toHaveLength(1);
@@ -35,21 +35,21 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.joined.read(hub)?.memory.preview).toBe("standup at ten");
   });
 
-  it.fails("Operations R4, entry table (Ask Lookup, Idle, fresh): joining again ten seconds on is served from the entry, with no request", async () => {
+  it("Operations R4, entry table (Ask Lookup, Idle, fresh): joining again ten seconds on is served from the entry, with no request", async () => {
     const run = await usual.run();
 
     expect(historyCalls(run.checkpoints["joined again"], "general")).toHaveLength(1);
     expect(ids(run.checkpoints["joined again"])).toEqual(["m-1", "m-2", "m-3"]);
   });
 
-  it.fails("Operations R4, entry table (Ask Lookup, Idle, not fresh): joining once the history is 40 seconds old reads it again", async () => {
+  it("Operations R4, entry table (Ask Lookup, Idle, not fresh): joining once the history is 40 seconds old reads it again", async () => {
     const run = await usual.run();
 
     expect(historyCalls(run.checkpoints.stale, "general")).toHaveLength(2);
     expect(ids(run.checkpoints.stale)).toEqual(["m-1", "m-2", "m-3"]);
   });
 
-  it.fails("Operations R3: two threads read at once are two requests, and the sidebar joins the one it opens", async () => {
+  it("Operations R3: two threads read at once are two requests, and the sidebar joins the one it opens", async () => {
     const run = await twoThreads.run();
 
     expect(historyCalls(run.checkpoints.reading, "general")).toHaveLength(1);
@@ -58,7 +58,7 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.read.read(random)?.state).toBe("READY");
   });
 
-  it.fails("Operations R3, T4.3, StepBoundary: two readers share one request; one closed, it runs on for the other, which hears it", async () => {
+  it("Operations R3, T4.3, StepBoundary: two readers share one request; one closed, it runs on for the other, which hears it", async () => {
     const run = await oneReaderLeft.run();
 
     expect(historyCalls(run.checkpoints["one left"], "general")).toHaveLength(1);
@@ -68,7 +68,7 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.answered.read(hub)?.memory.preview).toBe("standup at ten");
   });
 
-  it.fails("Operations R3, T4.3, entry table (Last hold left, Running): two readers share one request; the last gone, it is stopped", async () => {
+  it("Operations R3, T4.3, entry table (Last hold left, Running): two readers share one request; the last gone, it is stopped", async () => {
     const run = await noReaderLeft.run();
 
     expect(historyCalls(run.checkpoints.released, "general").map((c) => c.status)).toEqual([
@@ -76,7 +76,7 @@ describe("chat history: one entry per thread (Operations R3, R4, R5)", () => {
     ]);
   });
 
-  it.fails(`Operations R3 under load: ${String(THREADS)} threads, each read by its thread and the sidebar, make one request each`, async () => {
+  it(`Operations R3 under load: ${String(THREADS)} threads, each read by its thread and the sidebar, make one request each`, async () => {
     const run = await manyThreads.run();
 
     expect(run.checkpoints.reading.read(Chat.history)).toHaveLength(THREADS);

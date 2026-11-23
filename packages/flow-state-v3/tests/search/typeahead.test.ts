@@ -40,7 +40,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.settled.read(box)?.memory.suggestions).toEqual(suggestions);
   });
 
-  it.fails("Operations R4, entry table (fresh): queries asked again 30 seconds on are shown from what was read", async () => {
+  it("Operations R4, entry table (fresh): queries asked again 30 seconds on are shown from what was read", async () => {
     const run = await repeatQuery.run();
 
     expect(run.checkpoints.repeated.read(Catalog.suggest)).toHaveLength(2);
@@ -50,7 +50,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     ]);
   });
 
-  it.fails("Operations I12, I22, entry table (Last hold left, Idle; Collect due): a query nobody shows has one Collect alarm, is removed by it a minute on, and is read again when typed", async () => {
+  it("Operations I12, I22, entry table (Last hold left, Idle; Collect due): a query nobody shows has one Collect alarm, is removed by it a minute on, and is read again when typed", async () => {
     const run = await repeatQuery.run();
     const collects = (cut: Cut) => cut.inspection.timers.filter((t) => t.kind === "Collect");
 
@@ -63,7 +63,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     ]);
   });
 
-  it.fails("Operations R3: two boxes typing one query share its request", async () => {
+  it("Operations R3: two boxes typing one query share its request", async () => {
     const run = await twoBoxes.run();
 
     expect(run.checkpoints.typed.read(Catalog.suggest)).toHaveLength(1);
@@ -71,7 +71,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.settled.read(otherBox)?.memory.suggestions).toEqual(suggestions);
   });
 
-  it.fails("Operations, Slot cells (input refused by intake): a query of spaces asks nothing and shows no suggestions", async () => {
+  it("Operations, Slot cells (input refused by intake): a query of spaces asks nothing and shows no suggestions", async () => {
     const run = await blankQuery.run();
 
     expect(run.checkpoints.refused.read(Catalog.suggest)).toEqual([]);
@@ -86,7 +86,7 @@ describe("the search box (Operations R3, R4, R5)", () => {
     expect(run.checkpoints.settled.read(box)?.memory.suggestions).toEqual(["shoes, running"]);
   });
 
-  it.fails(`Operations R3 under S2: ${String(LISTS)} result lists a view makes for one query share one request`, async () => {
+  it(`Operations R3 under S2: ${String(LISTS)} result lists a view makes for one query share one request`, async () => {
     const run = await manyLists.run();
 
     expect(run.checkpoints.made.read(Catalog.results)).toHaveLength(1);

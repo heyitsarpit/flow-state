@@ -93,7 +93,13 @@ export const operationOf = (name: string, bound: Bound) => {
   const services = slot<() => ServiceKeys>(`operations.${name}.services`, () => internals.services);
 
   if (internals.kind === "read")
-    return Operation.Read({ ...shared, services, call: slot<Lookup>(place, internals.call) });
+    return Operation.Read({
+      ...shared,
+      services,
+      staleTime: internals.staleTime,
+      gcTime: internals.gcTime,
+      call: slot<Lookup>(place, internals.call),
+    });
 
   return bound.kind === "write"
     ? Operation.Write({

@@ -520,7 +520,7 @@ describe("a cleanup failure in a life that records no Issue (Actors R23, R25)", 
 });
 
 describe("a read cancelled while its actor lives (Actors R23)", () => {
-  it("Actors R23: a read replaced while open whose cleanup dies is an Issue CleanupFailed at once, and quarantines the ref when its actor ends", () => {
+  it("Actors R23; Operations OneWait: a second lookup of an open read's key joins it, so its cleanup runs only when its actor ends, which quarantines the ref", () => {
     const tab = platformOver(new Map(), 1);
     const { runtime, issues } = readyObserved(tab, lineWith(Effect.die(died)));
     const handle = runtime.ensureActor(phone);
@@ -529,7 +529,7 @@ describe("a read cancelled while its actor lives (Actors R23)", () => {
     handle.send({ _tag: "Look" });
     tab.settle();
 
-    assert.deepStrictEqual(issues, ["CleanupFailed"]);
+    assert.deepStrictEqual(issues, []);
     assert.equal(
       thrownBy(() => runtime.ensureActor(phone)),
       undefined,

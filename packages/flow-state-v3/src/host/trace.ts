@@ -130,6 +130,7 @@ const evidenceText = (evidence: Evidence) =>
     Recorded: ({ operation, attempt, why }) =>
       `recorded ${operation} ${attemptText(attempt)} ${why}`,
     Unhandled: ({ actor, event }) => `unhandled ${event} at ${actorKey(actor)}`,
+    InvalidInput: ({ actor, operation }) => `invalid input to ${operation} at ${actorKey(actor)}`,
     SendTargetAbsent: ({ actor, event, reason, sender }) =>
       `send ${event} to ${actorKey(actor)}${Option.match(sender, { onNone: () => "", onSome: (from) => ` from ${actorKey(from)}` })} dropped: SendTargetAbsent ${reason}`,
     Denied: ({ actor, event, reasons }) =>

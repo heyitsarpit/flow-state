@@ -76,6 +76,7 @@ export type Act = Data.TaggedEnum<{
     commands: ReadonlyArray<Command>;
   };
   ReadReplaced: { operation: string };
+  InvalidInput: { actor: ActorId; operation: string };
   Reported: Reported;
   Silent: { operation: string; attempt: string };
   Ended: {
@@ -197,6 +198,7 @@ export const evidenceOf = (act: Act): ReadonlyArray<Evidence> =>
     ReadReplaced: ({ operation }) => [
       Evidence.Lane({ kind: "Superseded", operation, attempt: Option.none() }),
     ],
+    InvalidInput: ({ actor, operation }) => [Evidence.InvalidInput({ actor, operation })],
     Silent: ({ operation, attempt }) => [
       Evidence.Lane({ kind: "StorageSilent", operation, attempt: Option.some(attempt) }),
     ],

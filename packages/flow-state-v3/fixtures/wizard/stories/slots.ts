@@ -15,13 +15,14 @@ export const slotsStory = (id: string) =>
 const DAY = "1970-01-02";
 
 /**
- * A postcode typed loosely finds its area; typed again ten minutes on, it is shown from what was
- * read; the day lists two slots; the nine o'clock is held and the booking hears it.
+ * A postcode typed loosely finds its area; typed again five minutes on, it is shown from what was
+ * read; the day lists two slots; the nine o'clock is held, until ten minutes from the start (the
+ * server's hold time), and the booking hears it.
  */
 export const slotsUsual = slotsStory("wizard/slots-usual")
   .send(picker, SlotPicker.E.Postcode({ text: " sw1a  1aa " }))
   .checkpoint("located")
-  .advance("10 minutes")
+  .advance("5 minutes")
   .send(picker, SlotPicker.E.Postcode({ text: "SW1A 1AA" }))
   .checkpoint("located again")
   .send(picker, SlotPicker.E.Day({ day: DAY }))

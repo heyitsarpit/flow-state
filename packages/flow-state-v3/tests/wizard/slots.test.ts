@@ -19,7 +19,7 @@ import { played } from "../rules/played.ts";
 // last answer failed (R5, NoRetryLoop); a mapper reads its row's input (R2).
 
 describe("the slot picker (Operations R2, R4, R5)", () => {
-  it.fails("Operations R4, entry table (Ask Lookup, Idle, fresh): the same postcode within the hour is shown from what was read", async () => {
+  it("Operations R4, entry table (Ask Lookup, Idle, fresh): the same postcode within the hour is shown from what was read", async () => {
     const run = await slotsUsual.run();
 
     expect(run.checkpoints.located.read(picker)?.memory.area).toBe("london");
@@ -36,7 +36,7 @@ describe("the slot picker (Operations R2, R4, R5)", () => {
     expect(taken.read(Inspections.slots)).toHaveLength(2);
   });
 
-  it.fails("Operations, Slot cells (input refused by intake): a blank postcode asks the booking service nothing and ends as a Defect", async () => {
+  it("Operations, Slot cells (input refused by intake): a blank postcode asks the booking service nothing and ends as a Defect", async () => {
     const run = await blankPostcode.run();
 
     expect(run.checkpoints.refused.read(Inspections.area)).toEqual([]);

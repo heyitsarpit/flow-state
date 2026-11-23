@@ -9,6 +9,7 @@ import type { Values } from "./compiled.ts";
 import type { Selected } from "./slots.ts";
 import type { Alarmed } from "./alarms.ts";
 import type { Scheduled, TimerKey } from "./timers.ts";
+import type { Entry, EntryKey, Holder, ReadSlot } from "./entries.ts";
 
 /**
  * An actor's identity: its machine and its name.
@@ -323,18 +324,6 @@ export type Displaced = {
 };
 
 /**
- * A lookup in flight: the activation that owns it and the incarnation it reports to.
- */
-export type Read = {
-  readonly call: CallId;
-  readonly actor: ActorId;
-  readonly incarnation: IncarnationId;
-  readonly operation: string;
-  readonly input: Values;
-  readonly owner: OwnedBy;
-};
-
-/**
  * One item of an actor's mailbox; an ending is a reference to its owed row, never the ending. A
  * context update asks the actor to read its providers again: at most one waits per actor. An event
  * or context update carries the loop guard's chain it follows, if it follows one.
@@ -492,7 +481,9 @@ export type World = {
   readonly records: ReadonlyMap<string, ActorRecord>;
   readonly lanes: ReadonlyMap<LaneId, Lane>;
   readonly owed: Ledger;
-  readonly reads: ReadonlyMap<CallId, Read>;
+  readonly entries: ReadonlyMap<EntryKey, Entry>;
+  readonly slots: ReadonlyMap<IncarnationId, ReadonlyMap<string, ReadSlot>>;
+  readonly releasing: ReadonlyMap<CallId, EntryKey>;
   readonly displaced: ReadonlyMap<string, Displaced>;
   readonly mail: ReadonlyMap<string, ReadonlyArray<Mail>>;
   readonly uses: ReadonlyMap<ActorKey, ReadonlyArray<Use>>;
@@ -511,6 +502,8 @@ export type World = {
   readonly lanesOfActor: ReadonlyMap<string, ReadonlySet<LaneId>>;
   readonly laneOfWait: ReadonlyMap<string, LaneId>;
   readonly consumersOf: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly callHome: ReadonlyMap<CallId, EntryKey>;
+  readonly holders: ReadonlyMap<EntryKey, ReadonlyMap<string, Holder>>;
   readonly chains: ReadonlyMap<ChainId, Chain>;
   readonly chainCount: number;
 };
@@ -541,7 +534,9 @@ export const emptyWorld = (persistence: boolean): World => ({
   records: new Map(),
   lanes: new Map(),
   owed: new Map(),
-  reads: new Map(),
+  entries: new Map(),
+  slots: new Map(),
+  releasing: new Map(),
   displaced: new Map(),
   mail: new Map(),
   uses: new Map(),
@@ -560,6 +555,8 @@ export const emptyWorld = (persistence: boolean): World => ({
   lanesOfActor: new Map(),
   laneOfWait: new Map(),
   consumersOf: new Map(),
+  callHome: new Map(),
+  holders: new Map(),
   chains: new Map(),
   chainCount: 0,
 });
@@ -605,7 +602,29 @@ const indexesOf = (world: World) => {
       consumersOf.set(key, (consumersOf.get(key) ?? new Set()).add(actorKey(incarnation.actor)));
     }
 
-  return { lanesOfActor, laneOfWait, consumersOf };
+  return { lanesOfActor, laneOfWait, consumersOf, ...entryIndexesOf(world) };
+};
+
+// The read entries' indexes rebuilt: the entry whose request each call is, and each entry's
+// holders, the slots that point at it.
+const entryIndexesOf = (world: World) => {
+  const callHome = new Map<string, string>();
+  const holders = new Map<string, Map<string, Holder>>();
+
+  for (const [key, entry] of world.entries)
+    if (entry.request._tag === "Running") callHome.set(entry.request.call, key);
+
+  for (const [life, slots] of world.slots)
+    for (const [operation, slot] of slots)
+      holders.set(
+        slot.entry,
+        (holders.get(slot.entry) ?? new Map<string, Holder>()).set(`${life}\u0000${operation}`, {
+          life,
+          operation,
+        }),
+      );
+
+  return { callHome, holders };
 };
 
 const sameEntries = <V>(
@@ -637,6 +656,12 @@ export const indexDrift = (world: World) => {
     sameEntries(world.lanesOfActor, built.lanesOfActor, sameOrder) ? [] : ["lanesOfActor"],
     sameEntries(world.laneOfWait, built.laneOfWait, (a, b) => a === b) ? [] : ["laneOfWait"],
     sameEntries(world.consumersOf, built.consumersOf, sameMembers) ? [] : ["consumersOf"],
+    sameEntries(world.callHome, built.callHome, (a, b) => a === b) ? [] : ["callHome"],
+    sameEntries(world.holders, built.holders, (a, b) =>
+      sameMembers(new Set(a.keys()), new Set(b.keys())),
+    )
+      ? []
+      : ["holders"],
   ].flat();
 };
 
@@ -656,7 +681,7 @@ export type Command = Data.TaggedEnum<{
       readonly mayHaveApplied: boolean;
     };
   };
-  // A read runs in the work of the incarnation that owns it.
+  // A read's request runs in the work of the life whose slot started it.
   Lookup: { call: CallId; actor: ActorId; operation: string; input: Values; owner: string };
   Interrupt: { call: CallId };
   // The end of each named incarnation's work: its reads stop and their cleanups are awaited, in

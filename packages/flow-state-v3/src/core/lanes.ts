@@ -1,7 +1,7 @@
 import { Option, Result } from "effect";
 import { Cue, LaneState } from "./cells.ts";
 import { type Concurrency, Operation, type Values } from "./compiled.ts";
-import { Act } from "./evidence-of.ts";
+import type { EntrySteps } from "./entries.ts";
 import { type Member, MemberTarget } from "./evidence.ts";
 import { type At, keyTextOf, makeMoves, onWireAs, awaits } from "./lane-moves.ts";
 import { keptOn, type LedgerSteps, Route } from "./ledger.ts";
@@ -14,7 +14,6 @@ import {
   actorKey,
   type CallId,
   type CarriedPart,
-  Command,
   type Incarnation,
   laneId,
   type LaneId,
@@ -42,7 +41,12 @@ const policyOf = (operation: Operation) =>
  * is a cue; the table's move is applied here and its reports derived by `evidenceOf`. Lookups
  * and the guards' lane view live here too.
  */
-export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps) => {
+export const makeLanes = (
+  tx: Tx,
+  persistence: Persistence,
+  ledger: LedgerSteps,
+  entries: EntrySteps,
+) => {
   const { lanesOf } = tx;
 
   const { operationOf, atOf, report, apply, applyDisplaced, endQueue } = makeMoves(
@@ -124,16 +128,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         ),
       onSome: (a) => void apply(a, cue),
     });
-
-  const interruptReads = (incarnation: Incarnation, operation: string, replaced: boolean) => {
-    for (const [call, read] of tx.world().reads)
-      if (read.incarnation === incarnation.id && read.operation === operation) {
-        tx.drop("reads", call);
-        tx.command(Command.Interrupt({ call }));
-
-        if (replaced) tx.act(Act.ReadReplaced({ operation }));
-      }
-  };
 
   // A commit declined before its lane's table: no Attempt, no lane, one owed row.
   const decline = (actor: ActorId, operation: string, why: Decline, input: Values) =>
@@ -263,7 +257,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
   ) =>
     Operation.$match(operation, {
       Read: () => {
-        interruptReads(incarnation, operation.name, false);
+        entries.cancel(incarnation, operation.name);
 
         return {
           operation: operation.name,
@@ -297,34 +291,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
         return { operation: operation.name, kind: "cancel", target } satisfies Member;
       },
     });
-
-  const lookup = (
-    incarnation: Incarnation,
-    operation: Operation,
-    input: Values,
-    owner: OwnedBy,
-  ) => {
-    interruptReads(incarnation, operation.name, true);
-
-    const call = tx.mint("call");
-    tx.put("reads", call, {
-      call,
-      actor: incarnation.actor,
-      incarnation: incarnation.id,
-      operation: operation.name,
-      input,
-      owner,
-    });
-    tx.command(
-      Command.Lookup({
-        call,
-        actor: incarnation.actor,
-        operation: operation.name,
-        input,
-        owner: incarnation.id,
-      }),
-    );
-  };
 
   /**
    * After a turn: each of the identity's lanes hears that its turn ended.
@@ -465,7 +431,7 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
       Retry: ({ key }) => [retry(incarnation, operation, tx.env.admit(key), own, owner)],
       Cancel: ({ key }) => [cancel(incarnation, operation, tx.env.admit(key), own)],
       Lookup: ({ input }) => {
-        lookup(incarnation, operation, tx.env.admit(input), owner);
+        entries.lookup(incarnation, operation, input, owner);
 
         return [];
       },
@@ -477,7 +443,6 @@ export const makeLanes = (tx: Tx, persistence: Persistence, ledger: LedgerSteps)
     commit,
     retry,
     cancel,
-    lookup,
     flushLanes,
     settle,
     progressed,

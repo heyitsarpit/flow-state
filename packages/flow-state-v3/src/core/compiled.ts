@@ -469,6 +469,9 @@ export type Operation = Data.TaggedEnum<{
     inputJson: Schema.Codec<Values, Values>;
     walk: OperationWalk;
     services: Slot<() => ServiceKeys>;
+    // How long landed data serves an ask, and an unheld entry is kept, in milliseconds.
+    staleTime: number;
+    gcTime: number;
     call: Slot<Lookup>;
     success: Mapping;
     failure: ReadonlyMap<string, Mapping>;
